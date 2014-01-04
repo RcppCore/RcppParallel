@@ -1,0 +1,9 @@
+
+.PHONY: all tbb.a
+
+all: $(SHLIB)
+$(SHLIB): tbb.a 
+
+tbb.a:
+	(cd tbb; make)
+
