@@ -1,9 +1,11 @@
 
-.PHONY: all tbb.a
+.PHONY: all tbb
 
 all: $(SHLIB)
-$(SHLIB): tbb.a 
+$(SHLIB): tbb 
 
-tbb.a:
-	(cd tbb; make)
+tbb:
+	mkdir -p ../inst/libs
+	(cd tbb/src; make tbb_release tbb_build_prefix=lib)
+	cp tbb/build/lib_release/libtbb.* ../inst/libs
 
