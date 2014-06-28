@@ -1,40 +1,18 @@
-\name{tbb-package}
-\alias{tbb-package}
-\alias{tbb}
 \docType{package}
-\title{
-What the package does (short line)
-~~ package title ~~
-}
+\name{tbb-package}
+\alias{tbb}
+\alias{tbb-package}
+\title{Interface to Intel TBB (Threading Building Blocks)}
 \description{
-More about what it does (maybe more than one line)
-~~ A concise (1-5 lines) description of the package ~~
-}
-\details{
-\tabular{ll}{
-Package: \tab tbb\cr
-Type: \tab Package\cr
-Version: \tab 1.0\cr
-Date: \tab 2014-01-04\cr
-License: \tab What license is it under?\cr
-}
-~~ An overview of how to use the package, including the most important functions ~~
+   Interface to Intel TBB (Threading Building Blocks), a C++ library
+   for parallel programming. It uses C++ templates to provide powerful parallel 
+   functionality that works with common programming patterns. For example, 
+   the parallel_for construct can be used to convert the work of a standard 
+   serial "for"" loop into a parallel one and the parallel_reduce construct
+   can be used for accumulating aggregate or other values.
 }
 \author{
-Who wrote it
+  JJ Allaire \email{jj@rstudio.com}
+}
+\keyword{package}
 
-Maintainer: Who to complain to <yourfault@somewhere.net>
-~~ The author and/or maintainer of the package ~~
-}
-\references{
-~~ Literature or other references for background information ~~
-}
-~~ Optionally other standard keywords, one per line, from file KEYWORDS in the R documentation directory ~~
-\keyword{ package }
-\seealso{
-~~ Optional links to other man pages, e.g. ~~
-~~ \code{\link[<pkg>:<pkg>-package]{<pkg>}} ~~
-}
-\examples{
-~~ simple examples of the most important functions ~~
-}

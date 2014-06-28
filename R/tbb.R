@@ -33,7 +33,7 @@ dllInfo <- NULL
    dyn.unload(dllInfo[["path"]])
 }
 
-setThreadOptions <- function(numThreads = "auto", threadStackSize = "auto") {
+setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    
    # validate and resolve numThreads
    if (identical(numThreads, "auto"))
@@ -43,16 +43,15 @@ setThreadOptions <- function(numThreads = "auto", threadStackSize = "auto") {
    else
       numThreads <- as.integer(numThreads)
    
-   # validate and resolve threadStackSize
-   if (identical(threadStackSize, "auto"))
-      threadStackSize = 0L
-   else if (!is.numeric(threadStackSize))
-      stop("threadStackSize must be an integer")
+   # validate and resolve stackSize
+   if (identical(stackSize, "auto"))
+      stackSize = 0L
+   else if (!is.numeric(stackSize))
+      stop("stackSize must be an integer")
    else
-      threadStackSize <- as.integer(threadStackSize)
+      stackSize <- as.integer(stackSize)
    
-   invisible(.Call("setThreadOptions", numThreads, threadStackSize, 
-                   PACKAGE = "tbb"))
+   invisible(.Call("setThreadOptions", numThreads, stackSize, PACKAGE = "tbb"))
 }
 
 defaultNumThreads <- function() {
