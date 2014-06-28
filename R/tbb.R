@@ -19,6 +19,9 @@ dllInfo <- NULL
    
    # load the tbb package library
    library.dynam("tbb", pkgname, libname)
+   
+   # set default thread options
+   setThreadOptions()
 }
 
 .onUnload <- function(libpath) {
@@ -30,7 +33,7 @@ dllInfo <- NULL
    dyn.unload(dllInfo[["path"]])
 }
 
-initialize <- function(numThreads = "auto", threadStackSize = "auto") {
+setThreadOptions <- function(numThreads = "auto", threadStackSize = "auto") {
    
    # validate and resolve numThreads
    if (identical(numThreads, "auto"))
@@ -48,19 +51,11 @@ initialize <- function(numThreads = "auto", threadStackSize = "auto") {
    else
       threadStackSize <- as.integer(threadStackSize)
    
-   invisible(.Call("tbb_initialize", numThreads, threadStackSize, 
+   invisible(.Call("setThreadOptions", numThreads, threadStackSize, 
                    PACKAGE = "tbb"))
 }
 
-isActive <- function() {
-   .Call("tbb_isActive", PACKAGE = "tbb")
-}
-
 defaultNumThreads <- function() {
-   .Call("tbb_defaultNumThreads", PACKAGE = "tbb")
-}
-
-terminate <- function() {
-   invisible(.Call("tbb_terminate", PACKAGE = "tbb"))
+   .Call("defaultNumThreads", PACKAGE = "tbb")
 }
 

@@ -1,56 +1,42 @@
 
+#include <string>
+#include <exception>
+
 #include <tbb/task_scheduler_init.h>
 
 #include <Rinternals.h>
 
-static tbb::task_scheduler_init* s_pTaskScheduler = NULL;
+extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
 
-extern "C" SEXP tbb_initialize(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
-   
-   if (s_pTaskScheduler)
-      Rf_error("TBB already initialized");
-      
+   static tbb::task_scheduler_init* s_pTaskScheduler = NULL;
+
    int numThreads = Rf_asInteger(numThreadsSEXP);
+   
    int stackSize = Rf_asInteger(stackSizeSEXP);
    
    try
    {
-      s_pTaskScheduler = new tbb::task_scheduler_init(numThreads, stackSize);
+      if (!s_pTaskScheduler) {
+         s_pTaskScheduler = new tbb::task_scheduler_init(numThreads, stackSize);
+      } else {
+         s_pTaskScheduler->terminate();
+         s_pTaskScheduler->initialize(numThreads, stackSize); 
+      }
+   }
+   catch(const std::exception& e)
+   {
+      Rf_error(("Error loading TBB: " + std::string(e.what())).c_str());
    }
    catch(...)
    {
+      Rf_error("Error loading TBB: (Unknown error)");
    }
    
    return R_NilValue;
 }
 
-extern "C" SEXP tbb_isActive() {
-   SEXP activeSEXP = Rf_allocVector(LGLSXP, 1);
-   LOGICAL(activeSEXP)[0] = s_pTaskScheduler != NULL;
-   return activeSEXP;
-}
-
-extern "C" SEXP tbb_defaultNumThreads() {
+extern "C" SEXP defaultNumThreads() {
    SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
    INTEGER(threadsSEXP)[0] = tbb::task_scheduler_init::default_num_threads();
    return threadsSEXP;
-}
-
-extern "C" SEXP tbb_terminate() {
-   
-   if (!s_pTaskScheduler)
-      Rf_error("TBB not currently initialized");
-   
-   try
-   {
-      s_pTaskScheduler->terminate();
-      delete s_pTaskScheduler;
-   }
-   catch(...)
-   {
-   }
-   
-   s_pTaskScheduler = NULL;
-   
-   return R_NilValue;
 }
