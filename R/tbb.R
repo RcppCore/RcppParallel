@@ -5,8 +5,13 @@ dllInfo <- NULL
 .onLoad <- function(libname, pkgname) {
    
    # load tbb and make it's symbols available globally
-   if (Sys.info()['sysname'] == "Darwin")
+   sysname <- Sys.info()['sysname']
+   if (sysname == "Darwin")
       ext = ".dylib"
+   else if (sysname == "Linux")
+      ext = ".so.2"
+   else if (sysname == "Windows")
+      ext = ".dll"
    else
       ext = .Platform$dynlib.ext
    dll <- system.file(paste("libs/libtbb", ext, sep = ""), package = "tbb")
