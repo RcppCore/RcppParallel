@@ -30,8 +30,26 @@ dllInfo <- NULL
    dyn.unload(dllInfo[["path"]])
 }
 
-initialize <- function(number_of_threads = -1, thread_stack_size = 0) {
-
+initialize <- function(number_of_threads = "auto", thread_stack_size = "auto") {
+   
+   # validate and resolve number_of_threads
+   if (identical(number_of_threads, "auto"))
+      number_of_threads <- -1L
+   else if (!is.numeric(number_of_threads))
+      stop("number_of_threads must be an integer")
+   else
+      number_of_threads <- as.integer(number_of_threads)
+   
+   # validate and resolve thread_stack_size
+   if (identical(thread_stack_size, "auto"))
+      thread_stack_size = 0L
+   else if (!is.numeric(thread_stack_size))
+      stop("thread_stack_size must be an integer")
+   else
+      thread_stack_size <- as.integer(thread_stack_size)
+   
+   invisible(.Call("tbb_initialize", number_of_threads, thread_stack_size, 
+                   PACKAGE = "tbb"))
 }
 
 is_active <- function() {
@@ -43,6 +61,6 @@ default_num_threads <- function() {
 }
 
 terminate <- function() {
-   
+   invisible(.Call("tbb_terminate", PACKAGE = "tbb"))
 }
 
