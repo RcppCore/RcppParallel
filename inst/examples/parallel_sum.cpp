@@ -19,16 +19,11 @@ struct Sum {
     void join( Sum& rhs ) {value += rhs.value;}
 };
 
-
-float ParallelSum( double* array, size_t n ) {
-    Sum total;
-    parallel_reduce( blocked_range<double*>( array, array+n ), 
-                     total );
-    return total.value;
-}
-
 // [[Rcpp::export]]
 float parallelSum(NumericVector x) {
-   return ParallelSum(x.begin(), x.length());
+    Sum total;
+    parallel_reduce(blocked_range<double*>( x.begin(), x.begin() + x.length()), 
+                    total);
+    return total.value;
 }
 
