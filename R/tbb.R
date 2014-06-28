@@ -14,7 +14,7 @@ dllInfo <- NULL
       ext = ".dll"
    else
       ext = .Platform$dynlib.ext
-   dll <- system.file(paste("libs/libtbb", ext, sep = ""), package = "tbb")
+   dll <- system.file(paste("lib/libtbb", ext, sep = ""), package = "tbb")
    dllInfo <<- dyn.load(dll, local = FALSE, now = TRUE)
    
    # load the tbb package library
