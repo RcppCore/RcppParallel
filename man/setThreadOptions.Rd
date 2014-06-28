@@ -5,7 +5,8 @@
 Thread options for TBB
 }
 \description{
-%%  ~~ A concise (1-5 lines) description of what the function does. ~~
+Set thread options (number of threads to use for task scheduling and stack
+size per-thread) for TBB.
 }
 \usage{
 setThreadOptions(numThreads = "auto", 
@@ -14,11 +15,15 @@ defaultNumThreads()
 }
 \arguments{
   \item{numThreads}{
-   
-}
+      Number of threads to use for task scheduling (call 
+      \code{defaultNumThreads} to determine the the default
+      value used for "auto").
+   }
   \item{stackSize}{
-
-}
+      Stack size (in bytes) to use for worker threads. The 
+      default used for "auto" is 2MB on 32-bit systems and
+      4MB on 64-bit systems.
+   }
 }
 \details{
    The TBB library is automatically initialized with the default number
