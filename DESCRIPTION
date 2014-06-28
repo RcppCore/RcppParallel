@@ -1,10 +1,19 @@
 Package: tbb
 Type: Package
-Title: What the package does (short line)
-Version: 1.0
-Date: 2014-01-04
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
+Title: Interface to Intel TBB (Threading Building Blocks)
+Version: 4.2.5
+Date: 2014-06-28
+Author: RStudio, Inc.; Intel, Inc.
+Copyright: RStudio, Inc.
+Maintainer: JJ Allaire <jj@rstudio.com>
+Description: Interface to Intel TBB (Threading Building Blocks), a C++ library
+   for parallel programming. It uses C++ templates to provide powerful parallel 
+   functionality that works with common programming patterns. For example, 
+   the parallel_for construct can be used to convert the work of a standard 
+   serial "for"" loop into a parallel one and the parallel_reduce construct
+   can be used for accumulating aggregate or other values.
+SystemRequirements: GNU make
 License: GPL-2
+Collate: 
+   'tbb.R'
 
