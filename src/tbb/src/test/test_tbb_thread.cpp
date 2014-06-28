@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,6 +26,7 @@
     the GNU General Public License.
 */
 
+#include "tbb/tbb_thread.h"
 #define THREAD tbb::tbb_thread
 #define THIS_THREAD tbb::this_tbb_thread
 #define THIS_THREAD_SLEEP THIS_THREAD::sleep

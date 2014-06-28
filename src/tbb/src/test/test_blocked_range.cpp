@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,7 +35,7 @@
 class AbstractValueType {
     AbstractValueType() {}
     int value;
-public: 
+public:
     friend AbstractValueType MakeAbstractValueType( int i );
     friend int GetValueOf( const AbstractValueType& v ) {return v.value;}
 };
@@ -47,15 +47,15 @@ AbstractValueType MakeAbstractValueType( int i ) {
 }
 
 std::size_t operator-( const AbstractValueType& u, const AbstractValueType& v ) {
-    return GetValueOf(u)-GetValueOf(v);
+    return GetValueOf(u) - GetValueOf(v);
 }
 
 bool operator<( const AbstractValueType& u, const AbstractValueType& v ) {
-    return GetValueOf(u)<GetValueOf(v);
+    return GetValueOf(u) < GetValueOf(v);
 }
 
 AbstractValueType operator+( const AbstractValueType& u, std::size_t offset ) {
-    return MakeAbstractValueType(GetValueOf(u)+int(offset));
+    return MakeAbstractValueType(GetValueOf(u) + int(offset));
 }
 
 static void SerialTest() {
@@ -119,22 +119,58 @@ void ParallelTest() {
 #if __TBB_RANGE_BASED_FOR_PRESENT
 #include "test_range_based_for.h"
 #include <functional>
-void TestRangeBasedFor(){
+void TestRangeBasedFor() {
     using namespace range_based_for_support_tests;
     REMARK("testing range based for loop compatibility \n");
 
-    int int_array[100] = {0};
-    const int sequence_length = Harness::array_length(int_array);
+    size_t int_array[100] = {0};
+    const size_t sequence_length = Harness::array_length(int_array);
 
-    for (int i =0; i< sequence_length; ++i){
-        int_array[i]=i + 1;
+    for (size_t i = 0; i < sequence_length; ++i) {
+        int_array[i] = i + 1;
     }
 
-    const tbb::blocked_range<int*> r(int_array, Harness::end(int_array), 1);
+    const tbb::blocked_range<size_t*> r(int_array, Harness::end(int_array), 1);
 
-    ASSERT(range_based_for_accumulate<int>(r, std::plus<int>(), 0) == gauss_summ_of_int_sequence(sequence_length), "incorrect accumulated value generated via range based for ?");
+    ASSERT(range_based_for_accumulate<size_t>(r, std::plus<size_t>(), size_t(0)) == gauss_summ_of_int_sequence(sequence_length), "incorrect accumulated value generated via range based for ?");
 }
 #endif //if __TBB_RANGE_BASED_FOR_PRESENT
+
+#if !TBB_DEPRECATED
+
+void TestProportionalSplitOverflow()
+{
+    using tbb::blocked_range;
+    using tbb::proportional_split;
+
+    blocked_range<size_t> r1(0, size_t(-1) / 2);
+    size_t size = r1.size();
+    size_t begin = r1.begin();
+    size_t end = r1.end();
+
+    proportional_split p(1, 3);
+    blocked_range<size_t> r2(r1, p);
+
+    // overflow-free computation
+    size_t parts = p.left() + p.right();
+    size_t int_part = size / parts;
+    size_t fraction = size - int_part * parts; // fraction < parts
+    size_t right_idx = int_part * p.right() + fraction * p.right() / parts + 1;
+    size_t newRangeBegin = end - right_idx;
+
+    // Division in 'right_idx' very likely is inexact also.
+    size_t tolerance = 1;
+    size_t diff = (r2.begin() < newRangeBegin) ? (newRangeBegin - r2.begin()) : (r2.begin() - newRangeBegin);
+    bool is_split_correct = diff <= tolerance;
+    bool test_passed = (r1.begin() == begin && r1.end() == r2.begin() && is_split_correct &&
+                        r2.end() == end);
+    if (!test_passed) {
+        REPORT("Incorrect split of blocked range[%lu, %lu) into r1[%lu, %lu) and r2[%lu, %lu), "
+               "must be r1[%lu, %lu) and r2[%lu, %lu)\n", begin, end, r1.begin(), r1.end(), r2.begin(), r2.end(), begin, newRangeBegin, newRangeBegin, end);
+        ASSERT(test_passed, NULL);
+    }
+}
+#endif // !TBB_DEPRECATED
 //------------------------------------------------------------------------
 // Test driver
 #include "tbb/task_scheduler_init.h"
@@ -149,6 +185,10 @@ int TestMain () {
     #if __TBB_RANGE_BASED_FOR_PRESENT
         TestRangeBasedFor();
     #endif //if __TBB_RANGE_BASED_FOR_PRESENT
+
+    #if !TBB_DEPRECATED
+        TestProportionalSplitOverflow();
+    #endif
 
     return Harness::Done;
 }

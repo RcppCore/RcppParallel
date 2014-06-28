@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,9 +28,6 @@
 
 #include "scheduler.h"
 
-#include "tbb/task.h"
-#include "tbb/tbb_exception.h"
-#include "tbb/cache_aligned_allocator.h"
 #include "itt_notify.h"
 
 namespace tbb {
@@ -151,7 +148,7 @@ void tbb_exception_ptr::destroy () throw() {
 task_group_context::~task_group_context () {
     if ( __TBB_load_relaxed(my_kind) == binding_completed ) {
         if ( governor::is_set(my_owner) ) {
-            // Local update of the context list 
+            // Local update of the context list
             uintptr_t local_count_snapshot = my_owner->my_context_state_propagation_epoch;
             my_owner->my_local_ctx_list_update.store<relaxed>(1);
             // Prevent load of nonlocal update flag from being hoisted before the
@@ -166,14 +163,14 @@ task_group_context::~task_group_context () {
             else {
                 my_node.my_prev->my_next = my_node.my_next;
                 my_node.my_next->my_prev = my_node.my_prev;
-                // Release fence is necessary so that update of our neighbors in 
+                // Release fence is necessary so that update of our neighbors in
                 // the context list was committed when possible concurrent destroyer
                 // proceeds after local update flag is reset by the following store.
                 my_owner->my_local_ctx_list_update.store<release>(0);
                 if ( local_count_snapshot != the_context_state_propagation_epoch ) {
                     // Another thread was propagating cancellation request when we removed
-                    // ourselves from the list. We must ensure that it is not accessing us 
-                    // when this destructor finishes. We'll be able to acquire the lock 
+                    // ourselves from the list. We must ensure that it is not accessing us
+                    // when this destructor finishes. We'll be able to acquire the lock
                     // below only after the other thread finishes with us.
                     spin_mutex::scoped_lock lock(my_owner->my_context_list_mutex);
                 }
@@ -201,6 +198,9 @@ task_group_context::~task_group_context () {
             }
         }
     }
+#if __TBB_FP_CONTEXT
+    task_group_context_accessor( *this ).my_cpu_ctl_env.~cpu_ctl_env();
+#endif
     poison_value(my_version_and_traits);
     if ( my_exception )
         my_exception->destroy();
@@ -208,8 +208,8 @@ task_group_context::~task_group_context () {
 }
 
 void task_group_context::init () {
-    __TBB_ASSERT ( sizeof(uintptr_t) < 32, "Layout of my_version_and_traits must be reconsidered on this platform" );
-    __TBB_ASSERT ( sizeof(task_group_context) == 2 * NFS_MaxLineSize, "Context class has wrong size - check padding and members alignment" );
+    __TBB_STATIC_ASSERT ( sizeof(my_version_and_traits) >= 4, "Layout of my_version_and_traits must be reconsidered on this platform" );
+    __TBB_STATIC_ASSERT ( sizeof(task_group_context) == 2 * NFS_MaxLineSize, "Context class has wrong size - check padding and members alignment" );
     __TBB_ASSERT ( (uintptr_t(this) & (sizeof(my_cancellation_requested) - 1)) == 0, "Context is improperly aligned" );
     __TBB_ASSERT ( __TBB_load_relaxed(my_kind) == isolated || __TBB_load_relaxed(my_kind) == bound, "Context can be created only as isolated or bound" );
     my_parent = NULL;
@@ -221,6 +221,16 @@ void task_group_context::init () {
 #if __TBB_TASK_PRIORITY
     my_priority = normalized_normal_priority;
 #endif /* __TBB_TASK_PRIORITY */
+#if __TBB_FP_CONTEXT
+    __TBB_STATIC_ASSERT( sizeof(my_cpu_ctl_env) == sizeof(internal::uint64_t), "The reserved space for FPU settings are not equal sizeof(uint64_t)" );
+    __TBB_STATIC_ASSERT( sizeof(cpu_ctl_env) <= sizeof(my_cpu_ctl_env), "FPU settings storage does not fit to uint64_t" );
+    suppress_unused_warning( my_cpu_ctl_env.space );
+
+    cpu_ctl_env &ctl = task_group_context_accessor(*this).my_cpu_ctl_env;
+    new ( &ctl ) cpu_ctl_env;
+    if ( my_version_and_traits & fp_settings )
+        ctl.get_env();
+#endif
 }
 
 void task_group_context::register_with ( generic_scheduler *local_sched ) {
@@ -231,7 +241,7 @@ void task_group_context::register_with ( generic_scheduler *local_sched ) {
     // Notify threads that may be concurrently destroying contexts registered
     // in this scheduler's list that local list update is underway.
     local_sched->my_local_ctx_list_update.store<relaxed>(1);
-    // Prevent load of global propagation epoch counter from being hoisted before 
+    // Prevent load of global propagation epoch counter from being hoisted before
     // speculative stores above, as well as load of nonlocal update flag from
     // being hoisted before the store to local update flag.
     atomic_fence();
@@ -259,6 +269,12 @@ void task_group_context::bind_to ( generic_scheduler *local_sched ) {
     __TBB_ASSERT ( __TBB_load_relaxed(my_kind) == binding_required, "Already bound or isolated?" );
     __TBB_ASSERT ( !my_parent, "Parent is set before initial binding" );
     my_parent = local_sched->my_innermost_running_task->prefix().context;
+#if __TBB_FP_CONTEXT
+    // Inherit FPU settings only if the context has not captured FPU settings yet.
+    if ( !(my_version_and_traits & fp_settings) )
+        // When inheriting FPU settings we just copy the FPU settings (do not capture them). So we do not inherit fp_settings traits.
+        task_group_context_accessor(*this).my_cpu_ctl_env = task_group_context_accessor(*my_parent).my_cpu_ctl_env;
+#endif
 
     // Condition below prevents unnecessary thrashing parent context's cache line
     if ( !(my_parent->my_state & may_have_children) )
@@ -268,7 +284,7 @@ void task_group_context::bind_to ( generic_scheduler *local_sched ) {
         // (by placing __TBB_store_with_release(s->my_context_list_head.my_next, &my_node)
         // above), it still could be missed if state propagation from a grand-ancestor
         // was underway concurrently with binding.
-        // Speculative propagation from the parent together with epoch counters 
+        // Speculative propagation from the parent together with epoch counters
         // detecting possibility of such a race allow to avoid taking locks when
         // there is no contention.
 
@@ -276,7 +292,7 @@ void task_group_context::bind_to ( generic_scheduler *local_sched ) {
         // loads of parent state data out of the scope where epoch counters comparison
         // can reliably validate it.
         uintptr_t local_count_snapshot = __TBB_load_with_acquire( my_parent->my_owner->my_context_state_propagation_epoch );
-        // Speculative propagation of parent's state. The speculation will be 
+        // Speculative propagation of parent's state. The speculation will be
         // validated by the epoch counters check further on.
         my_cancellation_requested = my_parent->my_cancellation_requested;
 #if __TBB_TASK_PRIORITY
@@ -284,7 +300,7 @@ void task_group_context::bind_to ( generic_scheduler *local_sched ) {
 #endif /* __TBB_TASK_PRIORITY */
         register_with( local_sched ); // Issues full fence
 
-        // If no state propagation was detected by the following condition, the above 
+        // If no state propagation was detected by the following condition, the above
         // full fence guarantees that the parent had correct state during speculative
         // propagation before the fence. Otherwise the propagation from parent is
         // repeated under the lock.
@@ -316,7 +332,7 @@ void task_group_context::propagate_task_group_state ( T task_group_context::*mpt
     if (this->*mptr_state == new_state) {
         // Nothing to do, whether descending from "src" or not, so no need to scan.
         // Hopefully this happens often thanks to earlier invocations.
-        // This optimisation is enabled by LIFO order in the context lists:
+        // This optimization is enabled by LIFO order in the context lists:
         // - new contexts are bound to the beginning of lists;
         // - descendants are newer than ancestors;
         // - earlier invocations are therefore likely to "paint" long chains.
@@ -341,7 +357,7 @@ void task_group_context::propagate_task_group_state ( T task_group_context::*mpt
 template <typename T>
 void generic_scheduler::propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state ) {
     spin_mutex::scoped_lock lock(my_context_list_mutex);
-    // Acquire fence is necessary to ensure that the subsequent node->my_next load 
+    // Acquire fence is necessary to ensure that the subsequent node->my_next load
     // returned the correct value in case it was just inserted in another thread.
     // The fence also ensures visibility of the correct my_parent value.
     context_list_node_t *node = __TBB_load_with_acquire(my_context_list_head.my_next);
@@ -352,7 +368,7 @@ void generic_scheduler::propagate_task_group_state ( T task_group_context::*mptr
         node = node->my_next;
         __TBB_ASSERT( is_alive(ctx.my_version_and_traits), "Local context list contains destroyed object" );
     }
-    // Sync up local propagation epoch with the global one. Release fence prevents 
+    // Sync up local propagation epoch with the global one. Release fence prevents
     // reordering of possible store to *mptr_state after the sync point.
     __TBB_store_with_release(my_context_state_propagation_epoch, the_context_state_propagation_epoch);
 }
@@ -361,7 +377,7 @@ template <typename T>
 bool market::propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state ) {
     if ( !(src.my_state & task_group_context::may_have_children) )
         return true;
-    // The whole propagation algorithm is under the lock in order to ensure correctness 
+    // The whole propagation algorithm is under the lock in order to ensure correctness
     // in case of concurrent state changes at the different levels of the context tree.
     // See comment at the bottom of scheduler.cpp
     context_state_propagation_mutex_type::scoped_lock lock(the_context_state_propagation_mutex);
@@ -379,10 +395,10 @@ bool market::propagate_task_group_state ( T task_group_context::*mptr_state, tas
             s->propagate_task_group_state( mptr_state, src, new_state );
     }
     // Propagate to all master threads (under my_arenas_list_mutex lock)
-    ForEachArena(a) {
+    ForEachArena(a) { // uses lock on my_arenas_list_mutex
         arena_slot &slot = a.my_slots[0];
         generic_scheduler *s = slot.my_scheduler;
-        // If the master is under construction, skip it. Otherwise make sure that it does not 
+        // If the master is under construction, skip it. Otherwise make sure that it does not
         // leave its arena and its scheduler get destroyed while we accessing its data.
         if ( s && as_atomic(slot.my_scheduler).compare_and_swap(LockedMaster, s) == s ) { //TODO: remove need in lock
             __TBB_ASSERT( slot.my_scheduler == LockedMaster, NULL );
@@ -419,7 +435,7 @@ bool task_group_context::is_group_execution_cancelled () const {
 
 // IMPORTANT: It is assumed that this method is not used concurrently!
 void task_group_context::reset () {
-    //! \todo Add assertion that this context does not have children
+    //! TODO: Add assertion that this context does not have children
     // No fences are necessary since this context can be accessed from another thread
     // only after stealing happened (which means necessary fences were used).
     if ( my_exception )  {
@@ -428,6 +444,21 @@ void task_group_context::reset () {
     }
     my_cancellation_requested = 0;
 }
+
+#if __TBB_FP_CONTEXT
+// IMPORTANT: It is assumed that this method is not used concurrently!
+void task_group_context::capture_fp_settings () {
+    //! TODO: Add assertion that this context does not have children
+    // No fences are necessary since this context can be accessed from another thread
+    // only after stealing happened (which means necessary fences were used).
+    cpu_ctl_env &ctl = task_group_context_accessor(*this).my_cpu_ctl_env;
+    if ( !(my_version_and_traits & fp_settings) ) {
+        new ( &ctl ) cpu_ctl_env;
+        my_version_and_traits |= fp_settings;
+    }
+    ctl.get_env();
+}
+#endif /* __TBB_FP_CONTEXT */
 
 void task_group_context::register_pending_exception () {
     if ( my_cancellation_requested )

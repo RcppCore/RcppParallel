@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -38,10 +38,10 @@
 while getopts  "qvsr:ul:" flag #
 do case $flag in #
     s )  # Stress testing mode
-         run_prefix="$run_prefix stressed" ;; #
+         run_prefix="stressed $run_prefix" ;; #
     r )  # Repeats test n times
          repeat=$OPTARG #
-         run_prefix="$run_prefix repeated" ;; #
+         run_prefix="repeated $run_prefix" ;; #
     l )  if [ `uname` != 'Linux' ] ; then #
              echo 'skip' #
              exit #

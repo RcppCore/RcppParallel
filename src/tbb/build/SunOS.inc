@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -61,7 +61,7 @@ RD?=rmdir
 MD?=mkdir -p
 NUL= /dev/null
 SLASH=/
-MAKE_VERSIONS=bash $(tbb_root)/build/version_info_sunos.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.ver
+MAKE_VERSIONS=bash $(tbb_root)/build/version_info_sunos.sh $(VERSION_FLAGS) >version_string.ver
 MAKE_TBBVARS=bash $(tbb_root)/build/generate_tbbvars.sh
 
 ifdef LD_LIBRARY_PATH

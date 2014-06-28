@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -65,47 +65,6 @@
 //! PROVIDE YOUR OWN Customize.h IF YOU FEEL NECESSARY
 #include "Customize.h"
 
-// Include files containing declarations of intptr_t and uintptr_t
-#include <stddef.h>  // size_t
-#if _MSC_VER
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
- #if !UINTPTR_MAX
-  #define UINTPTR_MAX SIZE_MAX
- #endif
-#else // _MSC_VER
-#include <stdint.h>
-#endif
-
-namespace rml {
-namespace internal {
-
-extern bool  original_malloc_found;
-extern void* (*original_malloc_ptr)(size_t);
-extern void  (*original_free_ptr)(void*);
-
-} } // namespaces
-
-/*
- * Functions to align an integer down or up to the given power of two,
- * and test for such an alignment, and for power of two.
- */
-template<typename T>
-static inline T alignDown(T arg, uintptr_t alignment) {
-    return T( (uintptr_t)arg                & ~(alignment-1));
-}
-template<typename T>
-static inline T alignUp  (T arg, uintptr_t alignment) {
-    return T(((uintptr_t)arg+(alignment-1)) & ~(alignment-1));
-    // /*is this better?*/ return (((uintptr_t)arg-1) | (alignment-1)) + 1;
-}
-template<typename T> // works for not power-of-2 alignments
-static inline T alignUpGeneric(T arg, uintptr_t alignment) {
-    if (size_t rem = arg % alignment) {
-        arg += alignment - rem;
-    }
-    return arg;
-}
+#include "shared_utils.h"
 
 #endif /* _itt_shared_malloc_TypeDefinitions_H_ */

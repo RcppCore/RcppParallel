@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -33,9 +33,11 @@ ifneq ($(BUILDING_PHASE),1)
   ifeq (,$(tbb_build_prefix))
     tbb_build_prefix=mic_icc$(CPF_SUFFIX)
   endif
+  # For examples
+  mic_tbb_build_prefix=$(tbb_build_prefix)
 endif
 
-MAKE_VERSIONS=sh $(tbb_root)/build/version_info_linux.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.ver
+MAKE_VERSIONS=sh $(tbb_root)/build/version_info_linux.sh $(VERSION_FLAGS) >version_string.ver
 MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh MIC_ MIC_
 def_prefix=lin64
 

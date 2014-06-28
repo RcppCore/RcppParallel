@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -477,6 +477,11 @@ OPEN_INTERNAL_NAMESPACE
         if ( !dlopen ) return 0;
     #endif /* __TBB_WEAK_SYMBOLS_PRESENT */
         dynamic_link_handle library_handle = dlopen( NULL, RTLD_LAZY );
+    #if __ANDROID__
+        // On Android dlopen( NULL ) returns NULL if it is called during dynamic module initialization.
+        if ( !library_handle )
+            return 0;
+    #endif
         // Check existence of only the first symbol, then use it to find the library and load all necessary symbols
         pointer_to_handler handler;
         dynamic_link_descriptor desc = { descriptors[0].name, &handler };

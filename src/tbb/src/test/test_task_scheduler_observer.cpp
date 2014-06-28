@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,6 +26,13 @@
     the GNU General Public License.
 */
 
+#if __TBB_CPF_BUILD
+#define TEST_SLEEP_PERMISSION 1
+#define TBB_USE_PREVIEW_BINARY 1
+#endif
+// undefine __TBB_CPF_BUILD to simulate user's setup
+#undef __TBB_CPF_BUILD
+
 #define TBB_PREVIEW_LOCAL_OBSERVER 1
 #define TBB_PREVIEW_TASK_ARENA 1
 
@@ -37,6 +44,7 @@
 #include "tbb/task_scheduler_init.h"
 #include "tbb/atomic.h"
 #include "tbb/task.h"
+#include "tbb/enumerable_thread_specific.h"
 #include "../tbb/tls.h"
 #include "tbb/tick_count.h"
 #include "harness_barrier.h"
@@ -52,16 +60,18 @@ struct ObserverStats {
     tbb::atomic<int> m_entries;
     tbb::atomic<int> m_exits;
     tbb::atomic<int> m_workerEntries;
+    tbb::atomic<int> m_workerSleeps;
     tbb::atomic<int> m_workerExits;
 
     void Reset () {
-        m_entries = m_exits = m_workerEntries = m_workerExits = 0;
+        m_entries = m_exits = m_workerEntries = m_workerSleeps = m_workerExits = 0;
     }
 
     void operator += ( const ObserverStats& s ) {
         m_entries += s.m_entries;
         m_exits += s.m_exits;
         m_workerEntries += s.m_workerEntries;
+        m_workerSleeps += s.m_workerSleeps;
         m_workerExits += s.m_workerExits;
     }
 };
@@ -69,11 +79,30 @@ struct ObserverStats {
 struct ThreadState {
     uintptr_t m_flags;
     tbb::task_scheduler_observer *m_dyingObserver;
+    uintptr_t m_maySleepCalls;
+    bool m_canSleep;
     bool m_isMaster;
-    ThreadState() : m_flags(0), m_dyingObserver(NULL), m_isMaster(false) {}
+    ThreadState() { reset(); }
+    void reset() {
+        m_maySleepCalls = m_flags = 0;
+        m_dyingObserver = NULL;
+        m_canSleep = m_isMaster = false;
+    }
+    static ThreadState &get();
 };
 
-tbb::internal::tls<ThreadState*> theLocalState;
+tbb::enumerable_thread_specific<ThreadState> theLocalState;
+tbb::internal::tls<intptr_t> theThreadPrivate;
+
+ThreadState &ThreadState::get() {
+    bool exists;
+    ThreadState& state = theLocalState.local(exists);
+    // ETS will not detect that a thread was allocated with the same id as a destroyed thread
+    if( exists && theThreadPrivate.get() == 0 ) state.reset();
+    theThreadPrivate = 1; // mark thread constructed
+    return state;
+}
+
 static ObserverStats theStats;
 static tbb::atomic<int> theNumObservers;
 
@@ -86,7 +115,7 @@ enum TestMode {
     tmLocalObservation = 2,
     //! Observer causes autoinitialization of the scheduler
     tmAutoinitialization = 4,
-    //! test on_scheduler_leaving
+    //! test may_sleep
     tmLeavingControl = 8
 };
 
@@ -95,13 +124,15 @@ uintptr_t theTestMode,
 
 class MyObserver : public tbb::task_scheduler_observer, public ObserverStats {
     uintptr_t m_flag;
-    bool m_dying;
     tbb::atomic<int> m_leave_ticket;
+    tbb::atomic<bool> m_dying;
 
     /*override*/
     void on_scheduler_entry( bool is_worker ) {
-        ThreadState& state = *theLocalState;
+        ThreadState& state = ThreadState::get();
         ASSERT( is_worker==!state.m_isMaster, NULL );
+        if ( theTestMode & tmLeavingControl )
+            ASSERT( m_leave_ticket, NULL );
         if ( thePrevMode & tmSynchronized ) {
             ASSERT( !(state.m_flags & m_flag), "Observer repeatedly invoked for the same thread" );
             if ( theTestMode & tmLocalObservation )
@@ -130,7 +161,7 @@ class MyObserver : public tbb::task_scheduler_observer, public ObserverStats {
     }
     /*override*/
     void on_scheduler_exit( bool is_worker ) {
-        ThreadState& state = *theLocalState;
+        ThreadState& state = ThreadState::get();
         ASSERT( is_worker==!state.m_isMaster, NULL );
         if ( m_dying && state.m_dyingObserver ) {
             ASSERT( state.m_dyingObserver == this, "Exit without entry (for a dying observer)" );
@@ -138,39 +169,83 @@ class MyObserver : public tbb::task_scheduler_observer, public ObserverStats {
             return;
         }
         ASSERT( state.m_flags & m_flag, "Exit without entry" );
-        // TODO: if(!is_leaving_test()) // workers are not supposed to return back for leaving test
         state.m_flags &= ~m_flag;
         ++m_exits;
         if ( is_worker )
             ++m_workerExits;
     }
     /*override*/
-    bool on_scheduler_leaving() {
-        if( m_leave_ticket == 0 ) return true;
-        return m_leave_ticket.fetch_and_store(-1) > 0;
+    bool may_sleep() {
+        ThreadState& state = ThreadState::get();
+        ++state.m_maySleepCalls;
+        Harness::Sleep(10);     // helps to reproduce the issues
+        ASSERT( !state.m_isMaster, NULL );
+        if( m_dying ) {         // check the anti-starvation logic
+            return keep_awake;  // thread should exit despite the return value
+        }
+        if( state.m_canSleep ) {// the permission for sleep was previously received
+            // though, it is an important check for the test, we still do not guarantee this condition
+            ASSERT_WARNING( !(theTestMode & tmLeavingControl), "may_sleep() called again after leaving permission was granted once, check if repeated");
+            return allow_sleep;
+        }
+        // note, may_sleep can be called before on_entry()
+        if( !(theTestMode & tmLeavingControl) || m_leave_ticket.fetch_and_store(-1) > 0 ) {
+            state.m_canSleep = true;
+            ++m_workerSleeps;
+            return allow_sleep;
+        }
+        return keep_awake;
     }
 public:
-    void test_leaving() { m_leave_ticket.store<tbb::relaxed>(-1); }
-    void dismiss_one() { m_leave_ticket = 1; }
-    bool is_leaving_test() { return m_leave_ticket.load<tbb::relaxed>() != 0; }
+    // the method is called before the work in new arena starts enabling the leaving test mode
+    // in this mode may_sleep() does not allow a thread to fall asleep unless permitted below
+    void enable_leaving_test() {
+        ASSERT(theTestMode & tmLeavingControl, NULL);
+        m_leave_ticket.store<tbb::relaxed>(-1);
+        ASSERT(!is_observing(), NULL);
+        observe(true);
+    }
+
+    // the work is just done in the only arena, assume workers start entering may_sleep
+    void test_leaving() {
+#if TEST_SLEEP_PERMISSION
+        if( !(theTestMode & tmLeavingControl) )
+            return; // second call to the test TODO: extend the test for the second round as well
+        REMARK( "Testing may_sleep()\n");
+        ASSERT( !m_workerSleeps, "permission for sleep was given before the test starts?");
+        ASSERT( (theTestMode & tmSynchronized) && m_workerEntries >= P-1, "test_leaving assumes full subscription of the only arena");
+        for ( int j = 0; j < m_workerEntries; j++ ) {
+            REMARK( "Round %d: entries %d, sleeps %d\n", j, (int)m_workerEntries, (int)m_workerSleeps );
+            ASSERT( m_leave_ticket == -1, "unexpected mode, signal was not consumed by a worker?" );
+            m_leave_ticket = 1; // dismiss one
+            double n_seconds = 10;
+            (Harness::TimedWaitWhileEq(n_seconds))(m_workerSleeps, j);
+            ASSERT( n_seconds >= 0, "Time out while waiting for a worker to call may_sleep for the first time");
+            __TBB_Yield();
+        }
+        // the first time this method is called the work will be executed again,
+        // the next time time, the scheduler will start shutting down
+        theTestMode &= ~tmLeavingControl;
+        m_leave_ticket = m_workerSleeps = 0; // reset for the next round
+#endif
+    }
 
     MyObserver( uintptr_t flag )
         : tbb::task_scheduler_observer(theTestMode & tmLocalObservation ? true : false)
         , m_flag(flag)
-        , m_dying(false)
     {
         m_leave_ticket.store<tbb::relaxed>(0);
         ++theNumObservers;
         Reset();
+        m_dying = false;
         // Local observer causes automatic scheduler initialization
         // in the current thread, so here, we must postpone the activation.
-        if ( !(theTestMode & tmLocalObservation) )
+        if ( !(theTestMode & tmLocalObservation) && !(theTestMode & tmLeavingControl) )
             observe(true);
     }
 
     ~MyObserver () {
         m_dying = true;
-        --theNumObservers;
         ASSERT( m_exits <= m_entries, NULL );
         if ( theTestMode & tmSynchronized ) {
             tbb::tick_count t0 = tbb::tick_count::now();
@@ -180,6 +255,7 @@ public:
                 REPORT( "Warning: Entry/exit count mismatch (%d, %d). Observer is broken or machine is overloaded.\n", (int)m_entries, (int)m_exits );
         }
         theStats += *this;
+        --theNumObservers;
         // it is recommended to disable observation before destructor of the base class starts,
         // otherwise it can lead to concurrent notification callback on partly destroyed object,
         // which in turn can harm (in addition) if derived class has new virtual methods.
@@ -199,11 +275,12 @@ public:
     FibTask( int n, uintptr_t flags, MyObserver &obs ) : N(n), m_flag(flags), m_observer(obs) {}
 
     /*override*/ tbb::task* execute() {
-        ASSERT( !(~theLocalState->m_flags & m_flag), NULL );
+        ThreadState& s = ThreadState::get();
+        ASSERT( !(~s.m_flags & m_flag), NULL );
         if( N < 2 )
             return NULL;
         bool globalBarrierActive = false;
-        if ( theLocalState->m_isMaster ) {
+        if ( s.m_isMaster ) {
             if ( theGlobalBarrierActive ) {
                 // This is the root task. Its N is equal to the number of threads.
                 // Spawn a task for each worker.
@@ -253,7 +330,9 @@ public:
     TestBody( int numThreads ) : m_numThreads(numThreads) {}
 
     void operator()( int i ) const {
-        theLocalState->m_isMaster = true;
+        ThreadState &state = ThreadState::get();
+        ASSERT( !state.m_isMaster, "should be newly initialized thread");
+        state.m_isMaster = true;
         uintptr_t f = i <= MaxFlagIndex ? 1<<i : 0;
         MyObserver o(f);
         if ( theTestMode & tmSynchronized )
@@ -261,9 +340,9 @@ public:
         // when mode is local observation but not synchronized and when num threads == default
         if ( theTestMode & tmAutoinitialization )
             o.observe(true); // test autoinitialization can be done by observer
-        // when mode is local synchronized observation and when num threads == default
+        // when mode is synchronized observation and when num threads == default
         if ( theTestMode & tmLeavingControl )
-            o.test_leaving();
+            o.enable_leaving_test();
         // Observer in enabled state must outlive the scheduler to ensure that
         // all exit notifications are called.
         tbb::task_scheduler_init init(m_numThreads);
@@ -273,47 +352,15 @@ public:
         for ( int j = 0; j < 2; ++j ) {
             tbb::task &t = *new( tbb::task::allocate_root() ) FibTask(m_numThreads, f, o);
             tbb::task::spawn_root_and_wait(t);
+            if ( theTestMode & tmLeavingControl )
+                o.test_leaving();
             thePrevMode = theTestMode;
-        }
-        if( o.is_leaving_test() ) {
-            REMARK( "Testing on_scheduler_leaving()\n");
-            ASSERT(o.m_workerEntries > 0, "Unbelievable");
-            // TODO: start from 0?
-            for ( int j = o.m_workerExits; j < o.m_workerEntries; j++ ) {
-                REMARK( "Round %d: entries %d, exits %d\n", j, (int)o.m_workerEntries, (int)o.m_workerExits );
-                ASSERT_WARNING(o.m_workerExits == j, "Workers unexpectedly leaved arena");
-                o.dismiss_one();
-                double n_seconds = 5;
-                (Harness::TimedWaitWhileEq(n_seconds))(o.m_workerExits, j);
-                ASSERT( n_seconds >= 0, "Time out while waiting for a worker to leave arena");
-                __TBB_Yield();
-            }
         }
     }
 }; // class TestBody
 
-Harness::SpinBarrier theWorkersBarrier;
-
-class CleanerTask : public tbb::task {
-public:
-    tbb::task* execute () {
-        theLocalState->m_flags = 0;
-        theWorkersBarrier.wait();
-        return NULL;
-    }
-};
-
-void CleanLocalState () {
-    tbb::task_scheduler_init init;
-    tbb::task &r = *new( tbb::task::allocate_root() ) tbb::empty_task;
-    r.set_ref_count(P + 1);
-    for ( int i = 1; i < P; ++i )
-        tbb::task::spawn( *new(r.allocate_child()) CleanerTask );
-    r.spawn_and_wait_for_all( *new(r.allocate_child()) CleanerTask );
-    tbb::task::destroy( r );
-}
-
 void TestObserver( int M, int T, uintptr_t testMode ) {
+    theLocalState.clear();
     theStats.Reset();
     theGlobalBarrierActive = true;
     theTestMode = testMode;
@@ -352,13 +399,12 @@ int TestMain () {
     if ( P < 2 )
         return Harness::Skipped;
     theNumObservers = 0;
-    theWorkersBarrier.initialize(P);
     // Fully- and under-utilized mode
     for ( int M = 1; M < P; M <<= 1 ) {
         if ( M > P/2 ) {
             ASSERT( P & (P-1), "Can get here only in case of non power of two cores" );
             M = P/2;
-            if ( M & (M-1) )
+            if ( M==1 || (M & (M-1)) )
                 break; // Already tested this configuration
         }
         int T = P / M;
@@ -367,17 +413,13 @@ int TestMain () {
         theMasterBarrier.initialize(M);
         theGlobalBarrier.initialize(M * T);
         TestObserver(M, T, 0);
+        TestObserver(M, T, tmSynchronized | tmLocalObservation );
+        TestObserver(M, T, tmSynchronized | ( T==P? tmLeavingControl : 0));
+        // keep tmAutoInitialization the last, as it does not release worker threads
         TestObserver(M, T, tmLocalObservation | ( T==P? tmAutoinitialization : 0) );
-        CleanLocalState();
-        TestObserver(M, T, tmSynchronized);
-        TestObserver(M, T, tmSynchronized | tmLocalObservation
-#if __TBB_CPF_BUILD
-                     | ( T==P? tmLeavingControl : 0)
-#endif
-                     );
     }
     // Oversubscribed mode
-    for ( int i = 0; i < 5; ++i ) {
+    for ( int i = 0; i < 4; ++i ) {
         REMARK( "Masters: %d; Arena size: %d\n", P-1, P );
         TestObserver(P-1, P, 0);
         TestObserver(P-1, P, tmLocalObservation);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -150,7 +150,7 @@ void governor::sign_off(generic_scheduler* s) {
 }
 
 void governor::setBlockingTerminate(const task_scheduler_init *tsi) {
-    __TBB_ASSERT(!IsBlockingTermiantionInProgress, "It's impossible to create task_scheduler_init while blocking termination is in progress.");
+    __TBB_ASSERT(!IsBlockingTerminationInProgress, "It's impossible to create task_scheduler_init while blocking termination is in progress.");
     if (BlockingTSI)
         throw_exception(eid_blocking_sch_init);
     BlockingTSI = tsi;
@@ -187,14 +187,14 @@ void governor::terminate_scheduler( generic_scheduler* s, const task_scheduler_i
     } else {
 #if TBB_USE_ASSERT
         if (BlockingTSI) {
-            __TBB_ASSERT( BlockingTSI == tsi_ptr, "For blocking termiantion last terminate_scheduler must be blocking." );
-            IsBlockingTermiantionInProgress = true;
+            __TBB_ASSERT( BlockingTSI == tsi_ptr, "For blocking termination last terminate_scheduler must be blocking." );
+            IsBlockingTerminationInProgress = true;
         }
 #endif
         s->cleanup_master();
         BlockingTSI = NULL;
 #if TBB_USE_ASSERT
-        IsBlockingTermiantionInProgress = false;
+        IsBlockingTerminationInProgress = false;
 #endif
     }
 }
@@ -203,7 +203,7 @@ void governor::auto_terminate(void* arg){
     generic_scheduler* s = static_cast<generic_scheduler*>(arg);
     if( s && s->my_auto_initialized ) {
         if( !--(s->my_ref_count) ) {
-            __TBB_ASSERT( !BlockingTSI, "Blocking auto-termiante is not supported." );
+            __TBB_ASSERT( !BlockingTSI, "Blocking auto-terminate is not supported." );
             // If the TLS slot is already cleared by OS or underlying concurrency
             // runtime, restore its value.
             if ( !theTLS.get() )

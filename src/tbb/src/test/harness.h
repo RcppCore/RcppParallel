@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -90,7 +90,7 @@ int TestMain ();
 
 #if _WIN32||_WIN64
     #include "tbb/machine/windows_api.h"
-    #if _WIN32_WINNT > 0x0501 && _MSC_VER
+    #if _WIN32_WINNT > 0x0501 && _MSC_VER && !_M_ARM
         #include <dbghelp.h>
         #pragma comment (lib, "dbghelp.lib")
     #endif
@@ -120,40 +120,12 @@ int TestMain ();
     #define BACKTRACE_FUNCTION_AVAILABLE 1
 #endif
 
+#include "harness_runtime_loader.h"
 #include "harness_report.h"
 
-#if HARNESS_USE_RUNTIME_LOADER
-    #define TBB_PREVIEW_RUNTIME_LOADER 1
-    #include "tbb/runtime_loader.h"
-    static char const * _path[] = { ".", NULL };
-    static tbb::runtime_loader _runtime_loader( _path );
-#endif // HARNESS_USE_RUNTIME_LOADER
-
-#if !HARNESS_NO_ASSERT
-    #include "harness_assert.h"
-    #if TEST_USES_TBB
-        #include <tbb/tbb_stddef.h> /*set_assertion_handler*/
-
-        struct InitReporter {
-            InitReporter() {
-        #if TBB_USE_ASSERT
-                tbb::set_assertion_handler(ReportError);
-        #endif
-            ASSERT_WARNING(TBB_INTERFACE_VERSION <= tbb::TBB_runtime_interface_version(), "runtime version mismatch");
-        }
-        };
-        static InitReporter InitReportError;
-    #endif
-
-    typedef void (*test_error_extra_t)(void);
-    static test_error_extra_t ErrorExtraCall;
-    //! Set additional handler to process failed assertions
-    void SetHarnessErrorProcessing( test_error_extra_t extra_call ) {
-        ErrorExtraCall = extra_call;
-    }
-
-    //! Reports errors issued by failed assertions
-    void ReportError( const char* filename, int line, const char* expression, const char * message ) {
+//! Prints current call stack
+void print_call_stack() {
+    fflush(stdout); fflush(stderr);
     #if BACKTRACE_FUNCTION_AVAILABLE
         const int sz = 100; // max number of frames to capture
         void *buff[sz];
@@ -183,7 +155,50 @@ int TestMain ();
             REPORT("[%d] %016I64LX+%04I64LX: %s\n", i, sym.Address, offset, sym.Name); //TODO: print module name
         }
     #endif /*BACKTRACE_FUNCTION_AVAILABLE*/
+}
 
+#if !HARNESS_NO_ASSERT
+    #include <exception> //for set_terminate
+    #include "harness_assert.h"
+    #if TEST_USES_TBB
+        #include <tbb/tbb_stddef.h> /*set_assertion_handler*/
+    #endif
+
+    struct InitReporter {
+        void (*default_terminate_handler)() ;
+        InitReporter(): default_terminate_handler(NULL) {
+            #if TEST_USES_TBB
+                #if TBB_USE_ASSERT
+                    tbb::set_assertion_handler(ReportError);
+                #endif
+                ASSERT_WARNING(TBB_INTERFACE_VERSION <= tbb::TBB_runtime_interface_version(), "runtime version mismatch");
+            #endif
+            #if TBB_USE_EXCEPTIONS
+                default_terminate_handler = std::set_terminate(handle_terminate);
+            #endif
+        }
+        static void handle_terminate();
+    };
+    static InitReporter InitReportError;
+
+    void InitReporter::handle_terminate(){
+        REPORT("std::terminate called.\n");
+        print_call_stack();
+        if (InitReportError.default_terminate_handler){
+            InitReportError.default_terminate_handler();
+        }
+    }
+
+    typedef void (*test_error_extra_t)(void);
+    static test_error_extra_t ErrorExtraCall;
+    //! Set additional handler to process failed assertions
+    void SetHarnessErrorProcessing( test_error_extra_t extra_call ) {
+        ErrorExtraCall = extra_call;
+    }
+
+    //! Reports errors issued by failed assertions
+    void ReportError( const char* filename, int line, const char* expression, const char * message ) {
+        print_call_stack();
     #if __TBB_ICL_11_1_CODE_GEN_BROKEN
         printf("%s:%d, assertion %s: %s\n", filename, line, expression, message ? message : "failed" );
     #else
@@ -365,20 +380,19 @@ int main(int argc, char* argv[]) {
         MPI_Send (&size, 1, MPI_INT, 0, 1, MPI_COMM_WORLD);
     }
 #endif
-#if __TBB_MIC_OFFLOAD
+
     int res = Harness::Unknown;
+#if __TBB_MIC_OFFLOAD
+    // "mic:-1" or "mandatory" specifies execution on the target. The runtime
+    // system chooses the specific target. Execution on the CPU is not allowed.
+#if __INTEL_COMPILER < 1400
     #pragma offload target(mic:-1) out(res)
-    {
-    #if __MIC__
-        res = TestMain ();
-    #else
-        ASSERT( 0, "Host execution in offload mode!" );
-        exit(1);
-    #endif
-    }
 #else
-    int res = TestMain ();
+    #pragma offload target(mic) out(res) mandatory
 #endif
+#endif
+    res = TestMain ();
+
     ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
 #if __TBB_MPI_INTEROP
     if (myrank == 0) {
@@ -412,6 +426,10 @@ class NoCopy: NoAssign {
 public:
     NoCopy() {}
 };
+
+#if HARNESS_TBBMALLOC_THREAD_SHUTDOWN && __TBB_SOURCE_DIRECTLY_INCLUDED && (_WIN32||_WIN64)
+#include "../tbbmalloc/tbbmalloc_internal_api.h"
+#endif
 
 //! For internal use by template function NativeParallelFor
 template<typename Index, typename Body>
@@ -502,6 +520,12 @@ private:
     {
         NativeParallelForTask& self = *static_cast<NativeParallelForTask*>(object);
         (self.body)(self.index);
+#if HARNESS_TBBMALLOC_THREAD_SHUTDOWN && __TBB_SOURCE_DIRECTLY_INCLUDED && (_WIN32||_WIN64)
+        // in those cases can't release per-thread cache automatically,
+        // so do it manually
+        // TODO: investigate less-intrusive way to do it, for example via FLS keys
+        __TBB_mallocThreadShutdownNotification();
+#endif
         return 0;
     }
 };

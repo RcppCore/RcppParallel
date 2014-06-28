@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -452,6 +452,85 @@ void TestSimplePartitionerStability(){
 #include <cstdio>
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
+#include "harness_barrier.h"
+#include "test_partitioner.h"
+
+namespace interaction_with_range_and_partitioner {
+
+// Test checks compatibility of parallel_for algorithm with various range implementations
+
+void test() {
+    using namespace test_partitioner_utils::interaction_with_range_and_partitioner;
+
+    test_partitioner_utils::SimpleBody b;
+    tbb::affinity_partitioner ap;
+
+    parallel_for(Range1(true, false), b, ap);
+    parallel_for(Range2(true, false), b, ap);
+    parallel_for(Range3(true, false), b, ap);
+    parallel_for(Range4(false, true), b, ap);
+    parallel_for(Range5(false, true), b, ap);
+    parallel_for(Range6(false, true), b, ap);
+
+    parallel_for(Range1(false, true), b, tbb::simple_partitioner());
+    parallel_for(Range2(false, true), b, tbb::simple_partitioner());
+    parallel_for(Range3(false, true), b, tbb::simple_partitioner());
+    parallel_for(Range4(false, true), b, tbb::simple_partitioner());
+    parallel_for(Range5(false, true), b, tbb::simple_partitioner());
+    parallel_for(Range6(false, true), b, tbb::simple_partitioner());
+
+    parallel_for(Range1(false, true), b, tbb::auto_partitioner());
+    parallel_for(Range2(false, true), b, tbb::auto_partitioner());
+    parallel_for(Range3(false, true), b, tbb::auto_partitioner());
+    parallel_for(Range4(false, true), b, tbb::auto_partitioner());
+    parallel_for(Range5(false, true), b, tbb::auto_partitioner());
+    parallel_for(Range6(false, true), b, tbb::auto_partitioner());
+}
+
+} // namespace interaction_with_range_and_partitioner
+
+namespace uniform_work_distribution {
+
+/*
+ * Test checks that initial work distribution is done uniformly
+ * through affinity mechanism and not through work stealing
+ */
+
+class Body {
+    Harness::SpinBarrier &m_sb;
+public:
+    Body(Harness::SpinBarrier& sb) : m_sb(sb) { }
+    Body(Body& b, tbb::split) : m_sb(b.m_sb) { }
+    Body& operator =(const Body&) { return *this; }
+    template <typename Range>
+    void operator()(Range& r) const {
+        REMARK("Executing range [%lu, %lu)\n", r.begin(), r.end());
+        m_sb.timed_wait(10); // waiting for all threads
+    }
+};
+
+
+
+template <typename RangeType>
+void test_uniform_work_distribution() {
+    int thread_num = tbb::task_scheduler_init::default_num_threads();
+    Harness::SpinBarrier sb(thread_num);
+    tbb::affinity_partitioner ap;
+    tbb::parallel_for(RangeType(0, thread_num), Body(sb), ap);
+}
+
+void test() {
+    using namespace test_partitioner_utils::TestRanges;
+
+    test_uniform_work_distribution<RoundedDownRange>();
+    test_uniform_work_distribution<RoundedUpRange>();
+    test_uniform_work_distribution< tbb::blocked_range<size_t> >();
+    test_uniform_work_distribution<Range1_2>();
+    test_uniform_work_distribution<Range1_999>();
+    test_uniform_work_distribution<Range999_1>();
+}
+
+} // namespace uniform_work_distribution
 
 int TestMain () {
     if( MinThread<1 ) {
@@ -520,6 +599,9 @@ int TestMain () {
 #if (HAVE_m128 || HAVE_m256) && __TBB_SSE_STACK_ALIGNMENT_BROKEN
     REPORT("Known issue: stack alignment for SIMD instructions not tested.\n");
 #endif
+
+    uniform_work_distribution::test();
+    interaction_with_range_and_partitioner::test();
     return Harness::Done;
 }
 

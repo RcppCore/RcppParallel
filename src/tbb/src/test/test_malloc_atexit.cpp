@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,8 +39,7 @@
 #include <stdlib.h>
 
 #if _WIN32||_WIN64
-// isMallocOverloaded must be defined in DLL to linker not drop the dependence
-// to the DLL.
+// isMallocOverloaded must be defined in DLL for linker to not drop the dependence on the DLL.
 extern __declspec(dllexport) bool isMallocOverloaded();
 
 bool isMallocOverloaded()

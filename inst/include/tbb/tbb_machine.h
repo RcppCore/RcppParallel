@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -125,7 +125,7 @@
 #include "tbb_stddef.h"
 
 namespace tbb {
-namespace internal {
+namespace internal { //< @cond INTERNAL
 
 ////////////////////////////////////////////////////////////////////////////////
 // Overridable helpers declarations
@@ -172,12 +172,12 @@ template<> struct atomic_selector<8> {
     inline static word fetch_store ( volatile void* location, word value );
 };
 
-}} // namespaces internal, tbb
+}} //< namespaces internal @endcond, tbb
 
 #define __TBB_MACHINE_DEFINE_STORE8_GENERIC_FENCED(M)                                        \
     inline void __TBB_machine_generic_store8##M(volatile void *ptr, int64_t value) {         \
         for(;;) {                                                                            \
-            int64_t result = *(int64_t *)ptr;                                                \
+            int64_t result = *(volatile int64_t *)ptr;                                       \
             if( __TBB_machine_cmpswp8##M(ptr,value,result)==result ) break;                  \
         }                                                                                    \
     }                                                                                        \
@@ -231,8 +231,11 @@ template<> struct atomic_selector<8> {
 #elif __TBB_DEFINE_MIC
 
     #include "machine/mic_common.h"
-    //TODO: check if ICC atomic intrinsics are available for MIC
-    #include "machine/linux_intel64.h"
+    #if (TBB_USE_ICC_BUILTINS && __TBB_ICC_BUILTIN_ATOMICS_PRESENT)
+        #include "machine/icc_generic.h"
+    #else
+        #include "machine/linux_intel64.h"
+    #endif
 
 #elif __linux__ || __FreeBSD__ || __NetBSD__
 
@@ -349,7 +352,7 @@ namespace tbb {
 //! Sequentially consistent full memory fence.
 inline void atomic_fence () { __TBB_full_memory_fence(); }
 
-namespace internal {
+namespace internal { //< @cond INTERNAL
 
 //! Class that implements exponential backoff.
 /** See implementation of spin_wait_while_eq for an example. */
@@ -412,6 +415,11 @@ void spin_wait_until_eq( const volatile T& location, const U value ) {
     while( location!=value ) backoff.pause();
 }
 
+template <typename predicate_type>
+void spin_wait_while(predicate_type condition){
+    atomic_backoff backoff;
+    while( condition() ) backoff.pause();
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Generic compare-and-swap applied to only a part of a machine word.
@@ -479,32 +487,32 @@ template<size_t S, typename T>
 inline T __TBB_CompareAndSwapGeneric (volatile void *ptr, T value, T comparand );
 
 template<>
-inline uint8_t __TBB_CompareAndSwapGeneric <1,uint8_t> (volatile void *ptr, uint8_t value, uint8_t comparand ) {
+inline int8_t __TBB_CompareAndSwapGeneric <1,int8_t> (volatile void *ptr, int8_t value, int8_t comparand ) {
 #if __TBB_USE_GENERIC_PART_WORD_CAS
-    return __TBB_MaskedCompareAndSwap<uint8_t>((volatile uint8_t *)ptr,value,comparand);
+    return __TBB_MaskedCompareAndSwap<int8_t>((volatile int8_t *)ptr,value,comparand);
 #else
     return __TBB_machine_cmpswp1(ptr,value,comparand);
 #endif
 }
 
 template<>
-inline uint16_t __TBB_CompareAndSwapGeneric <2,uint16_t> (volatile void *ptr, uint16_t value, uint16_t comparand ) {
+inline int16_t __TBB_CompareAndSwapGeneric <2,int16_t> (volatile void *ptr, int16_t value, int16_t comparand ) {
 #if __TBB_USE_GENERIC_PART_WORD_CAS
-    return __TBB_MaskedCompareAndSwap<uint16_t>((volatile uint16_t *)ptr,value,comparand);
+    return __TBB_MaskedCompareAndSwap<int16_t>((volatile int16_t *)ptr,value,comparand);
 #else
     return __TBB_machine_cmpswp2(ptr,value,comparand);
 #endif
 }
 
 template<>
-inline uint32_t __TBB_CompareAndSwapGeneric <4,uint32_t> (volatile void *ptr, uint32_t value, uint32_t comparand ) {
+inline int32_t __TBB_CompareAndSwapGeneric <4,int32_t> (volatile void *ptr, int32_t value, int32_t comparand ) {
     // Cast shuts up /Wp64 warning
-    return (uint32_t)__TBB_machine_cmpswp4(ptr,value,comparand);
+    return (int32_t)__TBB_machine_cmpswp4(ptr,value,comparand);
 }
 
 #if __TBB_64BIT_ATOMICS
 template<>
-inline uint64_t __TBB_CompareAndSwapGeneric <8,uint64_t> (volatile void *ptr, uint64_t value, uint64_t comparand ) {
+inline int64_t __TBB_CompareAndSwapGeneric <8,int64_t> (volatile void *ptr, int64_t value, int64_t comparand ) {
     return __TBB_machine_cmpswp8(ptr,value,comparand);
 }
 #endif
@@ -534,34 +542,34 @@ inline T __TBB_FetchAndStoreGeneric (volatile void *ptr, T value) {
 }
 
 #if __TBB_USE_GENERIC_PART_WORD_CAS
-#define __TBB_machine_cmpswp1 tbb::internal::__TBB_CompareAndSwapGeneric<1,uint8_t>
-#define __TBB_machine_cmpswp2 tbb::internal::__TBB_CompareAndSwapGeneric<2,uint16_t>
+#define __TBB_machine_cmpswp1 tbb::internal::__TBB_CompareAndSwapGeneric<1,int8_t>
+#define __TBB_machine_cmpswp2 tbb::internal::__TBB_CompareAndSwapGeneric<2,int16_t>
 #endif
 
 #if __TBB_USE_GENERIC_FETCH_ADD || __TBB_USE_GENERIC_PART_WORD_FETCH_ADD
-#define __TBB_machine_fetchadd1 tbb::internal::__TBB_FetchAndAddGeneric<1,uint8_t>
-#define __TBB_machine_fetchadd2 tbb::internal::__TBB_FetchAndAddGeneric<2,uint16_t>
+#define __TBB_machine_fetchadd1 tbb::internal::__TBB_FetchAndAddGeneric<1,int8_t>
+#define __TBB_machine_fetchadd2 tbb::internal::__TBB_FetchAndAddGeneric<2,int16_t>
 #endif
 
 #if __TBB_USE_GENERIC_FETCH_ADD
-#define __TBB_machine_fetchadd4 tbb::internal::__TBB_FetchAndAddGeneric<4,uint32_t>
+#define __TBB_machine_fetchadd4 tbb::internal::__TBB_FetchAndAddGeneric<4,int32_t>
 #endif
 
 #if __TBB_USE_GENERIC_FETCH_ADD || __TBB_USE_GENERIC_DWORD_FETCH_ADD
-#define __TBB_machine_fetchadd8 tbb::internal::__TBB_FetchAndAddGeneric<8,uint64_t>
+#define __TBB_machine_fetchadd8 tbb::internal::__TBB_FetchAndAddGeneric<8,int64_t>
 #endif
 
 #if __TBB_USE_GENERIC_FETCH_STORE || __TBB_USE_GENERIC_PART_WORD_FETCH_STORE
-#define __TBB_machine_fetchstore1 tbb::internal::__TBB_FetchAndStoreGeneric<1,uint8_t>
-#define __TBB_machine_fetchstore2 tbb::internal::__TBB_FetchAndStoreGeneric<2,uint16_t>
+#define __TBB_machine_fetchstore1 tbb::internal::__TBB_FetchAndStoreGeneric<1,int8_t>
+#define __TBB_machine_fetchstore2 tbb::internal::__TBB_FetchAndStoreGeneric<2,int16_t>
 #endif
 
 #if __TBB_USE_GENERIC_FETCH_STORE
-#define __TBB_machine_fetchstore4 tbb::internal::__TBB_FetchAndStoreGeneric<4,uint32_t>
+#define __TBB_machine_fetchstore4 tbb::internal::__TBB_FetchAndStoreGeneric<4,int32_t>
 #endif
 
 #if __TBB_USE_GENERIC_FETCH_STORE || __TBB_USE_GENERIC_DWORD_FETCH_STORE
-#define __TBB_machine_fetchstore8 tbb::internal::__TBB_FetchAndStoreGeneric<8,uint64_t>
+#define __TBB_machine_fetchstore8 tbb::internal::__TBB_FetchAndStoreGeneric<8,int64_t>
 #endif
 
 #if __TBB_USE_FETCHSTORE_AS_FULL_FENCED_STORE
@@ -834,7 +842,7 @@ const T reverse<T>::byte_table[256] = {
     0x0F, 0x8F, 0x4F, 0xCF, 0x2F, 0xAF, 0x6F, 0xEF, 0x1F, 0x9F, 0x5F, 0xDF, 0x3F, 0xBF, 0x7F, 0xFF
 };
 
-} // namespace internal
+} // namespace internal @endcond
 } // namespace tbb
 
 // Preserving access to legacy APIs

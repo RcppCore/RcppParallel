@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -154,7 +154,7 @@ static void* DummyMalloc( size_t size ) {
     return (*MallocHandler)( size );
 }
 
-//! Executed on very first call throught FreeHandler
+//! Executed on very first call through FreeHandler
 static void DummyFree( void * ptr ) {
     initialize_cache_aligned_allocator();
     __TBB_ASSERT( FreeHandler!=&DummyFree, NULL );
@@ -168,7 +168,7 @@ static void* dummy_padded_allocate( size_t bytes, size_t alignment ) {
     return (*padded_allocate_handler)(bytes, alignment);
 }
 
-//! Executed on very first call throught padded_free_handler
+//! Executed on very first call through padded_free_handler
 static void dummy_padded_free( void * ptr ) {
     initialize_cache_aligned_allocator();
     __TBB_ASSERT( padded_free_handler!=&dummy_padded_free, NULL );

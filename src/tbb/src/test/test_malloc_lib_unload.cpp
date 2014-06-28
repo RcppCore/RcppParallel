@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -37,7 +37,7 @@
 const char *globalCallMsg = "A TBB allocator function call is resolved into wrong implementation.";
 
 #if _WIN32||_WIN64
-// must be defined in DLL to linker not drop the dependence to the DLL.
+// must be defined in DLL for linker to not drop the dependence on the DLL.
 extern "C" {
     extern __declspec(dllexport) void *scalable_malloc(size_t);
     extern __declspec(dllexport) void scalable_free (void *);
@@ -123,17 +123,17 @@ extern "C" size_t safer_scalable_msize (void *, size_t (*)(void*))
 
 #include <cstdlib>
 #include "tbb/tbb_stddef.h"
+#if __TBB_WIN8UI_SUPPORT || __TBB_SOURCE_DIRECTLY_INCLUDED
+#define HARNESS_SKIP_TEST 1
+#endif
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
+#define HARNESS_TBBMALLOC_THREAD_SHUTDOWN 1
+#include "harness_dynamic_libs.h"
 #include "harness.h"
 
-#if __TBB_WIN8UI_SUPPORT
-int TestMain() {
-    return Harness::Skipped;
-}
-#else /* __TBB_WIN8UI_SUPPORT */
+#if !HARNESS_SKIP_TEST
 
 #include "harness_memory.h"
-#include "harness_dynamic_libs.h"
 
 extern "C" {
 #if _WIN32||_WIN64
@@ -217,6 +217,6 @@ int TestMain () {
     return Harness::Done;
 }
 
-#endif /* __TBB_WIN8UI_SUPPORT */
+#endif /* HARNESS_SKIP_TEST */
 
 #endif // _USRDLL

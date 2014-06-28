@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,6 +28,7 @@
 
 #include "tbb/scalable_allocator.h"
 #include "tbb/atomic.h"
+#define HARNESS_TBBMALLOC_THREAD_SHUTDOWN 1
 #include "harness.h"
 #include "harness_barrier.h"
 #if !__TBB_SOURCE_DIRECTLY_INCLUDED

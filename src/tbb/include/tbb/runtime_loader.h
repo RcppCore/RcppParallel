@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,7 +33,7 @@
     #error Set TBB_PREVIEW_RUNTIME_LOADER to include runtime_loader.h
 #endif
 
-#include "tbb/tbb_stddef.h"
+#include "tbb_stddef.h"
 #include <climits>
 
 #if _MSC_VER
@@ -86,7 +86,7 @@ There are some implications:
         cooperatively, otherwise the second object will report an error.
 
     -   \c runtime_loader objects will not work (correctly) in parallel due to absence of
-        syncronization.
+        synchronization.
 
 */
 

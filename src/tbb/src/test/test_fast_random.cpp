@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -49,7 +49,7 @@
 //! Coefficient defining tolerable deviation from ideal random distribution
 const double AcceptableDeviation = 2.1;
 //! Tolerable probability of failure to achieve tolerable distribution
-const double AcceptableProbabilityOfOutliers = 1e-6;
+const double AcceptableProbabilityOfOutliers = 1e-5;
 //! Coefficient defining the length of random numbers series used to estimate the distribution
 /** Number of random values generated per each range element. I.e. the larger is 
     the range, the longer is the series of random values. **/

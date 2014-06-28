@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -197,9 +197,10 @@ class concurrent_priority_queue {
     //! Swap this queue with another; not thread-safe
     /** This operation is unsafe if there are pending concurrent operations on the queue. */
     void swap(concurrent_priority_queue& q) {
+        using std::swap;
         data.swap(q.data);
-        std::swap(mark, q.mark);
-        std::swap(my_size, q.my_size);
+        swap(mark, q.mark);
+        swap(my_size, q.my_size);
     }
 
     //! Return allocator object

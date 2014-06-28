@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -106,6 +106,9 @@ void SerialConvolve( T c[], const T a[], int m, const T b[], int n ) {
     }
 }
 
+#define OPENMP_ASYNC_SHUTDOWN_BROKEN (__INTEL_COMPILER<=1400 && __linux__)
+#define TBB_PREVIEW_WAITING_FOR_WORKERS 1
+
 #include "tbb/blocked_range.h"
 #include "tbb/parallel_for.h"
 #include "tbb/parallel_reduce.h"
@@ -195,36 +198,33 @@ void TBB_OpenMP_Convolve( T c[], const T a[], int m, const T b[], int n ) {
 
 const int M = 17*17;
 const int N = 13*13;
+T a[M], b[N];
+T expected[M+N], actual[M+N];
+
+template <class Func>
+void RunTest( Func F, int m, int n, int p, bool wait_workers = false ) {
+    task_scheduler_init init( p, 0, wait_workers );
+    memset( actual, -1, (m+n)*sizeof(T) );
+    F( actual, a, m, b, n );
+    ASSERT( memcmp(actual, expected, (m+n-1)*sizeof(T))==0, NULL );
+}
 
 int TestMain () {
     MinThread = 1;
     for( int p=MinThread; p<=MaxThread; ++p ) {
-        T a[M];
-        T b[N];
         for( int m=1; m<=M; m*=17 ) {
-            for( int n=1; n<=M; n*=13 ) {
+            for( int n=1; n<=N; n*=13 ) {
                 for( int i=0; i<m; ++i ) a[i] = T(1+i/5);
                 for( int i=0; i<n; ++i ) b[i] = T(1+i/7);
-                T expected[M+N];
                 SerialConvolve( expected, a, m, b, n );
-                task_scheduler_init init(p);
-                T actual[M+N];
-                for( int k = 0; k<2; ++k ) {
-                    memset( actual, -1, sizeof(actual) );
-                    switch(k) {
-                        case 0: 
-                            TBB_OpenMP_Convolve( actual, a, m, b, n ); 
-                            break;
-                        case 1: 
-                            OpenMP_TBB_Convolve( actual, a, m, b, n ); 
-                            break;
-                    }
-                    for( int i=0; i<m+n-1; ++i ) {
-                        ASSERT( actual[i]==expected[i], NULL );
-                    }
-                }
+                RunTest( OpenMP_TBB_Convolve, m, n, p );
+                RunTest( TBB_OpenMP_Convolve, m, n, p
+#if OPENMP_ASYNC_SHUTDOWN_BROKEN
+                    ,true
+#endif
+                    );
             }
-        } 
+        }
     }
     return Harness::Done;
 }

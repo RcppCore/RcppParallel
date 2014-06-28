@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -130,6 +130,9 @@ void tbb_thread_v3::internal_start( __TBB_NATIVE_THREAD_ROUTINE_PTR(start_routin
     status = pthread_create( &thread_handle, &stack_size, start_routine, closure );
     if( status )
         handle_perror( status, "pthread_create" );
+    status = pthread_attr_destroy( &stack_size );
+    if( status )
+        handle_perror( status, "pthread_attr_destroy" );
 
     my_handle = thread_handle;
 #endif // _WIN32||_WIN64

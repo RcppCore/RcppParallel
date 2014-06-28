@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -102,9 +102,7 @@ class custom_scheduler: private generic_scheduler {
         if( SchedulerTraits::has_slow_atomic && p.ref_count==1 )
             p.ref_count=0;
         else if( __TBB_FetchAndDecrementWrelease(&p.ref_count) > 1 ) {// more references exist
-#if __TBB_PREFETCHING
-            __TBB_cl_evict(&p);
-#endif
+            // '__TBB_cl_evict(&p)' degraded performance of parallel_preorder example
             return;
         }
 
@@ -148,7 +146,6 @@ public:
 //------------------------------------------------------------------------
 // custom_scheduler methods
 //------------------------------------------------------------------------
-
 template<typename SchedulerTraits>
 task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( __TBB_atomic reference_count& completion_ref_count,
                                                                 bool return_if_no_work ) {
@@ -156,6 +153,9 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( __TBB_atomic ref
     bool outermost_dispatch_level = return_if_no_work || master_outermost_level();
     bool can_steal_here = can_steal();
     my_inbox.set_is_idle( true );
+#if __TBB_HOARD_NONLOCAL_TASKS
+    __TBB_ASSERT(!my_nonlocal_free_list, NULL);
+#endif
 #if __TBB_TASK_PRIORITY
     if ( return_if_no_work && my_arena->my_skipped_fifo_priority ) {
         // This thread can dequeue FIFO tasks, and some priority levels of
@@ -242,7 +242,7 @@ task* custom_scheduler<SchedulerTraits>::receive_or_steal_task( __TBB_atomic ref
                 t = tp.extract_task<task_proxy::pool_bit>();
                 if ( !t ) {
                     // Proxy was empty, so it's our responsibility to free it
-                    free_task<small_task>(tp);
+                    free_task<no_cache_small_task>(tp);
                     goto fail;
                 }
                 GATHER_STATISTIC( ++my_counters.proxies_stolen );
@@ -298,7 +298,7 @@ fail:
                 if ( orphans ) {
                     task** link = NULL;
                     // Get local counter out of the way (we've just brought in external tasks)
-                    my_local_reload_epoch = 0;
+                    my_local_reload_epoch--;
                     t = reload_tasks( orphans, link, effective_reference_priority() );
                     if ( orphans ) {
                         *link = my_offloaded_tasks;
@@ -333,8 +333,8 @@ fail:
                 }
                 if ( my_offloaded_tasks ) {
                     // Safeguard against any sloppiness in managing reload epoch
-                    // counter (e.g. on the hot path bacause of performance reasons).
-                    my_local_reload_epoch = 0;
+                    // counter (e.g. on the hot path because of performance reasons).
+                    my_local_reload_epoch--;
                     // Break the deadlock caused by a higher priority dispatch loop
                     // stealing and offloading a lower priority task. Priority check
                     // at the stealing moment cannot completely preclude such cases
@@ -342,7 +342,9 @@ fail:
                     if ( !return_if_no_work && *my_ref_top_priority > my_arena->my_top_priority ) {
                         GATHER_STATISTIC( ++my_counters.prio_ref_fixups );
                         my_ref_top_priority = &my_arena->my_top_priority;
-                        my_ref_reload_epoch = &my_arena->my_reload_epoch;
+                        // it's expected that only outermost workers can use global reload epoch
+                        __TBB_ASSERT(!worker_outermost_level(), NULL);
+                        __TBB_ASSERT(my_ref_reload_epoch == &my_arena->my_reload_epoch, NULL);
                     }
                 }
 #endif /* __TBB_TASK_PRIORITY */
@@ -368,7 +370,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
     __TBB_ASSERT( parent.prefix().context || (is_worker() && &parent == my_dummy_task), "parent task does not have context" );
 #endif /* __TBB_TASK_GROUP_CONTEXT */
     task* t = child;
-    // Constant all_local_work_done is an unreacheable refcount value that prevents
+    // Constant all_local_work_done is an unreachable refcount value that prevents
     // early quitting the dispatch loop. It is defined to be in the middle of the range
     // of negative values representable by the reference_count type.
     static const reference_count
@@ -399,20 +401,27 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
             // executed so that dynamic priority changes did not cause deadlock.
             my_ref_top_priority = &parent.prefix().context->my_priority;
             my_ref_reload_epoch = &my_arena->my_reload_epoch;
+            if(my_ref_reload_epoch != old_ref_reload_epoch)
+                my_local_reload_epoch = *my_ref_reload_epoch-1;
         }
 #endif /* __TBB_TASK_PRIORITY */
     }
-#if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+
+    cpu_ctl_env_helper cpu_ctl_helper;
+    if ( t )
+        cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(*t->prefix().context) );
+
+#if TBB_USE_EXCEPTIONS
     // Infinite safeguard EH loop
     for (;;) {
     try {
-#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
+#endif /* TBB_USE_EXCEPTIONS */
     // Outer loop receives tasks from global environment (via mailbox, FIFO queue(s),
     // and by  stealing from other threads' task pools).
     // All exit points from the dispatch loop are located in its immediate scope.
     for(;;) {
         // Middle loop retrieves tasks from the local task pool.
-        do {
+        for(;;) {
             // Inner loop evaluates tasks coming from nesting loops and those returned
             // by just executed tasks (bypassing spawn or enqueue calls).
             while(t) {
@@ -421,6 +430,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
                 __TBB_ASSERT( t->prefix().owner, NULL );
                 assert_task_valid(*t);
 #if __TBB_TASK_GROUP_CONTEXT && TBB_USE_ASSERT
+                assert_context_valid(t->prefix().context);
                 if ( !t->prefix().context->my_cancellation_requested )
 #endif
                 __TBB_ASSERT( 1L<<t->state() & (1L<<task::allocated|1L<<task::ready|1L<<task::reexecute), NULL );
@@ -550,7 +560,11 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
             }
             __TBB_ASSERT(!t || !is_proxy(*t),"unexpected proxy");
             assert_task_pool_valid();
-        } while( t ); // end of local task pool retrieval loop
+
+            if ( !t ) break;
+
+            cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(*t->prefix().context) );
+        }; // end of local task pool retrieval loop
 
 #if __TBB_TASK_PRIORITY
 stealing_ground:
@@ -564,10 +578,13 @@ stealing_ground:
 #endif
         if ( quit_point == all_local_work_done ) {
             __TBB_ASSERT( !in_arena() && is_quiescent_local_task_pool_reset(), NULL );
+            __TBB_ASSERT( !worker_outermost_level(), NULL );
             my_innermost_running_task = my_dispatching_task;
             my_dispatching_task = old_dispatching_task;
 #if __TBB_TASK_PRIORITY
             my_ref_top_priority = old_ref_top_priority;
+            if(my_ref_reload_epoch != old_ref_reload_epoch)
+                my_local_reload_epoch = *old_ref_reload_epoch-1;
             my_ref_reload_epoch = old_ref_reload_epoch;
 #endif /* __TBB_TASK_PRIORITY */
             return;
@@ -579,12 +596,21 @@ stealing_ground:
         // Dispatching task pointer is NULL *iff* this is a worker thread in its outermost
         // dispatch loop (i.e. its execution stack is empty). In this case it should exit it
         // either when there is no more work in the current arena, or when revoked by the market.
+        
         t = receive_or_steal_task( parent.prefix().ref_count, worker_outermost_level() );
         if ( !t )
             goto done;
         __TBB_ASSERT(!is_proxy(*t),"unexpected proxy");
+
+#if __TBB_TASK_GROUP_CONTEXT
+        // The user can capture another the FPU settings to the context so the
+        // cached data in the helper can be out-of-date and we cannot do fast
+        // check.
+        assert_context_valid(t->prefix().context);
+        cpu_ctl_helper.set_env( *t->prefix().context );
+#endif /*__TBB_TASK_GROUP_CONTEXT*/
     } // end of infinite stealing loop
-#if __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS
+#if TBB_USE_EXCEPTIONS
     __TBB_ASSERT( false, "Must never get here" );
     } // end of try-block
     TbbCatchAll( t->prefix().context );
@@ -608,12 +634,14 @@ stealing_ground:
     }
     } // end of infinite EH loop
     __TBB_ASSERT( false, "Must never get here too" );
-#endif /* __TBB_TASK_GROUP_CONTEXT && TBB_USE_EXCEPTIONS */
+#endif /* TBB_USE_EXCEPTIONS */
 done:
     my_innermost_running_task = my_dispatching_task;
     my_dispatching_task = old_dispatching_task;
 #if __TBB_TASK_PRIORITY
     my_ref_top_priority = old_ref_top_priority;
+    if(my_ref_reload_epoch != old_ref_reload_epoch)
+        my_local_reload_epoch = *old_ref_reload_epoch-1;
     my_ref_reload_epoch = old_ref_reload_epoch;
 #endif /* __TBB_TASK_PRIORITY */
     if ( !ConcurrentWaitsEnabled(parent) ) {
@@ -645,8 +673,13 @@ done:
             // TODO: Add assertion that master's dummy task context does not have children
             parent_ctx->my_state &= ~(uintptr_t)task_group_context::may_have_children;
         }
-        if ( pe )
+        if ( pe ) {
+            // On Windows, FPU control settings changed in the helper destructor are not visible
+            // outside a catch block. So restore the default settings manually before rethrowing
+            // the exception.
+            cpu_ctl_helper.restore_default();
             pe->throw_self();
+        }
     }
     __TBB_ASSERT(!is_worker() || !CancellationInfoPresent(*my_dummy_task),
         "Worker's dummy task context modified");

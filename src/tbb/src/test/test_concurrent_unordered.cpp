@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,10 +34,15 @@
 #include "tbb/concurrent_unordered_map.h"
 #include "tbb/concurrent_unordered_set.h"
 #include "harness_assert.h"
-#if !__TBB_TEST_SECONDARY
+
+#if __TBB_TEST_SECONDARY
+
+#include "harness_runtime_loader.h"
+
+#else // __TBB_TEST_SECONDARY
+
 #include "tbb/parallel_for.h"
 #include "tbb/tick_count.h"
-#include <stdio.h>
 #include "harness.h"
 // Test that unordered containers do not require keys have default constructors.
 #define __HARNESS_CHECKTYPE_DEFAULT_CTOR 0

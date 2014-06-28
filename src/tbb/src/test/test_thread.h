@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,7 +26,6 @@
     the GNU General Public License.
 */
 
-#include "tbb/tbb_thread.h"
 #include "tbb/atomic.h"
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1

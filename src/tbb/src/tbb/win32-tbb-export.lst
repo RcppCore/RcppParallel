@@ -1,4 +1,4 @@
-; Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 ;
 ; This file is part of Threading Building Blocks.
 ;
@@ -102,6 +102,7 @@ __TBB_SYMBOL( ?change_group@task@tbb@@QAEXAAVtask_group_context@2@@Z )
 __TBB_SYMBOL( ?is_group_execution_cancelled@task_group_context@tbb@@QBE_NXZ )
 __TBB_SYMBOL( ?cancel_group_execution@task_group_context@tbb@@QAE_NXZ )
 __TBB_SYMBOL( ?reset@task_group_context@tbb@@QAEXXZ )
+__TBB_SYMBOL( ?capture_fp_settings@task_group_context@tbb@@QAEXXZ )
 __TBB_SYMBOL( ?init@task_group_context@tbb@@IAEXXZ )
 __TBB_SYMBOL( ?register_pending_exception@task_group_context@tbb@@QAEXXZ )
 __TBB_SYMBOL( ??1task_group_context@tbb@@QAE@XZ )

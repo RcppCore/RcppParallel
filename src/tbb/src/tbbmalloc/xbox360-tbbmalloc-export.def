@@ -1,4 +1,4 @@
-; Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 ;
 ; This file is part of Threading Building Blocks.
 ;
@@ -40,3 +40,4 @@ safer_scalable_realloc @10
 scalable_msize @11
 safer_scalable_msize @12
 safer_scalable_aligned_realloc @13
+safer_scalable_aligned_msize @14

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -191,6 +191,13 @@ void DoClientSpecificVerification( MyServer& server, int /*n_thread*/ )
 }
 
 int TestMain () {
+#if _MSC_VER == 1600 && RML_USE_WCRM
+    REPORT("Known issue: RML resets the process mask when Concurrency Runtime is used.\n");
+    // AvailableHwConcurrency reads process mask when the first call. That's why it should
+    // be called before RML initialization.
+    tbb::internal::AvailableHwConcurrency();
+#endif
+
     StrictTeam = true;
     VerifyInitialization<MyFactory,MyClient>( MaxThread );
     SimpleTest<MyFactory,MyClient>();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -61,18 +61,9 @@ struct scheduler_list_node_t {
 
 #define LockedMaster ((generic_scheduler*)~(intptr_t)0)
 
-class governor;
-class market;
-class arena;
-
-#if __TBB_SCHEDULER_OBSERVER
-class task_scheduler_observer_v3;
-class observer_proxy;
-#endif /* __TBB_SCHEDULER_OBSERVER */
-
 struct scheduler_state {
     //! Index of the arena slot the scheduler occupies now, or occupied last time.
-    size_t my_arena_index;
+    size_t my_arena_index; // TODO: make it unsigned and pair with my_affinity_id to fit into cache line
 
     //! Pointer to the slot in the arena we own at the moment.
     arena_slot* my_arena_slot;
@@ -105,6 +96,15 @@ struct scheduler_state {
     //! Last observer in the local observers list processed by this scheduler
     observer_proxy* my_last_local_observer;
 #endif /* __TBB_SCHEDULER_OBSERVER */
+#if __TBB_TASK_PRIORITY
+    //! Latest known highest priority of tasks in the market or arena.
+    /** Master threads currently tracks only tasks in their arenas, while workers
+        take into account global top priority (among all arenas in the market). **/
+    volatile intptr_t *my_ref_top_priority;
+
+    //! Pointer to market's (for workers) or current arena's (for the master) reload epoch counter.
+    volatile uintptr_t *my_ref_reload_epoch;
+#endif /* __TBB_TASK_PRIORITY */
 };
 
 //! Work stealing task scheduler.
@@ -114,25 +114,8 @@ struct scheduler_state {
     Class generic_scheduler is an abstract base class that contains most of the scheduler,
     except for tweaks specific to processors and tools (e.g. VTune).
     The derived template class custom_scheduler<SchedulerTraits> fills in the tweaks. */
-class generic_scheduler: public scheduler, public ::rml::job, private scheduler_state {
-    friend class tbb::task;
-    friend class market;
-    friend class arena;
-    friend class interface7::internal::task_arena_base;
-    friend class interface7::internal::delegated_task;
-    friend class interface7::internal::wait_task;
-    friend struct interface7::internal::wait_body;
-    friend class allocate_root_proxy;
-    friend class governor;
-#if __TBB_TASK_GROUP_CONTEXT
-    friend class allocate_root_with_context_proxy;
-    friend class tbb::task_group_context;
-#endif /* __TBB_TASK_GROUP_CONTEXT */
-#if __TBB_SCHEDULER_OBSERVER
-    friend class task_scheduler_observer_v3;
-#endif /* __TBB_SCHEDULER_OBSERVER */
-    friend class scheduler;
-    template<typename SchedulerTraits> friend class custom_scheduler;
+class generic_scheduler: public scheduler, public ::rml::job, public scheduler_state {
+public: // almost every class in TBB uses generic_scheduler
 
     //! If sizeof(task) is <=quick_task_size, it is handled on a free list instead of malloc'd.
     static const size_t quick_task_size = 256-task_prefix_reservation_size;
@@ -296,8 +279,10 @@ class generic_scheduler: public scheduler, public ::rml::job, private scheduler_
     static void cleanup_worker( void* arg, bool worker );
 
 protected:
+    template<typename SchedulerTraits> friend class custom_scheduler;
     generic_scheduler( arena*, size_t index );
 
+public:
 #if TBB_USE_ASSERT > 1
     //! Check that internal data structures are in consistent state.
     /** Raises __TBB_ASSERT failure if inconsistency is found. */
@@ -306,10 +291,10 @@ protected:
     void assert_task_pool_valid() const {}
 #endif /* TBB_USE_ASSERT <= 1 */
 
-public:
 #if __TBB_TASK_ARENA
-    template<typename Body>
-    void nested_arena_execute(arena*, task*, bool, Body&);
+    void nested_arena_entry(arena*, task*, scheduler_state*, bool);
+    void nested_arena_exit(scheduler_state*, bool);
+    void wait_until_empty();
 #endif
 
     /*override*/ 
@@ -417,20 +402,12 @@ public:
     //! Returns reference priority used to decide whether a task should be offloaded.
     inline intptr_t effective_reference_priority () const;
 
-    //! Latest known highest priority of tasks in the market or arena.
-    /** Master threads currently tracks only tasks in their arenas, while workers
-        take into account global top priority (among all arenas in the market). **/
-    volatile intptr_t *my_ref_top_priority;
-
     // TODO: move into slots and fix is_out_of_work
     //! Task pool for offloading tasks with priorities lower than the current top priority.
     task* my_offloaded_tasks;
 
     //! Points to the last offloaded task in the my_offloaded_tasks list.
     task** my_offloaded_task_list_tail_link;
-
-    //! Pointer to market's (for workers) or current arena's (for the master) reload epoch counter.
-    volatile uintptr_t *my_ref_reload_epoch;
 
     //! Indicator of how recently the offload area was checked for the presence of top priority tasks.
     uintptr_t my_local_reload_epoch;
@@ -460,12 +437,40 @@ public:
     //! and propagates the new state to them.
     template <typename T>
     void propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state );
+
+    // check consistency
+    void assert_context_valid(task_group_context *tgc) {
+        suppress_unused_warning(tgc);
+#if TBB_USE_ASSERT
+        uintptr_t ctx = tgc->my_version_and_traits;
+        __TBB_ASSERT(is_alive(ctx), "referenced task_group_context was destroyed");
+        static const char *msg = "task_group_context is invalid";
+        __TBB_ASSERT(!(ctx&~(3|(7<<task_group_context::traits_offset))), msg); // the value fits known values of versions and traits
+        __TBB_ASSERT(tgc->my_kind < task_group_context::dying, msg);
+        __TBB_ASSERT(tgc->my_cancellation_requested == 0 || tgc->my_cancellation_requested == 1, msg);
+        __TBB_ASSERT(tgc->my_state <= 1, msg);
+        if(tgc->my_kind != task_group_context::isolated) {
+            __TBB_ASSERT(tgc->my_owner, msg);
+            __TBB_ASSERT(tgc->my_node.my_next && tgc->my_node.my_prev, msg);
+        }
+#if __TBB_TASK_PRIORITY
+        assert_priority_valid(tgc->my_priority);
+#endif
+        if(tgc->my_parent)
+#if TBB_USE_ASSERT > 1
+            assert_context_valid(tgc->my_parent);
+#else
+            __TBB_ASSERT(is_alive(tgc->my_parent->my_version_and_traits), msg);
+#endif
+#endif
+    }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
 #if _WIN32||_WIN64
 private:
     //! Handle returned by RML when registering a master with RML
     ::rml::server::execution_resource_t master_exec_resource;
+public:
 #endif /* _WIN32||_WIN64 */
 
 #if __TBB_TASK_GROUP_CONTEXT
@@ -608,8 +613,7 @@ void generic_scheduler::commit_relocated_tasks ( size_t new_tail ) {
 template<free_task_hint hint>
 void generic_scheduler::free_task( task& t ) {
 #if __TBB_HOARD_NONLOCAL_TASKS
-    // TODO: remove the whole free_task_hint stuff when enabled permanently
-    static const free_task_hint h = no_hint;
+    static const int h = hint&(~local_task);
 #else
     static const free_task_hint h = hint;
 #endif
@@ -618,6 +622,7 @@ void generic_scheduler::free_task( task& t ) {
     // Verify that optimization hints are correct.
     __TBB_ASSERT( h!=small_local_task || p.origin==this, NULL );
     __TBB_ASSERT( !(h&small_task) || p.origin, NULL );
+    __TBB_ASSERT( !(h&local_task) || (!p.origin || uintptr_t(p.origin) > uintptr_t(4096)), "local_task means allocated");
     poison_value(p.depth);
     poison_value(p.ref_count);
     poison_pointer(p.owner);
@@ -627,17 +632,18 @@ void generic_scheduler::free_task( task& t ) {
         GATHER_STATISTIC(++my_counters.free_list_length);
         p.next = my_free_list;
         my_free_list = &t;
-    } else if( p.origin && uintptr_t(p.origin) < uintptr_t(4096) ) {
+    } else if( !(h&local_task) && p.origin && uintptr_t(p.origin) < uintptr_t(4096) ) {
         // a special value reserved for future use, do nothing since
         // origin is not pointing to a scheduler instance
     } else if( !(h&local_task) && p.origin ) {
         GATHER_STATISTIC(++my_counters.free_list_length);
 #if __TBB_HOARD_NONLOCAL_TASKS
-        p.next = my_nonlocal_free_list;
-        my_nonlocal_free_list = &t;
-#else
-        free_nonlocal_small_task(t);
+        if( !(h&no_cache) ) {
+            p.next = my_nonlocal_free_list;
+            my_nonlocal_free_list = &t;
+        } else
 #endif
+        free_nonlocal_small_task(t);
     } else {
         GATHER_STATISTIC(--my_counters.big_tasks);
         deallocate_task(t);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -209,9 +209,6 @@ struct Body: NoAssign {
         for( size_t k=0; k<256; ++k )
             if(array[k])
                 check_deallocate(array, k, thread_id);
-#if __TBBMALLOC_CALL_THREAD_SHUTDOWN
-        __TBB_mallocThreadShutdownNotification();
-#endif
     }
 };
 

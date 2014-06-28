@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -82,7 +82,7 @@ PROXY_LINK_FLAGS = $(LIB_LINK_FLAGS)
 
 ifneq (,$(MALLOC.DEF))
 tbbmalloc.def: $(MALLOC.DEF)
-	$(CPLUS) $(PREPROC_ONLY) $< $(CPLUS_FLAGS) $(INCLUDES) > $@
+	$(CPLUS) $(PREPROC_ONLY) $< $(M_CPLUS_FLAGS) $(INCLUDES) > $@
 
 MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
 $(MALLOC.DLL): tbbmalloc.def
@@ -133,16 +133,20 @@ malloc_proxy_dll: $(MALLOCPROXY.DLL)
 #------------------------------------------------------
 
 # --------- The list of TBBMalloc unit tests ----------
-MALLOC_MAIN_TESTS = test_ScalableAllocator.$(TEST_EXT) \
-                    test_ScalableAllocator_STL.$(TEST_EXT) \
-                    test_malloc_compliance.$(TEST_EXT) \
-                    test_malloc_regression.$(TEST_EXT) \
-                    test_malloc_init_shutdown.$(TEST_EXT) \
-                    test_malloc_pools.$(TEST_EXT)
-MALLOC_TESTS = $(MALLOC_MAIN_TESTS) test_malloc_pure_c.$(TEST_EXT) test_malloc_whitebox.$(TEST_EXT) test_malloc_used_by_lib.$(TEST_EXT)
-MALLOC_OVERLOAD_TESTS =  test_malloc_overload.$(TEST_EXT) test_malloc_overload_proxy.$(TEST_EXT) test_malloc_atexit.$(TEST_EXT)
+MALLOC_TESTS = test_ScalableAllocator.$(TEST_EXT) \
+               test_ScalableAllocator_STL.$(TEST_EXT) \
+               test_malloc_compliance.$(TEST_EXT) \
+               test_malloc_regression.$(TEST_EXT) \
+               test_malloc_init_shutdown.$(TEST_EXT) \
+               test_malloc_pools.$(TEST_EXT) \
+               test_malloc_pure_c.$(TEST_EXT) \
+               test_malloc_whitebox.$(TEST_EXT) \
+               test_malloc_used_by_lib.$(TEST_EXT) \
+               test_malloc_lib_unload.$(TEST_EXT)
 ifneq (,$(MALLOCPROXY.DLL))
-MALLOC_TESTS += $(MALLOC_OVERLOAD_TESTS) test_malloc_lib_unload.$(TEST_EXT)
+MALLOC_TESTS += test_malloc_overload.$(TEST_EXT) \
+                test_malloc_overload_proxy.$(TEST_EXT) \
+                test_malloc_atexit.$(TEST_EXT)
 endif
 # -----------------------------------------------------
 # ------------ Set test specific variables ------------
@@ -198,10 +202,10 @@ malloc_test_no_depends: $(TEST_PREREQUISITE) $(MALLOC_TESTS)
 	$(run_cmd) ./test_malloc_pools.$(TEST_EXT) $(args) 1:4
 ifneq (,$(MALLOCPROXY.DLL))
 	$(run_cmd) ./test_malloc_atexit.$(TEST_EXT) $(args)
-	$(run_cmd) $(TEST_LAUNCHER) ./test_malloc_lib_unload.$(TEST_EXT) $(args)
 	$(run_cmd) $(TEST_LAUNCHER) -l $(MALLOCPROXY.DLL) ./test_malloc_overload.$(TEST_EXT) $(args)
 	$(run_cmd) $(TEST_LAUNCHER) ./test_malloc_overload_proxy.$(TEST_EXT) $(args)
 endif
+	$(run_cmd) $(TEST_LAUNCHER) ./test_malloc_lib_unload.$(TEST_EXT) $(args)
 	$(run_cmd) $(TEST_LAUNCHER) ./test_malloc_used_by_lib.$(TEST_EXT)
 	$(run_cmd) ./test_malloc_whitebox.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) $(TEST_LAUNCHER) -u ./test_malloc_compliance.$(TEST_EXT) $(args) 1:4

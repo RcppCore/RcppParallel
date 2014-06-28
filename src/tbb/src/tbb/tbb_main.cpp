@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -52,7 +52,7 @@ rml::tbb_factory governor::theRMLServerFactory;
 bool governor::UsePrivateRML;
 const task_scheduler_init *governor::BlockingTSI;
 #if TBB_USE_ASSERT
-bool governor::IsBlockingTermiantionInProgress;
+bool governor::IsBlockingTerminationInProgress;
 #endif
 #if __TBB_CPF_BUILD || TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 bool governor::is_speculation_enabled;
@@ -134,18 +134,12 @@ void __TBB_InitOnce::add_ref() {
         governor::acquire_resources();
 }
 
-#if __TBB_ITT_STRUCTURE_API
-static inline void ITT_fini() { }
-#endif
-
 void __TBB_InitOnce::remove_ref() {
     int k = --count;
     __TBB_ASSERT(k>=0,"removed __TBB_InitOnce ref that was not added?"); 
     if( k==0 ) {
         governor::release_resources();
-#if __TBB_ITT_STRUCTURE_API
-        ITT_fini();
-#endif
+        ITT_FINI_ITTLIB();
     }
 }
 
@@ -232,6 +226,7 @@ void ITT_DoOneTimeInitialization() {
 
 //! Performs thread-safe lazy one-time general TBB initialization.
 void DoOneTimeInitializations() {
+    suppress_unused_warning(_pad);
     __TBB_InitOnce::lock();
     // No fence required for load of InitializationDone, because we are inside a critical section.
     if( !__TBB_InitOnce::InitializationDone ) {
@@ -403,6 +398,7 @@ void itt_task_end_v7( itt_domain_enum domain ) { }
 #endif // __TBB_ITT_STRUCTURE_API
 
 void* itt_load_pointer_v3( const void* src ) {
+    //TODO: replace this with __TBB_load_relaxed
     void* result = *static_cast<void*const*>(src);
     return result;
 }

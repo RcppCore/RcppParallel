@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,6 +48,12 @@
 // not the arena.
 // #define USE_TASK_SCHEDULER_OBSERVER 1
 #define TBB_PREVIEW_GRAPH_NODES 1
+
+#if _MSC_VER && defined(__INTEL_COMPILER) && !TBB_USE_DEBUG
+    #define TBB_RUN_BUFFERING_TEST __INTEL_COMPILER > 1210
+#else
+    #define TBB_RUN_BUFFERING_TEST 1
+#endif
 
 #if TBB_USE_EXCEPTIONS
 #if USE_TASK_SCHEDULER_OBSERVER
@@ -987,7 +993,6 @@ void run_one_buffer_node_test(bool throwException,bool flog) {
     o.observe(false);
 #endif
 }
-
 template<class BufferItemType,
          TestNodeTypeEnum SourceThrowType,
          TestNodeTypeEnum SinkThrowType>
@@ -1005,6 +1010,7 @@ void run_buffer_queue_and_overwrite_node_test() {
         if(i == 2) continue;  // no need to test flog w/o throws
         bool throwException = (i & 0x1) != 0;
         bool doFlog = (i & 0x2) != 0;
+#if TBB_RUN_BUFFERING_TEST
         run_one_buffer_node_test<
             /* class BufferItemType*/     BufferItemType,
             /*class SourceNodeType*/      SrcType,
@@ -1021,6 +1027,7 @@ void run_buffer_queue_and_overwrite_node_test() {
             /*class SinkNodeType*/        SnkType,
             /*class SinkNodeBodyType*/    SinkBodyType
             >(throwException, doFlog);
+#endif
         run_one_buffer_node_test<
             /* class BufferItemType*/     BufferItemType,
             /*class SourceNodeType*/      SrcType,
@@ -1034,6 +1041,10 @@ void run_buffer_queue_and_overwrite_node_test() {
 
 void test_buffer_queue_and_overwrite_node() {
     REMARK("Testing buffer_node, queue_node and overwrite_node\n");
+#if TBB_RUN_BUFFERING_TEST
+#else
+    REMARK("skip buffer and queue test (known issue)\n");
+#endif
     g_Wakeup_Msg = "buffer, queue, overwrite(is,non): Missed wakeup or machine is overloaded?";
     run_buffer_queue_and_overwrite_node_test<int,isThrowing,nonThrowing>();
     g_Wakeup_Msg = "buffer, queue, overwrite(non,is): Missed wakeup or machine is overloaded?";
@@ -1782,7 +1793,7 @@ void test_split_node() {
 }
 
 #if TBB_PREVIEW_GRAPH_NODES
-// --------- or_node ----------------------
+// --------- indexer_node ----------------------
 
 template < class InputTuple,
     class SourceType0,
@@ -1792,7 +1803,7 @@ template < class InputTuple,
     class TestNodeType,
     class SinkType,
     class SinkBodyType>
-void run_one_or_node_test(bool throwException,bool flog) {
+void run_one_indexer_node_test(bool throwException,bool flog) {
     typedef typename tbb::flow::tuple_element<0,InputTuple>::type ItemType0;
     typedef typename tbb::flow::tuple_element<1,InputTuple>::type ItemType1;
 
@@ -1876,12 +1887,12 @@ void run_one_or_node_test(bool throwException,bool flog) {
 template<class InputTuple,
     TestNodeTypeEnum SourceThrowType,
     TestNodeTypeEnum SinkThrowType>
-void run_or_node_test() {
+void run_indexer_node_test() {
     typedef typename tbb::flow::tuple_element<0,InputTuple>::type ItemType0;
     typedef typename tbb::flow::tuple_element<1,InputTuple>::type ItemType1;
     typedef test_source_body<ItemType0,SourceThrowType> SourceBodyType0;
     typedef test_source_body<ItemType1,SourceThrowType> SourceBodyType1;
-    typedef typename tbb::flow::or_node<InputTuple> TestNodeType;
+    typedef typename tbb::flow::indexer_node<ItemType0, ItemType1> TestNodeType;
     typedef absorber_body<typename TestNodeType::output_type,tbb::flow::continue_msg,SinkThrowType,unlimited_type> SinkBodyType;
 
     typedef typename tbb::flow::source_node<ItemType0> SourceType0;
@@ -1892,7 +1903,7 @@ void run_or_node_test() {
         if(2 == i) continue;
         bool throwException = (i & 0x1) != 0;
         bool doFlog = (i & 0x2) != 0;
-        run_one_or_node_test<
+        run_one_indexer_node_test<
              InputTuple,
              SourceType0,
              SourceBodyType0,
@@ -1904,14 +1915,14 @@ void run_or_node_test() {
     }
 }
 
-void test_or_node() {
-    REMARK("Testing or_node\n");
-    g_Wakeup_Msg = "or_node(is,non): Missed wakeup or machine is overloaded?";
-    run_or_node_test<tbb::flow::tuple<int,int>, isThrowing, nonThrowing>();
-    g_Wakeup_Msg = "or_node(non,is): Missed wakeup or machine is overloaded?";
-    run_or_node_test<tbb::flow::tuple<int,int>, nonThrowing, isThrowing>();
-    g_Wakeup_Msg = "or_node(is,is): Missed wakeup or machine is overloaded?";
-    run_or_node_test<tbb::flow::tuple<int,int>, isThrowing,  isThrowing>();
+void test_indexer_node() {
+    REMARK("Testing indexer_node\n");
+    g_Wakeup_Msg = "indexer_node(is,non): Missed wakeup or machine is overloaded?";
+    run_indexer_node_test<tbb::flow::tuple<int,int>, isThrowing, nonThrowing>();
+    g_Wakeup_Msg = "indexer_node(non,is): Missed wakeup or machine is overloaded?";
+    run_indexer_node_test<tbb::flow::tuple<int,int>, nonThrowing, isThrowing>();
+    g_Wakeup_Msg = "indexer_node(is,is): Missed wakeup or machine is overloaded?";
+    run_indexer_node_test<tbb::flow::tuple<int,int>, isThrowing,  isThrowing>();
     g_Wakeup_Msg = g_Orig_Wakeup_Msg;;
 }
 #endif
@@ -2015,9 +2026,9 @@ void TestOneThreadNum(int nThread) {
         // to attach N successor nodes to the write_once (or play some similar game).
         // test_write_once_node();
 #if TBB_PREVIEW_GRAPH_NODES
-        test_or_node();
+        test_indexer_node();
 #else
-        REMARK("or_node test skipped\n");
+        REMARK("indexer_node test skipped\n");
 #endif
     }
 }

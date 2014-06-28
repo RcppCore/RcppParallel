@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -54,11 +54,6 @@ endif
 # gcc 4.2 and higher support OpenMP
 ifneq (,$(shell gcc -dumpversion | egrep  "^(4\.[2-9]|[5-9])"))
     OPENMP_FLAG = -fopenmp
-endif
-
-# gcc 4.4 is particularly zealous about strict aliasing rules; suppress it for library builds
-ifneq (,$(shell gcc -dumpversion | egrep  "^4\.4"))
-    WARNING_SUPPRESS += -Wno-strict-aliasing
 endif
 
 # gcc 4.8 and later support TSX intrinsics, but require command line switch to enable them

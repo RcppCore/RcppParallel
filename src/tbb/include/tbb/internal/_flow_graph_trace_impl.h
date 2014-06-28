@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -29,7 +29,7 @@
 #ifndef _FGT_GRAPH_TRACE_IMPL_H
 #define _FGT_GRAPH_TRACE_IMPL_H
 
-#include "tbb/tbb_profiling.h"
+#include "../tbb_profiling.h"
 
 namespace tbb {
     namespace internal {

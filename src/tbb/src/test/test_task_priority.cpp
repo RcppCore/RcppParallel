@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -26,7 +26,12 @@
     the GNU General Public License.
 */
 
+#include "tbb/tbb_config.h"
 #include "harness.h"
+
+#if __TBB_GCC_STRICT_ALIASING_BROKEN
+    #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#endif
 
 #if __TBB_TASK_GROUP_CONTEXT
 
@@ -45,6 +50,8 @@ const int NumLeafTasks = 2;
 int MinBaseDepth = 8;
 int MaxBaseDepth = 10;
 int BaseDepth = 0;
+
+const int DesiredNumThreads = 12;
 
 const int NumTests = 8;
 const int TestRepeats = 4;
@@ -295,6 +302,10 @@ void RunPrioritySwitchBetweenTwoMasters ( int idx, uintptr_t opts ) {
 }
 
 void TestPrioritySwitchBetweenTwoMasters () {
+    if ( P > DesiredNumThreads ) {
+        REPORT_ONCE( "Known issue: TestPrioritySwitchBetweenTwoMasters is skipped for big number of threads\n" );
+        return;
+    }
     REMARK( "Stress tests: %s / %s \n", Low == tbb::priority_low ? "Low" : "Normal", High == tbb::priority_normal ? "Normal" : "High" );
     PrepareGlobals( 2 );
     for ( int i = 0; i < TestRepeats; ++i ) {
@@ -318,7 +329,7 @@ void TestPrioritySwitchBetweenTwoMasters () {
             REMARK( "Test %d: %d failures in %d runs\n", i, g_TestFailures[i], NumRuns );
         if ( g_TestFailures[i] * 100 / NumRuns > 50 ) {
             if ( i == 1 )
-                REPORT( "Known issue: priority effect is limited in case of blocking-style nesting\n" );
+                REPORT_ONCE( "Known issue: priority effect is limited in case of blocking-style nesting\n" );
             else
                 REPORT( "Warning: test %d misbehaved too often (%d out of %d)\n", i, g_TestFailures[i], NumRuns );
         }
@@ -543,7 +554,7 @@ void TestSetPriority() {
 
 int TestMain () {
 #if !__TBB_TEST_SKIP_AFFINITY
-    Harness::LimitNumberOfThreads( 16 );
+    Harness::LimitNumberOfThreads( DesiredNumThreads );
 #endif
 #if !__TBB_TASK_PRIORITY
     REMARK( "Priorities disabled: Running as just yet another task scheduler test\n" );

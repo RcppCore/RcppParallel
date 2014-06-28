@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -189,7 +189,7 @@ public:
 class aggregator : private aggregator_ext<internal::basic_handler> {
 public:
     aggregator() : aggregator_ext<internal::basic_handler>(internal::basic_handler()) {}
-    //! BASIC INTERFACE: Enter a function for exclusvie execution by the aggregator.
+    //! BASIC INTERFACE: Enter a function for exclusive execution by the aggregator.
     /** The calling thread stores the function object in a basic_operation and
         places the operation in the aggregator's mailbox */
     template<typename Body>

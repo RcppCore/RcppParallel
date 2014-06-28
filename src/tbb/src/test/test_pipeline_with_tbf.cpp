@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -116,7 +116,15 @@ public:
         Buffer* b = get_buffer(item);
         if( b ) {
             if(!this->is_bound() && sleeptime > 0) {
-                Harness::Sleep((int)sleeptime);
+                if(this->is_serial()) {
+                    Harness::Sleep((int)sleeptime);
+                }
+                else {
+                    // early parallel tokens sleep longer...
+                    int i = (int)((5 - b->sequence_number) * sleeptime);
+                    if(i < (int)sleeptime) i = (int)sleeptime;
+                    Harness::Sleep(i);
+                }
             }
             if( this->is_ordered() ) {
                 if( b->sequence_number == Buffer::unused ) 
@@ -256,10 +264,38 @@ class PipelineTest {
     static double TestOneConfiguration( unsigned numeral, unsigned nthread, unsigned number_of_filters, tbb::internal::Token ntokens);
     static void TestTrivialPipeline( unsigned nthread, unsigned number_of_filters );
     static void TestIdleSpinning(unsigned nthread);
+
+    static void PrintConfiguration(unsigned numeral, unsigned nFilters) {
+        REMARK( "{ ");
+        for( unsigned i = 0; i < nFilters; ++i) {
+            switch( numeral % number_of_filter_types ) {
+                case 0: REMARK("s  "); break;
+                case 1: REMARK("B  "); break;
+                case 2: REMARK("o  "); break;
+                case 3: REMARK("Bo "); break;
+                case 4: REMARK("P  "); break;
+                default: REMARK(" ** ERROR** "); break;
+            }
+            numeral /= number_of_filter_types;
+        }
+        REMARK("}");
+    }
+    static bool ContainsBoundFilter(unsigned numeral) {
+        for( ;numeral != 0; numeral /= number_of_filter_types)
+            if(numeral & 0x1) return true;
+        return false;
+    }
 };
 
-const tbb::filter::mode PipelineTest::non_tb_filters_table[3] = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order, tbb::filter::parallel}; 
-const tbb::filter::mode PipelineTest::tb_filters_table[2] = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order }; 
+const tbb::filter::mode PipelineTest::non_tb_filters_table[3] = {
+    tbb::filter::serial_in_order,       // 0
+    tbb::filter::serial_out_of_order,   // 2
+    tbb::filter::parallel               // 4
+}; 
+const tbb::filter::mode PipelineTest::tb_filters_table[2] = {
+    tbb::filter::serial_in_order,       // 1
+    tbb::filter::serial_out_of_order    // 3
+}; 
 
 #include "harness_cpu.h"
 
@@ -275,6 +311,7 @@ double PipelineTest::TestOneConfiguration(unsigned numeral, unsigned nthread, un
     unsigned number_of_tb_filters = 0;
     // ordinal numbers of thread-bound-filters in the current sequence
     unsigned array_of_tb_filter_numbers[MaxFilters];
+    if(!ContainsBoundFilter(numeral)) return 0.0;
     for( unsigned i=0; i<number_of_filters; ++i, temp/=number_of_filter_types ) {
         bool is_bound = temp%number_of_filter_types&0x1;
         tbb::filter::mode filter_type;
@@ -303,6 +340,7 @@ double PipelineTest::TestOneConfiguration(unsigned numeral, unsigned nthread, un
             parallelism_limit = nthread;
         }
     }
+    ASSERT(number_of_tb_filters,NULL);
     clear_global_state();
     // Account for clipping of parallelism.
     if( parallelism_limit>nthread ) 
@@ -378,24 +416,26 @@ void PipelineTest::TestTrivialPipeline( unsigned nthread, unsigned number_of_fil
 // time are reported.
 void PipelineTest::TestIdleSpinning( unsigned nthread)  {
     unsigned sample_setups[] = {
-        // in the comments below, s == serial, B == thread bound serial, p == parallel
-        1,   // B s s s
-        5,   // s B s s
-        25,  // s s B s
-        125, // s s s B
-        6,   // B B s s
-        26,  // B s B s
-        126, // B s s B
-        30,  // s B B s
-        130, // s B s B
-        150, // s s B B
-        31,  // B B B s
-        131, // B B s B
-        155, // s B B B
-        21,  // B p s s
-        105, // s B p s
-        45,  // s p B s
-        225, // s s p B
+        // in the comments below, s == serial, o == serial out-of-order,
+        // B == thread bound, Bo == thread bound out-of-order, p == parallel
+        1,   // B  s  s  s
+        5,   // s  B  s  s
+        25,  // s  s  B  s
+        125, // s  s  s  B
+        6,   // B  B  s  s
+        26,  // B  s  B  s
+        126, // B  s  s  B
+        30,  // s  B  B  s
+        130, // s  B  s  B
+        150, // s  s  B  B
+        31,  // B  B  B  s
+        131, // B  B  s  B
+        155, // s  B  B  B
+        495, // s  p  p  Bo
+        71,  // B  p  o  s
+        355, // s  B  p  o
+        95,  // s  p  Bo s
+        475, // s  s  p  Bo
     };
     const int nsetups = sizeof(sample_setups) / sizeof(unsigned);
     const int ntests = 4;
@@ -420,6 +460,9 @@ void PipelineTest::TestIdleSpinning( unsigned nthread)  {
         int v1cnt = 0;
         double s0sum = 0.0;
         double s1sum = 0.0;
+        REMARK(" TestOneConfiguration, pipeline == ");
+        PrintConfiguration(numeral, MaxFilters);
+        REMARK(", max_tokens== %d\n", (int)max_tokens);
         for(int j = 0; j < ntests; ++j) {
             double s1a = TestOneConfiguration(numeral, nthread, MaxFilters, max_tokens);
             double s0a = TestOneConfiguration((unsigned)0, nthread, MaxFilters, max_tokens);
@@ -469,15 +512,15 @@ int TestMain () {
         exit(1);
     }
 
-    sleeptime = 0.0;  // msec : 0 == no_timing, > 0, each filter stage sleeps for sleeptime
     // Test with varying number of threads.
     for( nthread=MinThread; nthread<=MaxThread; ++nthread ) {
         // Initialize TBB task scheduler
         tbb::task_scheduler_init init(nthread);
+        sleeptime = 0.0;  // msec : 0 == no_timing, > 0, each filter stage sleeps for sleeptime
 
         // Test pipelines with 1 and maximal number of filters
         for( unsigned n=1; n<=MaxFilters; n*=MaxFilters ) {
-            // Thread-bound stages are serviced by user-created threads those 
+            // Thread-bound stages are serviced by user-created threads; those 
             // don't run the pipeline and don't service non-thread-bound stages 
             PipelineTest::TestTrivialPipeline(nthread,n);
         }

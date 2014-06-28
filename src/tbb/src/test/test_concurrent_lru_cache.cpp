@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -400,7 +400,7 @@ namespace concurrency_tests{
 
         }};
         static const size_t repeat_number = 2;
-        static const size_t number_of_threads = 8 * tbb::task_scheduler_init::default_num_threads(); //have 8x over subscription
+        static const size_t number_of_threads = 4 * tbb::task_scheduler_init::default_num_threads(); //have 4x over subscription
         static const size_t repeats_per_thread = 4;
 
         for (size_t i=0; i < repeat_number; i++){

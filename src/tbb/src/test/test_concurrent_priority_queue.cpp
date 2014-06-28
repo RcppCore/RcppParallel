@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -191,7 +191,7 @@ void TestToVector(){
     tbb::concurrent_priority_queue<int> q(source.begin(),source.end());
     std::vector<int> from_cpq = to_vector()(q);
     std::sort(source.begin(),source.end());
-    ASSERT(source == from_cpq,"quality_comparison_helpers::to_vector incorrectly copied items from CPQ?");
+    ASSERT(source == from_cpq,"equality_comparison_helpers::to_vector incorrectly copied items from CPQ?");
 }
 
 void TestHelpers(){

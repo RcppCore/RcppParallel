@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -109,10 +109,8 @@ generic_scheduler::generic_scheduler( arena* a, size_t index )
     , my_local_ctx_list_update(make_atomic(uintptr_t(0)))
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 #if __TBB_TASK_PRIORITY
-    , my_ref_top_priority(NULL)
     , my_offloaded_tasks(NULL)
     , my_offloaded_task_list_tail_link(NULL)
-    , my_ref_reload_epoch(NULL)
     , my_local_reload_epoch(0)
     , my_pool_reshuffling_pending(false)
 #endif /* __TBB_TASK_PRIORITY */
@@ -133,6 +131,10 @@ generic_scheduler::generic_scheduler( arena* a, size_t index )
     my_last_global_observer = NULL;
     my_last_local_observer = NULL;
 #endif /* __TBB_SCHEDULER_OBSERVER */
+#if __TBB_TASK_PRIORITY
+    my_ref_top_priority = NULL;
+    my_ref_reload_epoch = NULL;
+#endif /* __TBB_TASK_PRIORITY */
 
     my_dummy_task = &allocate_task( sizeof(task), __TBB_CONTEXT_ARG(NULL, NULL) );
 #if __TBB_TASK_GROUP_CONTEXT
@@ -689,8 +691,8 @@ task* generic_scheduler::winnow_task_pool () {
     __TBB_ASSERT( in_arena(), NULL );
     __TBB_ASSERT( my_offloaded_tasks, "At least one task is expected to be already offloaded" );
     // To eliminate possible sinking of the store to the indicator below the subsequent
-    // store to my_arena_slot->tail, the stores should've either been separated
-    // by full fence or both use release fences. And resetting indicator should've
+    // store to my_arena_slot->tail, the stores should have either been separated
+    // by full fence or both use release fences. And resetting indicator should have
     // been done with release fence. But since this is just an optimization, and
     // the corresponding checking sequence in arena::is_out_of_work() is not atomic
     // anyway, fences aren't used, so that not to penalize warmer path.
@@ -826,6 +828,9 @@ task* generic_scheduler::reload_tasks ( task*& offloaded_tasks, task**& offloade
 task* generic_scheduler::reload_tasks () {
     uintptr_t reload_epoch = *my_ref_reload_epoch;
     __TBB_ASSERT( my_offloaded_tasks, NULL );
+    __TBB_ASSERT( my_local_reload_epoch <= reload_epoch
+                  || my_local_reload_epoch - reload_epoch > uintptr_t(-1)/2,
+                  "Reload epoch counter overflow?" );
     if ( my_local_reload_epoch == reload_epoch )
         return NULL;
     __TBB_ASSERT( my_offloaded_tasks, NULL );
@@ -985,7 +990,7 @@ task* generic_scheduler::get_mailbox_task() {
             return result;
         }
         // We have exclusive access to the proxy, and can destroy it.
-        free_task<small_task>(*tp);
+        free_task<no_cache_small_task>(*tp);
     }
     return NULL;
 }

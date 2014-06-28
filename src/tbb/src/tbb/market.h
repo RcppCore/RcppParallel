@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,7 +33,7 @@
 
 #include "scheduler_common.h"
 #include "tbb/atomic.h"
-#include "tbb/spin_mutex.h"
+#include "tbb/spin_rw_mutex.h"
 #include "../rml/include/rml_tbb.h"
 
 #include "intrusive_list.h"
@@ -49,10 +49,6 @@ namespace tbb {
 class task_group_context;
 
 namespace internal {
-
-class arena;
-class generic_scheduler;
-template<typename SchedulerTraits> class custom_scheduler;
 
 //------------------------------------------------------------------------
 // Class market
@@ -80,7 +76,7 @@ private:
     intptr_t my_ref_count;
 
     //! Lightweight mutex guarding accounting operations with arenas list
-    typedef scheduler_mutex_type arenas_list_mutex_type;
+    typedef spin_rw_mutex arenas_list_mutex_type;
     arenas_list_mutex_type my_arenas_list_mutex;
 
     //! Pointer to the RML server object that services this TBB instance.
@@ -121,7 +117,7 @@ private:
 
         //! The first arena to be checked when idle worker seeks for an arena to enter
         /** The check happens in round-robin fashion. **/
-        arena_list_type::iterator next_arena;
+        arena *next_arena;
 
         //! Total amount of workers requested by arenas at this priority level.
         int workers_requested;
@@ -150,7 +146,7 @@ private:
 
     //! The first arena to be checked when idle worker seeks for an arena to enter
     /** The check happens in round-robin fashion. **/
-    arena_list_type::iterator my_next_arena;
+    arena *my_next_arena;
 
     //! Number of workers that were requested by all arenas
     int my_total_demand;
@@ -178,11 +174,7 @@ private:
 
 #if __TBB_TASK_PRIORITY
     //! Returns next arena that needs more workers, or NULL.
-    arena* arena_in_need (
-#if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
-                           arena* prev_arena
-#endif /* __TBB_TRACK_PRIORITY_LEVEL_SATURATION */
-                         );
+    arena* arena_in_need ( arena* prev_arena );
 
     //! Recalculates the number of workers assigned to each arena at and below the specified priority.
     /** The actual number of workers servicing a particular arena may temporarily 
@@ -209,6 +201,13 @@ private:
                            my_global_top_priority == normalized_normal_priority), NULL );
     }
 
+    bool has_any_demand() const {
+        for(int p = 0; p < num_priority_levels; p++)
+            if( __TBB_load_with_acquire(my_priority_levels[p].workers_requested) > 0 ) // TODO: use as_atomic here and below
+                return true;
+        return false;
+    }
+
 #else /* !__TBB_TASK_PRIORITY */
 
     //! Recalculates the number of workers assigned to each arena in the list.
@@ -220,8 +219,10 @@ private:
     }
 
     //! Returns next arena that needs more workers, or NULL.
-    arena* arena_in_need () {
-        spin_mutex::scoped_lock lock(my_arenas_list_mutex);
+    arena* arena_in_need (arena*) {
+        if(__TBB_load_with_acquire(my_total_demand) <= 0)
+            return NULL;
+        arenas_list_mutex_type::scoped_lock lock(my_arenas_list_mutex, /*is_writer=*/false);
         return arena_in_need(my_arenas, my_next_arena);
     }
     void assert_market_valid () const {}
@@ -238,7 +239,7 @@ private:
 
     void remove_arena_from_list ( arena& a );
 
-    arena* arena_in_need ( arena_list_type &arenas, arena_list_type::iterator& next );
+    arena* arena_in_need ( arena_list_type &arenas, arena *&next );
 
     static void update_allotment ( arena_list_type& arenas, int total_demand, int max_workers );
 
@@ -285,7 +286,7 @@ public:
     /** Must be called before arena::on_thread_leaving() **/
     void prepare_wait_workers() { ++my_ref_count; }
 
-    //! Wait workers termiantion
+    //! Wait workers termination
     void wait_workers ();
 
     //! Returns the requested stack size of worker threads.

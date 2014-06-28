@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -62,7 +62,7 @@
 namespace tbb {
 namespace internal {
 
-#if __TBB_OS_AFFINITY_SYSCALL_PRESENT
+#if __TBB_USE_OS_AFFINITY_SYSCALL
 
 static void set_affinity_mask( size_t maskSize, const basic_mask_t* threadMask ) {
 #if __linux__

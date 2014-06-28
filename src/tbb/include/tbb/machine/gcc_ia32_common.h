@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -63,35 +63,43 @@ static inline void __TBB_machine_pause( int32_t delay ) {
 // API to retrieve/update FPU control setting
 #ifndef __TBB_CPU_CTL_ENV_PRESENT
 #define __TBB_CPU_CTL_ENV_PRESENT 1
-
-struct __TBB_cpu_ctl_env_t {
+namespace tbb {
+namespace internal {
+class cpu_ctl_env {
+private:
     int     mxcsr;
     short   x87cw;
+    static const int MXCSR_CONTROL_MASK = ~0x3f; /* all except last six status bits */
+public:
+    bool operator!=( const cpu_ctl_env& ctl ) const { return mxcsr != ctl.mxcsr || x87cw != ctl.x87cw; }
+    void get_env() {
+    #if __TBB_ICC_12_0_INL_ASM_FSTCW_BROKEN
+        cpu_ctl_env loc_ctl;
+        __asm__ __volatile__ (
+                "stmxcsr %0\n\t"
+                "fstcw %1"
+                : "=m"(loc_ctl.mxcsr), "=m"(loc_ctl.x87cw)
+        );
+        *this = loc_ctl;
+    #else
+        __asm__ __volatile__ (
+                "stmxcsr %0\n\t"
+                "fstcw %1"
+                : "=m"(mxcsr), "=m"(x87cw)
+        );
+    #endif
+        mxcsr &= MXCSR_CONTROL_MASK;
+    }
+    void set_env() const {
+        __asm__ __volatile__ (
+                "ldmxcsr %0\n\t"
+                "fldcw %1"
+                : : "m"(mxcsr), "m"(x87cw)
+        );
+    }
 };
-inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* ctl ) {
-#if __TBB_ICC_12_0_INL_ASM_FSTCW_BROKEN
-    __TBB_cpu_ctl_env_t loc_ctl;
-    __asm__ __volatile__ (
-            "stmxcsr %0\n\t"
-            "fstcw %1"
-            : "=m"(loc_ctl.mxcsr), "=m"(loc_ctl.x87cw)
-    );
-    *ctl = loc_ctl;
-#else
-    __asm__ __volatile__ (
-            "stmxcsr %0\n\t"
-            "fstcw %1"
-            : "=m"(ctl->mxcsr), "=m"(ctl->x87cw)
-    );
-#endif
-}
-inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* ctl ) {
-    __asm__ __volatile__ (
-            "ldmxcsr %0\n\t"
-            "fldcw %1"
-            : : "m"(ctl->mxcsr), "m"(ctl->x87cw)
-    );
-}
+} // namespace internal
+} // namespace tbb
 #endif /* !__TBB_CPU_CTL_ENV_PRESENT */
 
 #include "gcc_itsx.h"

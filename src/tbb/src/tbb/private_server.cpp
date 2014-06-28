@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -47,14 +47,11 @@ class private_server;
 class private_worker: no_copy {
     //! State in finite-state machine that controls the worker.
     /** State diagram:
-        init --------------------\ 
-          |                      | 
-          V                      V
-        starting --> normal --> quit
-          |
-          V
-        plugged
-      */ 
+        init --> starting --> normal
+          |         |           |
+          |         V           |
+          \------> quit <------/
+      */
     enum state_t {
         //! *this is initialized
         st_init,
@@ -63,9 +60,7 @@ class private_worker: no_copy {
         //! Associated thread is doing normal life sequence.
         st_normal,
         //! Associated thread has ended normal life sequence and promises to never touch *this again.
-        st_quit,
-        //! Associated thread should skip normal life sequence, because private_server is shutting down.
-        st_plugged
+        st_quit
     };
     atomic<state_t> my_state;
     
@@ -86,8 +81,6 @@ class private_worker: no_copy {
     //! Handle of the OS thread associated with this worker
     thread_handle my_handle;
 
-    atomic<bool> my_handle_ready; // make atomic to add fences
-
     //! Link for list of workers that are sleeping or have no associated thread.
     private_worker* my_next;
 
@@ -104,13 +97,14 @@ class private_worker: no_copy {
 
     static __RML_DECL_THREAD_ROUTINE thread_routine( void* arg );
 
+    static void release_handle(thread_handle my_handle);
+
 protected:
     private_worker( private_server& server, tbb_client& client, const size_t i ) : 
         my_server(server),
         my_client(client),
         my_index(i)
     {
-        my_handle_ready = false;
         my_state = st_init;
     }
 };
@@ -119,7 +113,7 @@ static const size_t cache_line_size = tbb::internal::NFS_MaxLineSize;
 
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    // Suppress overzealous compiler warnings about uninstantiatble class
+    // Suppress overzealous compiler warnings about uninstantiable class
     #pragma warning(push)
     #pragma warning(disable:4510 4610)
 #endif
@@ -199,7 +193,7 @@ public:
     } 
 
     /*override*/ void request_close_connection( bool /*exiting*/ ) {
-        for( size_t i=0; i<my_n_thread; ++i ) 
+        for( size_t i=0; i<my_n_thread; ++i )
             my_thread_array[i].start_shutdown();
         remove_server_ref();
     }
@@ -244,68 +238,70 @@ __RML_DECL_THREAD_ROUTINE private_worker::thread_routine( void* arg ) {
     #pragma warning(pop)
 #endif
 
+void private_worker::release_handle(thread_handle handle) {
+    if (governor::needsWaitWorkers())
+        thread_monitor::join(handle);
+    else
+        thread_monitor::detach_thread(handle);
+}
+
 void private_worker::start_shutdown() {
-    state_t s; 
-    // Transition from st_starting or st_normal to st_plugged or st_quit
+    state_t s;
+
     do {
         s = my_state;
-        __TBB_ASSERT( s==st_init||s==st_starting||s==st_normal, NULL );
-    } while( my_state.compare_and_swap( s==st_starting? st_plugged : st_quit, s )!=s );
-    if( s==st_normal ) {
+        __TBB_ASSERT( s!=st_quit, NULL );
+    } while( my_state.compare_and_swap( st_quit, s )!=s );
+    if( s==st_normal || s==st_starting ) {
         // May have invalidated invariant for sleeping, so wake up the thread.
         // Note that the notify() here occurs without maintaining invariants for my_slack.
         // It does not matter, because my_state==st_quit overrides checking of my_slack.
         my_thread_monitor.notify();
+        // Do not need release handle in st_init state,
+        // because in this case the thread wasn't started yet.
+        // For st_starting release is done at launch site.
+        if (s==st_normal)
+            release_handle(my_handle);
     } else if( s==st_init ) {
         // Perform action that otherwise would be performed by associated thread when it quits.
         my_server.remove_server_ref();
-    }
-    // Do not need join for st_init state,
-    // because in this case the thread wasn't started yet.
-    if (s!=st_init) {
-        while (!my_handle_ready)
-            __TBB_Yield();
-        // my_handle is valid at this point
-        if (governor::needsWaitWorkers())
-            thread_monitor::join(my_handle);
-        else
-            thread_monitor::detach_thread(my_handle);
     }
 }
 
 void private_worker::run() {
     my_server.propagate_chain_reaction();
-    state_t s = my_state.compare_and_swap( st_normal, st_starting );
-    if( s==st_starting ) {
-        ::rml::job& j = *my_client.create_one_job();
-        while( my_state==st_normal ) {
-            if( my_server.my_slack>=0 ) {
-                my_client.process(j);
+
+    // Transiting to st_normal here would require setting my_handle,
+    // which would create race with the launching thread and 
+    // complications in handle management on Windows.
+
+    ::rml::job& j = *my_client.create_one_job();
+    while( my_state!=st_quit ) {
+        if( my_server.my_slack>=0 ) {
+            my_client.process(j);
+        } else {
+            thread_monitor::cookie c;
+            // Prepare to wait
+            my_thread_monitor.prepare_wait(c);
+            // Check/set the invariant for sleeping
+            if( my_state!=st_quit && my_server.try_insert_in_asleep_list(*this) ) {
+                my_thread_monitor.commit_wait(c);
+                my_server.propagate_chain_reaction();
             } else {
-                thread_monitor::cookie c;
-                // Prepare to wait
-                my_thread_monitor.prepare_wait(c);
-                // Check/set the invariant for sleeping
-                if( my_state==st_normal && my_server.try_insert_in_asleep_list(*this) ) {
-                    my_thread_monitor.commit_wait(c);
-                    my_server.propagate_chain_reaction();
-                } else {
-                    // Invariant broken
-                    my_thread_monitor.cancel_wait();
-                }
+                // Invariant broken
+                my_thread_monitor.cancel_wait();
             }
         }
-        my_client.cleanup(j);
-    } else {
-        // Server is already shutting down.
-        __TBB_ASSERT( s==st_plugged, NULL );
     }
+    my_client.cleanup(j);
+
     ++my_server.my_slack;
     my_server.remove_server_ref();
 }
 
 inline void private_worker::wake_or_launch() {
     if( my_state==st_init && my_state.compare_and_swap( st_starting, st_init )==st_init ) {
+        // after this point, remove_server_ref() must be done by created thread
 #if USE_WINTHREAD
         my_handle = thread_monitor::launch( thread_routine, this, my_server.my_stack_size, &this->my_index );
 #elif USE_PTHREAD
@@ -316,7 +312,14 @@ inline void private_worker::wake_or_launch() {
         // Implicit destruction of fpa resets original affinity mask.
         }
 #endif /* USE_PTHREAD */
-        my_handle_ready = true;
+        state_t s = my_state.compare_and_swap( st_normal, st_starting );
+        if (st_starting != s) {
+            // Do shutdown during startup. my_handle can't be released
+            // by start_shutdown, because my_handle value might be not set yet
+            // at time of transition from st_starting to st_quit.
+            __TBB_ASSERT( s==st_quit, NULL );
+            release_handle(my_handle);
+        }
     }
     else
         my_thread_monitor.notify();
@@ -355,7 +358,9 @@ private_server::~private_server() {
 }
 
 inline bool private_server::try_insert_in_asleep_list( private_worker& t ) {
-    asleep_list_mutex_type::scoped_lock lock(my_asleep_list_mutex);
+    asleep_list_mutex_type::scoped_lock lock;
+    if( !lock.try_acquire(my_asleep_list_mutex) )
+        return false;
     // Contribute to slack under lock so that if another takes that unit of slack,
     // it sees us sleeping on the list and wakes us up.
     int k = ++my_slack;
@@ -416,7 +421,7 @@ void private_server::adjust_job_count_estimate( int delta ) {
 tbb_server* make_private_server( tbb_client& client ) {
     return new( tbb::cache_aligned_allocator<private_server>().allocate(1) ) private_server(client);
 }
-        
+
 } // namespace rml
 } // namespace internal
 

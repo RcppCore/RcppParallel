@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,7 +34,7 @@ bool __tbb_test_errno = false;
 #if __TBB_WIN8UI_SUPPORT	
 // testing allocator itself not iterfaces
 // so we can use desktop functions
-#define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP 1
+#define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP !_M_ARM
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "harness.h"
 // FIXME: fix the test to support New Windows *8 Store Apps mode.
@@ -112,6 +112,7 @@ void limitMem( size_t limit )
 #include "tbb/scalable_allocator.h"
 
 #define HARNESS_CUSTOM_MAIN 1
+#define HARNESS_TBBMALLOC_THREAD_SHUTDOWN 1
 #include "harness.h"
 #include "harness_barrier.h"
 #if !__TBB_SOURCE_DIRECTLY_INCLUDED

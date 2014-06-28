@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,7 +34,7 @@
 #define TBB_VERSION_MINOR 2
 
 // Engineering-focused interface version
-#define TBB_INTERFACE_VERSION 7002
+#define TBB_INTERFACE_VERSION 7005
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
 
 // The oldest major interface version still supported
@@ -62,7 +62,7 @@
  * \mainpage Main Page
  *
  * Click the tabs above for information about the
- * - <a href="./modules.html">Modules</a> (groups of functionality) implemented by the library 
+ * - <a href="./modules.html">Modules</a> (groups of functionality) implemented by the library
  * - <a href="./annotated.html">Classes</a> provided by the library
  * - <a href="./files.html">Files</a> constituting the library.
  * .
@@ -77,19 +77,19 @@
  */
 
 /** \page concepts TBB concepts
-    
+
     A concept is a set of requirements to a type, which are necessary and sufficient
-    for the type to model a particular behavior or a set of behaviors. Some concepts 
-    are specific to a particular algorithm (e.g. algorithm body), while other ones 
-    are common to several algorithms (e.g. range concept). 
+    for the type to model a particular behavior or a set of behaviors. Some concepts
+    are specific to a particular algorithm (e.g. algorithm body), while other ones
+    are common to several algorithms (e.g. range concept).
 
     All TBB algorithms make use of different classes implementing various concepts.
-    Implementation classes are supplied by the user as type arguments of template 
-    parameters and/or as objects passed as function call arguments. The library 
-    provides predefined  implementations of some concepts (e.g. several kinds of 
-    \ref range_req "ranges"), while other ones must always be implemented by the user. 
-    
-    TBB defines a set of minimal requirements each concept must conform to. Here is 
+    Implementation classes are supplied by the user as type arguments of template
+    parameters and/or as objects passed as function call arguments. The library
+    provides predefined  implementations of some concepts (e.g. several kinds of
+    \ref range_req "ranges"), while other ones must always be implemented by the user.
+
+    TBB defines a set of minimal requirements each concept must conform to. Here is
     the list of different concepts hyperlinked to the corresponding requirements specifications:
     - \subpage range_req
     - \subpage parallel_do_body_req
@@ -118,6 +118,12 @@
 #define __TBB_NOINLINE(decl) decl
 #endif
 
+#if __TBB_NOEXCEPT_PRESENT
+#define __TBB_NOEXCEPT(expression) noexcept(expression)
+#else
+#define __TBB_NOEXCEPT(expression)
+#endif
+
 #include <cstddef>      /* Need size_t and ptrdiff_t */
 
 #if _MSC_VER
@@ -136,8 +142,8 @@ typedef void(*assertion_handler_type)( const char* filename, int line, const cha
 
      #define __TBB_ASSERT_NS(predicate,message,ns) ((predicate)?((void)0) : ns::assertion_failure(__FILE__,__LINE__,#predicate,message))
     //! Assert that x is true.
-    /** If x is false, print assertion failure message.  
-        If the comment argument is not NULL, it is printed as part of the failure message.  
+    /** If x is false, print assertion failure message.
+        If the comment argument is not NULL, it is printed as part of the failure message.
         The comment argument has no other effect. */
 #if __TBBMALLOC_BUILD
 namespace rml { namespace internal {
@@ -217,6 +223,32 @@ extern "C" int __TBB_EXPORTED_FUNC TBB_runtime_interface_version();
 class split {
 };
 
+//! Type enables transmission of splitting proportion from partitioners to range objects
+/**
+ * In order to make use of such facility Range objects must implement
+ * splitting constructor with this type passed and initialize static
+ * constant boolean field 'is_divisible_in_proportion' with the value
+ * of 'true'
+ */
+class proportional_split {
+public:
+    proportional_split(size_t _left = 1, size_t _right = 1) : my_left(_left), my_right(_right) { }
+    proportional_split(split) : my_left(1), my_right(1) { }
+
+    size_t left() const { return my_left; }
+    size_t right() const { return my_right; }
+
+    void set_proportion(size_t _left, size_t _right) {
+        my_left = _left;
+        my_right = _right;
+    }
+
+    // used when range does not support proportional split
+    operator split() const { return split(); }
+private:
+    size_t my_left, my_right;
+};
+
 /**
  * @cond INTERNAL
  * @brief Identifiers declared inside namespace internal should never be used directly by client code.
@@ -224,14 +256,14 @@ class split {
 namespace internal {
 
 //! Compile-time constant that is upper bound on cache line/sector size.
-/** It should be used only in situations where having a compile-time upper 
+/** It should be used only in situations where having a compile-time upper
     bound is more useful than a run-time exact answer.
     @ingroup memory_allocation */
 const size_t NFS_MaxLineSize = 128;
 
 /** Label for data that may be accessed from different threads, and that may eventually become wrapped
     in a formal atomic type.
-    
+
     Note that no problems have yet been observed relating to the definition currently being empty,
     even if at least "volatile" would seem to be in order to avoid data sometimes temporarily hiding
     in a register (although "volatile" as a "poor man's atomic" lacks several other features of a proper
@@ -241,7 +273,7 @@ const size_t NFS_MaxLineSize = 128;
     both as a way to have the compiler help enforce use of the label and to quickly rule out
     one potential issue.
 
-    Note however that, with some architecture/compiler combinations, e.g. on IA-64 architecture, "volatile" 
+    Note however that, with some architecture/compiler combinations, e.g. on IA-64 architecture, "volatile"
     also has non-portable memory semantics that are needlessly expensive for "relaxed" operations.
 
     Note that this must only be applied to data that will not change bit patterns when cast to/from
@@ -250,15 +282,15 @@ const size_t NFS_MaxLineSize = 128;
     TODO: apply wherever relevant **/
 #define __TBB_atomic // intentionally empty, see above
 
-template<class T, int S>
+template<class T, size_t S, size_t R>
 struct padded_base : T {
-    char pad[NFS_MaxLineSize - sizeof(T) % NFS_MaxLineSize];
+    char pad[S - R];
 };
-template<class T> struct padded_base<T, 0> : T {};
+template<class T, size_t S> struct padded_base<T, S, 0> : T {};
 
 //! Pads type T to fill out to a multiple of cache line size.
-template<class T>
-struct padded : padded_base<T, sizeof(T)> {};
+template<class T, size_t S = NFS_MaxLineSize>
+struct padded : padded_base<T, S, sizeof(T) % S> {};
 
 //! Extended variant of the standard offsetof macro
 /** The standard offsetof macro is not sufficient for TBB as it can be used for
@@ -306,11 +338,11 @@ inline void poison_pointer( T* __TBB_atomic & ) {/*do nothing*/}
 #endif /* !TBB_USE_ASSERT */
 
 //! Cast between unrelated pointer types.
-/** This method should be used sparingly as a last resort for dealing with 
+/** This method should be used sparingly as a last resort for dealing with
     situations that inherently break strict ISO C++ aliasing rules. */
 // T is a pointer type because it will be explicitly provided by the programmer as a template argument;
 // U is a referent type to enable the compiler to check that "ptr" is a pointer, deducing U in the process.
-template<typename T, typename U> 
+template<typename T, typename U>
 inline T punned_cast( U* ptr ) {
     uintptr_t x = reinterpret_cast<uintptr_t>(ptr);
     return reinterpret_cast<T>(x);
@@ -343,7 +375,7 @@ struct allocator_type {
 };
 
 #if _MSC_VER
-//! Microsoft std::allocator has non-standard extension that strips const from a type. 
+//! Microsoft std::allocator has non-standard extension that strips const from a type.
 template<typename T>
 struct allocator_type<const T> {
     typedef T value_type;
@@ -394,7 +426,7 @@ template<typename T>
 void suppress_unused_warning( const T& ) {}
 
 // Struct to be used as a version tag for inline functions.
-/** Version tag can be necessary to prevent loader on Linux from using the wrong 
+/** Version tag can be necessary to prevent loader on Linux from using the wrong
     symbol in debug builds (when inline functions are compiled as out-of-line). **/
 struct version_tag_v3 {};
 

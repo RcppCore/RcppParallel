@@ -3,17 +3,125 @@ The list of most significant changes made over time in
 Intel(R) Threading Building Blocks (Intel(R) TBB).
 ------------------------------------------------------------------------
 
+Intel TBB 4.2 Update 5
+TBB_INTERFACE_VERSION == 7005
+
+Changes (w.r.t. Intel TBB 4.2 Update 4):
+
+- The second template argument of class aligned_space<T,N> now is set
+    to 1 by default.
+
+Preview Features:
+
+- Better support for exception safety, task priorities and floating
+    point settings in class task_arena.
+- task_arena::current_slot() has been renamed to
+    task_arena::current_thread_index().
+
+Bugs fixed:
+
+- Task priority change possibly ignored by a worker thread entering
+    a nested parallel construct.
+- Memory leaks inside the task scheduler when running on
+    Intel(R) Xeon Phi(tm) coprocessor.
+
+Open-source contributions integrated:
+
+- Improved detection of X Window support for Intel TBB examples
+    and other feedback by Raf Schietekat.
+
+------------------------------------------------------------------------
+Intel TBB 4.2 Update 4
+TBB_INTERFACE_VERSION == 7004
+
+Changes (w.r.t. Intel TBB 4.2 Update 3):
+
+- Added possibility to specify floating-point settings at invocation
+    of most parallel algorithms (including flow::graph) via
+    task_group_context.
+- Added dynamic replacement of malloc_usable_size() under
+    Linux*/Android* and dlmalloc_usable_size() under Android*.
+- Added new methods to concurrent_vector:
+    grow_by() that appends a sequence between two given iterators;
+    grow_to_at_least() that initializes new elements with a given value.
+- Improved affinity_partitioner for better performance on balanced
+    workloads.
+- Improvements in the task scheduler, including better scalability
+    when threads search for a task arena, and better diagnostics.
+- Improved allocation performance for workloads that do intensive
+    allocation/releasing of same-size objects larger than ~8KB from
+    multiple threads.
+- Exception support is enabled by default for 32-bit MinGW compilers.
+- The tachyon example for Android* can be built for all targets
+    supported by the installed NDK.
+- Added Windows Store* version of the tachyon example.
+- GettingStarted/sub_string_finder example ported to offload execution
+    on Windows* for Intel(R) Many Integrated Core Architecture.
+
+Preview Features:
+
+- Removed task_scheduler_observer::on_scheduler_leaving() callback.
+- Added task_scheduler_observer::may_sleep() callback.
+- The CPF or_node has been renamed indexer_node. The input to
+    indexer_node is now a list of types. The output of indexer_node is
+    a tagged_msg type composed of a tag and a value. For indexer_node,
+    the tag is a size_t.
+
+Bugs fixed:
+
+- Fixed data races in preview extensions of task_scheduler_observer.
+- Added noexcept(false) for destructor of task_group_base to avoid
+    crash on cancelation of structured task group in C++11.
+
+Open-source contributions integrated:
+
+- Improved concurrency detection for BG/Q, and other improvements
+    by Raf Schietekat.
+- Fix for crashes in enumerable_thread_specific in case if a contained
+    object is too big to be constructed on the stack by Adrien Guinet.
+
+------------------------------------------------------------------------
+Intel TBB 4.2 Update 3
+TBB_INTERFACE_VERSION == 7003
+
+Changes (w.r.t. Intel TBB 4.2 Update 2):
+
+- Added support for Microsoft* Visual Studio* 2013.
+- Improved Microsoft* PPL-compatible form of parallel_for for better 
+    support of auto-vectorization.
+- Added a new example for cancellation and reset in the flow graph:
+    Kohonen self-organizing map (examples/graph/som).
+- Various improvements in source code, tests, and makefiles.
+
+Bugs fixed:
+
+- Added dynamic replacement of _aligned_msize() previously missed.
+- Fixed task_group::run_and_wait() to throw invalid_multiple_scheduling
+    exception if the specified task handle is already scheduled.
+
+Open-source contributions integrated:
+
+- A fix for ARM* processors by Steve Capper.
+- Improvements in std::swap calls by Robert Maynard.
+
+------------------------------------------------------------------------
 Intel TBB 4.2 Update 2
 TBB_INTERFACE_VERSION == 7002
 
 Changes (w.r.t. Intel TBB 4.2 Update 1):
 
-- Enable C++11 features available in Microsoft* Visual Studio* 2013 Preview.
-- Added test for compatibility of TBB containers with C++11 range-based for loop.
+- Enable C++11 features for Microsoft* Visual Studio* 2013 Preview.
+- Added a test for compatibility of TBB containers with C++11
+    range-based for loop.
 
 Changes affecting backward compatibility:
 
-- Internal layout changed for class limiter_node.
+- Internal layout changed for class tbb::flow::limiter_node.
+
+Preview Features:
+
+- Added speculative_spin_rw_mutex, a read-write lock class which uses
+    Intel(R) Transactional Synchronization Extensions.
 
 Bugs fixed:
 
@@ -40,13 +148,13 @@ Changes (w.r.t. Intel TBB 4.2):
     used to urge releasing memory from tbbmalloc internal buffers when
     the given limit is exceeded.
 
-Community Preview Features:
+Preview Features:
 
 - Class task_arena no longer requires linking with a preview library,
     though still remains a community preview feature.
 - The method task_arena::wait_until_empty() is removed.
-- The method task_arena::current_slot() now returns -1 if the task scheduler
-    is not initialized in the thread.
+- The method task_arena::current_slot() now returns -1 if 
+    the task scheduler is not initialized in the thread.
 
 Changes affecting backward compatibility:
 

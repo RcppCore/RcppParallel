@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -109,7 +109,7 @@ typedef version_new::tbb::concurrent_unordered_map<int,int> TestTable;
 ///////////////////////////////////////
 
 static const char *map_testnames[] = {
-    "1.insert", "2.count1st", "3.count2nd", "4.insert existing", "5.erase"
+    "1.insert", "2.count1st", "3.count2nd", "4.insert-exists", "5.erase "
 };
 
 template<typename TableType>

@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -86,10 +86,10 @@ endif  #target
 # Support for running debug tests to release library and vice versa
 flip_cfg=$(subst _flipcfg,_release,$(subst _release,_debug,$(subst _debug,_flipcfg,$(1))))
 cross_cfg = $(if $(crosstest),$(call flip_cfg,$(1)),$(1))
+# Setting default configuration to release
+cfg?=release
 
 ifdef BUILDING_PHASE
- # Setting default configuration to release
- cfg?=release
  # No lambdas or other C++0x extensions by default for compilers that implement them as experimental features
  # TODO: it should become unnecessary when all relevant tests are "moved" to the TEST_TBB_CPP11 set
  lambdas ?= 0

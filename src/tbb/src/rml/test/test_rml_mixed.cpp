@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -43,10 +43,10 @@ int TestMain () {
 
 // dynamic_link initializes its data structures in a static constructor. But
 // the initialization order of static constructors in different modules is
-// non-deterministic. Thus dynamic_link fails on some systems when when the
+// non-deterministic. Thus dynamic_link fails on some systems when the
 // applicaton changes its current directory after the library (TBB/OpenMP/...)
 // is loaded but before the static constructors in the library are executed.
-#define CHDIR_SUPPORT_BROKEN ( __GNUC__ == 4 && __GNUC_MINOR__ >=6 && __GNUC_MINOR__ <=7 )
+#define CHDIR_SUPPORT_BROKEN ( __GNUC__ == 4 && __GNUC_MINOR__ >= 6 && __GNUC_MINOR__ <= 8 )
 
 const int OMP_ParallelRegionSize = 16;
 int TBB_MaxThread = 4;           // Includes master
@@ -310,6 +310,9 @@ void TBBOutSideOpenMPInside() {
 }
 
 int TestMain () {
+#if CHDIR_SUPPORT_BROKEN
+    REPORT("Known issue: dynamic_link does not support current directory changing before its initialization.\n");
+#endif
     for( int TBB_MaxThread=MinThread; TBB_MaxThread<=MaxThread; ++TBB_MaxThread ) {
         REMARK("Testing with TBB_MaxThread=%d\n", TBB_MaxThread);
         TBB_RunTime.create_connection();

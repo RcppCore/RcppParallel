@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -178,7 +178,7 @@ public:
 
     void Run ( uint_t idx ) {
 #if TBBTEST_USE_TBB
-        tbb::task_scheduler_init init;
+        tbb::task_scheduler_init init(g_MaxConcurrency);
 #endif
         AssertLive();
         if ( idx == 0 ) {
@@ -430,11 +430,15 @@ void TestTaskHandle2 () {
     FIB_TEST_PROLOGUE();
     g_Sum = 0;
     task_group_type rg;
-    const unsigned hSize = sizeof(handle_type);
-    char *handles = new char [numRepeats * hSize];
+    typedef tbb::aligned_space<handle_type> handle_space_t;
+    handle_space_t *handles = new handle_space_t[numRepeats];
     handle_type *h = NULL;
-    for( unsigned i = 0; ; ++i ) {
-        h = tbb::internal::punned_cast<handle_type*,char>(handles + i * hSize);
+#if __TBB_ipf && __TBB_GCC_VERSION==40601
+    volatile // Workaround for unexpected exit from the loop below after the exception was caught
+#endif
+    unsigned i = 0;
+    for( ;; ++i ) {
+        h = handles[i].begin();
 #if __TBB_FUNC_PTR_AS_TEMPL_PARAM_BROKEN
         new ( h ) handle_type((void(*)())RunFib4<task_group_type>);
 #else
@@ -446,7 +450,8 @@ void TestTaskHandle2 () {
 #if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
         bool caught = false;
         try {
-            rg.run( *h );
+            if( i&1 ) rg.run( *h );
+            else rg.run_and_wait( *h );
         }
         catch ( Concurrency::invalid_multiple_scheduling& e ) {
             ASSERT( e.what(), "Error message is absent" );
@@ -458,12 +463,14 @@ void TestTaskHandle2 () {
         ASSERT ( caught, "Expected invalid_multiple_scheduling exception is missing" );
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
     }
+    ASSERT( i == numRepeats - 1, "unexpected exit from the loop" );
     rg.run_and_wait( *h );
-    for( unsigned i = 0; i < numRepeats; ++i )
+
+    for( i = 0; i < numRepeats; ++i )
 #if __TBB_UNQUALIFIED_CALL_OF_DTOR_BROKEN
-        tbb::internal::punned_cast<handle_type*,char>(handles + i * hSize)->Concurrency::task_handle<void(*)()>::~task_handle();
+        handles[i].begin()->Concurrency::task_handle<void(*)()>::~task_handle();
 #else
-        tbb::internal::punned_cast<handle_type*,char>(handles + i * hSize)->~handle_type();
+        handles[i].begin()->~handle_type();
 #endif
     delete []handles;
     FIB_TEST_EPILOGUE(g_Sum);
@@ -842,15 +849,10 @@ int TestMain () {
         TestEh2();
         TestStructuredWait();
         TestStructuredCancellation2<true>();
-        //TODO: recheck the condition with newer versions of clang/libc++
-#if (__clang__ && (__cplusplus >= 201103L || _LIBCPP_VERSION ))
-        //TODO:it seems that clang in C++11 mode does not expect exception
-        //coming from destructor in the following test as it does not generate correct code for stack unwinding.
-        //TODO:it seems that libc++ implementation of std::uncaught_exception return incorrect value clang and
-        //icc14 in the following test
-        REPORT("Known issue: TestStructuredCancellation2<false> test is skipped.\n");
-#else
+#if !__TBB_THROW_FROM_DTOR_BROKEN
         TestStructuredCancellation2<false>();
+#else
+        REPORT("Known issue: TestStructuredCancellation2<false>() is skipped.\n");
 #endif
 #endif /* TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN */
 #if !TBBTEST_USE_TBB

@@ -1,4 +1,4 @@
-// Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+// Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 //
 // This file is part of Threading Building Blocks.
 //
@@ -92,8 +92,7 @@ BEGIN
             VALUE "CompanyName", "Intel Corporation\0"
             VALUE "FileDescription", "Scalable Allocator library\0"
             VALUE "FileVersion", TBBMALLOC_VERSION "\0"
-//what is it?            VALUE "InternalName", "tbbmalloc\0"
-            VALUE "LegalCopyright", "Copyright 2005-2013 Intel Corporation.  All Rights Reserved.\0"
+            VALUE "LegalCopyright", "Copyright 2005-2014 Intel Corporation.  All Rights Reserved.\0"
             VALUE "LegalTrademarks", "\0"
 #ifndef TBB_USE_DEBUG
             VALUE "OriginalFilename", "tbbmalloc.dll\0"
@@ -102,7 +101,6 @@ BEGIN
 #endif
             VALUE "ProductName", "Intel(R) Threading Building Blocks for Windows\0"
             VALUE "ProductVersion", TBB_VERSION "\0"
-            VALUE "Comments", TBB_VERSION_STRINGS "\0"
             VALUE "PrivateBuild", "\0"
             VALUE "SpecialBuild", "\0"
         END

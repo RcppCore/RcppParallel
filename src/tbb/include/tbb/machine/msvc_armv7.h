@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -101,26 +101,41 @@ inline void __TBB_machine_pause (int32_t delay )
     }
 }
 
+// API to retrieve/update FPU control setting
+#define __TBB_CPU_CTL_ENV_PRESENT 1
+
 namespace tbb {
-    namespace internal {
-        template <typename T, size_t S>
-        struct machine_load_store_relaxed {
-            static inline T load ( const volatile T& location ) {
-                const T value = location;
+namespace internal {
 
-                /*
-                * An extra memory barrier is required for errata #761319
-                * Please see http://infocenter.arm.com/help/topic/com.arm.doc.uan0004a
-                */
-                __TBB_acquire_consistency_helper();
-                return value;
-            }
+template <typename T, size_t S>
+struct machine_load_store_relaxed {
+    static inline T load ( const volatile T& location ) {
+        const T value = location;
 
-            static inline void store ( volatile T& location, T value ) {
-                location = value;
-            }
-        };
-    }} // namespaces internal, tbb
+        /*
+        * An extra memory barrier is required for errata #761319
+        * Please see http://infocenter.arm.com/help/topic/com.arm.doc.uan0004a
+        */
+        __TBB_acquire_consistency_helper();
+        return value;
+    }
+
+    static inline void store ( volatile T& location, T value ) {
+        location = value;
+    }
+};
+
+class cpu_ctl_env {
+private:
+    unsigned int my_ctl;
+public:
+    bool operator!=( const cpu_ctl_env& ctl ) const { return my_ctl != ctl.my_ctl; }
+    void get_env() { my_ctl = _control87(0, 0); }
+    void set_env() const { _control87( my_ctl, ~0U ); }
+};
+
+} // namespace internal
+} // namespaces tbb
 
 // Machine specific atomic operations
 #define __TBB_CompareAndSwap4(P,V,C) __TBB_machine_cmpswp4(P,V,C)
@@ -147,18 +162,6 @@ extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );
 #else
 #define __TBB_Yield() __yield()
 #endif
-
-// API to retrieve/update FPU control setting
-#define __TBB_CPU_CTL_ENV_PRESENT 1
-
-typedef unsigned int __TBB_cpu_ctl_env_t;
-
-inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* ctl ) {
-    *ctl = _control87(0, 0);
-}
-inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* ctl ) {
-    _control87( *ctl, ~0U );
-}
 
 // Machine specific atomic operations
 #define __TBB_AtomicOR(P,V)     __TBB_machine_OR(P,V)

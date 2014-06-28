@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,7 +39,10 @@
 #include "tbb/cache_aligned_allocator.h"
 #include "tbb/concurrent_priority_queue.h"
 #include "../test/harness.h"
+#include "../examples/common/utility/utility.h"
+#if _MSC_VER
 #pragma warning(disable: 4996)
+#endif
 
 #define IMPL_SERIAL 0
 #define IMPL_STL 1
@@ -48,14 +51,12 @@
 using namespace tbb;
 
 // test parameters & defaults
-int impl; // which implementation to test
+int impl = IMPL_CPQ; // which implementation to test
 int contention = 1; // busywork between operations in us
 int preload = 0; // # elements to pre-load queue with
 double throughput_window = 30.0; // in seconds
 int ops_per_iteration = 20; // minimum: 2 (1 push, 1 pop)
 const int sample_operations = 1000; // for timing checks
-int min_threads = 1;
-int max_threads;
 
 // global data & types
 int pushes_per_iter;
@@ -180,7 +181,7 @@ struct TestThroughputBody : NoAssign {
     
     void operator()(const int threadID) const {
         tbb::tick_count now;
-        int pos_in = threadID, pos_out = threadID;
+        size_t pos_in = threadID, pos_out = threadID;
         my_data_type elem;
         while (1) {
             for (int i=0; i<sample_operations; i+=ops_per_iteration) {
@@ -251,113 +252,34 @@ void TestThroughputCpqOnNThreads(int nThreads) {
     }
 }
 
-void printCommandLineErrorMsg() {
-    fprintf(stderr,
-            "Usage: a.out <min_threads>[:<max_threads>] "
-            "contention(us) queue_type pre-load batch duration"
-            "\n   where queue_type is one of 0(SERIAL), 1(STL), 2(CPQ).\n");
-}
-
-void ParseCommandLine(int argc, char *argv[]) {
-    // Initialize defaults
-    max_threads = 1;
-    impl = IMPL_SERIAL;
-    int i = 1;
-    if (argc > 1) {
-        // read n_thread range
-        char* endptr;
-        min_threads = strtol( argv[i], &endptr, 0 );
-        if (*endptr == ':')
-            max_threads = strtol( endptr+1, &endptr, 0 );
-        else if (*endptr == '\0')
-            max_threads = min_threads;
-        if (*endptr != '\0') {
-            printCommandLineErrorMsg();
-            exit(1);
-        }
-        if (min_threads < 1) {
-            printf("ERROR: min_threads must be at least one.\n");
-            exit(1);
-        }
-        if (max_threads < min_threads) {
-            printf("ERROR: max_threads should not be less than min_threads\n");
-            exit(1);
-        }
-        ++i;
-        if (argc > 2) {
-            // read contention
-            contention = strtol( argv[i], &endptr, 0 );
-            if( *endptr!='\0' ) {
-                printf("ERROR: contention is garbled\n");
-                printCommandLineErrorMsg();
-                exit(1);
-            }
-            ++i;
-            if (argc > 3) {
-                // read impl
-                impl = strtol( argv[i], &endptr, 0 );
-                if( *endptr!='\0' ) {
-                    printf("ERROR: impl is garbled\n");
-                    printCommandLineErrorMsg();
-                    exit(1);
-                }
-                if ((impl != IMPL_SERIAL) && (impl != IMPL_STL) && (impl != IMPL_CPQ)) {
-                    
-                    printf("ERROR: impl of %d is invalid\n", impl);
-                    printCommandLineErrorMsg();
-                    exit(1);
-                }
-                ++i;
-                if (argc > 4) {
-                    // read pre-load
-                    preload = strtol( argv[i], &endptr, 0 );
-                    if( *endptr!='\0' ) {
-                        printf("ERROR: pre-load is garbled\n");
-                        printCommandLineErrorMsg();
-                        exit(1);
-                    }
-                    ++i;
-                    if (argc > 5) {
-                        //read batch
-                        ops_per_iteration = strtol( argv[i], &endptr, 0 );
-                        if( *endptr!='\0' ) {
-                            printf("ERROR: batch size is garbled\n");
-                            printCommandLineErrorMsg();
-                            exit(1);
-                        }
-                        ++i;
-                        if (argc > 6) {
-                            // read duration
-                            if (argc != 7)  {
-                                printf("ERROR: maximum of six args\n");
-                                printCommandLineErrorMsg();
-                                exit(1);
-                            }
-                            throughput_window = strtol( argv[i], &endptr, 0 );
-                            if( *endptr!='\0' ) {
-                                printf("ERROR: duration is garbled\n");
-                                printCommandLineErrorMsg();
-                                exit(1);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    printf("Priority queue performance test %d will run with %dus contention "
-           "using %d:%d threads, %d batch size, %d pre-loaded elements, for %d seconds.\n",
-           (int)impl, (int)contention, (int)min_threads, (int)max_threads, 
-           (int)ops_per_iteration, (int) preload, (int)throughput_window);
-}
 
 int main(int argc, char *argv[]) {
-    ParseCommandLine(argc, argv);
+    utility::thread_number_range threads(tbb::task_scheduler_init::default_num_threads);
+    struct select_impl{
+        static bool validate(const int & impl){
+            return  ((impl == IMPL_SERIAL) || (impl == IMPL_STL) || (impl == IMPL_CPQ));
+        }
+    };
+    utility::parse_cli_arguments(argc,argv,utility::cli_argument_pack()
+            .positional_arg(threads,"n-of-threads",utility::thread_number_range_desc)
+            .positional_arg(contention,"contention"," busywork between operations, in us")
+            .positional_arg(impl,"queue_type", "which implementation to test. One of 0(SERIAL), 1(STL), 2(CPQ) ", select_impl::validate)
+            .positional_arg(preload,"preload","number of elements to pre-load queue with")
+            .positional_arg(ops_per_iteration, "batch size" ,"minimum: 2 (1 push, 1 pop)")
+            .positional_arg(throughput_window, "duration", "in seconds")
+            );
+
+    std::cout<< "Priority queue performance test "<<impl<<" will run with "<<contention<<"us contention "
+           "using "<<threads<<" threads, "<<ops_per_iteration<<" batch size, "<<preload<<" pre-loaded elements,"
+           " for "<<throughput_window<<" seconds.\n"
+           <<std::flush
+    ;
+
     srand(42);
     arrsz = 100000;
     input_data = new my_data_type[arrsz];
     output_data = new my_data_type[arrsz];
-    for (int i=0; i<arrsz; ++i) {
+    for (size_t i=0; i<arrsz; ++i) {
        input_data[i].priority = rand()%100;
     }
     //calibrate_busy_wait();
@@ -373,7 +295,7 @@ int main(int argc, char *argv[]) {
         TestSerialThroughput();
     }
     else {
-        for (int p = min_threads; p <= max_threads; ++p) {
+        for( int p=threads.first; p<=threads.last; p = threads.step(p) ) {
             TestThroughputCpqOnNThreads(p);
         }
     }

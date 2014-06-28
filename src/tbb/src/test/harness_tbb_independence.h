@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,6 +28,14 @@
 
 #ifndef harness_tbb_independence_H
 #define harness_tbb_independence_H
+
+// The tests which include tbb/atomic.h gain the dependency on the __TBB_ASSERT
+// implementation even the test does not use anything from it. But almost all
+// compilers optimize out unused inline function so they throw out the
+// dependency. But to be pedantic with the standard the __TBB_ASSERT
+// implementation should be provided. Moreover the offload compiler really
+// requires it.
+#include "../tbb/tbb_assert_impl.h"
 
 #if __linux__  && __ia64__
 

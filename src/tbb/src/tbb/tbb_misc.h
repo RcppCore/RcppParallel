@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -42,6 +42,9 @@
 
 // Does the operating system have a system call to pin a thread to a set of OS processors?
 #define __TBB_OS_AFFINITY_SYSCALL_PRESENT ((__linux__ && !__ANDROID__) || (__FreeBSD_version >= 701000))
+// On IBM* Blue Gene* CNK nodes, the affinity API has restrictions that prevent its usability for TBB,
+// and also sysconf(_SC_NPROCESSORS_ONLN) already takes process affinity into account.
+#define __TBB_USE_OS_AFFINITY_SYSCALL (__TBB_OS_AFFINITY_SYSCALL_PRESENT && !__bg__)
 
 namespace tbb {
 namespace internal {
@@ -243,7 +246,7 @@ inline void run_initializer( bool (*f)(), atomic<do_once_state>& state ) {
     state = f() ? do_once_executed : do_once_uninitialized;
 }
 
-#if __TBB_OS_AFFINITY_SYSCALL_PRESENT
+#if __TBB_USE_OS_AFFINITY_SYSCALL
   #if __linux__
     typedef cpu_set_t basic_mask_t;
   #elif __FreeBSD_version >= 701000
@@ -264,7 +267,7 @@ inline void run_initializer( bool (*f)(), atomic<do_once_state>& state ) {
     public:
         void protect_affinity_mask() {}
     };
-#endif /* __TBB_OS_AFFINITY_SYSCALL_PRESENT */
+#endif /* __TBB_USE_OS_AFFINITY_SYSCALL */
 
 #if __TBB_CPF_BUILD || TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 extern bool cpu_has_speculation();

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -75,10 +75,11 @@ public:
     bool is_divisible() const {return size>=grainsize;}
 
     quick_sort_range( quick_sort_range& range, split ) : comp(range.comp) {
+        using std::swap;
         RandomAccessIterator array = range.begin;
         RandomAccessIterator key0 = range.begin; 
         size_t m = pseudo_median_of_nine(array, range);
-        if (m) std::swap ( array[0], array[m] );
+        if (m) swap ( array[0], array[m] );
 
         size_t i=0;
         size_t j=range.size;
@@ -96,11 +97,11 @@ public:
                 ++i;
             } while( comp( array[i],*key0 ));
             if( i==j ) goto partition;
-            std::swap( array[i], array[j] );
+            swap( array[i], array[j] );
         }
 partition:
         // Put the partition key were it belongs
-        std::swap( array[j], *key0 );
+        swap( array[j], *key0 );
         // array[l..j) is less or equal to key.
         // array(j..r) is greater or equal to key.
         // array[j] is equal to key

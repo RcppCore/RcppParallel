@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -36,10 +36,10 @@
 #if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 #if __TBB_TSX_AVAILABLE
 
-#include "tbb/tbb_stddef.h"
-#include "tbb/tbb_machine.h"
-#include "tbb/tbb_profiling.h"
-#include "tbb/spin_rw_mutex.h"
+#include "../tbb_stddef.h"
+#include "../tbb_machine.h"
+#include "../tbb_profiling.h"
+#include "../spin_rw_mutex.h"
 
 namespace tbb {
 namespace interface7 {

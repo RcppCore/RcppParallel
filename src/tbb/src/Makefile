@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -85,9 +85,8 @@ native_examples: tbb tbbmalloc
 ../examples/% examples/%::
 	$(MAKE) -C $(examples_root) -r -f Makefile tbb_root=.. $(subst examples/,,$(subst ../,,$@))
 
-debug_%:: cfg?=debug
+debug_%:: cfg:=$(if $(findstring file,$(origin cfg)),debug,$(cfg))
 debug_%:: export run_cmd=$(debugger)
-test_% stress_% time_% perf_%:: cfg?=release
 debug_malloc_% test_malloc_% debug_ScalableAlloc% test_ScalableAlloc%:: TESTFILE=tbbmalloc
 debug_rml_% test_rml_%:: TESTFILE=rml
 debug_runtime_load% test_runtime_load%:: TESTFILE=tbbproxy
@@ -96,7 +95,7 @@ debug_% test_% stress_% time_% perf_%::
 	$(MAKE) -C "$(work_dir)_$(cfg)" -r -f $(tbb_root)/build/Makefile.$(TESTFILE) cfg=$(cfg) $@
 
 clean_%::
-ifeq ($(cfg),)
+ifeq ($(origin cfg),file)
 	@$(MAKE) -C "$(work_dir)_release"  -r -f $(tbb_root)/build/Makefile.test cfg=release $@
 	@$(MAKE) -C "$(work_dir)_debug"  -r -f $(tbb_root)/build/Makefile.test cfg=debug $@
 else
@@ -226,10 +225,18 @@ mkdir_debug:
 	$(shell $(MD) "$(work_dir)_debug" >$(NUL) 2>$(NUL))
 	@echo Created $(work_dir)_debug directory
 
-codecov: compiler=$(if $(findstring windows,$(tbb_os)),icl,icc)
+ifeq ($(compiler),$(if $(findstring windows,$(tbb_os)),icl,icc))
+codecov: codecov=yes
+codecov: do_codecov
+	$(MAKE) -C "$(work_dir)_release" -r -f $(tbb_root)/build/Makefile.test cfg=release codecov_gen
+else
 codecov:
-	$(MAKE) tbb_root=.. codecov=yes do_codecov
+	$(error Only Intel(R) C++ Compiler is supported for code coverage)
+endif
 
+export codecov
+
+do_codecov: tbb_root=..
 do_codecov:
 	$(MAKE) RML=yes tbbmalloc_test_release test_release
 	$(MAKE) clean_test_* cfg=release
@@ -238,7 +245,6 @@ do_codecov:
 	$(MAKE) rml_test_release
 	$(MAKE) clean_test_* cfg=release
 	$(MAKE) crosstest=yes rml_test_debug
-	$(MAKE) -C "$(work_dir)_release" -r -f $(tbb_root)/build/Makefile.test tbb_root=$(tbb_root) cfg=release codecov=yes codecov_gen
 
 info:
 	@echo OS: $(tbb_os)
@@ -246,17 +252,15 @@ info:
 	@echo compiler=$(compiler)
 	@echo runtime=$(runtime)
 	@echo tbb_build_prefix=$(tbb_build_prefix)
-	@echo work_dir=$(abspath $(tbb_build_dir)$(SLASH)$(tbb_build_prefix)_{cfg})
+	@echo work_dir=$(abspath $(tbb_build_dir)$(SLASH)$(tbb_build_prefix)_$(cfg))
 
 # [usage]$ source `make <options> tbbvars`.sh
-tbbvars: cfg?=release
 tbbvars:
 	@echo $(tbb_build_dir)$(SLASH)$(tbb_build_prefix)_$(cfg)$(SLASH)tbbvars
 
 symbols: args=$(if $(findstring cl,$(compiler)), dumpbin /section:.text *.obj|findstr COMDAT , nm -Pg *.o|grep ' T '|cut -f1 -d' ')
 symbols: shell
 
-shell: cfg?=release
 shell:
 ifdef BUILDING_PHASE
 	-$(run_cmd) $(shell_cmd)

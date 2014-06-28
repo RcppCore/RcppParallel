@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -595,7 +595,7 @@ namespace interface6 {
 
         template<typename T>
         struct destruct_only: tbb::internal::no_copy {
-            tbb::aligned_space<T,1> value;
+            tbb::aligned_space<T> value;
             ~destruct_only() {value.begin()[0].~T();}
         };
 
@@ -668,6 +668,7 @@ namespace interface6 {
         */
         template<typename U, size_t ModularSize>
         struct ets_element {
+            ets_element() { /* avoid cl warning C4345 about default initialization of POD types */ }
             char value[ModularSize==0 ? sizeof(U) : sizeof(U)+(tbb::internal::NFS_MaxLineSize-ModularSize)];
             void unconstruct() {
                 tbb::internal::punned_cast<U*>(&value)->~U();
@@ -730,9 +731,9 @@ namespace interface6 {
 
         /*override*/ void* create_local() {
 #if TBB_DEPRECATED
-            void* lref = &my_locals[my_locals.push_back(padded_element())];
+            void* lref = &my_locals[my_locals.grow_by(1)];
 #else
-            void* lref = &*my_locals.push_back(padded_element());
+            void* lref = &*my_locals.grow_by(1);
 #endif
             my_construct_callback->construct(lref);
             return lref;
@@ -930,9 +931,9 @@ namespace interface6 {
                     base::slot& s2 = this->table_find(s1.key);
                     if( s2.empty() ) {
 #if TBB_DEPRECATED
-                        void* lref = &my_locals[my_locals.push_back(padded_element())];
+                        void* lref = &my_locals[my_locals.grow_by(1)];
 #else
-                        void* lref = &*my_locals.push_back(padded_element());
+                        void* lref = &*my_locals.grow_by(1);
 #endif
                         s2.ptr = new(lref) T(*(U*)s1.ptr);
                         s2.key = s1.key;

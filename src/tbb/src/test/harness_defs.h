@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -58,7 +58,7 @@
 //ICC has a bug in assumptions of the modifications made via atomic pointer
 #define __TBB_ICC_BUILTIN_ATOMICS_POINTER_ALIASING_BROKEN (TBB_USE_ICC_BUILTINS &&  __INTEL_COMPILER < 1400 && __INTEL_COMPILER > 1200)
 
-#if (_WIN32 && !__TBB_WIN8UI_SUPPORT) || (__linux__ && !__ANDROID__) || __FreeBSD_version >= 701000
+#if (_WIN32 && !__TBB_WIN8UI_SUPPORT) || (__linux__ && !__ANDROID__ && !__bg__) || __FreeBSD_version >= 701000
 #define __TBB_TEST_SKIP_AFFINITY 0
 #else
 #define __TBB_TEST_SKIP_AFFINITY 1
@@ -102,7 +102,7 @@
 #endif
 
 //MSVC 2013 is unable to properly resolve call to overloaded operator= with std::initilizer_list argument for std::pair list elements
-#define __TBB_CPP11_INIT_LIST_ASSIGN_OP_RESOLUTION_BROKEN     _MSC_FULL_VER <= 180020827 && _MSC_VER && !__INTEL_COMPILER
+#define __TBB_CPP11_INIT_LIST_ASSIGN_OP_RESOLUTION_BROKEN     _MSC_FULL_VER <= 180021005 && _MSC_VER && !__INTEL_COMPILER
 //Implementation of C++11 std::placeholders in libstdc++ coming with gcc prior to 4.5 reveals bug in Intel Compiler 13 causing "multiple definition" link errors.
 #define __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN ((__INTEL_COMPILER == 1300 || __INTEL_COMPILER == 1310 )&& __GXX_EXPERIMENTAL_CXX0X__ && __TBB_GCC_VERSION < 40500)
 
@@ -119,6 +119,8 @@
 #define __TBB_UNQUALIFIED_CALL_OF_DTOR_BROKEN (__GNUC__==3 && __GNUC_MINOR__<=3)
 
 #define __TBB_CAS_8_CODEGEN_BROKEN (__TBB_x86_32 && __PIC__ && __TBB_GCC_VERSION == 40102 && !__INTEL_COMPILER)
+
+#define __TBB_THROW_FROM_DTOR_BROKEN (__clang__ &&  (__apple_build_version__ &&  __apple_build_version__ < 5000279 || __TBB_CLANG_VERSION && __TBB_CLANG_VERSION < 50000))
 
 #if __TBB_LIBSTDCPP_EXCEPTION_HEADERS_BROKEN
   #define _EXCEPTION_PTR_H /* prevents exception_ptr.h inclusion */

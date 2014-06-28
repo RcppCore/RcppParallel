@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -92,9 +92,15 @@ __TBB_MACHINE_DEFINE_ATOMICS(4,int32_t,"l","=r")
 #pragma warning( disable: 998 )
 #endif
 
-static inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand ) {
+#if __TBB_GCC_CAS8_BUILTIN_INLINING_BROKEN
+#define  __TBB_IA32_CAS8_NOINLINE  __attribute__ ((noinline))
+#else
+#define  __TBB_IA32_CAS8_NOINLINE
+#endif
+
+static inline __TBB_IA32_CAS8_NOINLINE int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, int64_t comparand )  {
 //TODO: remove the extra part of condition once __TBB_GCC_BUILTIN_ATOMICS_PRESENT is lowered to gcc version 4.1.2
-#if __TBB_GCC_BUILTIN_ATOMICS_PRESENT || __TBB_GCC_VERSION >= 40304
+#if (__TBB_GCC_BUILTIN_ATOMICS_PRESENT || (__TBB_GCC_VERSION >= 40102)) && !__TBB_GCC_64BIT_ATOMIC_BUILTINS_BROKEN
     return __sync_val_compare_and_swap( reinterpret_cast<volatile int64_t*>(ptr), comparand, value );
 #else /* !__TBB_GCC_BUILTIN_ATOMICS_PRESENT */
     //TODO: look like ICC 13.0 has some issues with this code, investigate it more deeply
@@ -145,6 +151,8 @@ static inline int64_t __TBB_machine_cmpswp8 (volatile void *ptr, int64_t value, 
     return result;
 #endif /* !__TBB_GCC_BUILTIN_ATOMICS_PRESENT */
 }
+
+#undef __TBB_IA32_CAS8_NOINLINE
 
 #if __INTEL_COMPILER
 #pragma warning( pop )

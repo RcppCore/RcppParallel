@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,11 +34,6 @@
 
 #include "tbb/tbb_machine.h"
 
-#if !__TBB_CPU_CTL_ENV_PRESENT
-    #include <fenv.h>
-    typedef fenv_t __TBB_cpu_ctl_env_t;
-#endif /* !__TBB_CPU_CTL_ENV_PRESENT */
-
 #include "scheduler_common.h"
 #include "intrusive_list.h"
 #include "task_stream.h"
@@ -57,12 +52,6 @@ class task_group_context;
 class allocate_root_with_context_proxy;
 
 namespace internal {
-
-class task_scheduler_observer_v3;
-class arena;
-template<typename SchedulerTraits> class custom_scheduler;
-
-class market;
 
 //! arena data except the array of slots
 /** Separated in order to simplify padding. 
@@ -116,8 +105,10 @@ struct arena_base : padded<intrusive_list_node> {
     //! ABA prevention marker
     uintptr_t my_aba_epoch;
 
+#if !__TBB_FP_CONTEXT
     //! FPU control settings of arena's master thread captured at the moment of arena instantiation.
     __TBB_cpu_ctl_env_t my_cpu_ctl_env;
+#endif
 
 #if __TBB_TRACK_PRIORITY_LEVEL_SATURATION
     int my_num_workers_present;
@@ -191,13 +182,13 @@ private:
     friend class governor;
     friend class task_scheduler_observer_v3;
     friend class market;
+    friend class tbb::task;
     friend class tbb::task_group_context;
     friend class allocate_root_with_context_proxy;
     friend class intrusive_list<arena>;
     friend class interface7::internal::task_arena_base; // declared in scheduler_common.h
     friend class interface7::internal::delegated_task;
     friend class interface7::internal::wait_task;
-    friend struct interface7::internal::wait_body;
 
     typedef padded<arena_base> base_type;
 
@@ -277,7 +268,10 @@ private:
 #if __TBB_TASK_PRIORITY
     //! Check if recent priority changes may bring some tasks to the current priority level soon
     /** /param tasks_present indicates presence of tasks at any priority level. **/
-    inline bool may_have_tasks ( generic_scheduler*, arena_slot&, bool& tasks_present, bool& dequeuing_possible );
+    inline bool may_have_tasks ( generic_scheduler*, bool& tasks_present, bool& dequeuing_possible );
+
+    //! Puts offloaded tasks into global list of orphaned tasks
+    void orphan_offloaded_tasks ( generic_scheduler& s );
 #endif /* __TBB_TASK_PRIORITY */
 
 #if __TBB_COUNT_TASK_NODES

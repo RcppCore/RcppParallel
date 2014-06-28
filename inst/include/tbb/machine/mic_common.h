@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -47,14 +47,17 @@
 #endif
 
 /** Intel(R) Many Integrated Core Architecture does not support mfence and pause instructions **/
-#define __TBB_full_memory_fence() __asm__ __volatile__("lock; addl $0,(%%rsp)":::"memory")
+#if !TBB_USE_ICC_BUILTINS
+    #define __TBB_full_memory_fence() __asm__ __volatile__("lock; addl $0,(%%rsp)":::"memory")
+#endif
 #define __TBB_Pause(x) _mm_delay_32(16*(x))
 #define __TBB_STEALING_PAUSE 1500/16
 #include <sched.h>
 #define __TBB_Yield() sched_yield()
 
-/** FPU control setting **/
-#define __TBB_CPU_CTL_ENV_PRESENT 0
+// low-level timing intrinsic and its type
+#define __TBB_machine_time_stamp() _rdtsc()
+typedef uint64_t machine_tsc_t;
 
 /** Specifics **/
 #define __TBB_STEALING_ABORT_ON_CONTENTION 1

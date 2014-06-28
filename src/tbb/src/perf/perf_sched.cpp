@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -101,7 +101,7 @@ protected:
         NumRootTasks = 1;
         NumIterations = workloads[idx];
         NumLeafTasks = NUM_CHILD_TASKS * NUM_ROOT_TASKS / (NumIterations > 1000 ? 32 : 8);
-        Perf::SetWorkloadName( "%d x %d", NumLeafTasks, NumIterations );
+        Perf::SetWorkloadName( "%dx%d", NumLeafTasks, NumIterations );
     }
     
     void Run ( ThreadInfo& ) {
@@ -164,7 +164,7 @@ class Test_ShallowTree : public Test_SPMC {
         NumIterations = workloads[idx];
         NumLeafTasks = NumIterations > 200 ? NUM_CHILD_TASKS / 10 : 
                             (NumIterations > 50 ? NUM_CHILD_TASKS / 2 : NUM_CHILD_TASKS * 2);
-        Perf::SetWorkloadName( "%d x %d", NumRootTasks * NumLeafTasks, NumIterations );
+        Perf::SetWorkloadName( "%dx%d", NumRootTasks * NumLeafTasks, NumIterations );
     }
 
     void Run ( ThreadInfo& ) {
@@ -241,7 +241,7 @@ protected:
             IterRange = algRanges[idx];
             IterGrain = algGrains[idx];
         }
-        Perf::SetWorkloadName( "%d / %d", IterRange, IterGrain );
+        Perf::SetWorkloadName( "%d/%d", IterRange, IterGrain );
     }
 public:
     Test_Algs ( PartitionerType pt = SimplePartitioner ) : my_partitionerType(pt) {}
@@ -382,7 +382,7 @@ protected:
             IterRange = 2;
             IterGrain = 1;
         }
-        Perf::SetWorkloadName( "%d / %d", NestingRange, NestingGrain );
+        Perf::SetWorkloadName( "%d/%d", NestingRange, NestingGrain );
     }
 
     void Run ( ThreadInfo& ) {

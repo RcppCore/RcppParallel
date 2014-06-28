@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -43,8 +43,7 @@ DEBUG_SUFFIX=$(findstring _debug,$(call cross_cfg,_$(cfg)))
 #------------------------------------------------------------
 
 VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/src/rml/client $(tbb_root)/src/old $(tbb_root)/src/test $(tbb_root)/src/perf
-TEST_USES_TBB=1 # it can be set to 0 for individual tests that do not depend on TBB
-CPLUS_FLAGS += $(if $(crosstest),$(DEFINE_KEY)__TBB_NO_IMPLICIT_LINKAGE=1) $(DEFINE_KEY)TEST_USES_TBB=$(TEST_USES_TBB)
+CPLUS_FLAGS += $(if $(crosstest),$(DEFINE_KEY)__TBB_NO_IMPLICIT_LINKAGE=1) $(if $(LINK_TBB.LIB),$(DEFINE_KEY)TEST_USES_TBB=1)
 
 TEST_PREREQUISITE+=$(TBB.LIB)
 LINK_FILES+=$(LINK_TBB.LIB)
@@ -60,6 +59,7 @@ TEST_SUFFIXES=secondary compiler_builtins pic deprecated
 include $(tbb_root)/build/common_rules.inc
 
 # Rules for the tests, which use TBB in a dynamically loadable library
+test_model_plugin.$(TEST_EXT): LINK_TBB.LIB =
 test_model_plugin.$(TEST_EXT): CPLUS_FLAGS := $(CPLUS_FLAGS:$(USE_PROXY_FLAG)=)
 test_model_plugin.$(TEST_EXT): LIBS += $(LIBDL)
 test_model_plugin.$(TEST_EXT): test_model_plugin_dll.$(DLL)
@@ -77,8 +77,8 @@ INCLUDES += $(INCLUDE_KEY).
 
 $(SCHEDULER_DIRECTLY_INCLUDED): WARNING_KEY += $(WARNING_SUPPRESS)
 $(SCHEDULER_DIRECTLY_INCLUDED): LIBS += $(LIBDL)
-#tbb.lib must not be linked to scheduler white box tests in order to not violate ODR 
-$(SCHEDULER_DIRECTLY_INCLUDED): LINK_TBB.LIB = 
+#tbb.lib must not be linked to scheduler white box tests in order to not violate ODR
+$(SCHEDULER_DIRECTLY_INCLUDED): LINK_TBB.LIB =
 $(SCHEDULER_DIRECTLY_INCLUDED): LINK_FILES += $(SCHEDULER_DEPENDENCIES)
 $(SCHEDULER_DIRECTLY_INCLUDED): $(SCHEDULER_DEPENDENCIES)
 
@@ -106,11 +106,11 @@ $(TWICE_LINKED_TESTS): LINK_FILES+=$(@:.$(TEST_EXT)=_secondary.$(OBJ))
 %_pic.$(OBJ): CPLUS_FLAGS+=$(DEFINE_KEY)__TBB_TEST_PIC=1
 
 # Test of generic gcc port and icc intrinsics port
+%_compiler_builtins.$(TEST_EXT): LINK_TBB.LIB =
 %_compiler_builtins.$(OBJ): CPLUS_FLAGS+=$(DEFINE_KEY)__TBB_TEST_BUILTINS=1
 
 # The test_dynamic_link test doesn't depend on the TBB library
 test_dynamic_link.$(TEST_EXT): LINK_TBB.LIB =
-test_dynamic_link.$(TEST_EXT): TEST_USES_TBB=0
 test_dynamic_link.$(TEST_EXT): LIBS += $(LIBDL)
 
 # The main list of TBB tests
@@ -190,7 +190,7 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_source_node.$(TEST_EXT)                 \
 	test_overwrite_node.$(TEST_EXT)              \
 	test_write_once_node.$(TEST_EXT)             \
-	test_or_node.$(TEST_EXT)                     \
+	test_indexer_node.$(TEST_EXT)                \
 	test_multifunction_node.$(TEST_EXT)          \
 	test_split_node.$(TEST_EXT)                  \
 	test_static_assert.$(TEST_EXT)               \
@@ -198,6 +198,9 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_concurrent_lru_cache.$(TEST_EXT)        \
 	test_examples_common_utility.$(TEST_EXT)     \
 	test_dynamic_link.$(TEST_EXT)                \
+	test_parallel_for_vectorization.$(TEST_EXT)  \
+	test_tagged_msg.$(TEST_EXT)                  \
+	test_partitioner_whitebox.$(TEST_EXT)        \
 	test_tbb_version.$(TEST_EXT)                 # insert new files right above
 
 TEST_TBB_PLAIN.EXE += $(TEST_TBB_CPP11)
@@ -258,6 +261,8 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(SCHEDULER_DIRECTLY_INCLUDED) $(TEST_TBB_P
 	$(run_cmd) ./test_blocked_range2d.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_blocked_range3d.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_parallel_for.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_partitioner_whitebox.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_parallel_for_vectorization.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_parallel_sort.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_aligned_space.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_parallel_reduce.$(TEST_EXT) $(args) 1:4
@@ -318,7 +323,7 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(SCHEDULER_DIRECTLY_INCLUDED) $(TEST_TBB_P
 	$(run_cmd) ./test_source_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_overwrite_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_write_once_node.$(TEST_EXT) $(args) 1:4
-	$(run_cmd) ./test_or_node.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_indexer_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_multifunction_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_split_node.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_examples_common_utility.$(TEST_EXT) $(args)
@@ -327,6 +332,7 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(SCHEDULER_DIRECTLY_INCLUDED) $(TEST_TBB_P
 	$(run_cmd) ./test_static_assert.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_aggregator.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_lru_cache.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_tagged_msg.$(TEST_EXT) $(args)
 
 # For deprecated files, we don't mind warnings etc., thus compilation rules are most relaxed
 CPLUS_FLAGS_DEPRECATED = $(DEFINE_KEY)TBB_DEPRECATED=1 $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(WARNING_SUPPRESS) $(INCLUDE_KEY)$(tbb_root)/src/test

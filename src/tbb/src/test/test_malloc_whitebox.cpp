@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -34,6 +34,12 @@
 // iff __STDC_LIMIT_MACROS pre-defined
 #define __STDC_LIMIT_MACROS 1
 
+// To disable exceptions in <vector> and <list> on Windows*
+#undef _HAS_EXCEPTIONS
+#define _HAS_EXCEPTIONS _CPPUNWIND
+
+#define HARNESS_TBBMALLOC_THREAD_SHUTDOWN 1
+
 #include "harness.h"
 #include "harness_barrier.h"
 
@@ -53,6 +59,11 @@
 #undef private
 #include "../tbbmalloc/backend.cpp"
 #include "../tbbmalloc/backref.cpp"
+
+namespace tbbmalloc_whitebox {
+    size_t locGetProcessed = 0;
+    size_t locPutProcessed = 0;
+}
 #include "../tbbmalloc/large_objects.cpp"
 #include "../tbbmalloc/tbbmalloc.cpp"
 
@@ -634,6 +645,18 @@ void TestBackend()
     ASSERT(block, "Memory was not allocated");
     backend->putSlabBlock(block);
 
+    // Checks if the backend increases and decreases the amount of allocated memory when memory is allocated.
+    const size_t memSize0 = backend->getTotalMemSize();
+    LargeMemoryBlock *lmb = backend->getLargeBlock(4*MByte);
+    ASSERT( lmb, ASSERT_TEXT );
+
+    const size_t memSize1 = backend->getTotalMemSize();
+    ASSERT( (intptr_t)(memSize1-memSize0) >= 4*MByte, "The backend has not increased the amount of using memory." );
+
+    backend->putLargeBlock(lmb);
+    const size_t memSize2 = backend->getTotalMemSize();
+    ASSERT( memSize2 == memSize0, "The backend has not decreased the amount of using memory." );
+
     pool_destroy(mPool);
 }
 
@@ -669,27 +692,35 @@ size_t getMemSize()
 }
 
 class CheckNotCached {
-    size_t memSize;
+    static size_t memSize;
 public:
-    CheckNotCached(size_t memSize) : memSize(memSize) {}
     void operator() () const {
         int res = scalable_allocation_mode(TBBMALLOC_SET_SOFT_HEAP_LIMIT, 1);
         ASSERT(res == TBBMALLOC_OK, NULL);
-        ASSERT(getMemSize() == memSize, NULL);
+        if (memSize==(size_t)-1) {
+            memSize = getMemSize();
+        } else {
+            ASSERT(getMemSize() == memSize, NULL);
+            memSize=(size_t)-1;
+        }
     }
 };
 
+size_t CheckNotCached::memSize = (size_t)-1;
+
 class RunTestHeapLimit: public SimpleBarrier {
-    size_t memSize;
 public:
-    RunTestHeapLimit(size_t memSize) : memSize(memSize) {}
-
     void operator()( int /*mynum*/ ) const {
-        CheckNotCached checkNotCached(memSize);
-
+        // Provoke bootstrap heap initialization before recording memory size.
+        // NOTE: The initialization should be processed only with a "large"
+        // object. Since the "small" object allocation lead to blocking of a
+        // slab as an active block and it is impossible to release it with
+        // foreign thread.
+        scalable_free(scalable_malloc(minLargeObjectSize));
+        barrier.wait(CheckNotCached());
         for (size_t n = minLargeObjectSize; n < 5*1024*1024; n += 128*1024)
             scalable_free(scalable_malloc(n));
-        barrier.wait(checkNotCached);
+        barrier.wait(CheckNotCached());
     }
 };
 
@@ -699,7 +730,7 @@ void TestHeapLimit()
     // tiny limit to stop caching
     int res = scalable_allocation_mode(TBBMALLOC_SET_SOFT_HEAP_LIMIT, 1);
     ASSERT(res == TBBMALLOC_OK, NULL);
-     // provoke bootstrap heap initialization before recording memory size
+     // Provoke bootstrap heap initialization before recording memory size.
     scalable_free(scalable_malloc(8));
     size_t n, sizeBefore = getMemSize();
 
@@ -716,18 +747,10 @@ void TestHeapLimit()
     }
     ASSERT(n < 10*1024*1024, "scalable_malloc doesn't provoke OS request for memory, "
            "is some internal cache still used?");
-    // estimate number of objects in single bootstrap block
-    int objInBootstrapHeapBlock = (slabSize-2*estimatedCacheLineSize)/sizeof(TLSData);
-    // When we have more threads than objects in bootstrap heap block,
-    // additional block can be allocated from a region that is different
-    // from the original region. Thus even after all caches cleaned,
-    // we unable to reach sizeBefore.
-    ASSERT_WARNING(MaxThread<=objInBootstrapHeapBlock,
-        "The test might fail for larger thread number, "
-        "as bootstrap heap is not released till size checking.");
+
     for( int p=MaxThread; p>=MinThread; --p ) {
         RunTestHeapLimit::initBarrier( p );
-        NativeParallelFor( p, RunTestHeapLimit(sizeBefore) );
+        NativeParallelFor( p, RunTestHeapLimit() );
     }
     // it's try to match limit as well as set limit, so call here
     res = scalable_allocation_mode(TBBMALLOC_SET_SOFT_HEAP_LIMIT, 1);
@@ -744,6 +767,358 @@ void checkNoHugePages()
     ASSERT(!hugePages.enabled, "scalable_allocation_mode "
            "must have priority over environment variable");
 }
+
+/*---------------------------------------------------------------------------*/
+// The regression test against a bug in TBBMALLOC_CLEAN_ALL_BUFFERS allocation
+// command. When cleanup is requested the backend should process the queue of
+// postponed coalescing requests otherwise not all unsued memory might be
+// deallocated.
+
+const size_t alloc_size = 16*1024;
+const int total_alloc_size = 100 * 1024 * 1024;
+const int num_allocs = total_alloc_size / alloc_size;
+void *ptrs[num_allocs];
+
+tbb::atomic<int> deallocs_counter;
+
+struct TestCleanAllBuffersDeallocate : public SimpleBarrier {
+    void operator() ( int ) const {
+        barrier.wait();
+        for( int i = deallocs_counter++; i < num_allocs; i = deallocs_counter++ )
+           scalable_free( ptrs[i] );
+    }
+};
+
+// The idea is to allocate a set of objects and then deallocate them in random
+// order in parallel to force occuring conflicts in backend during coalescing.
+// Thus if the backend does not check the queue of postponed coalescing
+// requests it will not be able to unmap all memory and a memory leak will be
+// observed.
+void TestCleanAllBuffers() {
+    const int num_threads = 8;
+    // Clean up if something was allocated before the test
+    scalable_allocation_command(TBBMALLOC_CLEAN_ALL_BUFFERS,0);
+
+    size_t memory_in_use_before = getMemSize();
+    for ( int i=0; i<num_allocs; ++i ) {
+        ptrs[i] = scalable_malloc( alloc_size );
+        ASSERT( ptrs[i] != NULL, "scalable_malloc has return zero." );
+    }
+    deallocs_counter = 0;
+    TestCleanAllBuffersDeallocate::initBarrier(num_threads);
+    NativeParallelFor(num_threads, TestCleanAllBuffersDeallocate());
+    // TODO: reproduce the conditions for bug reproduction more reliably
+    if ( defaultMemPool->extMemPool.backend.coalescQ.blocksToFree == NULL )
+        REMARK( "Warning: The queue of postponed coalescing requests is empty. Unable to create the condition for bug reproduction.\n" );
+    ASSERT( scalable_allocation_command(TBBMALLOC_CLEAN_ALL_BUFFERS,0) == TBBMALLOC_OK, "The cleanup request has not cleaned anything." );
+    size_t memory_in_use_after = getMemSize();
+
+    REMARK( "memory_in_use_before = %ld\nmemory_in_use_after = %ld\n", memory_in_use_before, memory_in_use_after );
+
+    size_t memory_leak = memory_in_use_after - memory_in_use_before;
+    ASSERT( memory_leak == 0, "The backend has not processed the queue of postponed coalescing requests during cleanup." );
+}
+/*---------------------------------------------------------------------------*/
+/*------------------------- Large Object Cache tests ------------------------*/
+#if _MSC_VER==1600 || _MSC_VER==1500
+  // ignore C4275: non dll-interface class 'stdext::exception' used as
+  // base for dll-interface class 'std::bad_cast'
+  #pragma warning (disable: 4275)
+#endif
+#include <vector>
+#include <list>
+
+// default constructor of CacheBin
+template<typename Props>
+rml::internal::LargeObjectCacheImpl<Props>::CacheBin::CacheBin() {}
+
+template<typename Props>
+class CacheBinModel {
+
+    typedef typename rml::internal::LargeObjectCacheImpl<Props>::CacheBin CacheBinType;
+
+    // The emulated cache bin.
+    CacheBinType cacheBinModel;
+    // The reference to real cahce bin inside the large object cache.
+    CacheBinType &cacheBin;
+
+    const size_t size;
+
+    // save only current time
+    std::list<uintptr_t> objects;
+
+    void doCleanup() {
+        if ( cacheBinModel.cachedSize > Props::TooLargeFactor*cacheBinModel.usedSize ) tooLargeLOC++;
+        else tooLargeLOC = 0;
+
+        if (tooLargeLOC>3 && cacheBinModel.ageThreshold)
+            cacheBinModel.ageThreshold = (cacheBinModel.ageThreshold + cacheBinModel.meanHitRange)/2;
+
+        uintptr_t currTime = cacheCurrTime;
+        while (!objects.empty() && (intptr_t)(currTime - objects.front()) > cacheBinModel.ageThreshold) {
+            cacheBinModel.cachedSize -= size;
+            cacheBinModel.lastCleanedAge = objects.front();
+            objects.pop_front();
+        }
+
+        cacheBinModel.oldest = objects.empty() ? 0 : objects.front();
+    }
+
+public:
+    CacheBinModel(CacheBinType &_cacheBin, size_t allocSize) : cacheBin(_cacheBin), size(allocSize) {
+        cacheBinModel.oldest = cacheBin.oldest;
+        cacheBinModel.lastCleanedAge = cacheBin.lastCleanedAge;
+        cacheBinModel.ageThreshold = cacheBin.ageThreshold;
+        cacheBinModel.usedSize = cacheBin.usedSize;
+        cacheBinModel.cachedSize = cacheBin.cachedSize;
+        cacheBinModel.meanHitRange = cacheBin.meanHitRange;
+        cacheBinModel.lastGet = cacheBin.lastGet;
+    }
+    void get() {
+        uintptr_t currTime = ++cacheCurrTime;
+
+        if ( objects.empty() ) {
+            const uintptr_t sinceLastGet = currTime - cacheBinModel.lastGet;
+            if ( ( cacheBinModel.ageThreshold && sinceLastGet > Props::LongWaitFactor*cacheBinModel.ageThreshold ) ||
+                 ( cacheBinModel.lastCleanedAge && sinceLastGet > Props::LongWaitFactor*(cacheBinModel.lastCleanedAge - cacheBinModel.lastGet) ) )
+                cacheBinModel.lastCleanedAge = cacheBinModel.ageThreshold = 0;
+
+            if (cacheBinModel.lastCleanedAge)
+                cacheBinModel.ageThreshold = Props::OnMissFactor*(currTime - cacheBinModel.lastCleanedAge);
+        } else {
+            uintptr_t obj_age = objects.back();
+            objects.pop_back();
+            if ( objects.empty() ) cacheBinModel.oldest = 0;
+
+            intptr_t hitRange = currTime - obj_age;
+            cacheBinModel.meanHitRange = cacheBinModel.meanHitRange? (cacheBinModel.meanHitRange + hitRange)/2 : hitRange;
+
+            cacheBinModel.cachedSize -= size;
+        }
+
+        cacheBinModel.usedSize += size;
+        cacheBinModel.lastGet = currTime;
+
+        if ( currTime % rml::internal::cacheCleanupFreq == 0 ) doCleanup();
+    }
+
+    void putList( int num ) {
+        uintptr_t currTime = cacheCurrTime;
+        cacheCurrTime += num;
+
+        cacheBinModel.usedSize -= num*size;
+
+        bool cleanUpNeeded = false;
+        if ( !cacheBinModel.lastCleanedAge ) {
+            cacheBinModel.lastCleanedAge = ++currTime;
+            cleanUpNeeded |= currTime % rml::internal::cacheCleanupFreq == 0;
+            num--;
+        }
+
+        for ( int i=1; i<=num; ++i ) {
+            currTime+=1;
+            cleanUpNeeded |= currTime % rml::internal::cacheCleanupFreq == 0;
+            if ( objects.empty() )
+                cacheBinModel.oldest = currTime;
+            objects.push_back(currTime);
+        }
+
+        cacheBinModel.cachedSize += num*size;
+
+        if ( cleanUpNeeded ) doCleanup();
+    }
+
+    void check() {
+        ASSERT(cacheBinModel.oldest == cacheBin.oldest, ASSERT_TEXT);
+        ASSERT(cacheBinModel.lastCleanedAge == cacheBin.lastCleanedAge, ASSERT_TEXT);
+        ASSERT(cacheBinModel.ageThreshold == cacheBin.ageThreshold, ASSERT_TEXT);
+        ASSERT(cacheBinModel.usedSize == cacheBin.usedSize, ASSERT_TEXT);
+        ASSERT(cacheBinModel.cachedSize == cacheBin.cachedSize, ASSERT_TEXT);
+        ASSERT(cacheBinModel.meanHitRange == cacheBin.meanHitRange, ASSERT_TEXT);
+        ASSERT(cacheBinModel.lastGet == cacheBin.lastGet, ASSERT_TEXT);
+    }
+
+    static uintptr_t cacheCurrTime;
+    static intptr_t tooLargeLOC;
+};
+
+template<typename Props> uintptr_t CacheBinModel<Props>::cacheCurrTime;
+template<typename Props> intptr_t CacheBinModel<Props>::tooLargeLOC;
+
+template <typename Scenarion>
+void LOCModelTester() {
+    defaultMemPool->extMemPool.loc.cleanAll();
+    defaultMemPool->extMemPool.loc.reset();
+
+    const size_t size = 16 * 1024;
+    const size_t headersSize = sizeof(rml::internal::LargeMemoryBlock)+sizeof(rml::internal::LargeObjectHdr);
+    const size_t allocationSize = LargeObjectCache::alignToBin(size+headersSize+rml::internal::largeObjectAlignment);
+    const int binIdx = defaultMemPool->extMemPool.loc.largeCache.sizeToIdx( allocationSize );
+
+    CacheBinModel<rml::internal::LargeObjectCache::LargeCacheTypeProps>::cacheCurrTime = defaultMemPool->extMemPool.loc.cacheCurrTime;
+    CacheBinModel<rml::internal::LargeObjectCache::LargeCacheTypeProps>::tooLargeLOC = defaultMemPool->extMemPool.loc.largeCache.tooLargeLOC;
+    CacheBinModel<rml::internal::LargeObjectCache::LargeCacheTypeProps> cacheBinModel(defaultMemPool->extMemPool.loc.largeCache.bin[binIdx], allocationSize);
+
+    Scenarion scen;
+    for (rml::internal::LargeMemoryBlock *lmb = scen.next(); (intptr_t)lmb != (intptr_t)-1; lmb = scen.next()) {
+        if ( lmb ) {
+            int num=1;
+            for (rml::internal::LargeMemoryBlock *curr = lmb; curr->next; curr=curr->next) num+=1;
+            defaultMemPool->extMemPool.freeLargeObject(lmb);
+            cacheBinModel.putList(num);
+        } else {
+            scen.saveLmb(defaultMemPool->extMemPool.mallocLargeObject(allocationSize));
+            cacheBinModel.get();
+        }
+
+        cacheBinModel.check();
+    }
+}
+
+class TestBootstrap {
+    bool allocating;
+    std::vector<rml::internal::LargeMemoryBlock*> lmbArray;
+public:
+    TestBootstrap() : allocating(true) {}
+
+    rml::internal::LargeMemoryBlock* next() {
+        if ( allocating )
+            return NULL;
+        if ( !lmbArray.empty() ) {
+            rml::internal::LargeMemoryBlock *ret = lmbArray.back();
+            lmbArray.pop_back();
+            return ret;
+        }
+        return (rml::internal::LargeMemoryBlock*)-1;
+    }
+
+    void saveLmb( rml::internal::LargeMemoryBlock *lmb ) {
+        lmb->next = NULL;
+        lmbArray.push_back(lmb);
+        if ( lmbArray.size() == 1000 ) allocating = false;
+    }
+};
+
+class TestRandom {
+    std::vector<rml::internal::LargeMemoryBlock*> lmbArray;
+    int numOps;
+public:
+    TestRandom() : numOps(100000) {
+        srand(1234);
+    }
+
+    rml::internal::LargeMemoryBlock* next() {
+        if ( numOps-- ) {
+            if ( lmbArray.empty() || rand() / (RAND_MAX>>1) == 0 )
+                return NULL;
+            size_t ind = rand()%lmbArray.size();
+            if ( ind != lmbArray.size()-1 ) std::swap(lmbArray[ind],lmbArray[lmbArray.size()-1]);
+            rml::internal::LargeMemoryBlock *lmb = lmbArray.back();
+            lmbArray.pop_back();
+            return lmb;
+        }
+        return (rml::internal::LargeMemoryBlock*)-1;
+    }
+
+    void saveLmb( rml::internal::LargeMemoryBlock *lmb ) {
+        lmb->next = NULL;
+        lmbArray.push_back(lmb);
+    }
+};
+
+class TestCollapsingMallocFree : public SimpleBarrier {
+public:
+    static const int NUM_ALLOCS = 100000;
+    const int num_threads;
+
+    TestCollapsingMallocFree( int _num_threads ) : num_threads(_num_threads) {
+        initBarrier( num_threads );
+    }
+
+    void operator() ( int ) const {
+        const size_t size = 16 * 1024;
+        const size_t headersSize = sizeof(rml::internal::LargeMemoryBlock)+sizeof(rml::internal::LargeObjectHdr);
+        const size_t allocationSize = LargeObjectCache::alignToBin(size+headersSize+rml::internal::largeObjectAlignment);
+
+        barrier.wait();
+        for ( int i=0; i<NUM_ALLOCS; ++i ) {
+            defaultMemPool->extMemPool.freeLargeObject(
+                    defaultMemPool->extMemPool.mallocLargeObject(allocationSize) );
+        }
+    }
+
+    void check() {
+        ASSERT( tbbmalloc_whitebox::locGetProcessed == tbbmalloc_whitebox::locPutProcessed, ASSERT_TEXT );
+        ASSERT( tbbmalloc_whitebox::locGetProcessed < num_threads*NUM_ALLOCS, "No one Malloc/Free pair was collapsed." );
+    }
+};
+
+class TestCollapsingBootstrap : public SimpleBarrier {
+    class CheckNumAllocs {
+        const int num_threads;
+    public:
+        CheckNumAllocs( int _num_threads ) : num_threads(_num_threads) {}
+        void operator()() const {
+            ASSERT( tbbmalloc_whitebox::locGetProcessed == num_threads*NUM_ALLOCS, ASSERT_TEXT );
+            ASSERT( tbbmalloc_whitebox::locPutProcessed == 0, ASSERT_TEXT );
+        }
+    };
+public:
+    static const int NUM_ALLOCS = 1000;
+    const int num_threads;
+
+    TestCollapsingBootstrap( int _num_threads ) : num_threads(_num_threads) {
+        initBarrier( num_threads );
+    }
+
+    void operator() ( int ) const {
+        const size_t size = 16 * 1024;
+        size_t headersSize = sizeof(rml::internal::LargeMemoryBlock)+sizeof(rml::internal::LargeObjectHdr);
+        size_t allocationSize = LargeObjectCache::alignToBin(size+headersSize+rml::internal::largeObjectAlignment);
+
+        barrier.wait();
+        rml::internal::LargeMemoryBlock *lmbArray[NUM_ALLOCS];
+        for ( int i=0; i<NUM_ALLOCS; ++i )
+            lmbArray[i] = defaultMemPool->extMemPool.mallocLargeObject(allocationSize);
+
+        barrier.wait(CheckNumAllocs(num_threads));
+        for ( int i=0; i<NUM_ALLOCS; ++i )
+            defaultMemPool->extMemPool.freeLargeObject( lmbArray[i] );
+    }
+
+    void check() {
+        ASSERT( tbbmalloc_whitebox::locGetProcessed == tbbmalloc_whitebox::locPutProcessed, ASSERT_TEXT );
+        ASSERT( tbbmalloc_whitebox::locGetProcessed == num_threads*NUM_ALLOCS, ASSERT_TEXT );
+    }
+};
+
+template <typename Scenario>
+void LOCCollapsingTester( int num_threads ) {
+    tbbmalloc_whitebox::locGetProcessed = 0;
+    tbbmalloc_whitebox::locPutProcessed = 0;
+    defaultMemPool->extMemPool.loc.cleanAll();
+    defaultMemPool->extMemPool.loc.reset();
+
+    Scenario scen(num_threads);
+    NativeParallelFor(num_threads, scen);
+
+    scen.check();
+}
+
+void TestLOC() {
+    LOCModelTester<TestBootstrap>();
+    LOCModelTester<TestRandom>();
+
+    const int num_threads = 16;
+    LOCCollapsingTester<TestCollapsingBootstrap>( num_threads );
+    if ( num_threads > 1 ) {
+        REMARK( "num_threads = %d\n", num_threads );
+        LOCCollapsingTester<TestCollapsingMallocFree>( num_threads );
+    } else {
+        REPORT( "Warning: concurrency is too low for TestMallocFreeCollapsing ( num_threads = %d )\n", num_threads );
+    }
+}
+/*---------------------------------------------------------------------------*/
 
 int TestMain () {
     scalable_allocation_mode(USE_HUGE_PAGES, 0);
@@ -771,5 +1146,7 @@ int TestMain () {
     TestObjectRecognition();
     TestBitMask();
     TestHeapLimit();
+    TestCleanAllBuffers();
+    TestLOC();
     return Harness::Done;
 }

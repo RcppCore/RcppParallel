@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -60,8 +60,8 @@ public:
     blocked_range() : my_end(), my_begin() {}
 
     //! Construct range over half-open interval [begin,end), with the given grainsize.
-    blocked_range( Value begin_, Value end_, size_type grainsize_=1 ) : 
-        my_end(end_), my_begin(begin_), my_grainsize(grainsize_) 
+    blocked_range( Value begin_, Value end_, size_type grainsize_=1 ) :
+        my_end(end_), my_begin(begin_), my_grainsize(grainsize_)
     {
         __TBB_ASSERT( my_grainsize>0, "grainsize must be positive" );
     }
@@ -93,14 +93,34 @@ public:
     /** Unspecified if end()<begin(). */
     bool is_divisible() const {return my_grainsize<size();}
 
-    //! Split range.  
-    /** The new Range *this has the second half, the old range r has the first half. 
+    //! Split range.
+    /** The new Range *this has the second part, the old range r has the first part.
         Unspecified if end()<begin() or !is_divisible(). */
-    blocked_range( blocked_range& r, split ) : 
+    blocked_range( blocked_range& r, split ) :
         my_end(r.my_end),
-        my_begin(do_split(r)),
+        my_begin(do_split(r, split())),
         my_grainsize(r.my_grainsize)
-    {}
+    {
+        // only comparison 'less than' is required from values of blocked_range objects
+        __TBB_ASSERT( !(my_begin < r.my_end) && !(r.my_end < my_begin), "blocked_range has been split incorrectly" );
+    }
+
+#if !TBB_DEPRECATED
+    //! Static field to support proportional split
+    static const bool is_divisible_in_proportion = true;
+
+    //! Split range.
+    /** The new Range *this has the second part split according to specified proportion, the old range r has the first part.
+        Unspecified if end()<begin() or !is_divisible(). */
+    blocked_range( blocked_range& r, proportional_split& proportion ) :
+        my_end(r.my_end),
+        my_begin(do_split(r, proportion)),
+        my_grainsize(r.my_grainsize)
+    {
+        // only comparison 'less than' is required from values of blocked_range objects
+        __TBB_ASSERT( !(my_begin < r.my_end) && !(r.my_end < my_begin), "blocked_range has been split incorrectly" );
+    }
+#endif
 
 private:
     /** NOTE: my_end MUST be declared before my_begin, otherwise the forking constructor will break. */
@@ -110,12 +130,30 @@ private:
 
     //! Auxiliary function used by forking constructor.
     /** Using this function lets us not require that Value support assignment or default construction. */
-    static Value do_split( blocked_range& r ) {
+    static Value do_split( blocked_range& r, split )
+    {
         __TBB_ASSERT( r.is_divisible(), "cannot split blocked_range that is not divisible" );
-        Value middle = r.my_begin + (r.my_end-r.my_begin)/2u;
+        Value middle = r.my_begin + (r.my_end - r.my_begin) / 2u;
         r.my_end = middle;
         return middle;
     }
+
+#if !TBB_DEPRECATED
+    static Value do_split( blocked_range& r, proportional_split& proportion )
+    {
+        __TBB_ASSERT( r.is_divisible(), "cannot split blocked_range that is not divisible" );
+
+        // usage of 32-bit floating point arithmetic is not enough to handle ranges of
+        // more than 2^24 iterations accurately. However, even on ranges with 2^64
+        // iterations the computational error approximately equals to 0.000001% which
+        // makes small impact on uniform distribution of such range's iterations (assuming
+        // all iterations take equal time to complete). See 'test_partitioner_whitebox'
+        // for implementation of an exact split algorithm
+        size_type right_part = size_type(float(r.size()) * float(proportion.right())
+                                         / float(proportion.left() + proportion.right()) + 0.5f);
+        return r.my_end = Value(r.my_end - right_part);
+    }
+#endif
 
     template<typename RowValue, typename ColValue>
     friend class blocked_range2d;
@@ -124,6 +162,6 @@ private:
     friend class blocked_range3d;
 };
 
-} // namespace tbb 
+} // namespace tbb
 
 #endif /* __TBB_blocked_range_H */

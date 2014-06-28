@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -39,15 +39,12 @@
 namespace tbb {
 namespace internal {
 
-class arena;
-class observer_proxy;
-
 class observer_list {
     friend class arena;
 
     // Mutex is wrapped with aligned_space to shut up warnings when its destructor
     // is called while threads are still using it.
-    typedef aligned_space<spin_rw_mutex,1>  my_mutex_type;
+    typedef aligned_space<spin_rw_mutex>  my_mutex_type;
 
     //! Pointer to the head of this list.
     observer_proxy* my_head;
@@ -102,9 +99,9 @@ public:
     inline void notify_entry_observers( observer_proxy*& last, bool worker );
 
     //! Call exit notifications on last and observers added before it.
-    inline void notify_exit_observers( observer_proxy* last, bool worker );
+    inline void notify_exit_observers( observer_proxy*& last, bool worker );
 
-    //! Call on_scheduler_leaving callbacks to ask for permission for a worker thread to leave an arena
+    //! Call may_sleep callbacks to ask for permission for a worker thread to leave market
     bool ask_permission_to_leave();
 }; // class observer_list
 
@@ -149,10 +146,9 @@ class observer_proxy {
 
 inline void observer_list::remove_ref_fast( observer_proxy*& p ) {
     if( p->my_observer ) {
-        // 2 = 1 for observer and 1 for last
-        __TBB_ASSERT( p->my_ref_count>=2, NULL );
         // Can decrement refcount quickly, as it cannot drop to zero while under the lock.
-        --p->my_ref_count;
+        int r = --p->my_ref_count;
+        __TBB_ASSERT_EX( r, NULL );
         p = NULL;
     } else {
         // Use slow form of refcount decrementing, after the lock is released.
@@ -165,13 +161,16 @@ inline void observer_list::notify_entry_observers( observer_proxy*& last, bool w
     do_notify_entry_observers( last, worker );
 }
 
-inline void observer_list::notify_exit_observers( observer_proxy* last, bool worker ) {
+inline void observer_list::notify_exit_observers( observer_proxy*& last, bool worker ) {
     if ( !last )
         return;
+    __TBB_ASSERT(is_alive((uintptr_t)last), NULL);
     do_notify_exit_observers( last, worker );
+    __TBB_ASSERT(last, NULL);
+    poison_value(last);
 }
 
-extern observer_list the_global_observer_list;
+extern padded<observer_list> the_global_observer_list;
 
 } // namespace internal
 } // namespace tbb

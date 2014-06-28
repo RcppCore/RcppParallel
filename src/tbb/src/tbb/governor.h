@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -71,7 +71,7 @@ class governor {
     static const task_scheduler_init *BlockingTSI;
 
 #if TBB_USE_ASSERT
-    static bool IsBlockingTermiantionInProgress;
+    static bool IsBlockingTerminationInProgress;
 #endif
 
 #if __TBB_CPF_BUILD || TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX

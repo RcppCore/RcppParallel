@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -103,11 +103,11 @@ public:
 
     //! Shorthand for default constructor followed by call to initialize(number_of_threads).
 #if __TBB_SUPPORTS_WORKERS_WAITING_IN_TERMINATE
-    task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0, bool wait_workers_in_terminate = false )
+    task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0, bool wait_workers_in_terminate = false ) : my_scheduler(NULL)
 #else
-    task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0 )
+    task_scheduler_init( int number_of_threads=automatic, stack_size_type thread_stack_size=0 ) : my_scheduler(NULL)
 #endif
-  : my_scheduler(NULL)  {
+    {
         // Two lowest order bits of the stack size argument may be taken to communicate
         // default exception propagation mode of the client to be used when the
         // client manually creates tasks in the master thread and does not use

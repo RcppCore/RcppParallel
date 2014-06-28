@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -45,9 +45,11 @@ while getopts  "qvsr:ul:" flag #
 do case $flag in #
     s )  # Stress testing mode
          echo Doing stress testing. Press Ctrl-C to terminate
-         run_prefix+='rep() { while $*; do :; done; }; rep ' ;; #
+         run_env='stressed() { while $*; do :; done; };' #
+         run_prefix="stressed $run_prefix" ;; #
     r )  # Repeats test n times
-         run_prefix+="rep() { for i in \$(seq 1 $OPTARG); do echo \$i of $OPTARG:; \$*; done; }; rep " ;; #
+         run_env="repeated() { for i in \$(seq 1 $OPTARG); do echo \$i of $OPTARG:; \$*; done; };" #
+         run_prefix="repeated $run_prefix" ;; #
     l )  # Additional library
          ldd_list+="$OPTARG " #
          run_prefix+=" LD_PRELOAD=$OPTARG" ;; #
@@ -67,21 +69,39 @@ fexename="$1" #
 exename=`basename $1` #
 shift #
 #
-RSH="sudo ssh mic0" #
+: ${MICDEV:=mic0} #
+RSH="sudo ssh $MICDEV" #
 RCP="sudo scp" #
+currentdir=$PWD #
 #
 # Prepare the target directory on the device
-currentdir=`basename $PWD` #
-targetdir=${TEST_DIRECTORY:-/mic0fs/$USER/$currentdir} #
+targetdir="`$RSH mktemp -d /tmp/tbbtestXXXXXX 2>/dev/null`" #
+# Prepare the temporary directory on the host
+hostdir="`mktemp -d /tmp/tbbtestXXXXXX 2>/dev/null`" #
 #
-# Remove leftover target directory on the device
-eval "$RSH \"rm -r $targetdir; mkdir -p $targetdir\" $SUPPRESS 2>&1 || exit \$?" #
+function copy_files { #
+    eval "cp $* $hostdir/ $SUPPRESS 2>/dev/null || exit \$?" #
+    eval "$RCP $hostdir/* $MICDEV:$targetdir/ $SUPPRESS 2>/dev/null || exit \$?" #
+    eval "rm $hostdir/* $SUPPRESS 2>/dev/null || exit \$?" #
+} # copy files
+#
+function clean_all() { #
+    eval "$RSH rm -fr $targetdir $SUPPRESS" ||: #
+    eval "rm -fr $hostdir $SUPPRESS" ||: #
+} # clean all temporary files
+#
+function kill_interrupt() { #
+    echo -e "\n*** Killing remote $exename ***" && $RSH "killall $exename" #
+    clean_all #
+} # kill target process
+#
+trap 'clean_all' SIGINT SIGQUIT # trap keyboard interrupt (control-c)
 #
 # Transfer the test executable file and its auxiliary libraries (named as {test}_dll.so) to the target device.
-eval "$RCP $fexename `ls ${exename%\.*}*.so 2>/dev/null` mic0:$targetdir/ $SUPPRESS || exit \$?" #
+copy_files $fexename `ls ${exename%\.*}*.so 2>/dev/null ||:` #
 #
 # Collect all dependencies of the test and its auxiliary libraries to transfer them to the target device.
-ldd_list+="libtbbmalloc*.so* `$RSH ldd $targetdir/* | grep = | cut -d= -f1 2>/dev/null`" #
+ldd_list+="libtbbmalloc*.so* libirml*.so* `$RSH ldd $targetdir/\* | grep = | cut -d= -f1 2>/dev/null`" #
 fnamelist="" #
 #
 # Find the libraries and add them to the list.
@@ -92,29 +112,54 @@ for name in $ldd_list; do # adds the first matched name in specified dirs
     fnamelist+="`find $mic_dir_list -name $name -a -readable -print -quit 2>/dev/null` "||: #
 done #
 #
+# Remove extra spaces.
+fnamelist=`echo $fnamelist` #
 # Transfer collected executable and library files to the target device.
-eval "$RCP $fnamelist mic0:$targetdir/ $SUPPRESS || exit \$?" #
+[ -n "$fnamelist" ] && copy_files $fnamelist
 #
 # Transfer input files used by example codes by scanning the executable argument list.
-for fullname in "$@"; do if [ -r $fullname ]; then { #
-    directory=$(dirname $fullname) #
-    filename=$(basename $fullname) #
-    # strip leading "." from fullname if present
-    [ "$directory" = "." ] && directory="" && fullname="$filename" #
-    # Create the target directory to hold input file if necessary
-    [ ! -z "$directory" ] && $RSH "mkdir -p $targetdir/$directory" $SUPPRESS 2>&1 #
-    # Transfer the input file to corresponding directory on target device
-    eval "$RCP $fullname mic0:$targetdir/$fullname $SUPPRESS 2>&1 || exit \$?" #
-}; fi; done #
+argfiles= #
+args= #
+for arg in "$@"; do #
+  if [ -r $arg ]; then #
+    argfiles+="$arg " #
+    args+="$(basename $arg) " #
+  else #
+    args+="$arg " #
+  fi #
+done #
+[ -n "$argfiles" ] && copy_files $argfiles #
 #
-args=$* #
-[ $verbose ] && echo Running ./$exename $args #
+# Get the list of transferred files
+testfiles="`$RSH find $targetdir/ -type f | tr '\n' ' ' 2>/dev/null`" #
+#
+[ $verbose ] && echo Running $run_prefix ./$exename $args #
 # Run the test on the target device
-kill_interrupt() { #
-echo -e "\n*** Killing remote $exename ***" && $RSH "killall $exename" #
-} # kill target process
 trap 'kill_interrupt' SIGINT SIGQUIT # trap keyboard interrupt (control-c)
 trap - ERR #
-$RSH "cd $targetdir; export LD_LIBRARY_PATH=.:\$LD_LIBRARY_PATH; $run_prefix ./$exename $args" #
+run_env+="cd $targetdir; export LD_LIBRARY_PATH=.:\$LD_LIBRARY_PATH;" #
+$RSH "$run_env $run_prefix ./$exename $args" #
+#
+# Delete the test files and get the list of output files
+outfiles=`$RSH rm $testfiles 2>/dev/null; find $targetdir/ -type f 2>/dev/null` ||: #
+if [ -n "$outfiles" ]; then #
+    for outfile in $outfiles; do #
+        filename=$(basename $outfile) #
+        subdir=$(dirname $outfile) #
+        subdir="${subdir#$targetdir}" #
+        [ -n $subdir ] subdir=$subdir/ #
+        # Create directories on host
+        [ ! -d "$hostdir/$subdir" ] && mkdir -p "$hostdir/$subdir" #
+        [ ! -d "$currentdir/$subdir" ] && mkdir -p "$currentdir/$subdir" #
+        # Copy the output file to the temporary directory on host
+        eval "$RCP -r '$MICDEV:${outfile#}' '$hostdir/$subdir$filename' $SUPPRESS 2>&1 || exit \$?" #
+        # Copy the output file from the temporary directory to the current directory
+        eval "cp '$hostdir/$subdir$filename' '$currentdir/$subdir$filename' $SUPPRESS 2>&1 || exit \$?" #
+    done #
+fi #
+#
+# Clean up temporary directories
+clean_all
+#
 # Return the exit code of the test.
 exit $? #

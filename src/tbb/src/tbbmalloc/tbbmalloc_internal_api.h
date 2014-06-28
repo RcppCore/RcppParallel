@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,6 +32,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
+
+typedef enum {
+    /* Tune usage of source included allocator. Selected value is large enough
+       to not intercept with constants from AllocationModeParam. */
+    TBBMALLOC_INTERNAL_SOURCE_INCLUDED = 65536
+} AllocationModeInternalParam;
 
 void __TBB_mallocProcessShutdownNotification();
 #if _WIN32||_WIN64

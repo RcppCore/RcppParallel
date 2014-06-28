@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -37,7 +37,7 @@ namespace tbb {
 //! Block of space aligned sufficiently to construct an array T with N elements.
 /** The elements are not constructed or destroyed by this class.
     @ingroup memory_allocation */
-template<typename T,size_t N>
+template<typename T,size_t N=1>
 class aligned_space {
 private:
     typedef __TBB_TypeWithAlignmentAtLeastAsStrict(T) element_type;

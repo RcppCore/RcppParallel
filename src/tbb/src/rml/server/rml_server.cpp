@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -569,7 +569,7 @@ struct thread_map_base {
 #endif /* !RML_USE_WCRM */
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    // Suppress overzealous compiler warnings about uninstantiatble class
+    // Suppress overzealous compiler warnings about uninstantiable class
     #pragma warning(push)
     #pragma warning(disable:4510 4610)
 #endif

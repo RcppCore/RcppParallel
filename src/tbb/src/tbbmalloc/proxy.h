@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -53,12 +53,14 @@ extern "C" {
     void * safer_scalable_realloc( void *ptr, size_t, void* );
     void * safer_scalable_aligned_realloc( void *ptr, size_t, size_t, void* );
     size_t safer_scalable_msize( void *ptr, size_t (*orig_msize_crt80d)(void*));
+    size_t safer_scalable_aligned_msize( void *ptr, size_t, size_t, size_t (*orig_msize_crt80d)(void*,size_t,size_t));
 
     void * __TBB_internal_malloc(size_t size);
     void * __TBB_internal_calloc(size_t num, size_t size);
     void   __TBB_internal_free(void *ptr);
     void * __TBB_internal_realloc(void* ptr, size_t sz);
     int    __TBB_internal_posix_memalign(void **memptr, size_t alignment, size_t size);
+    size_t __TBB_internal_msize(void *ptr);
     
     bool   __TBB_internal_find_original_malloc(int num, const char *names[], void *table[]);
 } // extern "C"

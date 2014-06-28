@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -109,7 +109,7 @@ public:
     bool is_const() {return false;}
 protected:
     char reserve[1];
-    void operator=( const Foo& ) {}
+    void operator=( const Foo& );
 };
 
 class FooWithAssign: public Foo {
@@ -351,6 +351,14 @@ void CheckIteratorComparison( V& u ) {
     }
 }
 
+template<typename Vector, typename T>
+void TestGrowToAtleastWithSourceParameter(T const& src){
+    static const size_t vector_size = 10;
+    Vector v1(vector_size,src);
+    Vector v2;
+    v2.grow_to_at_least(vector_size,src);
+    ASSERT(v1==v2,"grow_to_at_least(vector_size,src) did not properly initialize new elements ?");
+}
 //! Test sequential iterators for vector type V.
 /** Also does timing. */
 template<typename T>
@@ -504,34 +512,52 @@ void TestSequentialFor() {
 
 static const size_t Modulus = 7;
 
-template<typename MyVector>
-class GrowToAtLeast: NoAssign {
-    MyVector& my_vector;
-public:
-    void operator()( const tbb::blocked_range<size_t>& range ) const {
-        for( size_t i=range.begin(); i!=range.end(); ++i ) {
-            size_t n = my_vector.size();
-            size_t req = (i % (2*n+1))+1;
-#if TBB_DEPRECATED
-            my_vector.grow_to_at_least(req);
-#else
-            typename MyVector::iterator p = my_vector.grow_to_at_least(req);
-            if( p-my_vector.begin() < typename MyVector::difference_type(req) )
-                ASSERT( p->state == Foo::DefaultInitialized || p->state == Foo::ZeroInitialized, NULL);
-#endif
-            ASSERT( my_vector.size()>=req, NULL );
-        }
-    }
-    GrowToAtLeast( MyVector& vector ) : my_vector(vector) {}
-};
+namespace test_grow_to_at_least_helpers {
+    template<typename MyVector >
+    class GrowToAtLeast: NoAssign {
+        typedef typename MyVector::const_reference const_reference;
 
-void TestConcurrentGrowToAtLeast() {
+        const bool my_use_two_args_form ;
+        MyVector& my_vector;
+        const_reference my_init_from;
+    public:
+        void operator()( const tbb::blocked_range<size_t>& range ) const {
+            for( size_t i=range.begin(); i!=range.end(); ++i ) {
+                size_t n = my_vector.size();
+                size_t req = (i % (2*n+1))+1;
+    #if TBB_DEPRECATED
+                my_vector.grow_to_at_least(req);
+    #else
+                typename MyVector::iterator p;
+                Foo::State desired_state;
+                if (my_use_two_args_form){
+                    p = my_vector.grow_to_at_least(req,my_init_from);
+                    desired_state = Foo::CopyInitialized;
+                }else{
+                    p = my_vector.grow_to_at_least(req);
+                    desired_state = Foo::DefaultInitialized;
+                }
+                if( p-my_vector.begin() < typename MyVector::difference_type(req) )
+                    ASSERT( p->state == desired_state || p->state == Foo::ZeroInitialized, NULL );
+    #endif
+                ASSERT( my_vector.size()>=req, NULL );
+            }
+        }
+        GrowToAtLeast(bool use_two_args_form, MyVector& vector, const_reference init_from )
+            : my_use_two_args_form(use_two_args_form), my_vector(vector), my_init_from(init_from) {}
+    };
+}
+
+template<bool use_two_arg_form>
+void TestConcurrentGrowToAtLeastImpl() {
+    using namespace test_grow_to_at_least_helpers;
     typedef static_counting_allocator< tbb::zero_allocator<Foo> > MyAllocator;
     typedef tbb::concurrent_vector<Foo, MyAllocator> MyVector;
+    Foo copy_from;
     MyAllocator::init_counters();
     MyVector v(2, Foo(), MyAllocator());
     for( size_t s=1; s<1000; s*=10 ) {
-        tbb::parallel_for( tbb::blocked_range<size_t>(0,10000*s,s), GrowToAtLeast<MyVector>(v), tbb::simple_partitioner() );
+        tbb::parallel_for( tbb::blocked_range<size_t>(0,10000*s,s), GrowToAtLeast<MyVector>(use_two_arg_form, v, copy_from), tbb::simple_partitioner() );
     }
     v.clear();
     ASSERT( 0 == v.get_allocator().frees, NULL);
@@ -544,6 +570,10 @@ void TestConcurrentGrowToAtLeast() {
     ASSERT( allocations == frees, NULL);
 }
 
+void TestConcurrentGrowToAtLeast() {
+    TestConcurrentGrowToAtLeastImpl<false>();
+    TestConcurrentGrowToAtLeastImpl<true>();
+}
 //! Test concurrent invocations of method concurrent_vector::grow_by
 template<typename MyVector>
 class GrowBy: NoAssign {
@@ -554,21 +584,29 @@ public:
 #if TBB_DEPRECATED
         for( int i=range.begin(); i!=range.end(); ++i )
 #else
-        int i = range.begin(), h = (range.end() - i) / 2;
-        typename MyVector::iterator s = my_vector.grow_by(h);
-        for( h += i; i < h; ++i, ++s )
-            s->bar() = i;
-        for(; i!=range.end(); ++i )
+        const int h = range.size() / 2 ;
+        {
+            const int begin = range.begin();
+            const int left_part = h/2 ;
+            const int right_part = h - left_part;
+            //elements added by this call are counted by copy_inits_by_grow_by_range variable bellow
+            my_vector.grow_by(FooIterator(begin),FooIterator(begin+left_part));
+            //these ones are counted by def_inits_by_grow_by_bunch
+            typename MyVector::iterator const s = my_vector.grow_by(right_part);
+            for( int k = 0; k < right_part; ++k )
+                s[k].bar() = begin + left_part + k;
+        }
+
+        for(int i=range.begin() + h; i!=range.end(); ++i )
 #endif
         {
-            if( i&1 ) {
+            if( i&1 ) {//counted by def_inits_by_grow_by_single_odd
 #if TBB_DEPRECATED
-                typename MyVector::reference element = my_vector[my_vector.grow_by(1)];
-                element.bar() = i;
+                my_vector[my_vector.grow_by(1)].bar() = i;
 #else
                 my_vector.grow_by(1)->bar() = i;
 #endif
-            } else {
+            } else {// "Even" part
                 typename MyVector::value_type f;
                 f.bar() = i;
 #if TBB_DEPRECATED
@@ -576,10 +614,13 @@ public:
 #else
                 typename MyVector::iterator r;
 #endif
-                if( i&2 )
+                if( i&2 ){
+                    //counted by copy_inits_by_push_back_single_second_bit_set
                     r = my_vector.push_back( f );
-                else
+                }else{
+                    //counted by copy_inits_by_grow_by_single_second_bit_cleared_part
                     r = my_vector.grow_by(1, f);
+                }
 #if TBB_DEPRECATED
                 ASSERT( my_vector[r].bar()==i, NULL );
 #else
@@ -599,16 +640,18 @@ void TestConcurrentGrowBy( int nthread ) {
 
     MyAllocator::init_counters();
     {
-        int m = 100000; MyAllocator a;
+        static const int grain_size = 100;
+        static const int range_size = grain_size * 8; //this should be grain_size * (power of two) in order to get minimal ranges equal to grain_size
+
+        MyAllocator a;
         MyVector v( a );
-        tbb::parallel_for( tbb::blocked_range<int>(0,m,100), GrowBy<MyVector>(v), tbb::simple_partitioner() );
-        ASSERT( v.size()==size_t(m), NULL );
+        tbb::parallel_for( tbb::blocked_range<int>(0,range_size,grain_size), GrowBy<MyVector>(v), tbb::simple_partitioner() );
+        ASSERT( v.size()==size_t(range_size), NULL );
 
         // Verify that v is a permutation of 0..m
         int inversions = 0, def_inits = 0, copy_inits = 0;
-        bool* found = new bool[m];
-        memset( found, 0, m );
-        for( int i=0; i<m; ++i ) {
+        bool  found [range_size] = {0};
+        for( int i=0; i<range_size; ++i ) {
             if( v[i].state == Foo::DefaultInitialized ) ++def_inits;
             else if( v[i].state == Foo::CopyInitialized ) ++copy_inits;
             else {
@@ -621,17 +664,35 @@ void TestConcurrentGrowBy( int nthread ) {
             if( i>0 )
                 inversions += v[i].bar()<v[i-1].bar();
         }
-        for( int i=0; i<m; ++i ) {
+        for( int i=0; i<range_size; ++i ) {
             ASSERT( found[i], NULL );
             ASSERT( nthread>1 || v[i].bar()==i, "sequential execution is wrong" );
         }
-        delete[] found;
+
         REMARK("Initialization by default constructor: %d, by copy: %d\n", def_inits, copy_inits);
-        ASSERT( def_inits >= m/2, NULL );
-        ASSERT( copy_inits >= m/4, NULL );
-        if( nthread>1 && inversions<m/20 )
+
+#if !TBB_DEPRECATED
+        const int grow_by_bunch_add_part = range_size/2;                                                        //Number of elements added in "Bunch" part above
+#else
+        const int grow_by_bunch_add_part = 0;
+#endif
+        const int single_add_part = range_size - grow_by_bunch_add_part;                                        //Number of elements added in "Single add" part above
+
+        const int copy_inits_by_grow_by_range = grow_by_bunch_add_part/2;                                                                       //Number of elements added by iterator range form of grow_by above
+        const int def_inits_by_grow_by_bunch = grow_by_bunch_add_part - copy_inits_by_grow_by_range;                                            //Number of elements added by single argument form of grow_by
+
+        const int def_inits_by_grow_by_single_odd = single_add_part/2;                                                                          //Number of elements added by grow_by(1) for odd indexes
+        const int second_bit_set_part = single_add_part - def_inits_by_grow_by_single_odd;                                                      //Number of elements added by grow_by(1,f) and push_back(f) for even indexes above
+        const int copy_inits_by_push_back_single_second_bit_set = (second_bit_set_part)/2;                                                      //Number of elements added push_back(f) for even indexes above
+        const int copy_inits_by_grow_by_single_second_bit_cleared_part = second_bit_set_part - copy_inits_by_push_back_single_second_bit_set;   //Number of elements added by grow_by(1,f) for even indexes above
+
+        ASSERT( def_inits == def_inits_by_grow_by_bunch + def_inits_by_grow_by_single_odd , NULL);
+        ASSERT( copy_inits == copy_inits_by_grow_by_range + copy_inits_by_push_back_single_second_bit_set + copy_inits_by_grow_by_single_second_bit_cleared_part, NULL );
+
+        if( nthread>1 && inversions<range_size/20 )
             REPORT("Warning: not much concurrency in TestConcurrentGrowBy (%d inversions)\n", inversions);
     }
+    //TODO: factor this into separate thing, as it seems to used in big number of tests
     size_t items_allocated = MyAllocator::items_allocated,
            items_freed = MyAllocator::items_freed;
     size_t allocations = MyAllocator::allocations,
@@ -639,6 +700,17 @@ void TestConcurrentGrowBy( int nthread ) {
     ASSERT( items_allocated == items_freed, NULL);
     ASSERT( allocations == frees, NULL);
 }
+#if !TBB_DEPRECATED
+void TestSerialGrowByRange(bool segmented_vector ){
+    tbb::concurrent_vector<int> v;
+    if (segmented_vector){
+        v.reserve(1);
+    }
+    int init_range[] = {1,2,3,4,5,6,7,8,9,10};
+    v.grow_by(init_range,init_range+(Harness::array_length(init_range)));
+    ASSERT(std::equal(v.begin(),v.end(),init_range),"grow_by(I,I) did not properly copied all elements ?");
+}
+#endif //!TBB_DEPRECATED
 //TODO: move this to more appropriate place, smth like test_harness.cpp
 void TestArrayLength(){
     int five_elementh_array[5] = {0};
@@ -1019,10 +1091,60 @@ void TestVectorTypes() {
 
 //------------------------------------------------------------------------
 
+namespace v3_backward_compatibility{
+    namespace segment_t_layout_helpers{
+        //this is previous definition of according inner class of concurrent_vector_base_v3
+        struct segment_t_v3 {
+            void* array;
+        };
+        //helper class to access protected members of concurrent_vector_base
+        struct access_vector_fields :tbb::internal::concurrent_vector_base_v3 {
+            using tbb::internal::concurrent_vector_base_v3::segment_t;
+            using tbb::internal::concurrent_vector_base_v3::segment_index_t;
+            using tbb::internal::concurrent_vector_base_v3::pointers_per_long_table;
+            using tbb::internal::concurrent_vector_base_v3::internal_segments_table;
+        };
+        //this is previous definition of according inner class of concurrent_vector_base_v3
+        struct internal_segments_table_v3 {
+            access_vector_fields::segment_index_t first_block;
+            segment_t_v3 table[access_vector_fields::pointers_per_long_table];
+        };
+
+        template <typename checked_type>
+        struct alignment_check_helper{
+            char dummy;
+            checked_type checked;
+        };
+    }
+    void TestSegmentTLayout(){
+        using namespace segment_t_layout_helpers;
+        typedef alignment_check_helper<segment_t_v3> structure_with_old_segment_type;
+        typedef alignment_check_helper<access_vector_fields::segment_t> structure_with_new_segment_type;
+
+        ASSERT((sizeof(structure_with_old_segment_type)==sizeof(structure_with_new_segment_type))
+              ,"layout of new segment_t and old one differ?");
+    }
+
+    void TestInternalSegmentsTableLayout(){
+        using namespace segment_t_layout_helpers;
+        typedef alignment_check_helper<internal_segments_table_v3> structure_with_old_segment_table_type;
+        typedef alignment_check_helper<access_vector_fields::internal_segments_table> structure_with_new_segment_table_type;
+
+        ASSERT((sizeof(structure_with_old_segment_table_type)==sizeof(structure_with_new_segment_table_type))
+              ,"layout of new internal_segments_table and old one differ?");
+    }
+}
+void TestV3BackwardCompatibility(){
+    using namespace v3_backward_compatibility;
+    TestSegmentTLayout();
+    TestInternalSegmentsTableLayout();
+}
+
 int TestMain () {
     if( MinThread<1 ) {
         REPORT("ERROR: MinThread=%d, but must be at least 1\n",MinThread); MinThread = 1;
     }
+    TestV3BackwardCompatibility();
 #if !TBB_DEPRECATED
     TestIteratorTraits<tbb::concurrent_vector<Foo>::iterator,Foo>();
     TestIteratorTraits<tbb::concurrent_vector<Foo>::const_iterator,const Foo>();
@@ -1033,6 +1155,9 @@ int TestMain () {
     TestSequentialFor<FooWithAssign> ();
     TestResizeAndCopy();
     TestAssign();
+    TestGrowToAtleastWithSourceParameter<tbb::concurrent_vector<int> >(12345);
+    TestSerialGrowByRange(false);
+    TestSerialGrowByRange(true);
 #if HAVE_m128
     TestVectorTypes<ClassWithSSE>();
 #endif

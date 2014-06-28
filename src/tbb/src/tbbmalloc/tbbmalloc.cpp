@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -70,11 +70,10 @@ namespace internal {
 
 #if MALLOC_CHECK_RECURSION
 
-void* (*original_malloc_ptr)(size_t) = 0;
-void  (*original_free_ptr)(void*) = 0;
+static void   (*original_free_ptr)(void*) = 0;
 #if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
-static void* (*original_calloc_ptr)(size_t,size_t) = 0;
-static void* (*original_realloc_ptr)(void*,size_t) = 0;
+static void*  (*original_realloc_ptr)(void*,size_t) = 0;
+static size_t (*original_msize_ptr)(void*) = 0;
 #endif
 
 #endif /* MALLOC_CHECK_RECURSION */
@@ -108,21 +107,26 @@ extern "C" void MallocInitializeITT() {
 void init_tbbmalloc() {
 #if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
     if (malloc_proxy && __TBB_internal_find_original_malloc) {
-        const char *alloc_names[] = { "malloc", "free", "realloc", "calloc"};
-        void *orig_alloc_ptrs[4];
+        const char *alloc_names[] = {"malloc", "free", "realloc"};
+        void *orig_alloc_ptrs[arrayLength(alloc_names)];
 
-        if (__TBB_internal_find_original_malloc(4, alloc_names, orig_alloc_ptrs)) {
+        if (__TBB_internal_find_original_malloc(arrayLength(alloc_names),
+                                                alloc_names, orig_alloc_ptrs)) {
+            void* (*original_malloc_ptr)(size_t);
+
             (void *&)original_malloc_ptr  = orig_alloc_ptrs[0];
             (void *&)original_free_ptr    = orig_alloc_ptrs[1];
             (void *&)original_realloc_ptr = orig_alloc_ptrs[2];
-            (void *&)original_calloc_ptr  = orig_alloc_ptrs[3];
             MALLOC_ASSERT( original_malloc_ptr!=malloc_proxy,
                            "standard malloc not found" );
+            // malloc_usable_size() is optional, continue if it's not found
+            const char *usable_size_name[] = {"malloc_usable_size"};
+            __TBB_internal_find_original_malloc(arrayLength(usable_size_name),
+                               usable_size_name, (void **)&original_msize_ptr);
 /* It's workaround for a bug in GNU Libc 2.9 (as it shipped with Fedora 10).
    1st call to libc's malloc should be not from threaded code.
  */
             original_free_ptr(original_malloc_ptr(1024));
-            original_malloc_found = 1;
         }
     }
 #endif /* MALLOC_UNIXLIKE_OVERLOAD_ENABLED */
@@ -181,8 +185,6 @@ static RegisterProcessShutdownNotification reg;
 
 #if MALLOC_CHECK_RECURSION
 
-bool  original_malloc_found;
-
 #if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
 
 extern "C" {
@@ -210,6 +212,11 @@ void* __TBB_internal_realloc(void* ptr, size_t sz)
 void __TBB_internal_free(void *object)
 {
     safer_scalable_free(object, original_free_ptr);
+}
+
+size_t __TBB_internal_msize(void *ptr)
+{
+    return safer_scalable_msize(ptr, original_msize_ptr);
 }
 
 } /* extern "C" */

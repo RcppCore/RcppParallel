@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -184,6 +184,55 @@ void test_concurrency(int num_threads) {
     run_continue_nodes<int>();
     run_continue_nodes<empty_no_assign>();
 }
+/*
+ * Connection of two graphs is not currently supported, but works to some limited extent.
+ * This test is included to check for backward compatibility. It checks that a continue_node 
+ * with predecessors in two different graphs receives the required
+ * number of continue messages before it executes.
+ */
+using namespace tbb::flow;
+
+struct add_to_counter {
+    int* counter;
+    add_to_counter(int& var):counter(&var){}
+    void operator()(continue_msg){*counter+=1;}
+};
+
+void test_two_graphs(){
+    int count=0;
+
+    //graph g with broadcast_node and continue_node
+    graph g;
+    broadcast_node<continue_msg> start_g(g);
+    continue_node<continue_msg> first_g(g, add_to_counter(count));
+
+    //graph h with broadcast_node
+    graph h;
+    broadcast_node<continue_msg> start_h(h);
+
+    //making two edges to first_g from the two graphs
+    make_edge(start_g,first_g);
+    make_edge(start_h, first_g);
+
+    //two try_puts from the two graphs
+    start_g.try_put(continue_msg());
+    start_h.try_put(continue_msg());
+    g.wait_for_all();
+    ASSERT(count==1, "Not all continue messages received");
+ 
+    //two try_puts from the graph that doesn't contain the node
+    count=0;
+    start_h.try_put(continue_msg());
+    start_h.try_put(continue_msg());
+    g.wait_for_all();
+    ASSERT(count==1, "Not all continue messages received -1");
+
+    //only one try_put
+    count=0;
+    start_g.try_put(continue_msg());
+    g.wait_for_all();
+    ASSERT(count==0, "Node executed without waiting for all predecessors");
+}
 
 int TestMain() {
     if( MinThread<1 ) {
@@ -193,6 +242,7 @@ int TestMain() {
     for( int p=MinThread; p<=MaxThread; ++p ) {
        test_concurrency(p);
    }
+   test_two_graphs();
    return Harness::Done;
 }
 

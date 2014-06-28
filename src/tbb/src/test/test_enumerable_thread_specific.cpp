@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -1009,6 +1009,23 @@ void TestInstantiation() {
     ets3.combine(HasNoDefaultConstructorCombine());
 }
 
+class BigType {
+public:
+    BigType() { /* avoid cl warning C4345 about default initialization of POD types */ }
+    char my_data[12 * 1024 * 1024];
+};
+
+void TestConstructor() {
+    typedef tbb::enumerable_thread_specific<BigType> CounterBigType;
+    // Test default constructor
+    CounterBigType MyCounters; 
+    // Create a local instance.
+    CounterBigType::reference my_local = MyCounters.local();
+    my_local.my_data[0] = 'a';
+    // Test copy constructor
+    CounterBigType MyCounters2(MyCounters);
+}
+
 int TestMain () {
     TestInstantiation();
     run_segmented_iterator_tests();
@@ -1024,6 +1041,8 @@ int TestMain () {
     }
 
     run_assignment_and_copy_constructor_tests();
+
+    TestConstructor();
 
     return Harness::Done;
 }

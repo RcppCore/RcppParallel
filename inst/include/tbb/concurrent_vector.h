@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -104,15 +104,75 @@ namespace internal {
             pointers_per_long_table = sizeof(segment_index_t) * 8 // one segment per bit
         };
 
-        // Segment pointer. Can be zero-initialized
-        struct segment_t {
+        struct segment_not_used {};
+        struct segment_allocated {};
+        struct segment_allocation_failed {};
+
+        class segment_t;
+        class segment_value_t {
             void* array;
+        private:
+            //TODO: More elegant way to grant access to selected functions _only_?
+            friend class segment_t;
+            segment_value_t(void* an_array):array(an_array) {}
+        public:
+            friend bool operator==(segment_value_t const& lhs, segment_not_used ) { return lhs.array == 0;}
+            friend bool operator==(segment_value_t const& lhs, segment_allocated) { return lhs.array > internal::vector_allocation_error_flag;}
+            friend bool operator==(segment_value_t const& lhs, segment_allocation_failed) { return lhs.array == internal::vector_allocation_error_flag;}
+            template<typename argument_type>
+            friend bool operator!=(segment_value_t const& lhs, argument_type arg) { return ! (lhs == arg);}
+
+            template<typename T>
+            T* pointer() const {  return static_cast<T*>(const_cast<void*>(array)); }
+        };
+
+        // Segment pointer.
+        class segment_t {
+            atomic<void*> array;
+        public:
+            segment_t(){ store<relaxed>(segment_not_used());}
+            //Copy ctor and assignment operator are defined to ease using of stl algorithms.
+            //These algorithms usually not a synchronization point, so, semantic is
+            //intentionally relaxed here.
+            segment_t(segment_t const& rhs ){ array.store<relaxed>(rhs.array.load<relaxed>());}
+
+            void swap(segment_t & rhs ){
+                tbb::internal::swap<relaxed>(array, rhs.array);
+            }
+
+            segment_t& operator=(segment_t const& rhs ){
+                array.store<relaxed>(rhs.array.load<relaxed>());
+                return *this;
+            }
+
+            template<memory_semantics M>
+            segment_value_t load() const { return segment_value_t(array.load<M>());}
+
+            template<memory_semantics M>
+            void store(segment_not_used) {
+                array.store<M>(0);
+            }
+
+            template<memory_semantics M>
+            void store(segment_allocation_failed) {
+                __TBB_ASSERT(load<relaxed>() != segment_allocated(),"transition from \"allocated\" to \"allocation failed\" state looks non-logical");
+                array.store<M>(internal::vector_allocation_error_flag);
+            }
+
+            template<memory_semantics M>
+            void store(void* allocated_segment_pointer) __TBB_NOEXCEPT(true) {
+                __TBB_ASSERT(segment_value_t(allocated_segment_pointer) == segment_allocated(),
+                     "other overloads of store should be used for marking segment as not_used or allocation_failed" );
+                array.store<M>(allocated_segment_pointer);
+            }
+
 #if TBB_USE_ASSERT
             ~segment_t() {
-                __TBB_ASSERT( array <= internal::vector_allocation_error_flag, "should have been freed by clear" );
+                __TBB_ASSERT(load<relaxed>() != segment_allocated(), "should have been freed by clear" );
             }
 #endif /* TBB_USE_ASSERT */
         };
+        friend void swap(segment_t & , segment_t & ) __TBB_NOEXCEPT(true);
 
         // Data fields
 
@@ -134,11 +194,17 @@ namespace internal {
         // Methods
 
         concurrent_vector_base_v3() {
-            my_early_size = 0;
-            my_first_block = 0; // here is not default_initial_segments
-            for( segment_index_t i = 0; i < pointers_per_short_table; i++)
-                my_storage[i].array = NULL;
-            my_segment = my_storage;
+            //Here the semantic is intentionally relaxed.
+            //The reason this is next:
+            //Object that is in middle of construction (i.e. its constructor is not yet finished)
+            //cannot be used concurrently until the construction is finished.
+            //Thus to flag other threads that construction is finished, some synchronization with
+            //acquire-release semantic should be done by the (external) code that uses the vector.
+            //So, no need to do the synchronization inside the vector.
+
+            my_early_size.store<relaxed>(0);
+            my_first_block.store<relaxed>(0); // here is not default_initial_segments
+            my_segment.store<relaxed>(my_storage);
         }
         __TBB_EXPORTED_METHOD ~concurrent_vector_base_v3();
 
@@ -183,7 +249,7 @@ namespace internal {
         //! Internal structure for compact()
         struct internal_segments_table {
             segment_index_t first_block;
-            void* table[pointers_per_long_table];
+            segment_t table[pointers_per_long_table];
         };
 
         void __TBB_EXPORTED_METHOD internal_reserve( size_type n, size_type element_size, size_type max_size );
@@ -215,6 +281,10 @@ private:
         friend class vector_iterator;
 
     };
+
+    inline void swap(concurrent_vector_base_v3::segment_t & lhs, concurrent_vector_base_v3::segment_t & rhs) __TBB_NOEXCEPT(true) {
+        lhs.swap(rhs);
+    }
 
     typedef concurrent_vector_base_v3 concurrent_vector_base;
 
@@ -535,6 +605,8 @@ public:
         vector_allocator_ptr = &internal_allocator;
     }
 
+    //Constructors are not required to have synchronization
+    //(for more details see comment in the concurrent_vector_base constructor).
 #if __TBB_INITIALIZER_LISTS_PRESENT
     //! Constructor from initializer_list
     concurrent_vector(std::initializer_list<T> init_list, const allocator_type &a = allocator_type())
@@ -544,8 +616,8 @@ public:
         __TBB_TRY {
             internal_assign_iterators(init_list.begin(), init_list.end());
         } __TBB_CATCH(...) {
-            segment_t *table = my_segment;
-            internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+            segment_t *table = my_segment.load<relaxed>();;
+            internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>());
             __TBB_RETHROW();
         }
 
@@ -560,8 +632,8 @@ public:
         __TBB_TRY {
             internal_copy(vector, sizeof(T), &copy_array);
         } __TBB_CATCH(...) {
-            segment_t *table = my_segment;
-            internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+            segment_t *table = my_segment.load<relaxed>();
+            internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>());
             __TBB_RETHROW();
         }
     }
@@ -575,8 +647,8 @@ public:
         __TBB_TRY {
             internal_copy(vector.internal_vector_base(), sizeof(T), &copy_array);
         } __TBB_CATCH(...) {
-            segment_t *table = my_segment;
-            internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+            segment_t *table = my_segment.load<relaxed>();
+            internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>() );
             __TBB_RETHROW();
         }
     }
@@ -588,8 +660,8 @@ public:
         __TBB_TRY {
             internal_resize( n, sizeof(T), max_size(), NULL, &destroy_array, &initialize_array );
         } __TBB_CATCH(...) {
-            segment_t *table = my_segment;
-            internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+            segment_t *table = my_segment.load<relaxed>();
+            internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>() );
             __TBB_RETHROW();
         }
     }
@@ -602,8 +674,8 @@ public:
         __TBB_TRY {
             internal_resize( n, sizeof(T), max_size(), static_cast<const void*>(&t), &destroy_array, &initialize_array_by );
         } __TBB_CATCH(...) {
-            segment_t *table = my_segment;
-            internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+            segment_t *table = my_segment.load<relaxed>();
+            internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>() );
             __TBB_RETHROW();
         }
     }
@@ -617,8 +689,8 @@ public:
         __TBB_TRY {
             internal_assign_range(first, last, static_cast<is_integer_tag<std::numeric_limits<I>::is_integer> *>(0) );
         } __TBB_CATCH(...) {
-            segment_t *table = my_segment;
-            internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+            segment_t *table = my_segment.load<relaxed>();
+            internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>() );
             __TBB_RETHROW();
         }
     }
@@ -653,7 +725,6 @@ public:
     //------------------------------------------------------------------------
     // Concurrent operations
     //------------------------------------------------------------------------
-    //TODO: consider adding overload of grow_by accepting range of iterators:  grow_by(iterator,iterator)
     //TODO: consider adding overload of grow_by accepting initializer_list:  grow_by(std::initializer_list<T>), as a analogy to std::vector::insert(initializer_list)
     //! Grow by "delta" elements.
 #if TBB_DEPRECATED
@@ -679,6 +750,16 @@ public:
     iterator grow_by( size_type delta, const_reference t ) {
         return iterator(*this, delta ? internal_grow_by( delta, sizeof(T), &initialize_array_by, static_cast<const void*>(&t) ) : my_early_size.load());
     }
+
+    /** Returns iterator pointing to the first new element. */
+    template<typename I>
+    iterator grow_by( I first, I last ) {
+        typename std::iterator_traits<I>::difference_type
+        delta = std::distance(first, last);
+        __TBB_ASSERT( delta > 0, NULL);
+
+        return iterator(*this,  internal_grow_by( delta, sizeof(T), &copy_range<I>, static_cast<const void*>(&first) ));
+    }
 #endif
 
     //! Append minimal sequence of elements such that size()>=n.
@@ -701,6 +782,18 @@ public:
         }
         return iterator(*this, m);
     };
+    
+    /** Analogous to grow_to_at_least( size_type n ) with exception that the new
+        elements are initialized by copying of t instead of default construction. */
+    iterator grow_to_at_least( size_type n, const_reference t ) {
+        size_type m=0;
+        if( n ) {
+            m = internal_grow_to_at_least_with_result( n, sizeof(T), &initialize_array_by, &t);
+            if( m>n ) m=n;
+        }
+        return iterator(*this, m);
+    };
+    
 #endif
 
     //! Push item
@@ -829,7 +922,7 @@ public:
     //! the first item
     reference front() {
         __TBB_ASSERT( size()>0, NULL);
-        return static_cast<T*>(my_segment[0].array)[0];
+        return (my_segment[0].template load<relaxed>().template pointer<T>())[0];
     }
     //! the first item const
     const_reference front() const {
@@ -870,9 +963,10 @@ public:
 
     //! swap two instances
     void swap(concurrent_vector &vector) {
+        using std::swap;
         if( this != &vector ) {
             concurrent_vector_base_v3::internal_swap(static_cast<concurrent_vector_base_v3&>(vector));
-            std::swap(this->my_allocator, vector.my_allocator);
+            swap(this->my_allocator, vector.my_allocator);
         }
     }
 
@@ -884,8 +978,8 @@ public:
 
     //! Clear and destroy vector.
     ~concurrent_vector() {
-        segment_t *table = my_segment;
-        internal_free_segments( reinterpret_cast<void**>(table), internal_clear(&destroy_array), my_first_block );
+        segment_t *table = my_segment.load<relaxed>();
+        internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>() );
         // base class destructor call should be then
     }
 
@@ -896,7 +990,7 @@ private:
         return static_cast<concurrent_vector<T, A>&>(vb).my_allocator.allocate(k);
     }
     //! Free k segments from table
-    void internal_free_segments(void *table[], segment_index_t k, segment_index_t first_block);
+    void internal_free_segments(segment_t table[], segment_index_t k, segment_index_t first_block);
 
     //! Get reference to element at given index.
     T& internal_subscript( size_type index ) const;
@@ -926,6 +1020,8 @@ private:
     template<class I>
     void internal_assign_iterators(I first, I last);
 
+    //these functions are marked __TBB_EXPORTED_FUNC as they are called from within the library
+
     //! Construct n instances of T, starting at "begin".
     static void __TBB_EXPORTED_FUNC initialize_array( void* begin, const void*, size_type n );
 
@@ -934,6 +1030,10 @@ private:
 
     //! Construct n instances of T, starting at "begin".
     static void __TBB_EXPORTED_FUNC copy_array( void* dst, const void* src, size_type n );
+
+    //! Construct n instances of T, starting at "begin".
+    template<typename Iterator>
+    static void __TBB_EXPORTED_FUNC copy_range( void* dst, const void* p_type_erased_iterator, size_type n );
 
     //! Assign n instances of T, starting at "begin".
     static void __TBB_EXPORTED_FUNC assign_array( void* dst, const void* src, size_type n );
@@ -983,34 +1083,38 @@ void concurrent_vector<T, A>::shrink_to_fit() {
 #endif // warning 4701 is back
 
 template<typename T, class A>
-void concurrent_vector<T, A>::internal_free_segments(void *table[], segment_index_t k, segment_index_t first_block) {
+void concurrent_vector<T, A>::internal_free_segments(segment_t table[], segment_index_t k, segment_index_t first_block) {
     // Free the arrays
     while( k > first_block ) {
         --k;
-        T* array = static_cast<T*>(table[k]);
-        table[k] = NULL;
-        if( array > internal::vector_allocation_error_flag ) // check for correct segment pointer
-            this->my_allocator.deallocate( array, segment_size(k) );
+        segment_value_t segment_value = table[k].load<relaxed>();
+        table[k].store<relaxed>(segment_not_used());
+        if( segment_value == segment_allocated() ) // check for correct segment pointer
+            this->my_allocator.deallocate( (segment_value.pointer<T>()), segment_size(k) );
     }
-    T* array = static_cast<T*>(table[0]);
-    if( array > internal::vector_allocation_error_flag ) {
+    segment_value_t segment_value = table[0].load<relaxed>();
+    if( segment_value == segment_allocated() ) {
         __TBB_ASSERT( first_block > 0, NULL );
-        while(k > 0) table[--k] = NULL;
-        this->my_allocator.deallocate( array, segment_size(first_block) );
+        while(k > 0) table[--k].store<relaxed>(segment_not_used());
+        this->my_allocator.deallocate( (segment_value.pointer<T>()), segment_size(first_block) );
     }
 }
 
 template<typename T, class A>
 T& concurrent_vector<T, A>::internal_subscript( size_type index ) const {
+    //TODO: unify both versions of internal_subscript
     __TBB_ASSERT( index < my_early_size, "index out of bounds" );
     size_type j = index;
     segment_index_t k = segment_base_index_of( j );
-    __TBB_ASSERT( (segment_t*)my_segment != my_storage || k < pointers_per_short_table, "index is being allocated" );
-    // no need in __TBB_load_with_acquire since thread works in own space or gets 
-    T* array = static_cast<T*>( tbb::internal::itt_hide_load_word(my_segment[k].array));
-    __TBB_ASSERT( array != internal::vector_allocation_error_flag, "the instance is broken by bad allocation. Use at() instead" );
-    __TBB_ASSERT( array, "index is being allocated" );
-    return array[j];
+    __TBB_ASSERT( my_segment.load<acquire>() != my_storage || k < pointers_per_short_table, "index is being allocated" );
+    //no need in load with acquire (load<acquire>) since thread works in own space or gets
+    //the information about added elements via some form of external synchronization 
+    //TODO: why not make a load of my_segment relaxed as well ?
+    //TODO: add an assertion that my_segment[k] is properly aligned to please ITT
+    segment_value_t segment_value =  my_segment[k].template load<relaxed>();
+    __TBB_ASSERT( segment_value != segment_allocation_failed(), "the instance is broken by bad allocation. Use at() instead" );
+    __TBB_ASSERT( segment_value != segment_not_used(), "index is being allocated" );
+    return (( segment_value.pointer<T>()))[j];
 }
 
 template<typename T, class A>
@@ -1019,12 +1123,17 @@ T& concurrent_vector<T, A>::internal_subscript_with_exceptions( size_type index 
         internal::throw_exception(internal::eid_out_of_range); // throw std::out_of_range
     size_type j = index;
     segment_index_t k = segment_base_index_of( j );
-    if( (segment_t*)my_segment == my_storage && k >= pointers_per_short_table )
+    //TODO: refactor this condition into separate helper function, e.g. fits_into_small_table
+    if( my_segment.load<acquire>() == my_storage && k >= pointers_per_short_table )
         internal::throw_exception(internal::eid_segment_range_error); // throw std::range_error
-    void *array = my_segment[k].array; // no need in __TBB_load_with_acquire
-    if( array <= internal::vector_allocation_error_flag ) // check for correct segment pointer
+    // no need in load with acquire (load<acquire>) since thread works in own space or gets
+    //the information about added elements via some form of external synchronization
+    //TODO: why not make a load of my_segment relaxed as well ?
+    //TODO: add an assertion that my_segment[k] is properly aligned to please ITT
+    segment_value_t segment_value =  my_segment[k].template load<relaxed>();
+    if( segment_value != segment_allocated() ) // check for correct segment pointer
         internal::throw_exception(internal::eid_index_range_error); // throw std::range_error
-    return static_cast<T*>(array)[j];
+    return (segment_value.pointer<T>())[j];
 }
 
 template<typename T, class A> template<class I>
@@ -1037,13 +1146,13 @@ void concurrent_vector<T, A>::internal_assign_iterators(I first, I last) {
     segment_index_t k = 0;
     size_type sz = segment_size( my_first_block );
     while( sz < n ) {
-        internal_loop_guide loop(sz, my_segment[k].array);
+        internal_loop_guide loop(sz, my_segment[k].template load<relaxed>().template pointer<void>());
         loop.iterate(first);
         n -= sz;
         if( !k ) k = my_first_block;
         else { ++k; sz <<= 1; }
     }
-    internal_loop_guide loop(n, my_segment[k].array);
+    internal_loop_guide loop(n, my_segment[k].template load<relaxed>().template pointer<void>());
     loop.iterate(first);
 }
 
@@ -1060,6 +1169,13 @@ void concurrent_vector<T, A>::initialize_array_by( void* begin, const void *src,
 template<typename T, class A>
 void concurrent_vector<T, A>::copy_array( void* dst, const void* src, size_type n ) {
     internal_loop_guide loop(n, dst); loop.copy(src);
+}
+
+template<typename T, class A>
+template<typename I>
+void concurrent_vector<T, A>::copy_range( void* dst, const void* p_type_erased_iterator, size_type n ){
+    I & iterator ((*const_cast<I*>(static_cast<const I*>(p_type_erased_iterator))));
+    internal_loop_guide loop(n, dst); loop.iterate(iterator);
 }
 
 template<typename T, class A>

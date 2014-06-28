@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -774,11 +774,11 @@ inline bool __TBB_bool( bool b ) { return b; }
     void PrintResults () {
         if ( theSettings.my_resFile )
             ResFile = fopen( theSettings.my_resFile, "w" );
-        Report( "%-*s %-*s %s", TitleFieldLen, "Test name", WorkloadFieldLen, "Workload", 
+        Report( "%-*s %-*s %s", TitleFieldLen, "Test-name", WorkloadFieldLen, "Workload", 
                                 MaxTbbMasters > 1 ? "W    M    " : "T    " );
         if ( theSettings.my_opts & UseAffinityModes )
             Report( "Aff  " );
-        Report( "%-*s SD, %%  %-*s %-*s %-*s ",
+        Report( "%-*s SD,%%  %-*s %-*s %-*s ",
                 RateFieldLen, "Avg.time", OvhdFieldLen, "Par.ovhd,%",
                 RateFieldLen, "Min.time", RateFieldLen, "Max.time" );
         Report( " | Repeats = %lu, CPUs %d\n", (unsigned long)NumRuns, NumCpus );

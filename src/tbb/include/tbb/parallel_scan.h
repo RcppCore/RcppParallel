@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -58,7 +58,7 @@ namespace internal {
     public:
         Body my_body;
     private:
-        aligned_space<Range,1> my_range;
+        aligned_space<Range> my_range;
         //! Where to put result of last subrange, or NULL if not last subrange.
         Body* my_stuff_last;
     public:

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -37,9 +37,6 @@
 
 namespace tbb {
 namespace internal {
-
-class generic_scheduler;
-class mail_outbox;
 
 struct task_proxy : public task {
     static const intptr_t      pool_bit = 1<<0;

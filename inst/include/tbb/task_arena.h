@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -85,8 +85,16 @@ protected:
     //! Reserved master slots
     unsigned my_master_slots;
 
-    //! Reserved for future use
-    intptr_t my_reserved;
+    //! Special settings
+    intptr_t my_version_and_traits;
+
+    enum {
+        default_flags = 0
+#if __TBB_TASK_GROUP_CONTEXT
+        | (task_group_context::default_traits & task_group_context::exact_exception)  // 0 or 1 << 16
+        , exact_exception_flag = task_group_context::exact_exception // used to specify flag for context directly
+#endif
+    };
 
     task_arena_base(int max_concurrency, unsigned reserved_for_masters)
         : my_arena(0)
@@ -95,7 +103,7 @@ protected:
 #endif
         , my_max_concurrency(max_concurrency)
         , my_master_slots(reserved_for_masters)
-        , my_reserved(0)
+        , my_version_and_traits(default_flags)
         {}
 
     void __TBB_EXPORTED_METHOD internal_initialize( );
@@ -240,7 +248,7 @@ public:
 #endif //__TBB_EXTRA_DEBUG
 
     //! Returns the index, aka slot number, of the calling thread in its current arena
-    inline static int current_slot() {
+    inline static int current_thread_index() {
         return internal_current_slot();
     }
 };

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,7 +33,7 @@
 #error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
-#include "tbb/internal/_flow_graph_types_impl.h"
+#include "_flow_graph_types_impl.h"
 
 namespace internal {
 
@@ -223,7 +223,7 @@ namespace internal {
             };
             reserving_port_operation(const T& e, op_type t) :
                 type(char(t)), my_arg(const_cast<T*>(&e)) {}
-            reserving_port_operation(const predecessor_type &s, op_type t) : type(char(t)), 
+            reserving_port_operation(const predecessor_type &s, op_type t) : type(char(t)),
                 my_pred(const_cast<predecessor_type *>(&s)) {}
             reserving_port_operation(op_type t) : type(char(t)) {}
         };
@@ -851,31 +851,30 @@ namespace internal {
         // construct as many output objects as possible.
         // returns a task pointer if the a task would have been enqueued but we asked that
         // it be returned.  Otherwise returns NULL.
-        task * fill_output_buffer(bool should_enqueue, bool handle_task) {
+        task * fill_output_buffer(tag_value t, bool should_enqueue, bool handle_task) {
             output_type l_out;
             task *rtask = NULL;
             task* tp = this->my_graph_ptr->root_task();
             bool do_fwd = should_enqueue && this->buffer_empty() && tp;
-            while(find_value_tag(this->current_tag,N)) {  // while there are completed items
-                this->tagged_delete(this->current_tag);   // remove the tag
-                if(join_helper<N>::get_items(my_inputs, l_out)) {  //  <== call back
-                    this->push_back(l_out);
-                    if(do_fwd) {  // we enqueue if receiving an item from predecessor, not if successor asks for item
-                        rtask = new ( task::allocate_additional_child_of( *tp ) )
-                            forward_task_bypass<my_node_type>(*my_node);
-                        if(handle_task) {
-                            FLOW_SPAWN(*rtask);
-                            rtask = NULL;
-                        }
-                        do_fwd = false;
+            this->current_tag = t;
+            this->tagged_delete(this->current_tag);   // remove the tag
+            if(join_helper<N>::get_items(my_inputs, l_out)) {  //  <== call back
+                this->push_back(l_out);
+                if(do_fwd) {  // we enqueue if receiving an item from predecessor, not if successor asks for item
+                    rtask = new ( task::allocate_additional_child_of( *tp ) )
+                        forward_task_bypass<my_node_type>(*my_node);
+                    if(handle_task) {
+                        FLOW_SPAWN(*rtask);
+                        rtask = NULL;
                     }
-                    // retire the input values
-                    join_helper<N>::reset_ports(my_inputs);  //  <== call back
-                    this->current_tag = NO_TAG;    
+                    do_fwd = false;
                 }
-                else {
-                    __TBB_ASSERT(false, "should have had something to push");
-                }
+                // retire the input values
+                join_helper<N>::reset_ports(my_inputs);  //  <== call back
+                this->current_tag = NO_TAG;
+            }
+            else {
+                __TBB_ASSERT(false, "should have had something to push");
             }
             return rtask;
         }
@@ -890,8 +889,6 @@ namespace internal {
                     {
                         output_type l_out;
                         this->pop_front(l_out);  // don't care about returned value.
-                        // buffer as many tuples as we can make
-                        (void)fill_output_buffer(true, true);
                         __TBB_store_with_release(current->status, SUCCEEDED);
                     }
                     break;
@@ -906,7 +903,7 @@ namespace internal {
                             }
                         }
                         if(++(*p) == size_t(N)) {
-                            task *rtask = fill_output_buffer(true, do_enqueue);
+                            task *rtask = fill_output_buffer(t, true, do_enqueue);
                             __TBB_ASSERT(!rtask || !do_enqueue, "task should not be returned");
                             current->bypass_t = rtask;
                         }
@@ -914,7 +911,6 @@ namespace internal {
                     __TBB_store_with_release(current->status, SUCCEEDED);
                     break;
                 case may_succeed:  // called from BE
-                    (void)fill_output_buffer(false, /*handle_task*/true);  // handle_task not used
                     __TBB_store_with_release(current->status, this->buffer_empty() ? FAILED : SUCCEEDED);
                     break;
                 case try_make:  // called from BE
@@ -1039,9 +1035,9 @@ namespace internal {
                 successor_type *my_succ;
             };
             task *bypass_t;
-            join_node_base_operation(const output_type& e, op_type t) : type(char(t)), 
+            join_node_base_operation(const output_type& e, op_type t) : type(char(t)),
                 my_arg(const_cast<output_type*>(&e)), bypass_t(NULL) {}
-            join_node_base_operation(const successor_type &s, op_type t) : type(char(t)), 
+            join_node_base_operation(const successor_type &s, op_type t) : type(char(t)),
                 my_succ(const_cast<successor_type *>(&s)), bypass_t(NULL) {}
             join_node_base_operation(op_type t) : type(char(t)), bypass_t(NULL) {}
         };
@@ -1197,7 +1193,7 @@ namespace internal {
     // differ.
 
     template<typename OutputTuple>
-    class unfolded_join_node<2,tag_matching_port,OutputTuple,tag_matching> : public 
+    class unfolded_join_node<2,tag_matching_port,OutputTuple,tag_matching> : public
             join_base<2,tag_matching_port,OutputTuple,tag_matching>::type {
         typedef typename tbb::flow::tuple_element<0, OutputTuple>::type T0;
         typedef typename tbb::flow::tuple_element<1, OutputTuple>::type T1;
@@ -1246,7 +1242,7 @@ namespace internal {
     };
 
     template<typename OutputTuple>
-    class unfolded_join_node<4,tag_matching_port,OutputTuple,tag_matching> : public 
+    class unfolded_join_node<4,tag_matching_port,OutputTuple,tag_matching> : public
             join_base<4,tag_matching_port,OutputTuple,tag_matching>::type {
         typedef typename tbb::flow::tuple_element<0, OutputTuple>::type T0;
         typedef typename tbb::flow::tuple_element<1, OutputTuple>::type T1;
@@ -1345,7 +1341,7 @@ namespace internal {
 
 #if __TBB_VARIADIC_MAX >= 7
     template<typename OutputTuple>
-    class unfolded_join_node<7,tag_matching_port,OutputTuple,tag_matching> : public 
+    class unfolded_join_node<7,tag_matching_port,OutputTuple,tag_matching> : public
             join_base<7,tag_matching_port,OutputTuple,tag_matching>::type {
         typedef typename tbb::flow::tuple_element<0, OutputTuple>::type T0;
         typedef typename tbb::flow::tuple_element<1, OutputTuple>::type T1;
@@ -1385,7 +1381,7 @@ namespace internal {
 
 #if __TBB_VARIADIC_MAX >= 8
     template<typename OutputTuple>
-    class unfolded_join_node<8,tag_matching_port,OutputTuple,tag_matching> : public 
+    class unfolded_join_node<8,tag_matching_port,OutputTuple,tag_matching> : public
             join_base<8,tag_matching_port,OutputTuple,tag_matching>::type {
         typedef typename tbb::flow::tuple_element<0, OutputTuple>::type T0;
         typedef typename tbb::flow::tuple_element<1, OutputTuple>::type T1;
@@ -1428,7 +1424,7 @@ namespace internal {
 
 #if __TBB_VARIADIC_MAX >= 9
     template<typename OutputTuple>
-    class unfolded_join_node<9,tag_matching_port,OutputTuple,tag_matching> : public 
+    class unfolded_join_node<9,tag_matching_port,OutputTuple,tag_matching> : public
             join_base<9,tag_matching_port,OutputTuple,tag_matching>::type {
         typedef typename tbb::flow::tuple_element<0, OutputTuple>::type T0;
         typedef typename tbb::flow::tuple_element<1, OutputTuple>::type T1;
@@ -1474,7 +1470,7 @@ namespace internal {
 
 #if __TBB_VARIADIC_MAX >= 10
     template<typename OutputTuple>
-    class unfolded_join_node<10,tag_matching_port,OutputTuple,tag_matching> : public 
+    class unfolded_join_node<10,tag_matching_port,OutputTuple,tag_matching> : public
             join_base<10,tag_matching_port,OutputTuple,tag_matching>::type {
         typedef typename tbb::flow::tuple_element<0, OutputTuple>::type T0;
         typedef typename tbb::flow::tuple_element<1, OutputTuple>::type T1;
@@ -1527,6 +1523,6 @@ namespace internal {
         return tbb::flow::get<N>(jn.input_ports());
     }
 
-} 
+}
 #endif // __TBB__flow_graph_join_impl_H
 

@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -50,7 +50,7 @@ endif
 export runtime:=$(target)_cc$(gcc_version)_NDK$(ndk_version)_version_$(target_os_version)
 
 AR = $(tbb_tool_prefix)ar
-MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(CONLY) $(arch) $(subst \,/,"$(CPLUS) $(CPLUS_FLAGS)") > version_string.ver
+MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(CONLY) $(arch) $(subst \,/,"$(VERSION_FLAGS)") > version_string.ver
 
 ####### Build settings ########################################################
 

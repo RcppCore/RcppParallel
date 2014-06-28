@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -83,7 +83,7 @@ const char stdout_stream[] = "version_test.out";
 
 HARNESS_EXPORT
 int main(int argc, char *argv[] ) {
-    const size_t psBuffer_len = 512;
+    const size_t psBuffer_len = 2048;
     char psBuffer[psBuffer_len];
 /* We first introduced runtime version identification in 3014 */
 #if TBB_INTERFACE_VERSION>=3014
@@ -246,7 +246,7 @@ int main(int argc, char *argv[] ) {
 void initialize_strings_vector(std::vector <string_pair>* vector)
 {
     vector->push_back(string_pair("TBB: VERSION\t\t4.2", required));          // check TBB_VERSION
-    vector->push_back(string_pair("TBB: INTERFACE VERSION\t7002", required)); // check TBB_INTERFACE_VERSION
+    vector->push_back(string_pair("TBB: INTERFACE VERSION\t7005", required)); // check TBB_INTERFACE_VERSION
     vector->push_back(string_pair("TBB: BUILD_DATE", required));
     vector->push_back(string_pair("TBB: BUILD_HOST", required));
     vector->push_back(string_pair("TBB: BUILD_OS", required));

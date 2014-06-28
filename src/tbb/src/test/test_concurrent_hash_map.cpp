@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -77,12 +77,7 @@ namespace tbb {
     };
 }
 
-#if HARNESS_USE_RUNTIME_LOADER
-    #define TBB_PREVIEW_RUNTIME_LOADER 1
-    #include "tbb/runtime_loader.h"
-    static char const * test_path[] = { ".", NULL };
-    static tbb::runtime_loader test_runtime_loader( test_path );
-#endif // HARNESS_USE_RUNTIME_LOADER
+#include "harness_runtime_loader.h"
 
 tbb::concurrent_hash_map<UserDefinedKeyType,int> TestInstantiationWithUserDefinedKeyType;
 

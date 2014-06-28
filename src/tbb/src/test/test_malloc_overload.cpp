@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -27,16 +27,15 @@
 */
 
 
-#if (_WIN32 || _WIN64) && !(defined(WINAPI_FAMILY) && WINAPI_FAMILY == WINAPI_FAMILY_APP)
+#if (_WIN32 || _WIN64)
 // As the test is intentionally build with /EHs-, suppress multiple VS2005's 
 // warnings like C4530: C++ exception handler used, but unwind semantics are not enabled
-// The test is skipped under Win8/UI, so do nothing.
 #if defined(_MSC_VER) && !__INTEL_COMPILER
 /* ICC 10.1 and 11.0 generates code that uses std::_Raise_handler,
    but it's only defined in libcpmt(d), which the test doesn't linked with.
  */
 #undef  _HAS_EXCEPTIONS
-#define _HAS_EXCEPTIONS 0
+#define _HAS_EXCEPTIONS _CPPUNWIND
 #endif
 // to use strdup and putenv w/o warnings
 #define _CRT_NONSTDC_NO_DEPRECATE 1
@@ -80,6 +79,10 @@ void __libc_free(void *ptr);
 void *__libc_memalign(size_t alignment, size_t size);
 void *__libc_pvalloc(size_t size);
 void *__libc_valloc(size_t size);
+#if __ANDROID__
+#define malloc_usable_size(p) dlmalloc_usable_size(p)
+size_t dlmalloc_usable_size(const void *ptr);
+#endif
 }
 
 #elif _WIN32
@@ -185,9 +188,12 @@ const uint32_t minLargeObjectSize = fittingSize5 + 1;
 static bool scalableMallocLargeBlock(void *object, size_t size)
 {
     ASSERT(size >= minLargeObjectSize, NULL);
-#if MALLOC_REPLACEMENT_AVAILABLE == 2
+#if MALLOC_REPLACEMENT_AVAILABLE == 1
+    ASSERT(malloc_usable_size(object) >= size, NULL);
+#elif MALLOC_REPLACEMENT_AVAILABLE == 2
     // Check that _msize works correctly
     ASSERT(_msize(object) >= size, NULL);
+    ASSERT(_aligned_msize(object,16,0) >= size, NULL);
 #endif
 
     LargeMemoryBlock *lmb = ((LargeObjectHdr*)object-1)->memoryBlock;
@@ -244,24 +250,38 @@ void CheckPvalloc(void *(*pvalloc_p)(size_t), void (*free_p)(void*))
 
 #endif // MALLOC_REPLACEMENT_AVAILABLE
 
+#if __ANDROID__
+// Workaround for an issue with strdup somehow bypassing our malloc replacement on Android.
+char *strdup(const char *str) {
+    REPORT( "Known issue: malloc replacement does not work for strdup on Android.\n" );
+    size_t len = strlen(str)+1;
+    void *new_str = malloc(len);
+    return new_str ? reinterpret_cast<char *>(memcpy(new_str, str, len)) : 0;
+}
+#endif
+
 int TestMain() {
     void *ptr, *ptr1;
 
 #if MALLOC_REPLACEMENT_AVAILABLE == 1
-    ASSERT(dlsym(RTLD_DEFAULT, "scalable_malloc"), "libtbbmalloc not found");
+    ASSERT(dlsym(RTLD_DEFAULT, "scalable_malloc"),
+           "Lost dependence on malloc_proxy or LD_PRELOAD was not set?");
 #endif
 
-/* On Windows, memory block size returned by _msize() is sometimes used 
-   to calculate the size for an extended block. Substituting _msize, 
-   scalable_msize initially returned 0 for regions not allocated by the scalable 
+/* On Windows, memory block size returned by _msize() is sometimes used
+   to calculate the size for an extended block. Substituting _msize,
+   scalable_msize initially returned 0 for regions not allocated by the scalable
    allocator, which led to incorrect memory reallocation and subsequent crashes.
    It was found that adding a new environment variable triggers the error.
 */
     ASSERT(getenv("PATH"), "We assume that PATH is set everywhere.");
     char *pathCopy = strdup(getenv("PATH"));
+#if __ANDROID__
+    ASSERT(strcmp(pathCopy,getenv("PATH")) == 0, "strdup workaround does not work as expected.");
+#endif
     const char *newEnvName = "__TBBMALLOC_OVERLOAD_REGRESSION_TEST_FOR_REALLOC_AND_MSIZE";
     char *newEnv = (char*)malloc(3 + strlen(newEnvName));
-    
+
     ASSERT(!getenv(newEnvName), "Environment variable should not be used before.");
     strcpy(newEnv, newEnvName);
     strcat(newEnv, "=1");
@@ -286,8 +306,8 @@ int TestMain() {
 
     struct mallinfo info = mallinfo();
     // right now mallinfo initialized by zero
-    ASSERT(!info.arena && !info.ordblks && !info.smblks && !info.hblks 
-           && !info.hblkhd && !info.usmblks && !info.fsmblks 
+    ASSERT(!info.arena && !info.ordblks && !info.smblks && !info.hblks
+           && !info.hblkhd && !info.usmblks && !info.fsmblks
            && !info.uordblks && !info.fordblks && !info.keepcost, NULL);
 
 #if __linux__ && !__ANDROID__
@@ -303,6 +323,11 @@ int TestMain() {
 
     ptr = _aligned_malloc(minLargeObjectSize,16);
     ASSERT(ptr!=NULL && scalableMallocLargeBlock(ptr, minLargeObjectSize), NULL);
+
+    // Testing of workaround for vs "is power of 2 pow N" bug that accepts zeros
+    ptr1 = _aligned_malloc(minLargeObjectSize,0);
+    ASSERT(ptr1!=NULL, NULL);
+    _aligned_free(ptr1);
 
     ptr1 = _aligned_realloc(ptr, minLargeObjectSize*10,16);
     ASSERT(ptr1!=NULL && scalableMallocLargeBlock(ptr1, minLargeObjectSize*10), NULL);

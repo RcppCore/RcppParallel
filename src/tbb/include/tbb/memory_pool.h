@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -35,9 +35,6 @@
 /** @file */
 
 #include "scalable_allocator.h"
-#include "tbb_stddef.h"
-#include "tbb_machine.h" // TODO: avoid linkage with libtbb on IA-64 architecture
-#include "tbb/atomic.h" // for as_atomic
 #include <new> // std::bad_alloc
 #if __TBB_CPP11_RVALUE_REF_PRESENT && !__TBB_CPP11_STD_FORWARD_BROKEN
 #include <utility> // std::forward
@@ -258,16 +255,16 @@ int memory_pool<Alloc>::deallocate_request(intptr_t pool_id, void* raw_ptr, size
     #pragma warning (pop)
 #endif
 inline fixed_pool::fixed_pool(void *buf, size_t size) : my_buffer(buf), my_size(size) {
+    if( !buf || !size ) __TBB_THROW(std::bad_alloc());
     rml::MemPoolPolicy args(allocate_request, 0, size, /*fixedPool=*/true);
     rml::MemPoolError res = rml::pool_create_v1(intptr_t(this), &args, &my_pool);
     if( res!=rml::POOL_OK ) __TBB_THROW(std::bad_alloc());
 }
 inline void *fixed_pool::allocate_request(intptr_t pool_id, size_t & bytes) {
     fixed_pool &self = *reinterpret_cast<fixed_pool*>(pool_id);
-    // TODO: we can implement "buffer for fixed pools used only once" policy
-    // on low-level side, thus eliminate atomics here
-    if( !tbb::internal::as_atomic(self.my_size).compare_and_swap(0, (bytes=self.my_size)) )
-        return 0; // all the memory was given already
+    __TBBMALLOC_ASSERT(0 != self.my_size, "The buffer must not be used twice.");
+    bytes = self.my_size;
+    self.my_size = 0; // remember that buffer has been used
     return self.my_buffer;
 }
 

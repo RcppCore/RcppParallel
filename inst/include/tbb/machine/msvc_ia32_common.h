@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -140,19 +140,17 @@ static inline intptr_t __TBB_machine_lg( uintptr_t i ) {
 
 // API to retrieve/update FPU control setting
 #define __TBB_CPU_CTL_ENV_PRESENT 1
-struct __TBB_cpu_ctl_env_t {
-    int     mxcsr;
-    short   x87cw;
-};
+
+namespace tbb { namespace internal { class cpu_ctl_env; } }
 #if __TBB_X86_MSVC_INLINE_ASM_AVAILABLE
-    inline void __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* ctl ) {
+    inline void __TBB_get_cpu_ctl_env ( tbb::internal::cpu_ctl_env* ctl ) {
         __asm {
             __asm mov     __TBB_r(ax), ctl
             __asm stmxcsr [__TBB_r(ax)]
             __asm fstcw   [__TBB_r(ax)+4]
         }
     }
-    inline void __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* ctl ) {
+    inline void __TBB_set_cpu_ctl_env ( const tbb::internal::cpu_ctl_env* ctl ) {
         __asm {
             __asm mov     __TBB_r(ax), ctl
             __asm ldmxcsr [__TBB_r(ax)]
@@ -161,11 +159,28 @@ struct __TBB_cpu_ctl_env_t {
     }
 #else
     extern "C" {
-        void __TBB_EXPORTED_FUNC __TBB_get_cpu_ctl_env ( __TBB_cpu_ctl_env_t* );
-        void __TBB_EXPORTED_FUNC __TBB_set_cpu_ctl_env ( const __TBB_cpu_ctl_env_t* );
+        void __TBB_EXPORTED_FUNC __TBB_get_cpu_ctl_env ( tbb::internal::cpu_ctl_env* );
+        void __TBB_EXPORTED_FUNC __TBB_set_cpu_ctl_env ( const tbb::internal::cpu_ctl_env* );
     }
 #endif
 
+namespace tbb {
+namespace internal {
+class cpu_ctl_env {
+private:
+    int         mxcsr;
+    short       x87cw;
+    static const int MXCSR_CONTROL_MASK = ~0x3f; /* all except last six status bits */
+public:
+    bool operator!=( const cpu_ctl_env& ctl ) const { return mxcsr != ctl.mxcsr || x87cw != ctl.x87cw; }
+    void get_env() {
+        __TBB_get_cpu_ctl_env( this );
+        mxcsr &= MXCSR_CONTROL_MASK;
+    }
+    void set_env() const { __TBB_set_cpu_ctl_env( this ); }
+};
+} // namespace internal
+} // namespace tbb
 
 #if !__TBB_WIN8UI_SUPPORT
 extern "C" __declspec(dllimport) int __stdcall SwitchToThread( void );

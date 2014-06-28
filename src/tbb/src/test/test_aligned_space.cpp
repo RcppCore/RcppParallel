@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -28,8 +28,8 @@
 
 #include "tbb/tbb_config.h"
 
-#if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
+#if __TBB_GCC_STRICT_ALIASING_BROKEN
+    #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 //! Wrapper around T where all members are private.

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -54,8 +54,7 @@ using std::memcmp;
     #pragma warning( disable: 4127 4310 )
 #endif
 
-#if __TBB_GCC_STRICT_ALIASING_BROKEN && __TBB_GCC_WARNING_SUPPRESSION_PRESENT
-    // Suppress crazy warnings about strict aliasing
+#if __TBB_GCC_STRICT_ALIASING_BROKEN
     #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
@@ -304,7 +303,7 @@ namespace initialization_tests {
     template<typename T>
     struct test_initialization_fixture{
         typedef tbb::atomic<T> atomic_t;
-        tbb::aligned_space<atomic_t,1> non_zeroed_storage;
+        tbb::aligned_space<atomic_t> non_zeroed_storage;
         enum {fill_value = 0xFF };
         test_initialization_fixture(){
             memset(non_zeroed_storage.begin(),fill_value,sizeof(non_zeroed_storage));

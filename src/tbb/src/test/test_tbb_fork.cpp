@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -32,7 +32,12 @@
 #include "tbb/cache_aligned_allocator.h"
 #include "tbb/parallel_for.h"
 
-#define HARNESS_NO_PARSE_COMMAND_LINE 1
+#define HARNESS_DEFAULT_MIN_THREADS (tbb::task_scheduler_init::default_num_threads())
+#define HARNESS_DEFAULT_MAX_THREADS (4*tbb::task_scheduler_init::default_num_threads())
+#if __bg__
+// CNK does not support fork()
+#define HARNESS_SKIP_TEST 1
+#endif
 #include "harness.h"
 
 #if _WIN32||_WIN64
@@ -105,10 +110,10 @@ int TestMain()
 {
     using namespace Harness;
 
+    bool child = false;
 #if _WIN32||_WIN64
     DWORD masterTid = GetCurrentThreadId();
 #else
-    bool child = false;
     struct sigaction sa;
     sigset_t sig_set;
 
@@ -126,8 +131,10 @@ int TestMain()
     if (pthread_sigmask(SIG_BLOCK, &sig_set, NULL))
         ASSERT(0, "pthread_sigmask failed");
 #endif
-    for (int threads = 16; threads<=64; threads+=16) {
+    for (int threads=MinThread; threads<=MaxThread; threads+=MinThread) {
         for (int i=0; i<20; i++) {
+            if (!child)
+                REMARK("\rThreads %d %d ", threads, i);
             {
                 tbb::task_scheduler_init sch(threads, 0, /*wait_workers=*/true);
             }
@@ -188,7 +195,9 @@ int TestMain()
 #endif // _WIN32||_WIN64
         }
     }
+    REMARK("\n");
 #if TBB_USE_EXCEPTIONS
+    REMARK("Testing exceptions\n");
     try {
         {
             tbb::task_scheduler_init schBlock(2, 0, /*wait_workers=*/true);

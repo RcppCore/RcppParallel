@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -54,18 +54,19 @@ namespace internal {
 
 // abort code for mutexes that detect a conflict with another thread.
 // value is hexadecimal
-
-static const unsigned int speculation_transaction_aborted = 0x01;
-static const unsigned int speculation_can_retry           = 0x02;
-static const unsigned int speculation_memadd_conflict     = 0x04;
-static const unsigned int speculation_buffer_overflow     = 0x08;
-static const unsigned int speculation_breakpoint_hit      = 0x10;
-static const unsigned int speculation_nested_abort        = 0x20;
-static const unsigned int speculation_xabort_mask         = 0xFF000000;
-static const unsigned int speculation_xabort_shift        = 24;
-static const unsigned int speculation_retry               = speculation_transaction_aborted |
-                                                            speculation_can_retry |
-                                                            speculation_memadd_conflict;
+enum {
+    speculation_transaction_aborted = 0x01,
+    speculation_can_retry           = 0x02,
+    speculation_memadd_conflict     = 0x04,
+    speculation_buffer_overflow     = 0x08,
+    speculation_breakpoint_hit      = 0x10,
+    speculation_nested_abort        = 0x20,
+    speculation_xabort_mask         = 0xFF000000,
+    speculation_xabort_shift        = 24,
+    speculation_retry               = speculation_transaction_aborted
+                                      | speculation_can_retry
+                                      | speculation_memadd_conflict
+};
 
 // maximum number of times to retry
 static const int retry_threshold_read = 10;

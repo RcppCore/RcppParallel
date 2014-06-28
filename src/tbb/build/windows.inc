@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -78,9 +78,10 @@ TBB.DEF = $(TBB.LST:.lst=.def)
 TBB.DLL = tbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(DLL)
 TBB.LIB = tbb$(CPF_SUFFIX)$(DEBUG_SUFFIX).$(LIBEXT)
 TBB.RES = tbb_resource.res
-# On Windows, we use #pragma comment to set the proper TBB lib to link with
-# But for cross-configuration testing, need to link explicitly
-LINK_TBB.LIB = $(if $(crosstest),$(TBB.LIB))
+# On Windows, we use #pragma comment to set the proper TBB lib to link with.
+# But for cross-configuration testing, need to link explicitly.
+# Tests use this variable to detect dependency on TBB binary, so have to be non-empty. 
+LINK_TBB.LIB = $(if $(crosstest),$(TBB.LIB),$(DEFINE_KEY)__TBB_IMPLICITLY_LINKED)
 TBB.MANIFEST =
 ifneq ($(filter vc8 vc9,$(runtime)),)
     TBB.MANIFEST = tbbmanifest.exe.manifest
@@ -110,7 +111,7 @@ ifneq ($(filter vc8 vc9,$(runtime)),)
 RML.MANIFEST = tbbmanifest.exe.manifest
 endif
 
-MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(CPLUS) $(CPLUS_FLAGS)") > version_string.ver
+MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(VERSION_FLAGS)") > version_string.ver
 MAKE_TBBVARS  = cmd /C "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)

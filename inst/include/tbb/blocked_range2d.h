@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -42,7 +42,7 @@ public:
     //! Type for size of an iteration range
     typedef blocked_range<RowValue> row_range_type;
     typedef blocked_range<ColValue> col_range_type;
- 
+
 private:
     row_range_type my_rows;
     col_range_type my_cols;
@@ -50,14 +50,14 @@ private:
 public:
 
     blocked_range2d( RowValue row_begin, RowValue row_end, typename row_range_type::size_type row_grainsize,
-                     ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize ) : 
+                     ColValue col_begin, ColValue col_end, typename col_range_type::size_type col_grainsize ) :
         my_rows(row_begin,row_end,row_grainsize),
         my_cols(col_begin,col_end,col_grainsize)
     {
     }
 
     blocked_range2d( RowValue row_begin, RowValue row_end,
-                     ColValue col_begin, ColValue col_end ) : 
+                     ColValue col_begin, ColValue col_end ) :
         my_rows(row_begin,row_end),
         my_cols(col_begin,col_end)
     {
@@ -74,24 +74,43 @@ public:
         return my_rows.is_divisible() || my_cols.is_divisible();
     }
 
-    blocked_range2d( blocked_range2d& r, split ) : 
+    blocked_range2d( blocked_range2d& r, split ) :
         my_rows(r.my_rows),
         my_cols(r.my_cols)
     {
+        split split_obj;
+        do_split(r, split_obj);
+    }
+
+#if !TBB_DEPRECATED
+    //! Static field to support proportional split
+    static const bool is_divisible_in_proportion = true;
+
+    blocked_range2d( blocked_range2d& r, proportional_split& proportion ) :
+        my_rows(r.my_rows),
+        my_cols(r.my_cols)
+    {
+        do_split(r, proportion);
+    }
+#endif
+
+    template <typename Split>
+    void do_split( blocked_range2d& r, Split& split_obj )
+    {
         if( my_rows.size()*double(my_cols.grainsize()) < my_cols.size()*double(my_rows.grainsize()) ) {
-            my_cols.my_begin = col_range_type::do_split(r.my_cols);
+            my_cols.my_begin = col_range_type::do_split(r.my_cols, split_obj);
         } else {
-            my_rows.my_begin = row_range_type::do_split(r.my_rows);
+            my_rows.my_begin = row_range_type::do_split(r.my_rows, split_obj);
         }
     }
 
-    //! The rows of the iteration space 
+    //! The rows of the iteration space
     const row_range_type& rows() const {return my_rows;}
 
-    //! The columns of the iteration space 
+    //! The columns of the iteration space
     const col_range_type& cols() const {return my_cols;}
 };
 
-} // namespace tbb 
+} // namespace tbb
 
 #endif /* __TBB_blocked_range2d_H */

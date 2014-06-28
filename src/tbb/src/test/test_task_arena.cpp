@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -131,7 +131,7 @@ void ResetTLS() {
 class ConcurrencyTrackingBody {
 public:
     void operator() ( const Range& ) const {
-        ASSERT(slot_id.local() == tbb::task_arena::current_slot(), NULL);
+        ASSERT(slot_id.local() == tbb::task_arena::current_thread_index(), NULL);
         Harness::ConcurrencyTracker ct;
         for ( volatile int i = 0; i < 100000; ++i )
             ;
@@ -140,7 +140,6 @@ public:
 
 class ArenaObserver : public tbb::task_scheduler_observer {
     int myId;
-    tbb::atomic<int> myTrappedSlot;
     /*override*/
     void on_scheduler_entry( bool is_worker ) {
         REMARK("a %s #%p is entering arena %d from %d\n", is_worker?"worker":"master", &local_id.local(), myId, local_id.local());
@@ -148,29 +147,23 @@ class ArenaObserver : public tbb::task_scheduler_observer {
         old_id.local() = local_id.local();
         ASSERT(old_id.local() != myId, "double-entry to the same arena");
         local_id.local() = myId;
-        slot_id.local() = tbb::task_arena::current_slot();
-        if(is_worker) ASSERT(tbb::task_arena::current_slot()>0, NULL);
-        else ASSERT(tbb::task_arena::current_slot()==0, NULL);
+        slot_id.local() = tbb::task_arena::current_thread_index();
+        if(is_worker) ASSERT(tbb::task_arena::current_thread_index()>0, NULL);
+        else ASSERT(tbb::task_arena::current_thread_index()==0, NULL);
     }
     /*override*/
     void on_scheduler_exit( bool is_worker ) {
         REMARK("a %s #%p is leaving arena %d to %d\n", is_worker?"worker":"master", &local_id.local(), myId, old_id.local());
         ASSERT(local_id.local() == myId, "nesting of arenas is broken");
-        ASSERT(slot_id.local() == tbb::task_arena::current_slot(), NULL);
+        ASSERT(slot_id.local() == tbb::task_arena::current_thread_index(), NULL);
         slot_id.local() = -1;
         local_id.local() = old_id.local();
         old_id.local() = 0;
     }
-    /*override*/
-    bool on_scheduler_leaving() {
-        ASSERT(slot_id.local() == tbb::task_arena::current_slot(), NULL);
-        return tbb::task_arena::current_slot() >= myTrappedSlot;
-    }
 public:
-    ArenaObserver(tbb::task_arena &a, int id, int trap = 0) : tbb::task_scheduler_observer(a) {
+    ArenaObserver(tbb::task_arena &a, int id) : tbb::task_scheduler_observer(a) {
         ASSERT(id, NULL);
         myId = id;
-        myTrappedSlot = trap;
         observe(true);
     }
     ~ArenaObserver () {

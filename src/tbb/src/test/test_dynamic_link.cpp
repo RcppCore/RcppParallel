@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -65,9 +65,10 @@ static const tbb::internal::dynamic_link_descriptor LinkTable[] = {
 
 // The direct include since we want to test internal functionality.
 #include "tbb/dynamic_link.cpp"
-#include "harness.h"
 #include "harness_dynamic_libs.h"
+#include "harness.h"
 
+#if !HARNESS_SKIP_TEST
 int TestMain () {
 #if !_WIN32
     // Check if the executable exports its symbols.
@@ -88,3 +89,4 @@ int TestMain () {
     }
     return Harness::Done;
 }
+#endif // HARNESS_SKIP_TEST

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -30,6 +30,10 @@
 #define TBB_PREVIEW_GRAPH_NODES 1
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
+
+#if defined(_MSC_VER) && _MSC_VER < 1600
+    #pragma warning (disable : 4503) //disabling the "decorated name length exceeded" warning for VS2008 and earlier
+#endif
 
 //
 // Tests

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -33,7 +33,10 @@
 
 #include "tbb/tbb_stddef.h"
 
-#ifndef LIBRARY_ASSERT
+#ifdef LIBRARY_ASSERT
+    #undef __TBB_ASSERT
+    #define __TBB_ASSERT(x,y) LIBRARY_ASSERT(x,y)
+#else
     #define LIBRARY_ASSERT(x,y) __TBB_ASSERT_EX(x,y)
 #endif /* !LIBRARY_ASSERT */
 

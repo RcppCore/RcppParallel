@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -216,7 +216,9 @@ public:
 protected:
     thread_bound_filter(mode filter_mode): 
          filter(static_cast<mode>(filter_mode | filter::filter_is_bound))
-    {}
+    {
+        __TBB_ASSERT(filter_mode & filter::filter_is_serial, "thread-bound filters must be serial");
+    }
 public:
     //! If a data item is available, invoke operator() on that item.  
     /** This interface is non-blocking.

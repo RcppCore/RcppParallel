@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -151,58 +151,6 @@ void Flog( int nthread, bool interference=false ) {
     }
 }
 
-class DeepThief: public tbb::task {
-    /*override*/tbb::task* execute() {
-        if( !is_stolen_task() )
-            spawn(*child);
-        wait_for_all();
-        return NULL;
-    }
-    task* child;
-    friend void FlogWithInterference(int);
-public:
-    DeepThief() : child() {}
-};
-
-//! Test for problem in TBB 2.1 parallel_reduce where middle of a range is stolen.
-/** Warning: this test is a somewhat abusive use of TBB because 
-    it requires two or more threads to avoid deadlock. */
-void FlogWithInterference( int nthread ) {
-    ASSERT( nthread>=2, "requires too or more threads" );
-
-    // Build linear chain of tasks. 
-    // The purpose is to drive up "task depth" in TBB 2.1.
-    // An alternative would be to use add_to_depth, but that method is deprecated in TBB 2.2,
-    // and this way we generalize to catching problems with implicit depth calculations.
-    tbb::task* root = new( tbb::task::allocate_root() ) tbb::empty_task;
-    root->set_ref_count(2);
-    tbb::task* t = root;
-    for( int i=0; i<3; ++i ) {
-        t = new( t->allocate_child() ) tbb::empty_task;
-        t->set_ref_count(1);
-    }
-
-    // Append a DeepThief to the chain.
-    DeepThief* deep_thief = new( t->allocate_child() ) DeepThief;
-    deep_thief->set_ref_count(2);
-
-    // Append a leaf to the chain. 
-    tbb::task* leaf = new( deep_thief->allocate_child() ) tbb::empty_task;
-    deep_thief->child = leaf;
-
-    root->spawn(*deep_thief);
-
-    Flog(nthread,true);
-
-    if( root->ref_count()==2 ) {
-        // Spawn leaf, which when it finishes, cause the DeepThief and rest of the chain to finish.
-        root->spawn( *leaf );
-    }
-    // Wait for all tasks in the chain from root to leaf to finish.
-    root->wait_for_all();
-    tbb::task::destroy( *root );
-}
-
 #include "tbb/blocked_range.h"
 
 #if _MSC_VER
@@ -320,6 +268,42 @@ public:
 
 #include "tbb/task_scheduler_init.h"
 #include "harness_cpu.h"
+#include "test_partitioner.h"
+
+namespace interaction_with_range_and_partitioner {
+
+// Test checks compatibility of parallel_reduce algorithm with various range implementations
+
+void test() {
+    using namespace test_partitioner_utils::interaction_with_range_and_partitioner;
+
+    test_partitioner_utils::SimpleReduceBody body;
+    tbb::affinity_partitioner ap;
+
+    parallel_reduce(Range1(true, false), body, ap);
+    parallel_reduce(Range2(true, false), body, ap);
+    parallel_reduce(Range3(true, false), body, ap);
+    parallel_reduce(Range4(false, true), body, ap);
+    parallel_reduce(Range5(false, true), body, ap);
+    parallel_reduce(Range6(false, true), body, ap);
+
+    parallel_reduce(Range1(false, true), body, tbb::simple_partitioner());
+    parallel_reduce(Range2(false, true), body, tbb::simple_partitioner());
+    parallel_reduce(Range3(false, true), body, tbb::simple_partitioner());
+    parallel_reduce(Range4(false, true), body, tbb::simple_partitioner());
+    parallel_reduce(Range5(false, true), body, tbb::simple_partitioner());
+    parallel_reduce(Range6(false, true), body, tbb::simple_partitioner());
+
+    parallel_reduce(Range1(false, true), body, tbb::auto_partitioner());
+    parallel_reduce(Range2(false, true), body, tbb::auto_partitioner());
+    parallel_reduce(Range3(false, true), body, tbb::auto_partitioner());
+    parallel_reduce(Range4(false, true), body, tbb::auto_partitioner());
+    parallel_reduce(Range5(false, true), body, tbb::auto_partitioner());
+    parallel_reduce(Range6(false, true), body, tbb::auto_partitioner());
+}
+
+} // interaction_with_range_and_partitioner
+
 
 int TestMain () {
     if( MinThread<0 ) {
@@ -329,13 +313,13 @@ int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
         Flog(p);
-        if( p>=2 )
-            FlogWithInterference(p);
         ParallelSum();
         if ( p>=2 )
             TestDeterministicReduction<RotOp>();
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }
+
+    interaction_with_range_and_partitioner::test();
     return Harness::Done;
 }

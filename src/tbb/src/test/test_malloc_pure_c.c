@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -48,13 +48,13 @@ const int ExpectedResultHugePages = TBBMALLOC_NO_EFFECT;
 #endif
 
 #if __TBB_SOURCE_DIRECTLY_INCLUDED
-/* test that it's possible to call allocation function from atexit
-   after mallocProcessShutdownNotification() called */
-void __TBB_mallocProcessShutdownNotification();
+#include "../tbbmalloc/tbbmalloc_internal_api.h"
 #else
 #define __TBB_mallocProcessShutdownNotification()
 #endif
 
+/* test that it's possible to call allocation function from atexit
+   after mallocProcessShutdownNotification() called */
 static void MyExit(void) {
     void *p = scalable_malloc(32);
     assert(p);
@@ -78,6 +78,10 @@ int main(void) {
         scalable_free(p1);
     }
     /* note that huge pages (if supported) are still enabled at this point */
+#if __TBB_SOURCE_DIRECTLY_INCLUDED
+    assert(TBBMALLOC_OK ==
+           scalable_allocation_mode(TBBMALLOC_INTERNAL_SOURCE_INCLUDED, 0));
+#endif
 
     for( i=0; i<=1<<16; ++i) {
         p1 = scalable_malloc(i);

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -52,7 +52,7 @@ class task_group_context;
 #define __TBB_TASK_BASE_ACCESS private
 #endif
 
-namespace internal {
+namespace internal { //< @cond INTERNAL
 
     class allocate_additional_child_of_proxy: no_assign {
         //! No longer used, but retained for binary layout compatibility.  Always NULL.
@@ -64,7 +64,8 @@ namespace internal {
         void __TBB_EXPORTED_METHOD free( task& ) const;
     };
 
-}
+    struct cpu_ctl_env_space { int space[sizeof(internal::uint64_t)/sizeof(int)]; };
+} //< namespace internal @endcond
 
 namespace interface5 {
     namespace internal {
@@ -244,7 +245,7 @@ namespace internal {
         //! Miscellaneous state that is not directly visible to users, stored as a byte for compactness.
         /** 0x0 -> version 1.0 task
             0x1 -> version >=2.1 task
-            0x10 -> task was enqueued 
+            0x10 -> task was enqueued
             0x20 -> task_proxy
             0x40 -> task has live ref_count
             0x80 -> a stolen task */
@@ -286,6 +287,7 @@ enum priority_t {
 #endif /* !TBB_USE_CAPTURED_EXCEPTION */
 
 class task_scheduler_init;
+namespace interface7 { class task_arena; }
 
 //! Used to form groups of tasks
 /** @ingroup task_scheduling
@@ -312,6 +314,7 @@ class task_group_context : internal::no_copy {
 private:
     friend class internal::generic_scheduler;
     friend class task_scheduler_init;
+    friend class interface7::task_arena;
 
 #if TBB_USE_CAPTURED_EXCEPTION
     typedef tbb_exception exception_container_type;
@@ -333,6 +336,9 @@ public:
 
     enum traits_type {
         exact_exception = 0x0001ul << traits_offset,
+#if __TBB_FP_CONTEXT
+        fp_settings     = 0x0002ul << traits_offset,
+#endif
         concurrent_wait = 0x0004ul << traits_offset,
 #if TBB_USE_CAPTURED_EXCEPTION
         default_traits = 0
@@ -370,7 +376,18 @@ private:
         line with a local variable that is frequently written to. **/
     char _leading_padding[internal::NFS_MaxLineSize
                           - 2 * sizeof(uintptr_t)- sizeof(void*) - sizeof(internal::context_list_node_t)
-                          - sizeof(__itt_caller)];
+                          - sizeof(__itt_caller)
+#if __TBB_FP_CONTEXT
+                          - sizeof(internal::cpu_ctl_env_space)
+#endif
+                         ];
+
+#if __TBB_FP_CONTEXT
+    //! Space for platform-specific FPU settings.
+    /** Must only be accessed inside TBB binaries, and never directly in user
+        code or inline methods. */
+    internal::cpu_ctl_env_space my_cpu_ctl_env;
+#endif
 
     //! Specifies whether cancellation was requested for this task group.
     uintptr_t my_cancellation_requested;
@@ -436,7 +453,7 @@ public:
     task_group_context ( kind_type relation_with_parent = bound,
                          uintptr_t traits = default_traits )
         : my_kind(relation_with_parent)
-        , my_version_and_traits(1 | traits)
+        , my_version_and_traits(2 | traits)
     {
         init();
     }
@@ -475,6 +492,18 @@ public:
         exception during its execution. In other words, it emulates the actions
         of the scheduler's dispatch loop exception handler. **/
     void __TBB_EXPORTED_METHOD register_pending_exception ();
+
+#if __TBB_FP_CONTEXT
+    //! Captures the current FPU control settings to the context.
+    /** Because the method assumes that all the tasks that used to be associated with
+        this context have already finished, calling it while the context is still
+        in use somewhere in the task hierarchy leads to undefined behavior.
+
+        IMPORTANT: This method is not thread safe!
+
+        The method does not change the FPU control settings of the context's parent. **/
+    void __TBB_EXPORTED_METHOD capture_fp_settings ();
+#endif
 
 #if __TBB_TASK_PRIORITY
     //! Changes priority of the task group

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -63,6 +63,11 @@
 
 #ifndef TBB_TEST_LOW_WORKLOAD
     #define TBB_TEST_LOW_WORKLOAD TBB_USE_THREADING_TOOLS
+#endif
+
+#if _MSC_VER && TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
+    // link with a preview library is required. __TBB_LIB_NAME should be defined properly (in makefiles)
+    #pragma comment(lib, __TBB_STRING(__TBB_LIB_NAME))
 #endif
 
 // This test deliberately avoids a "using tbb" statement,

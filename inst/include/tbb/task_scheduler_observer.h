@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -96,7 +96,7 @@ public:
 
 } // namespace internal
 
-#if TBB_PREVIEW_LOCAL_OBSERVER
+#if __TBB_ARENA_OBSERVER
 namespace interface6 {
 class task_scheduler_observer : public internal::task_scheduler_observer_v3 {
     friend class internal::task_scheduler_observer_v3;
@@ -124,7 +124,6 @@ public:
         constructor is obsolete too and will be changed in one of the future versions
         of the library. **/
     task_scheduler_observer( bool local = false ) {
-        my_busy_count.store<relaxed>(v6_trait);
         my_context_tag = local? implicit_tag : global_tag;
     }
 
@@ -134,28 +133,40 @@ public:
         If a thread is already in the arena when the observer is activated, the entry notification
         is called before it executes the first stolen task. **/
     task_scheduler_observer( task_arena & a) {
-        my_busy_count.store<relaxed>(v6_trait);
         my_context_tag = (intptr_t)&a;
     }
 #endif //__TBB_TASK_ARENA
 
-    //! Destructor additionally protects concurrent on_scheduler_leaving notification
-    // It is recommended to disable observation before destructor of a derived class starts,
-    // otherwise it can lead to concurrent notification callback on partly destroyed object
+    /** Destructor protects instance of the observer from concurrent notification.
+       It is recommended to disable observation before destructor of a derived class starts,
+       otherwise it can lead to concurrent notification callback on partly destroyed object **/
     virtual ~task_scheduler_observer() { if(my_proxy) observe(false); }
 
-    //! The callback can be invoked in a worker thread before it leaves an arena.
-    /** If it returns false, the thread remains in the arena. Will not be called for masters
-        or if the worker leaves arena due to rebalancing or priority changes, etc.
-        NOTE: The preview library must be linked for this method to take effect **/
-    virtual bool on_scheduler_leaving() { return true; }
+    //! Enable or disable observation
+    /** Warning: concurrent invocations of this method are not safe.
+        Repeated calls with the same state are no-ops. **/
+    void observe( bool state=true ) {
+        if( state && !my_proxy ) {
+            __TBB_ASSERT( !my_busy_count, "Inconsistent state of task_scheduler_observer instance");
+            my_busy_count.store<relaxed>(v6_trait);
+        }
+        internal::task_scheduler_observer_v3::observe(state);
+    }
+
+    //! Return commands for may_sleep()
+    enum { keep_awake = false, allow_sleep = true };
+
+    //! The callback can be invoked by a worker thread before it goes to sleep.
+    /** If it returns false ('keep_awake'), the thread will keep spinning and looking for work.
+        It will not be called for master threads. **/
+    virtual bool may_sleep() { return allow_sleep; }
 };
 
 } //namespace interface6
 using interface6::task_scheduler_observer;
-#else /*TBB_PREVIEW_LOCAL_OBSERVER*/
+#else /*__TBB_ARENA_OBSERVER*/
 typedef tbb::internal::task_scheduler_observer_v3 task_scheduler_observer;
-#endif /*TBB_PREVIEW_LOCAL_OBSERVER*/
+#endif /*__TBB_ARENA_OBSERVER*/
 
 } // namespace tbb
 

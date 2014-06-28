@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -343,7 +343,7 @@ retry:
                 __TBB_ASSERT(__TBB_load_relaxed(my_prev)==pred, NULL);
                 __TBB_store_with_release(pred->my_next, my_next);
             }
-            // Safe to release in the order opposite to acquiring which makes the code simplier
+            // Safe to release in the order opposite to acquiring which makes the code simpler
             pred->release_internal_lock();
 
         } else { // No predecessor when we looked

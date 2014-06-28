@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -217,7 +217,7 @@ namespace tbb {
         template <typename T>
         inline void itt_hide_store_word(T& dst, T src) {
 #if TBB_USE_THREADING_TOOLS
-            // This assertion should be replaced with static_assert
+            //TODO: This assertion should be replaced with static_assert
             __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized");
             itt_store_pointer_with_release_v3(&dst, (void *)src);
 #else
@@ -225,10 +225,11 @@ namespace tbb {
 #endif
         }
 
+        //TODO: rename to itt_hide_load_word_relaxed
         template <typename T>
         inline T itt_hide_load_word(const T& src) {
 #if TBB_USE_THREADING_TOOLS
-            // This assertion should be replaced with static_assert
+            //TODO: This assertion should be replaced with static_assert
             __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.");
             return (T)itt_load_pointer_v3(&src);
 #else

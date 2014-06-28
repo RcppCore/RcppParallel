@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -32,8 +32,8 @@ ifneq (icc,$(compiler))
 endif
 
 # The same build prefix should be used in mic.linux.inc
-mic_build_prefix=mic_icc$(CPF_SUFFIX)
-MIC_OFFLOAD_NATIVE_PATH?=../$(mic_build_prefix)_$(cfg)
+mic_tbb_build_prefix=mic_icc$(CPF_SUFFIX)
+MIC_OFFLOAD_NATIVE_PATH?=../$(mic_tbb_build_prefix)_$(cfg)
 
 ifdef BUILDING_PHASE
   ifeq ($(BUILDING_PHASE),1)

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -50,7 +50,7 @@ const size_t shared_size = SHARED_TEXT_REGION_SIZE+SHARED_DATA_REGION_SIZE;
 const size_t shared_size = 0;
 #endif
 
-#elif _WIN32 && !_XBOX
+#elif _WIN32 && !_XBOX && !__TBB_WIN8UI_SUPPORT
 #include <windows.h>
 #include <psapi.h>
 #if _MSC_VER

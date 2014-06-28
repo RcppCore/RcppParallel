@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -134,12 +134,27 @@ void * pvalloc(size_t size) __THROW
     return scalable_aligned_malloc(size, memoryPageSize);
 }
 
+// match prototype from system headers
+#if __ANDROID__
+size_t malloc_usable_size(const void *ptr) __THROW
+#else
+size_t malloc_usable_size(void *ptr) __THROW
+#endif
+{
+    return __TBB_internal_msize(const_cast<void*>(ptr));
+}
+
 int mallopt(int /*param*/, int /*value*/) __THROW
 {
     return 1;
 }
 
-#if !__ANDROID__
+#if __ANDROID__
+// Android doesn't have malloc_usable_size, provide it to be compatible
+// with Linux, in addition overload dlmalloc_usable_size() that presented
+// under Android.
+size_t dlmalloc_usable_size(const void *ptr) __attribute__ ((alias ("malloc_usable_size")));
+#else
 // Those non-standart functions are exported by GLIBC, and might be used
 // in conjunction with standart malloc/free, so we must ovberload them.
 // Bionic doesn't have them. Not removing from the linker scripts,
@@ -217,10 +232,17 @@ void operator delete[](void* ptr, const std::nothrow_t&) throw() {
 
 #include <stdio.h>
 #include "tbb_function_replacement.h"
+#include "shared_utils.h"
 
 void safer_scalable_free2( void *ptr)
 {
     safer_scalable_free( ptr, NULL );
+}
+
+void* safer_aligned_malloc( size_t size, size_t alignment )
+{
+    // workaround for "is power of 2 pow N" bug that accepts zeros
+    return scalable_aligned_malloc( size, alignment>sizeof(size_t*)?alignment:sizeof(size_t*) );
 }
 
 // we do not support _expand();
@@ -229,29 +251,35 @@ void* safer_expand( void *, size_t )
     return NULL;
 }
 
-#define __TBB_ORIG_ALLOCATOR_REPLACEMENT_WRAPPER(CRTLIB)\
-void (*orig_free_##CRTLIB)(void*);                                                        \
-void safer_scalable_free_##CRTLIB( void *ptr)                                             \
-{                                                                                         \
-    safer_scalable_free( ptr, orig_free_##CRTLIB );                                       \
-}                                                                                         \
-                                                                                          \
-size_t (*orig_msize_##CRTLIB)(void*);                                                     \
-size_t safer_scalable_msize_##CRTLIB( void *ptr)                                          \
-{                                                                                         \
-    return safer_scalable_msize( ptr, orig_msize_##CRTLIB );                              \
-}                                                                                         \
-                                                                                          \
-void* safer_scalable_realloc_##CRTLIB( void *ptr, size_t size )                           \
-{                                                                                         \
-    orig_ptrs func_ptrs = {orig_free_##CRTLIB, orig_msize_##CRTLIB};                      \
-    return safer_scalable_realloc( ptr, size, &func_ptrs );                               \
-}                                                                                         \
-                                                                                          \
-void* safer_scalable_aligned_realloc_##CRTLIB( void *ptr, size_t size, size_t aligment )  \
-{                                                                                         \
-    orig_ptrs func_ptrs = {orig_free_##CRTLIB, orig_msize_##CRTLIB};                      \
-    return safer_scalable_aligned_realloc( ptr, size, aligment, &func_ptrs );             \
+#define __TBB_ORIG_ALLOCATOR_REPLACEMENT_WRAPPER(CRTLIB)                                        \
+void (*orig_free_##CRTLIB)(void*);                                                              \
+void safer_scalable_free_##CRTLIB(void *ptr)                                                    \
+{                                                                                               \
+    safer_scalable_free( ptr, orig_free_##CRTLIB );                                             \
+}                                                                                               \
+                                                                                                \
+size_t (*orig_msize_##CRTLIB)(void*);                                                           \
+size_t safer_scalable_msize_##CRTLIB(void *ptr)                                                 \
+{                                                                                               \
+    return safer_scalable_msize( ptr, orig_msize_##CRTLIB );                                    \
+}                                                                                               \
+                                                                                                \
+size_t (*orig_aligned_msize_##CRTLIB)(void*, size_t, size_t);                                   \
+size_t safer_scalable_aligned_msize_##CRTLIB( void *ptr, size_t alignment, size_t offset)       \
+{                                                                                               \
+    return safer_scalable_aligned_msize( ptr, alignment, offset, orig_aligned_msize_##CRTLIB ); \
+}                                                                                               \
+                                                                                                \
+void* safer_scalable_realloc_##CRTLIB( void *ptr, size_t size )                                 \
+{                                                                                               \
+    orig_ptrs func_ptrs = {orig_free_##CRTLIB, orig_msize_##CRTLIB};                            \
+    return safer_scalable_realloc( ptr, size, &func_ptrs );                                     \
+}                                                                                               \
+                                                                                                \
+void* safer_scalable_aligned_realloc_##CRTLIB( void *ptr, size_t size, size_t aligment )        \
+{                                                                                               \
+    orig_ptrs func_ptrs = {orig_free_##CRTLIB, orig_msize_##CRTLIB};                            \
+    return safer_scalable_aligned_realloc( ptr, size, aligment, &func_ptrs );                   \
 }
 
 // limit is 30 bytes/60 symbols per line
@@ -263,6 +291,8 @@ const char* known_bytecodes[] = {
     "48894C24084883EC28BA",   //debug prologue for win64
     "4C8BC1488B0DA6E4040033", //win64 SDK
     "4883EC284885C975",       //release msize() 10.0.21003.1 win64
+    "48895C2408574883EC20",   //release _aligned_msize() win64
+    "4C894424184889542410",   //debug _aligned_msize() win64
 #else
     "558BEC6A018B",           //debug free() & _msize() 8.0.50727.4053 win32
     "6A1868********E8",       //release free() 8.0.50727.4053 win32
@@ -270,6 +300,9 @@ const char* known_bytecodes[] = {
     "558BEC837D08000F",       //release _msize() 11.0.51106.1 win32
     "8BFF558BEC6A",           //debug free() & _msize() 9.0.21022.8 win32
     "8BFF558BEC83",           //debug free() & _msize() 10.0.21003.1 win32
+    "8BFF558BEC8B4508",       //release _aligned_msize() 10.0 win32
+    "8BFF558BEC8B4510",       //debug _aligned_msize() 10.0 win32
+    "558BEC8B451050",         //debug _aligned_msize() 11.0 win32
 #endif
     NULL
     };
@@ -285,7 +318,9 @@ const char* known_bytecodes[] = {
     ReplaceFunctionWithStore( #CRT_VER "d.dll", "_aligned_free",   (FUNCPTR)safer_scalable_free_ ## CRT_VER ## d,            0, NULL); \
     ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_free",   (FUNCPTR)safer_scalable_free_ ## CRT_VER,                 0, NULL); \
     ReplaceFunctionWithStore( #CRT_VER "d.dll", "_aligned_realloc",(FUNCPTR)safer_scalable_aligned_realloc_ ## CRT_VER ## d, 0, NULL); \
-    ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_realloc",(FUNCPTR)safer_scalable_aligned_realloc_ ## CRT_VER,      0, NULL);
+    ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_realloc",(FUNCPTR)safer_scalable_aligned_realloc_ ## CRT_VER,      0, NULL); \
+    ReplaceFunctionWithStore( #CRT_VER "d.dll", "_aligned_msize",(FUNCPTR)safer_scalable_aligned_msize_ ## CRT_VER ## d, known_bytecodes, (FUNCPTR*)&orig_aligned_msize_ ## CRT_VER ## d ); \
+    ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_msize",(FUNCPTR)safer_scalable_aligned_msize_ ## CRT_VER,      known_bytecodes, (FUNCPTR*)&orig_aligned_msize_ ## CRT_VER );
 #else
 #define __TBB_ORIG_ALLOCATOR_REPLACEMENT_CALL(CRT_VER)\
     ReplaceFunctionWithStore( #CRT_VER "d.dll", "free",  (FUNCPTR)safer_scalable_free_ ## CRT_VER ## d,  known_bytecodes, (FUNCPTR*)&orig_free_ ## CRT_VER ## d );  \
@@ -297,7 +332,9 @@ const char* known_bytecodes[] = {
     ReplaceFunctionWithStore( #CRT_VER "d.dll", "_aligned_free",   (FUNCPTR)safer_scalable_free_ ## CRT_VER ## d,            0, NULL); \
     ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_free",   (FUNCPTR)safer_scalable_free_ ## CRT_VER,                 0, NULL); \
     ReplaceFunctionWithStore( #CRT_VER "d.dll", "_aligned_realloc",(FUNCPTR)safer_scalable_aligned_realloc_ ## CRT_VER ## d, 0, NULL); \
-    ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_realloc",(FUNCPTR)safer_scalable_aligned_realloc_ ## CRT_VER,      0, NULL);
+    ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_realloc",(FUNCPTR)safer_scalable_aligned_realloc_ ## CRT_VER,      0, NULL); \
+    ReplaceFunctionWithStore( #CRT_VER "d.dll", "_aligned_msize",(FUNCPTR)safer_scalable_aligned_msize_ ## CRT_VER ## d, known_bytecodes, (FUNCPTR*)&orig_aligned_msize_ ## CRT_VER ## d ); \
+    ReplaceFunctionWithStore( #CRT_VER  ".dll", "_aligned_msize",(FUNCPTR)safer_scalable_aligned_msize_ ## CRT_VER,      known_bytecodes, (FUNCPTR*)&orig_aligned_msize_ ## CRT_VER );
 #endif
 
 __TBB_ORIG_ALLOCATOR_REPLACEMENT_WRAPPER(msvcr70d);
@@ -410,7 +447,7 @@ typedef struct FRData_t {
 FRDATA routines_to_replace[] = {
     { "malloc",  (FUNCPTR)scalable_malloc, FRR_FAIL },
     { "calloc",  (FUNCPTR)scalable_calloc, FRR_FAIL },
-    { "_aligned_malloc",  (FUNCPTR)scalable_aligned_malloc, FRR_FAIL },
+    { "_aligned_malloc",  (FUNCPTR)safer_aligned_malloc, FRR_FAIL },
     { "_expand",  (FUNCPTR)safer_expand, FRR_IGNORE },
 #if _WIN64
     { "??2@YAPEAX_K@Z", (FUNCPTR)operator_new, FRR_FAIL },
@@ -445,8 +482,6 @@ void ReplaceFunctionWithStore( const wchar_t *dllName, const char *funcName, FUN
 
 void doMallocReplacement()
 {
-    int i,j;
-
     // Replace functions and keep backup of original code (separate for each runtime)
     __TBB_ORIG_ALLOCATOR_REPLACEMENT_CALL(msvcr70)
     __TBB_ORIG_ALLOCATOR_REPLACEMENT_CALL(msvcr71)
@@ -457,10 +492,8 @@ void doMallocReplacement()
     __TBB_ORIG_ALLOCATOR_REPLACEMENT_CALL(msvcr120)
 
     // Replace functions without storing original code
-    int modules_to_replace_count = sizeof(modules_to_replace) / sizeof(modules_to_replace[0]);
-    int routines_to_replace_count = sizeof(routines_to_replace) / sizeof(routines_to_replace[0]);
-    for ( j=0; j<modules_to_replace_count; j++ )
-        for (i = 0; i < routines_to_replace_count; i++)
+    for ( size_t j=0; j < arrayLength(modules_to_replace); j++ )
+        for (size_t i = 0; i < arrayLength(routines_to_replace); i++)
         {
 #if !_WIN64
             // in Microsoft* Visual Studio* 2012 and 2013 32-bit operator delete consists of 2 bytes only: short jump to free(ptr);

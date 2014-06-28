@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -45,11 +45,13 @@
 #define MALLOC_ITT_SYNC_ACQUIRED(pointer) ITT_NOTIFY(sync_acquired, (pointer))
 #define MALLOC_ITT_SYNC_RELEASING(pointer) ITT_NOTIFY(sync_releasing, (pointer))
 #define MALLOC_ITT_SYNC_CANCEL(pointer) ITT_NOTIFY(sync_cancel, (pointer))
+#define MALLOC_ITT_FINI_ITTLIB()        ITT_FINI_ITTLIB()
 #else
 #define MALLOC_ITT_SYNC_PREPARE(pointer) ((void)0)
 #define MALLOC_ITT_SYNC_ACQUIRED(pointer) ((void)0)
 #define MALLOC_ITT_SYNC_RELEASING(pointer) ((void)0)
 #define MALLOC_ITT_SYNC_CANCEL(pointer) ((void)0)
+#define MALLOC_ITT_FINI_ITTLIB()        ((void)0)
 #endif
 
 //! Stripped down version of spin_mutex.
@@ -163,5 +165,65 @@ namespace internal {
 } } // namespaces
 
 #define MALLOC_EXTRA_INITIALIZATION rml::internal::init_tbbmalloc()
+
+// Need these to work regardless of tools support.
+namespace tbb {
+    namespace internal {
+
+        enum notify_type {prepare=0, cancel, acquired, releasing};
+
+#if TBB_USE_THREADING_TOOLS
+        inline void call_itt_notify(notify_type t, void *ptr) {
+            switch ( t ) {
+            case prepare:
+                MALLOC_ITT_SYNC_PREPARE( ptr );
+                break;
+            case cancel:
+                MALLOC_ITT_SYNC_CANCEL( ptr );
+                break;
+            case acquired:
+                MALLOC_ITT_SYNC_ACQUIRED( ptr );
+                break;
+            case releasing:
+                MALLOC_ITT_SYNC_RELEASING( ptr );
+                break;
+            }
+        }
+#else
+        inline void call_itt_notify(notify_type /*t*/, void * /*ptr*/) {}
+#endif // TBB_USE_THREADING_TOOLS
+
+        template <typename T>
+        inline void itt_store_word_with_release(T& dst, T src) {
+#if TBB_USE_THREADING_TOOLS
+            call_itt_notify(releasing, &dst);
+#endif // TBB_USE_THREADING_TOOLS
+            FencedStore(*(intptr_t*)&dst, src); 
+        }
+
+        template <typename T>
+        inline T itt_load_word_with_acquire(T& src) {
+            T result = FencedLoad(*(intptr_t*)&src);
+#if TBB_USE_THREADING_TOOLS
+            call_itt_notify(acquired, &src);
+#endif // TBB_USE_THREADING_TOOLS
+            return result;
+
+        }
+    } // namespace internal
+} // namespace tbb
+
+#include "tbb/internal/_aggregator_impl.h"
+
+template <typename OperationType>
+struct MallocAggregator {
+    typedef tbb::internal::aggregator_generic<OperationType> type;
+};
+
+//! aggregated_operation base class
+template <typename Derived>
+struct MallocAggregatedOperation {
+    typedef tbb::internal::aggregated_operation<Derived> type;
+};
 
 #endif /* _TBB_malloc_Customize_H_ */

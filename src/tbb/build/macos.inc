@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -74,8 +74,8 @@ ifndef runtime
  export runtime:=cc$(gcc_version)_os$(os_version)
 endif
 
-native_compiler := gcc
-export compiler ?= gcc
+native_compiler := clang
+export compiler ?= clang
 debugger ?= gdb
 
 CMD=$(SHELL) -c
@@ -85,7 +85,7 @@ RD?=rmdir
 MD?=mkdir -p
 NUL= /dev/null
 SLASH=/
-MAKE_VERSIONS=sh $(tbb_root)/build/version_info_macos.sh $(CPLUS) $(CPLUS_FLAGS) $(INCLUDES) >version_string.ver
+MAKE_VERSIONS=sh $(tbb_root)/build/version_info_macos.sh $(VERSION_FLAGS) >version_string.ver
 MAKE_TBBVARS=sh $(tbb_root)/build/generate_tbbvars.sh DY
 
 ifdef DYLD_LIBRARY_PATH

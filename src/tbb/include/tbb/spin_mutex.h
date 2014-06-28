@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -155,7 +155,7 @@ public:
     //! Acquire lock
     void lock() {
 #if TBB_USE_THREADING_TOOLS
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         new(tmp.begin()) scoped_lock(*this);
 #else
         __TBB_LockByte(flag);
@@ -166,7 +166,7 @@ public:
     /** Return true if lock acquired; false otherwise. */
     bool try_lock() {
 #if TBB_USE_THREADING_TOOLS
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         return (new(tmp.begin()) scoped_lock)->internal_try_acquire(*this);
 #else
         return __TBB_TryLockByte(flag);
@@ -176,7 +176,7 @@ public:
     //! Release lock
     void unlock() {
 #if TBB_USE_THREADING_TOOLS
-        aligned_space<scoped_lock,1> tmp;
+        aligned_space<scoped_lock> tmp;
         scoped_lock& s = *tmp.begin();
         s.my_mutex = this;
         s.internal_release();

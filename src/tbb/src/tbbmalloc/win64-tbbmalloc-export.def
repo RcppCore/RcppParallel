@@ -1,4 +1,4 @@
-; Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 ;
 ; This file is part of Threading Building Blocks.
 ;
@@ -41,6 +41,7 @@ scalable_msize
 scalable_allocation_mode
 scalable_allocation_command
 safer_scalable_msize
+safer_scalable_aligned_msize
 safer_scalable_aligned_realloc
 ; memory pool stuff
 ?pool_create@rml@@YAPEAVMemoryPool@1@_JPEBUMemPoolPolicy@1@@Z

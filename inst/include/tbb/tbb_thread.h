@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -61,12 +61,9 @@ typedef DWORD thread_id_type;
 
 namespace tbb {
 
-//! @cond INTERNAL
 namespace internal {
-    
     class tbb_thread_v3;
-
-} // namespace internal
+}
 
 inline void swap( internal::tbb_thread_v3& t1, internal::tbb_thread_v3& t2 ); 
 

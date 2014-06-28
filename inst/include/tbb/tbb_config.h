@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -43,6 +43,7 @@
     #include <cstddef>
 #endif
 
+// note that when ICC is in use __TBB_GCC_VERSION might not closely match GCC version on the machine
 #define __TBB_GCC_VERSION (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__)
 
 #if __clang__
@@ -116,6 +117,8 @@
     
     #define __TBB_CONSTEXPR_PRESENT                   __INTEL_CXX11_MODE__ && __INTEL_COMPILER >= 1400
     #define __TBB_DEFAULTED_AND_DELETED_FUNC_PRESENT  __INTEL_CXX11_MODE__ && __INTEL_COMPILER >= 1200
+    /** ICC seems to disable support of noexcept event in c++11 when compiling in compatibility mode for gcc <4.6 **/
+    #define __TBB_NOEXCEPT_PRESENT                    __INTEL_CXX11_MODE__ && __INTEL_COMPILER >= 1300 && (__TBB_GCC_VERSION >= 40600 || _LIBCPP_VERSION || _MSC_VER)
 #elif __clang__
 //TODO: these options need to be rechecked
 /** on OS X* the only way to get C++11 is to use clang. For library features (e.g. exception_ptr) libc++ is also
@@ -136,6 +139,8 @@
     #endif
     #define __TBB_CONSTEXPR_PRESENT                   __has_feature(__cxx_constexpr__)
     #define __TBB_DEFAULTED_AND_DELETED_FUNC_PRESENT  (__has_feature(__cxx_defaulted_functions__) && __has_feature(__cxx_deleted_functions__))
+    /**For some unknown reason  __has_feature(__cxx_noexcept) does not yield true for all cases. Compiler bug ? **/
+    #define __TBB_NOEXCEPT_PRESENT                    (__cplusplus >= 201103L)
 #elif __GNUC__
     #define __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT    __GXX_EXPERIMENTAL_CXX0X__
     #define __TBB_CPP11_RVALUE_REF_PRESENT            __GXX_EXPERIMENTAL_CXX0X__
@@ -150,6 +155,7 @@
     /** gcc seems have to support constexpr from 4.4 but tests in (test_atomic) seeming reasonable fail to compile prior 4.6**/
     #define __TBB_CONSTEXPR_PRESENT                   (__GXX_EXPERIMENTAL_CXX0X__ && __TBB_GCC_VERSION >= 40400)
     #define __TBB_DEFAULTED_AND_DELETED_FUNC_PRESENT  (__GXX_EXPERIMENTAL_CXX0X__ && __TBB_GCC_VERSION >= 40400)
+    #define __TBB_NOEXCEPT_PRESENT                    (__GXX_EXPERIMENTAL_CXX0X__ && __TBB_GCC_VERSION >= 40600)
 #elif _MSC_VER
     #define __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT    (_MSC_VER >= 1800)
     #define __TBB_CPP11_RVALUE_REF_PRESENT            (_MSC_VER >= 1600)
@@ -160,6 +166,7 @@
     #define __TBB_INITIALIZER_LISTS_PRESENT           (_MSC_VER >= 1800)
     #define __TBB_CONSTEXPR_PRESENT                   0
     #define __TBB_DEFAULTED_AND_DELETED_FUNC_PRESENT  (_MSC_VER >= 1800)
+    #define __TBB_NOEXCEPT_PRESENT                    0 /*for _MSC_VER == 1800*/
 #else
     #define __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT    0
     #define __TBB_CPP11_RVALUE_REF_PRESENT            0
@@ -170,6 +177,7 @@
     #define __TBB_INITIALIZER_LISTS_PRESENT           0
     #define __TBB_CONSTEXPR_PRESENT                   0
     #define __TBB_DEFAULTED_AND_DELETED_FUNC_PRESENT  0
+    #define __TBB_NOEXCEPT_PRESENT                    0
 #endif
 
 //TODO: not clear how exactly this macro affects exception_ptr - investigate
@@ -207,7 +215,7 @@
 #define __TBB_DEFINE_MIC 1
 #endif
 
-#define __TBB_TSX_INTRINSICS_PRESENT ( (__TBB_GCC_VERSION>=40800) || (_MSC_VER>=1700) || (__INTEL_COMPILER>=1300) ) && !__TBB_DEFINE_MIC
+#define __TBB_TSX_INTRINSICS_PRESENT ( (__TBB_GCC_VERSION>=40800) || (_MSC_VER>=1700) || (__INTEL_COMPILER>=1300) ) && !__TBB_DEFINE_MIC && !__ANDROID__
 
 /** User controlled TBB features & modes **/
 
@@ -264,7 +272,7 @@
 #endif
 
 #ifndef TBB_IMPLEMENT_CPP0X
-    /** By default, use C++0x classes if available **/
+    /** By default, use C++11 classes if available **/
     #if __GNUC__==4 && __GNUC_MINOR__>=4 && __GXX_EXPERIMENTAL_CXX0X__
         #define TBB_IMPLEMENT_CPP0X 0
     #elif __clang__ && __cplusplus >= 201103L
@@ -275,6 +283,10 @@
         #else
             #define TBB_IMPLEMENT_CPP0X 1
         #endif
+    #elif _MSC_VER>=1700
+        #define TBB_IMPLEMENT_CPP0X 0
+    #elif __STDCPP_THREADS__
+        #define TBB_IMPLEMENT_CPP0X 0
     #else
         #define TBB_IMPLEMENT_CPP0X 1
     #endif
@@ -314,7 +326,7 @@
 /** __TBB_SOURCE_DIRECTLY_INCLUDED is a mode used in whitebox testing when
     it's necessary to test internal functions not exported from TBB DLLs
 **/
-#if (_WIN32||_WIN64) && __TBB_SOURCE_DIRECTLY_INCLUDED
+#if (_WIN32||_WIN64) && (__TBB_SOURCE_DIRECTLY_INCLUDED || TBB_USE_PREVIEW_BINARY)
     #define __TBB_NO_IMPLICIT_LINKAGE 1
     #define __TBBMALLOC_NO_IMPLICIT_LINKAGE 1
 #endif
@@ -331,6 +343,14 @@
     #define __TBB_SCHEDULER_OBSERVER 1
 #endif /* __TBB_SCHEDULER_OBSERVER */
 
+#ifndef __TBB_FP_CONTEXT
+    #define __TBB_FP_CONTEXT __TBB_TASK_GROUP_CONTEXT
+#endif /* __TBB_FP_CONTEXT */
+
+#if __TBB_FP_CONTEXT && !__TBB_TASK_GROUP_CONTEXT
+    #error __TBB_FP_CONTEXT requires __TBB_TASK_GROUP_CONTEXT to be enabled
+#endif
+
 #ifndef __TBB_TASK_ARENA
     #define __TBB_TASK_ARENA (__TBB_BUILD||TBB_PREVIEW_TASK_ARENA)
 #endif /* __TBB_TASK_ARENA  */
@@ -341,10 +361,17 @@
     #endif
 #endif /* __TBB_TASK_ARENA */
 
-#if !defined(TBB_PREVIEW_LOCAL_OBSERVER) && __TBB_BUILD && __TBB_SCHEDULER_OBSERVER
-    #define TBB_PREVIEW_LOCAL_OBSERVER 1
-#endif /* TBB_PREVIEW_LOCAL_OBSERVER */
+#ifndef __TBB_ARENA_OBSERVER
+    #define __TBB_ARENA_OBSERVER ((__TBB_BUILD||TBB_PREVIEW_LOCAL_OBSERVER)&& __TBB_SCHEDULER_OBSERVER)
+#endif /* __TBB_ARENA_OBSERVER */
 
+#ifndef __TBB_SLEEP_PERMISSION
+    #define __TBB_SLEEP_PERMISSION ((__TBB_CPF_BUILD||TBB_PREVIEW_LOCAL_OBSERVER)&& __TBB_SCHEDULER_OBSERVER)
+#endif /* __TBB_SLEEP_PERMISSION */
+
+#if TBB_PREVIEW_FLOW_GRAPH_TRACE
+#define __TBB_NO_IMPLICIT_LINKAGE 1
+#endif /* TBB_PREVIEW_FLOW_GRAPH_TRACE */
 
 #ifndef __TBB_ITT_STRUCTURE_API
 #define __TBB_ITT_STRUCTURE_API ( !__TBB_DEFINE_MIC && (__TBB_CPF_BUILD || TBB_PREVIEW_FLOW_GRAPH_TRACE) )
@@ -355,7 +382,7 @@
 #endif
 
 #ifndef __TBB_TASK_PRIORITY
-    #define __TBB_TASK_PRIORITY (!__TBB_CPF_BUILD&&__TBB_TASK_GROUP_CONTEXT) // TODO: it will be enabled for CPF in the next versions
+    #define __TBB_TASK_PRIORITY (!(__TBB_CPF_BUILD||TBB_USE_PREVIEW_BINARY)&&__TBB_TASK_GROUP_CONTEXT) // TODO: it will be enabled for CPF in the next versions
 #endif /* __TBB_TASK_PRIORITY */
 
 #if __TBB_TASK_PRIORITY && !__TBB_TASK_GROUP_CONTEXT
@@ -395,6 +422,9 @@
     #define TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX __TBB_CPF_BUILD
 #endif /* TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX */
 
+#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX && !__TBB_CPF_BUILD
+#define __TBB_NO_IMPLICIT_LINKAGE 1
+#endif /* TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX && !__TBB_CPF_BUILD */
 
 /** __TBB_WIN8UI_SUPPORT enables support of New Windows*8 Store Apps and limit a possibility to load
     shared libraries at run time only from application container **/
@@ -441,6 +471,11 @@
         but no mandatory warning message appears from GCC 4.4.3. Instead, only a linkage error occurs when
         these atomic operations are used (such as in unit test test_atomic.exe). **/
     #define __TBB_GCC_64BIT_ATOMIC_BUILTINS_BROKEN 1
+#elif __TBB_x86_32 && __TBB_GCC_VERSION == 40102 && ! __GNUC_RH_RELEASE__
+    /** GCC 4.1.2 erroneously emit call to external function for 64 bit sync_ intrinsics.
+        However these functions are not defined anywhere. It seems that this problem was fixed later on
+        and RHEL got an updated version of gcc 4.1.2. **/
+    #define __TBB_GCC_64BIT_ATOMIC_BUILTINS_BROKEN 1
 #endif
 
 #if __GNUC__ && __TBB_x86_64 && __INTEL_COMPILER == 1200
@@ -461,7 +496,7 @@
 #endif
 
 //TODO: recheck for different clang versions 
-#if __GLIBC__==2 && __GLIBC_MINOR__==3 || __MINGW32__ || (__APPLE__ && ( __INTEL_COMPILER==1200 && !TBB_USE_DEBUG))
+#if __GLIBC__==2 && __GLIBC_MINOR__==3 ||  (__APPLE__ && ( __INTEL_COMPILER==1200 && !TBB_USE_DEBUG))
     /** Macro controlling EH usages in TBB tests.
         Some older versions of glibc crash when exception handling happens concurrently. **/
     #define __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN 1
@@ -531,14 +566,30 @@
 #endif
 
 #if __GXX_EXPERIMENTAL_CXX0X__ && !defined(__EXCEPTIONS) && \
-    __GNUC__==4 && (__GNUC_MINOR__==4 ||__GNUC_MINOR__==5 || (__INTEL_COMPILER==1300 && (__GNUC_MINOR__==6 ||__GNUC_MINOR__==7)))
+    ((!__INTEL_COMPILER && !__clang__ && (__TBB_GCC_VERSION>=40400 && __TBB_GCC_VERSION<40600)) || \
+     (__INTEL_COMPILER<=1400 && (__TBB_GCC_VERSION>=40400 && __TBB_GCC_VERSION<=40800)))
 /* There is an issue for specific GCC toolchain when C++11 is enabled
    and exceptions are disabled:
    exceprion_ptr.h/nested_exception.h use throw unconditionally.
+   GCC can ignore 'throw' since 4.6; but with ICC the issue still exists.
  */
     #define __TBB_LIBSTDCPP_EXCEPTION_HEADERS_BROKEN 1
 #else
     #define __TBB_LIBSTDCPP_EXCEPTION_HEADERS_BROKEN 0
+#endif
+
+#if (__GNUC__==4 && __GNUC_MINOR__==4 ) && !defined(__INTEL_COMPILER) && !defined(__clang__)
+    /** excessive warnings related to strict aliasing rules in GCC 4.4 **/
+    #define __TBB_GCC_STRICT_ALIASING_BROKEN 1
+    /* topical remedy: #pragma GCC diagnostic ignored "-Wstrict-aliasing" */
+    #if !__TBB_GCC_WARNING_SUPPRESSION_PRESENT
+        #error Warning suppression is not supported, while should.
+    #endif
+#endif
+
+/*In a PIC mode some versions of GCC 4.1.2 generate incorrect inlined code for 8 byte __sync_val_compare_and_swap intrinisc */
+#if __TBB_GCC_VERSION == 40102 && __PIC__ && !defined(__INTEL_COMPILER) && !defined(__clang__)
+    #define __TBB_GCC_CAS8_BUILTIN_INLINING_BROKEN 1
 #endif
 
 #if __TBB_x86_32 && (__linux__ || __APPLE__ || _WIN32 || __sun) &&  ((defined(__INTEL_COMPILER) && __INTEL_COMPILER <= 1400) || (__GNUC__==3 && __GNUC_MINOR__==3 ) || defined(__SUNPRO_CC))
@@ -553,6 +604,12 @@
 
 #if __TBB_DEFAULTED_AND_DELETED_FUNC_PRESENT && __TBB_GCC_VERSION < 40700 && !defined(__INTEL_COMPILER) && !defined (__clang__)
     #define __TBB_ZERO_INIT_WITH_DEFAULTED_CTOR_BROKEN 1
+#endif
+
+#if _MSC_VER && _MSC_VER <= 1800 && !__INTEL_COMPILER
+    // With MSVC, when an array is passed by const reference to a template function,
+    // constness from the function parameter may get propagated to the template parameter.
+    #define __TBB_CONST_REF_TO_ARRAY_TEMPLATE_PARAM_BROKEN 1
 #endif
 /** End of __TBB_XXX_BROKEN macro section **/
 

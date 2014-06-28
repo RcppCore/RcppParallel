@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -124,7 +124,7 @@ public:
         //  Inlining of the method is undesirable, due to extra instructions for
         //  exception support added at caller side.
         __TBB_NOINLINE( void init() );
-        tbb::aligned_space<binary_semaphore, 1> sema;
+        tbb::aligned_space<binary_semaphore> sema;
         __TBB_atomic unsigned epoch;
         tbb::atomic<bool> in_waitset;
         bool  spurious;
@@ -139,7 +139,7 @@ public:
     //! dtor
     ~concurrent_monitor() ; 
 
-    //! prepare wait by inserting 'thr' into the wailt queue
+    //! prepare wait by inserting 'thr' into the wait queue
     void prepare_wait( thread_context& thr, uintptr_t ctx = 0 );
 
     //! Commit wait if event count has not changed; otherwise, cancel wait.

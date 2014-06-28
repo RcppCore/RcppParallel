@@ -1,4 +1,4 @@
-# Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks.
 #
@@ -41,8 +41,8 @@
 # multithreading is instead achieved by using the _r affix in the compiler name.
 # TODO: is -lpthread still relevant/needed with XL and _r affix?
 
-# Note that -D__TBB_NO_DLOPEN is only for scalability,
-# and is not necessarily needed by any static build.
+# Note that usage of dynamic (shared) libraries is disabled
+# (via -D__TBB_DYNAMIC_LOAD_ENABLED=0 and LIBDL emptied) primarily for performance.
 
 # OS specific settings =>
     LIB_LINK_CMD = ar rcs
@@ -51,27 +51,33 @@
     LIB_OUTPUT_KEY =
     ifeq ($(tbb_os),linux)
         ifeq ($(compiler),clang)
-            LIBS = -pthread -ldl -lrt
+            LIBS = -pthread -lrt
         endif
         ifeq ($(compiler),gcc)
-            LIBS = -pthread -ldl -lrt
+            LIBS = -pthread -lrt
         endif
         ifeq ($(compiler),xl)
-            LIBS = -lpthread -ldl -lrt
+            LIBS = -lpthread -lrt
         endif
         LINK_FLAGS =
     endif
     override CXXFLAGS += -D__TBB_DYNAMIC_LOAD_ENABLED=0 -D__TBB_SOURCE_DIRECTLY_INCLUDED=1
     ITT_NOTIFY =
+    DLL = a
     LIBEXT = a
     LIBPREF = lib
+    LIBDL = 
 # <= OS specific settings
 
 TBB.DLL = $(LIBPREF)tbb$(DEBUG_SUFFIX).$(LIBEXT)
+LINK_TBB.LIB = $(TBB.DLL)
 TBB.LST =
 TBB.DEF =
+TBB_NO_VERSION.DLL =
+
 MALLOC.DLL = $(LIBPREF)tbbmalloc$(DEBUG_SUFFIX).$(LIBEXT)
+LINK_MALLOC.LIB = $(MALLOC.DLL)
 MALLOC.DEF =
+MALLOC_NO_VERSION.DLL =
 MALLOCPROXY.DLL =
 MALLOCPROXY.DEF =
-LINK_TBB.LIB = $(TBB.DLL)

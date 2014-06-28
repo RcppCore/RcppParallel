@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2013 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks.
 
@@ -62,7 +62,7 @@
 
 #define __TBB_compiler_fence()    __asm__ __volatile__("": : :"memory")
 #define __TBB_full_memory_fence() __asm__ __volatile__("dmb ish": : :"memory")
-#define __TBB_control_consistency_helper() __TBB_compiler_fence()
+#define __TBB_control_consistency_helper() __TBB_full_memory_fence()
 #define __TBB_acquire_consistency_helper() __TBB_full_memory_fence()
 #define __TBB_release_consistency_helper() __TBB_full_memory_fence()
 
