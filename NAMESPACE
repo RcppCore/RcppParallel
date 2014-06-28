@@ -1,2 +1,4 @@
-useDynLib(tbb)
+export(is_active)
+export(default_num_threads)
+
 
