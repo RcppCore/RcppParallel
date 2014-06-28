@@ -24,13 +24,13 @@ extern "C" SEXP tbb_initialize(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
    return R_NilValue;
 }
 
-extern "C" SEXP tbb_is_active() {
+extern "C" SEXP tbb_isActive() {
    SEXP activeSEXP = Rf_allocVector(LGLSXP, 1);
    LOGICAL(activeSEXP)[0] = s_pTaskScheduler != NULL;
    return activeSEXP;
 }
 
-extern "C" SEXP tbb_default_num_threads() {
+extern "C" SEXP tbb_defaultNumThreads() {
    SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
    INTEGER(threadsSEXP)[0] = tbb::task_scheduler_init::default_num_threads();
    return threadsSEXP;

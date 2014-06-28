@@ -1,5 +1,5 @@
 export(initialize)
-export(is_active)
-export(default_num_threads)
+export(isActive)
+export(defaultNumThreads)
 export(terminate)
 
