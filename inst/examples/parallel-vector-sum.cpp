@@ -1,5 +1,5 @@
 /**
- * @title Parallel Vector Sum
+ * @title Parallel Vector Sum using TBB
  * @author JJ Allaire
  * @license GPL (>= 2)
  * @tags TBB parallel

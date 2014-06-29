@@ -1,5 +1,5 @@
 /**
- * @title Parallel Matrix Transformation
+ * @title Parallel Matrix Transformation using TBB
  * @author JJ Allaire
  * @license GPL (>= 2)
  * @tags matrix TBB parallel
