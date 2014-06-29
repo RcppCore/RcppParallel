@@ -1,4 +1,4 @@
-Package: tbb
+Package: TBB
 Type: Package
 Title: Interface to Intel TBB (Threading Building Blocks)
 Version: 4.2.5

@@ -2,11 +2,11 @@
  * @title Parallel Matrix Transformation
  * @author JJ Allaire
  * @license GPL (>= 2)
- * @tags matrix tbb parallel
+ * @tags matrix TBB parallel
  * @summary Demonstrates transforming a matrix in parallel using 
  *   Intel TBB (Threading Building Blocks). 
  *
- * The **tbb** package includes an interface to the [Intel 
+ * The **TBB** package includes an interface to the [Intel 
  * TBB](https://www.threadingbuildingblocks.org/) library for parallel 
  * programming with C++. This article describes using TBB to transform an R
  * matrix in parallel.
@@ -49,7 +49,7 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
  * elements specified by the `range` argument:
  */
 
-// [[Rcpp::depends(tbb)]]
+// [[Rcpp::depends(TBB)]]
 #include <tbb/tbb.h>
 
 struct SqrtBody
@@ -97,7 +97,7 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix orig) {
 
 /**
  * A comparison of the performance of the two functions shows the parallel
- * version performing about 3 times as fast on a machine with 4 cores:
+ * version performing about 2.5 times as fast on a machine with 4 cores:
  */
 
 /*** R
@@ -115,3 +115,13 @@ res <- benchmark(matrixSqrt(m),
                  order="relative")
 res[,1:4]
 */
+
+/**
+ * If you want to try out TBB you can install the package from it's GitHub
+ * repository at:
+ * 
+ * ```r 
+ * devtools::install_github("jjallaire/tbb") 
+ * ```
+ */
+
