@@ -4,10 +4,13 @@
  * @license GPL (>= 2)
  * @tags matrix tbb parallel
  * @summary Demonstrates transforming a matrix in parallel using 
- *   Intel TBB (thread building blocks). 
+ *   Intel TBB (Threading Building Blocks). 
  *
+ * The **tbb** package includes an interface to the [Intel 
+ * TBB](https://www.threadingbuildingblocks.org/) library for parallel 
+ * programming with C++. This article describes using TBB to transform an R
+ * matrix in parallel.
  */
-
 
 /**
  * First a serial version of the matrix transformation. We take the square root 
@@ -94,20 +97,18 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix orig) {
 
 /**
  * A comparison of the performance of the two functions shows the parallel
- * version performing 2-3 times as fast on a machine with 4 cores (a more
- * CPU intensive body might yield better gains):
+ * version performing about 3 times as fast on a machine with 4 cores:
  */
 
 /*** R
 
 # allocate a matrix
-m <- matrix(c(1:1000000), nrow = 1000, ncol = 1000)
+m <- matrix(as.numeric(c(1:1000000)), nrow = 1000, ncol = 1000)
 
 # ensure that serial and parallel versions give the same result
 stopifnot(identical(matrixSqrt(m), parallelMatrixSqrt(m)))
 
-# compare performance of serial and parallel (set replications to 1
-# to eliminate the impact of caching)
+# compare performance of serial and parallel
 library(rbenchmark)
 res <- benchmark(matrixSqrt(m),
                  parallelMatrixSqrt(m),
