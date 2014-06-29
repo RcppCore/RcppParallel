@@ -123,5 +123,8 @@ res[,1:4]
  * ```r 
  * devtools::install_github("jjallaire/tbb") 
  * ```
+ * 
+ * Note that the package is currently only available for the Linux and
+ * Mac OS X platforms.
  */
 
