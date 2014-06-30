@@ -1,5 +1,5 @@
 /**
- * @title Parallel Vector Sum using Rcpp and TBB
+ * @title Summing a Vector in Parallel with Rcpp and TBB
  * @author JJ Allaire
  * @license GPL (>= 2)
  * @tags TBB parallel featured
@@ -117,14 +117,7 @@ res[,1:4]
 */
 
 /**
- * If you want to try out TBB you can install the package from it's GitHub
- * repository at:
- * 
- * ```
- * devtools::install_github("jjallaire/TBB") 
- * ```
- * 
- * Note that the package is currently only available for the Linux and
- * Mac OS X platforms.
- */
+ * If you interested in learning more about using Intel TBB with Rcpp see 
+ * [https://github.com/jjallaire/TBB](https://github.com/jjallaire/TBB).
+ */ 
 
