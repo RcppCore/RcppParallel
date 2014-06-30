@@ -121,7 +121,7 @@ res[,1:4]
  * repository at:
  * 
  * ```r 
- * devtools::install_github("jjallaire/tbb") 
+ * devtools::install_github("jjallaire/TBB") 
  * ```
  * 
  * Note that the package is currently only available for the Linux and
