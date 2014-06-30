@@ -35,14 +35,14 @@ struct InnerProductBody {
 // [[Rcpp::export]]
 double parallelInnerProduct(NumericVector x, NumericVector y) {
    
-   // declare the SumBody instance that takes a pointer to the vector data
+   // declare the InnerProductBody instance that takes a pointer to the vector data
    InnerProductBody innerProductBody(x.begin(), y.begin());
    
    // call parallel_reduce to start the work
    tbb::parallel_reduce(tbb::blocked_range<size_t>(0, x.length()), 
                         innerProductBody);
    
-   // return the computed sum
+   // return the computed product
    return innerProductBody.product;
 }
 
