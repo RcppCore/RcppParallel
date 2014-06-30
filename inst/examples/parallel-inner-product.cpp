@@ -3,6 +3,12 @@ using namespace Rcpp;
 
 #include <algorithm>
 
+// [[Rcpp::export]]
+double innerProduct(NumericVector x, NumericVector y) {
+   return std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
+}
+
+
 // [[Rcpp::depends(TBB)]]
 #include <tbb/tbb.h>
 
@@ -53,6 +59,7 @@ y <- runif(1000000)
 
 library(rbenchmark)
 res <- benchmark(sum(x*y),
+                 innerProduct(x, y),
                  parallelInnerProduct(x, y),
                  order="relative")
 res[,1:4]
