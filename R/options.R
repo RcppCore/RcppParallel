@@ -14,11 +14,11 @@ dllInfo <- NULL
       ext = ".dll"
    else
       ext = .Platform$dynlib.ext
-   dll <- system.file(paste("lib/libtbb", ext, sep = ""), package = "TBB")
+   dll <- system.file(paste("lib/libtbb", ext, sep = ""), package = "RcppParallel")
    dllInfo <<- dyn.load(dll, local = FALSE, now = TRUE)
    
-   # load the tbb package library
-   library.dynam("TBB", pkgname, libname)
+   # load the package library
+   library.dynam("RcppParallel", pkgname, libname)
    
    # set default thread options
    setThreadOptions()
@@ -26,8 +26,8 @@ dllInfo <- NULL
 
 .onUnload <- function(libpath) {
    
-   # unload the tbb package library
-   library.dynam.unload("TBB", libpath)
+   # unload the package library
+   library.dynam.unload("RcppParallel", libpath)
    
    # unload tbb
    dyn.unload(dllInfo[["path"]])
@@ -51,10 +51,11 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    else
       stackSize <- as.integer(stackSize)
    
-   invisible(.Call("setThreadOptions", numThreads, stackSize, PACKAGE = "TBB"))
+   invisible(.Call("setThreadOptions", numThreads, stackSize, 
+                   PACKAGE = "RcppParallel"))
 }
 
 defaultNumThreads <- function() {
-   .Call("defaultNumThreads", PACKAGE = "TBB")
+   .Call("defaultNumThreads", PACKAGE = "RcppParallel")
 }
 

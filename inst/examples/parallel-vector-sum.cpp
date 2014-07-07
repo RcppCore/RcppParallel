@@ -53,7 +53,7 @@ double vectorSum(NumericVector x) {
  * 
  */
 
-// [[Rcpp::depends(TBB)]]
+// [[Rcpp::depends(RcppParallel)]]
 #include <tbb/tbb.h>
 
 struct SumBody {

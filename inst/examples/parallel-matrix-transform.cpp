@@ -2,7 +2,7 @@
  * @title Transforming a Matrix in Parallel using Rcpp and TBB
  * @author JJ Allaire
  * @license GPL (>= 2)
- * @tags matrix TBB parallel featured
+ * @tags matrix parallel featured
  * @summary Demonstrates transforming a matrix in parallel using 
  *   Intel TBB (Threading Building Blocks). 
  *
@@ -49,7 +49,7 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
  * elements specified by the `range` argument:
  */
 
-// [[Rcpp::depends(TBB)]]
+// [[Rcpp::depends(RcppParallel)]]
 #include <tbb/tbb.h>
 
 struct SqrtBody
