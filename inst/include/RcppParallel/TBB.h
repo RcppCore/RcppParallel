@@ -62,15 +62,23 @@ private:
 } // anonymous namespace
 
 
-inline void tbbParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
+inline void tbbParallelFor(std::size_t begin, std::size_t end, 
+                           Worker& worker, std::size_t grainSize = 1) {
+   
    TBBWorker tbbWorker(worker);
-   tbb::parallel_for(tbb::blocked_range<size_t>(begin, end), tbbWorker);
+   
+   tbb::parallel_for(tbb::blocked_range<size_t>(begin, end, grainSize), 
+                     tbbWorker);
 }
 
 template <typename Reducer>
-inline void tbbParallelReduce(std::size_t begin, std::size_t end, Reducer& reducer) {
+inline void tbbParallelReduce(std::size_t begin, std::size_t end, 
+                              Reducer& reducer, std::size_t grainSize = 1) {
+   
    TBBReducer<Reducer> tbbReducer(reducer);
-   tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end), tbbReducer);
+   
+   tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end, grainSize), 
+                        tbbReducer);
 }
 
 } // namespace RcppParallel

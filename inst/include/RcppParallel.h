@@ -17,22 +17,27 @@
 
 namespace RcppParallel {
 
-inline void parallelFor(std::size_t begin, std::size_t end, Worker& worker) {
+inline void parallelFor(std::size_t begin, std::size_t end, 
+                        Worker& worker, std::size_t grainSize = 1) {
+                           
 #if RCPP_PARALLEL_USE_TBB
-   tbbParallelFor(begin, end, worker);
+   tbbParallelFor(begin, end, worker, grainSize);
 #else
-   ttParallelFor(begin, end, worker);
+   ttParallelFor(begin, end, worker, grainSize);
 #endif
 
 }
 
 template <typename Reducer>
-inline void parallelReduce(std::size_t begin, std::size_t end, Reducer& reducer) {
+inline void parallelReduce(std::size_t begin, std::size_t end, 
+                           Reducer& reducer, std::size_t grainSize = 1) {
+                              
 #if RCPP_PARALLEL_USE_TBB
-   tbbParallelReduce(begin, end, reducer);
+   tbbParallelReduce(begin, end, reducer, grainSize);
 #else
-   ttParallelReduce(begin, end, reducer);
+   ttParallelReduce(begin, end, reducer, grainSize);
 #endif
+
 }
 
 } // namespace RcppParallel

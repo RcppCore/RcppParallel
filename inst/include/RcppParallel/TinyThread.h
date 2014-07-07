@@ -94,7 +94,8 @@ std::vector<IndexRange> splitInputRange(const IndexRange& range) {
 } // anonymous namespace
 
 // Execute the Worker over the IndexRange in parallel
-inline void ttParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
+inline void ttParallelFor(std::size_t begin, std::size_t end, 
+                          Worker& worker, std::size_t grainSize = 1) {
   
    using namespace tthread;
    
@@ -116,7 +117,8 @@ inline void ttParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
 
 // Execute the IWorker over the range in parallel then join results
 template <typename Reducer>
-inline void ttParallelReduce(std::size_t begin, std::size_t end, Reducer& reducer) {
+inline void ttParallelReduce(std::size_t begin, std::size_t end, 
+                             Reducer& reducer, std::size_t grainSize = 1) {
   
    using namespace tthread;
    
