@@ -10,9 +10,8 @@ double innerProduct(NumericVector x, NumericVector y) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
-using namespace RcppParallel;
 
-struct InnerProduct : public Worker
+struct InnerProduct : public RcppParallel::Worker
 {   
    // source vectors
    double * x;
@@ -50,7 +49,7 @@ double parallelInnerProduct(NumericVector x, NumericVector y) {
    InnerProduct innerProduct(x.begin(), y.begin());
    
    // call paralleReduce to start the work
-   parallelReduce(0, x.length(), innerProduct);
+   RcppParallel::parallelReduce(0, x.length(), innerProduct);
    
    // return the computed product
    return innerProduct.product;

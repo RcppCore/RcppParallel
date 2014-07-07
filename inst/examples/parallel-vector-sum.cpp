@@ -11,9 +11,8 @@ double vectorSum(NumericVector x) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
-using namespace RcppParallel;
 
-struct Sum : public Worker
+struct Sum : public RcppParallel::Worker
 {   
    // source vector
    double * input;
@@ -49,7 +48,7 @@ double parallelVectorSum(NumericVector x) {
    Sum sum(x.begin());
    
    // call parallel_reduce to start the work
-   parallelReduce(0, x.length(), sum);
+   RcppParallel::parallelReduce(0, x.length(), sum);
    
    // return the computed sum
    return sum.value;

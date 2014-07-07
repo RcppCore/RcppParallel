@@ -20,9 +20,8 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
-using namespace RcppParallel;
 
-struct SquareRoot : public Worker
+struct SquareRoot : public RcppParallel::Worker
 {
    // source matrix
    double* input;
@@ -51,7 +50,7 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
   SquareRoot squareRoot(x.begin(), output.begin());
   
   // call parallelFor to do the work
-  parallelFor(0, x.length(), squareRoot);
+  RcppParallel::parallelFor(0, x.length(), squareRoot);
   
   // return the output matrix
   return output;
