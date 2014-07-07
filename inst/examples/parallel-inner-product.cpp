@@ -8,48 +8,52 @@ double innerProduct(NumericVector x, NumericVector y) {
    return std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
 }
 
-
 // [[Rcpp::depends(RcppParallel)]]
-#include <tbb/tbb.h>
+#include <RcppParallel.h>
+using namespace RcppParallel;
 
-struct InnerProductBody {
-   
+struct InnerProduct : public ReduceWorker<InnerProduct> 
+{   
    // source vectors
-   double * const x;
-   double * const y;
+   double * x;
+   double * y;
    
-   // sum that I have accumulated
+   // product that I have accumulated
    double product;
    
-   // standard and splitting constructor  
-   InnerProductBody(double * const x, double * const y) 
-      : x(x), y(y), product(0) {}
-   InnerProductBody(InnerProductBody& body, tbb::split) 
-      : x(body.x), y(body.y), product(0) {}
+   // constructors
+   InnerProduct() : x(NULL), y(NULL), product(0) {}
+   InnerProduct(double * const x, double * const y) : x(x), y(y), product(0) {}
    
-   // accumulate just the element of the range I've been asked to
-   void operator()(const tbb::blocked_range<size_t>& r) {
-      product += std::inner_product(x + r.begin(), 
-                                    x + r.end(), 
-                                    y + r.begin(), 0.0);
+   // process just the elements of the range I've been asked to
+   void operator()(std::size_t begin, std::size_t end) {
+      product += std::inner_product(x + begin, x + end, y + begin, 0.0);
    }
    
-   // join my inner product with another one
-   void join(InnerProductBody& rhs) { product += rhs.product; }
+   // split me from another InnerProduct
+   void split(const InnerProduct& source) {
+     x = source.x;
+     y = source.y;
+     product = 0;
+   }
+    
+   // join my value with that of another InnerProduct
+   void join(const InnerProduct& rhs) { 
+     product += rhs.product; 
+   }
 };
 
 // [[Rcpp::export]]
 double parallelInnerProduct(NumericVector x, NumericVector y) {
    
-   // declare the InnerProductBody instance that takes a pointer to the vector data
-   InnerProductBody innerProductBody(x.begin(), y.begin());
+   // declare the InnerProduct instance that takes a pointer to the vector data
+   InnerProduct innerProduct(x.begin(), y.begin());
    
-   // call parallel_reduce to start the work
-   tbb::parallel_reduce(tbb::blocked_range<size_t>(0, x.length()), 
-                        innerProductBody);
+   // call paralleReduce to start the work
+   parallelReduce(0, x.length(), innerProduct);
    
    // return the computed product
-   return innerProductBody.product;
+   return innerProduct.product;
 }
 
 /*** R

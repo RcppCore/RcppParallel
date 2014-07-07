@@ -1,28 +1,9 @@
-/**
- * @title Transforming a Matrix in Parallel using Rcpp and TBB
- * @author JJ Allaire
- * @license GPL (>= 2)
- * @tags matrix parallel featured
- * @summary Demonstrates transforming a matrix in parallel using 
- *   Intel TBB (Threading Building Blocks). 
- *
- * The **TBB** package includes an interface to the [Intel 
- * TBB](https://www.threadingbuildingblocks.org/) library for parallel 
- * programming with C++. This article describes using TBB to transform an R
- * matrix in parallel.
- */
-
-/**
- * First a serial version of the matrix transformation. We take the square root 
- * of each item of a matrix and return a new matrix with the tranformed values.
- * We do this by using `std::transform` to call the `sqrt` function on each
- * element of the matrix:
- */
 
 #include <Rcpp.h>
 using namespace Rcpp;
 
 #include <cmath>
+#include <algorithm>
 
 // [[Rcpp::export]]
 NumericMatrix matrixSqrt(NumericMatrix orig) {
@@ -37,68 +18,45 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
   return mat;
 }
 
-/**
- * Now we adapt our code to run in parallel using Intel TBB. We'll use the 
- * `tbb::parallel_for` function to do this. The TBB library takes care of 
- * dividing up work between threads, our job is to implement a "Body"
- * functor that is called by the TBB scheduler. 
- * 
- * The `SqrtBody` functor below includes pointers to the input matrix as 
- * well as the output matrix. Within it's `operator()` method it 
- * performs a `std::transform` with the `sqrt` function on the array
- * elements specified by the `range` argument:
- */
-
 // [[Rcpp::depends(RcppParallel)]]
-#include <tbb/tbb.h>
+#include <RcppParallel.h>
+using namespace RcppParallel;
 
-struct SqrtBody
+struct SquareRoot : public Worker
 {
    // source matrix
-   double * const input;
+   double* input;
    
    // destination matrix
    double* output;
    
    // initialize with source and destination
-   SqrtBody(double * const input, double* output) 
+   SquareRoot() : input(NULL), output(NULL) {}
+   SquareRoot(double* input, double* output) 
       : input(input), output(output) {}
    
    // take the square root of the range of elements requested
-   void operator()(const tbb::blocked_range<size_t>& range) const {
-      std::transform(input + range.begin(),
-                     input + range.end(),
-                     output + range.begin(),
-                     ::sqrt);
+   void operator()(std::size_t begin, std::size_t end) {
+      std::transform(input + begin, input + end, output + begin, ::sqrt);
    }
 };
 
-/**
- * Here's the parallel version of our matrix transformation function that
- * makes uses of the `SqrtBody` functor. The main difference is that 
- * rather than calling `std::transform` directly, the `tbb::parallel_for`
- * function is called with the range to operate on (based on the length
- * of the input matrix) and an instance of `SqrtBody`:
- */
-
 // [[Rcpp::export]]
-NumericMatrix parallelMatrixSqrt(NumericMatrix orig) {
-
-   // allocate the matrix we will return
-   NumericMatrix mat(orig.nrow(), orig.ncol());
-   
-   // transform it in parallel
-   tbb::parallel_for(tbb::blocked_range<size_t>(0, orig.length()),
-                     SqrtBody(orig.begin(), mat.begin()));
-   
-   // return the new matrix
-   return mat;
+NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
+  
+  // allocate the output matrix
+  NumericMatrix output(x.nrow(), x.ncol());
+  
+  // SquareRoot instance that takes a pointer to the input & output data
+  SquareRoot squareRoot(x.begin(), output.begin());
+  
+  // call parallelFor to do the work
+  parallelFor(0, x.length(), squareRoot);
+  
+  // return the output matrix
+  return output;
 }
 
-/**
- * A comparison of the performance of the two functions shows the parallel
- * version performing about 2.5 times as fast on a machine with 4 cores:
- */
 
 /*** R
 
@@ -115,10 +73,5 @@ res <- benchmark(matrixSqrt(m),
                  order="relative")
 res[,1:4]
 */
-
-/**
- * If you interested in learning more about using Intel TBB with Rcpp see 
- * [https://github.com/jjallaire/TBB](https://github.com/jjallaire/TBB).
- */ 
 
 
