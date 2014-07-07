@@ -52,8 +52,13 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    else
       stackSize <- as.integer(stackSize)
    
-   invisible(.Call("setThreadOptions", numThreads, stackSize, 
-                   PACKAGE = "RcppParallel"))
+   if (Sys.info()['sysname'] != "Windows") {
+      invisible(.Call("setThreadOptions", numThreads, stackSize, 
+                      PACKAGE = "RcppParallel"))
+   } 
+   
+   if (numThreads != -1)
+      Sys.setenv(RCPP_PARALLEL_NUM_THREADS = numThreads)
 }
 
 defaultNumThreads <- function() {

@@ -31,6 +31,8 @@ struct Worker {
 // tinythread library 
 #include <tthread/tinythread.h>
 
+#include <stdio.h>
+
 #include <vector>
 
 namespace RcppParallel {
@@ -88,9 +90,15 @@ extern "C" inline void workerThread(void* data) {
 // Function to calculate the ranges for a given input
 std::vector<IndexRange> splitInputRange(const IndexRange& range) {
   
-  // max threads is based on hardware concurrency
+  // determine number of threads
   std::size_t threads = tthread::thread::hardware_concurrency();
-  
+  char* numThreads = ::getenv("RCPP_PARALLEL_NUM_THREADS");
+  if (numThreads != NULL) {
+     int parsedThreads = ::atoi(numThreads);
+     if (parsedThreads > 0)
+        threads = parsedThreads;
+  }
+       
   // determine the chunk size
   std::size_t length = range.end() - range.begin();
   std::size_t chunkSize = length / threads;

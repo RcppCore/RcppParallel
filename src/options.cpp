@@ -43,15 +43,13 @@ extern "C" SEXP defaultNumThreads() {
    return threadsSEXP;
 }
 
-#else
+#else // Windows
 
-extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
-  return R_NilValue; 
-}
+#include <tthread/tinythread.h>
 
 extern "C" SEXP defaultNumThreads() {
    SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
-   INTEGER(threadsSEXP)[0] = 4;
+   INTEGER(threadsSEXP)[0] = tthread::thread::hardware_concurrency();
    return threadsSEXP;
 }
 
