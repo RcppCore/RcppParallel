@@ -58,7 +58,7 @@ double vectorSum(NumericVector x) {
 #include <RcppParallel.h>
 using namespace RcppParallel;
 
-struct SquareRoot : public IWorker
+struct SquareRoot : public Worker
 {
    // source matrix
    double* input;
@@ -123,7 +123,7 @@ res[,1:4]
 */
 
 
-struct Sum : public Reduce<Sum>
+struct Sum : public ReduceWorker<Sum>
 {   
    // source vector
    double * input;
