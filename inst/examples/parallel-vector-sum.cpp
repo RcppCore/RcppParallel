@@ -31,13 +31,13 @@ struct Sum : public RcppParallel::Worker
    
    // split me from another Sum
    void split(const Sum& source) {
-     input = source.input;
-     value = 0;
+      input = source.input;
+      value = 0;
    }
     
    // join my value with that of another Sum
    void join(const Sum& rhs) { 
-     value += rhs.value; 
+      value += rhs.value; 
    }
 };
 
