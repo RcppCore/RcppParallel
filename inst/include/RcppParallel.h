@@ -133,8 +133,8 @@ inline void ttParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
 }
 
 // Execute the IWorker over the range in parallel then join results
-template <typename T>
-inline void ttParallelReduce(std::size_t begin, std::size_t end, T& worker) {
+template <typename Reducer>
+inline void ttParallelReduce(std::size_t begin, std::size_t end, Reducer& reducer) {
   
   using namespace tthread;
   
@@ -145,10 +145,10 @@ inline void ttParallelReduce(std::size_t begin, std::size_t end, T& worker) {
   std::vector<thread*> threads;
   std::vector<Worker*> workers;
   for (std::size_t i = 0; i<ranges.size(); ++i) {
-    T* pWorker = new T();
-    pWorker->split(static_cast<T&>(worker));
-    workers.push_back(pWorker);
-    threads.push_back(new thread(workerThread, new Work(ranges[i], *pWorker)));  
+    Reducer* pReducer = new Reducer();
+    pReducer->split(static_cast<Reducer&>(reducer));
+    workers.push_back(pReducer);
+    threads.push_back(new thread(workerThread, new Work(ranges[i], *pReducer)));  
   }
   
   // wait for each thread, join it's results, then delete the worker & thread
@@ -158,14 +158,13 @@ inline void ttParallelReduce(std::size_t begin, std::size_t end, T& worker) {
     threads[i]->join();
    
     // join the results
-    worker.join(static_cast<T&>(*workers[i]));
+    reducer.join(static_cast<Reducer&>(*workers[i]));
     
     // delete the worker (which we split above) and the thread
     delete workers[i];
     delete threads[i];
   }
 }
-
 } // namespace RcppParallel
 
 ////// TBB Implementation /////////////////////////////////////////////
@@ -193,19 +192,19 @@ inline void tbbParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
    tbb::parallel_for(tbb::blocked_range<size_t>(begin, end), tbbWorker);
 }
 
-template <typename T>
-struct TBBReduce 
+template <typename Reducer>
+struct TBBReducer 
 {  
-  explicit TBBReduce(T& reduce) 
-    : pReduce_(&reduce), wasSplit_(false)
+  explicit TBBReducer(Reducer& reducer) 
+    : pReducer_(&reducer), wasSplit_(false)
   {
   }
    
-  virtual ~TBBReduce() {
+  virtual ~TBBReducer() {
     try
     {
       if (wasSplit_)
-        delete pReduce_;
+        delete pReducer_;
     }
     catch(...)
     {
@@ -213,29 +212,29 @@ struct TBBReduce
   }
    
   void operator()(const tbb::blocked_range<size_t>& r) {
-    pReduce_->operator()(r.begin(), r.end());
+    pReducer_->operator()(r.begin(), r.end());
   }
    
-  TBBReduce(TBBReduce& reduce, tbb::split) 
-    : pReduce_(new T()), wasSplit_(true) 
+  TBBReducer(TBBReducer& reducer, tbb::split) 
+    : pReducer_(new Reducer()), wasSplit_(true) 
   {  
-    pReduce_->split(*reduce.pReduce_);   
+    pReducer_->split(*reducer.pReducer_);   
   }
   
-  void join(const TBBReduce& reduce) { 
-    pReduce_->join(*reduce.pReduce_); 
+  void join(const TBBReducer& reducer) { 
+    pReducer_->join(*reducer.pReducer_); 
   }
    
 private:
-   T* pReduce_;
+   Reducer* pReducer_;
    bool wasSplit_;
 };
 
-template <typename T>
-inline void tbbParallelReduce(std::size_t begin, std::size_t end, T& worker) {
+template <typename Reducer>
+inline void tbbParallelReduce(std::size_t begin, std::size_t end, Reducer& reducer) {
     
-   TBBReduce<T> tbbReduce(worker);
-   tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end), tbbReduce);
+   TBBReducer<Reducer> tbbReducer(reducer);
+   tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end), tbbReducer);
 }
 
 } // namespace RcppParallel
@@ -256,13 +255,13 @@ inline void parallelFor(std::size_t begin, std::size_t end, Worker& worker) {
 
 }
 
-template <typename T>
-inline void parallelReduce(std::size_t begin, std::size_t end, T& worker) {
+template <typename Reducer>
+inline void parallelReduce(std::size_t begin, std::size_t end, Reducer& reducer) {
 
 #if RCPP_PARALLEL_USE_TBB
-  tbbParallelReduce(begin, end, worker);
+  tbbParallelReduce(begin, end, reducer);
 #else
-  ttParallelReduce(begin, end, worker);
+  ttParallelReduce(begin, end, reducer);
 #endif
 
 }
