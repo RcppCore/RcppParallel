@@ -24,12 +24,6 @@ struct Worker {
   virtual void operator()(std::size_t begin, std::size_t end) = 0;
 };
 
-template <typename T> 
-struct ReduceWorker : public Worker {
-  virtual void split(const T& source) = 0;
-  virtual void join(const T& rhs) = 0;
-};
-
 } // namespace RcppParallel
 
 ////// TinyThreads Implementation /////////////////////////////////////
@@ -140,8 +134,7 @@ inline void ttParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
 
 // Execute the IWorker over the range in parallel then join results
 template <typename T>
-inline void ttParallelReduce(
-  std::size_t begin, std::size_t end, ReduceWorker<T>& worker) {
+inline void ttParallelReduce(std::size_t begin, std::size_t end, T& worker) {
   
   using namespace tthread;
   
@@ -150,7 +143,7 @@ inline void ttParallelReduce(
   
   // create threads (split for each thread and track the allocated workers)
   std::vector<thread*> threads;
-  std::vector<ReduceWorker<T>*> workers;
+  std::vector<Worker*> workers;
   for (std::size_t i = 0; i<ranges.size(); ++i) {
     T* pWorker = new T();
     pWorker->split(static_cast<T&>(worker));
@@ -203,8 +196,8 @@ inline void tbbParallelFor(std::size_t begin, std::size_t end, Worker& worker) {
 template <typename T>
 struct TBBReduce 
 {  
-  explicit TBBReduce(ReduceWorker<T>& reduce) 
-    : pReduce_(static_cast<T*>(&reduce)), wasSplit_(false)
+  explicit TBBReduce(T& reduce) 
+    : pReduce_(&reduce), wasSplit_(false)
   {
   }
    
@@ -239,8 +232,7 @@ private:
 };
 
 template <typename T>
-inline void tbbParallelReduce(
-  std::size_t begin, std::size_t end, ReduceWorker<T>& worker) {
+inline void tbbParallelReduce(std::size_t begin, std::size_t end, T& worker) {
     
    TBBReduce<T> tbbReduce(worker);
    tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end), tbbReduce);
@@ -265,8 +257,7 @@ inline void parallelFor(std::size_t begin, std::size_t end, Worker& worker) {
 }
 
 template <typename T>
-inline void parallelReduce(
-  std::size_t begin, std::size_t end, ReduceWorker<T>& worker) {
+inline void parallelReduce(std::size_t begin, std::size_t end, T& worker) {
 
 #if RCPP_PARALLEL_USE_TBB
   tbbParallelReduce(begin, end, worker);

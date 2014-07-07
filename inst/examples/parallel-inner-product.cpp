@@ -12,7 +12,7 @@ double innerProduct(NumericVector x, NumericVector y) {
 #include <RcppParallel.h>
 using namespace RcppParallel;
 
-struct InnerProduct : public ReduceWorker<InnerProduct> 
+struct InnerProduct : public Worker
 {   
    // source vectors
    double * x;
