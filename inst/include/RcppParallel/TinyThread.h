@@ -62,9 +62,10 @@ extern "C" inline void workerThread(void* data) {
 }
 
 // Function to calculate the ranges for a given input
-std::vector<IndexRange> splitInputRange(const IndexRange& range) {
+std::vector<IndexRange> splitInputRange(const IndexRange& range,
+                                        std::size_t grainSize) {
   
-   // determine number of threads
+   // determine max number of threads
    std::size_t threads = tthread::thread::hardware_concurrency();
    char* numThreads = ::getenv("RCPP_PARALLEL_NUM_THREADS");
    if (numThreads != NULL) {
@@ -73,16 +74,16 @@ std::vector<IndexRange> splitInputRange(const IndexRange& range) {
          threads = parsedThreads;
    }
        
-   // determine the chunk size
+   // determine the grain size (enforce provided minimum)
    std::size_t length = range.end() - range.begin();
-   std::size_t chunkSize = length / threads;
+   grainSize = std::max(length / threads, grainSize);
   
    // allocate ranges
    std::vector<IndexRange> ranges;
    std::size_t nextIndex = range.begin();
    for (std::size_t i = 0; i<threads; i++) {
       std::size_t begin = nextIndex;
-      std::size_t end = std::min(begin + chunkSize, range.end());
+      std::size_t end = std::min(begin + grainSize, range.end());
       ranges.push_back(IndexRange(begin, end));
       nextIndex = end;
    }
@@ -100,7 +101,8 @@ inline void ttParallelFor(std::size_t begin, std::size_t end,
    using namespace tthread;
    
    // split the work
-   std::vector<IndexRange> ranges = splitInputRange(IndexRange(begin, end));
+   IndexRange inputRange(begin, end);
+   std::vector<IndexRange> ranges = splitInputRange(inputRange, grainSize);
    
    // create threads
    std::vector<thread*> threads;
@@ -123,7 +125,8 @@ inline void ttParallelReduce(std::size_t begin, std::size_t end,
    using namespace tthread;
    
    // split the work
-   std::vector<IndexRange> ranges = splitInputRange(IndexRange(begin, end));
+   IndexRange inputRange(begin, end);
+   std::vector<IndexRange> ranges = splitInputRange(inputRange, grainSize);
    
    // create threads (split for each thread and track the allocated workers)
    std::vector<thread*> threads;
