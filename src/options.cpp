@@ -1,10 +1,12 @@
 
+#include <Rinternals.h>
+
+#ifndef _WIN32
+
 #include <string>
 #include <exception>
 
 #include <tbb/task_scheduler_init.h>
-
-#include <Rinternals.h>
 
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
 
@@ -40,3 +42,17 @@ extern "C" SEXP defaultNumThreads() {
    INTEGER(threadsSEXP)[0] = tbb::task_scheduler_init::default_num_threads();
    return threadsSEXP;
 }
+
+#else
+
+extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
+  return R_NilValue; 
+}
+
+extern "C" SEXP defaultNumThreads() {
+   SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
+   INTEGER(threadsSEXP)[0] = 4;
+   return threadsSEXP;
+}
+
+#endif
