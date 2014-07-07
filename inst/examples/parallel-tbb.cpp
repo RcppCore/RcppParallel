@@ -54,83 +54,9 @@ double vectorSum(NumericVector x) {
  * 
  */
 
-// [[Rcpp::depends(TBB)]]
-#include <tbb/tbb.h>
-
-struct IWorker {
-  virtual ~IWorker() {}
-  virtual void operator()(std::size_t begin, std::size_t end) = 0;
-};
-
-struct TBBWorker {
-   
-   explicit TBBWorker(IWorker& worker) : worker_(worker) {}
-   
-   void operator()(const tbb::blocked_range<size_t>& r) const {
-      worker_(r.begin(), r.end());
-   }
-   
-private:
-   IWorker& worker_;
-};
-
-inline void parallelFor(std::size_t begin, std::size_t end, IWorker& worker) {
-    
-   TBBWorker tbbWorker(worker);
-   tbb::parallel_for(tbb::blocked_range<size_t>(begin, end), tbbWorker);
-}
-
-template <typename T> 
-struct Reduce : public IWorker {
-  virtual void split(const T& source) = 0;
-  virtual void join(const T& rhs) = 0;
-};
-
-template <typename T>
-struct TBBReduce {
-  
-   explicit TBBReduce(Reduce<T>& reduce) 
-      : pReduce_(static_cast<T*>(&reduce)), wasSplit_(false)
-   {
-   }
-   
-   virtual ~TBBReduce() {
-      try
-      {
-         if (wasSplit_)
-            delete pReduce_;
-      }
-      catch(...)
-      {
-      }
-   }
-   
-   void operator()(const tbb::blocked_range<size_t>& r) {
-      pReduce_->operator()(r.begin(), r.end());
-   }
-   
-   TBBReduce(TBBReduce& reduce, tbb::split) 
-      : pReduce_(new T()), wasSplit_(true) 
-   {  
-      pReduce_->split(*reduce.pReduce_);   
-   }
-   
-   void join(const TBBReduce& reduce) { 
-      pReduce_->join(*reduce.pReduce_); 
-   }
-   
-private:
-   T* pReduce_;
-   bool wasSplit_;
-};
-
-template <typename T>
-inline void parallelReduce(std::size_t begin, std::size_t end, Reduce<T>& worker) {
-    
-   TBBReduce<T> tbbReduce(worker);
-   tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end), tbbReduce);
-}
-
+// [[Rcpp::depends(RcppParallel)]]
+#include <RcppParallel.h>
+using namespace RcppParallel;
 
 struct SquareRoot : public IWorker
 {
