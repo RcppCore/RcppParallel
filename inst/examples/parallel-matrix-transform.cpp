@@ -62,9 +62,6 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
 # allocate a matrix
 m <- matrix(as.numeric(c(1:1000000)), nrow = 1000, ncol = 1000)
 
-# ensure that serial and parallel versions give the same result
-stopifnot(identical(matrixSqrt(m), parallelMatrixSqrt(m)))
-
 # compare performance of serial and parallel
 library(rbenchmark)
 res <- benchmark(matrixSqrt(m),
