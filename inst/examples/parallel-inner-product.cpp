@@ -3,10 +3,18 @@ using namespace Rcpp;
 
 #include <algorithm>
 
+/**
+ * First the serial version:
+ */
+
 // [[Rcpp::export]]
 double innerProduct(NumericVector x, NumericVector y) {
    return std::inner_product(x.begin(), x.end(), y.begin(), 0.0);
 }
+
+/**
+ * Now the parallel version:
+ */
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
@@ -48,6 +56,10 @@ double parallelInnerProduct(NumericVector x, NumericVector y) {
    // return the computed product
    return innerProduct.product;
 }
+
+/**
+ * Compare serial and parallel performance:
+ */
 
 /*** R
  
