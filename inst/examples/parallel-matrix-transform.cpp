@@ -5,6 +5,10 @@ using namespace Rcpp;
 #include <cmath>
 #include <algorithm>
 
+/**
+ * First the serial version:
+ */
+
 // [[Rcpp::export]]
 NumericMatrix matrixSqrt(NumericMatrix orig) {
 
@@ -17,6 +21,10 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
   // return the new matrix
   return mat;
 }
+
+/**
+ * Now the parallel version:
+ */
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
@@ -56,6 +64,9 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
   return output;
 }
 
+/**
+ * Compare serial and parallel performance:
+ */
 
 /*** R
 

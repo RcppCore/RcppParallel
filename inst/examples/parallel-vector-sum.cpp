@@ -4,10 +4,18 @@ using namespace Rcpp;
 
 #include <algorithm>
 
+/**
+ * First the serial version:
+ */
+
 // [[Rcpp::export]]
 double vectorSum(NumericVector x) {
    return std::accumulate(x.begin(), x.end(), 0.0);
 }
+
+/**
+ * Now the parallel version:
+ */
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
@@ -48,6 +56,9 @@ double parallelVectorSum(NumericVector x) {
    return sum.value;
 }
 
+/**
+ * Compare serial and parallel performance:
+ */
 
 /*** R
 # allocate a vector
