@@ -10,7 +10,6 @@ double vectorSum(NumericVector x) {
 }
 
 // [[Rcpp::depends(RcppParallel)]]
-#define RCPP_PARALLEL_USE_TBB 0
 #include <RcppParallel.h>
 
 struct Sum : public RcppParallel::Worker

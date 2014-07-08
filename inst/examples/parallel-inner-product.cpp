@@ -9,7 +9,6 @@ double innerProduct(NumericVector x, NumericVector y) {
 }
 
 // [[Rcpp::depends(RcppParallel)]]
-#define RCPP_PARALLEL_USE_TBB 0
 #include <RcppParallel.h>
 
 struct InnerProduct : public RcppParallel::Worker
