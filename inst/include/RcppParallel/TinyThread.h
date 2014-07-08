@@ -74,21 +74,22 @@ std::vector<IndexRange> splitInputRange(const IndexRange& range,
          threads = parsedThreads;
    }
        
-   // do we need to dial back the threads based on the grainSize?
+   // compute grainSize (including enforcing requested minimum)
    std::size_t length = range.end() - range.begin();
-   threads = std::min(threads, length / grainSize);
-   
-   // determine the chunk size
-   std::size_t chunkSize = length / threads;
+   if (threads == 1)
+      grainSize = length;
+   else if ((length % threads) == 0) // perfect division
+      grainSize = std::max(length / threads, grainSize);
+   else // imperfect division, divide by threads - 1
+      grainSize = std::max(length / (threads-1), grainSize);
   
    // allocate ranges
    std::vector<IndexRange> ranges;
-   std::size_t nextIndex = range.begin();
-   for (std::size_t i = 0; i<threads; i++) {
-      std::size_t begin = nextIndex;
-      std::size_t end = std::min(begin + chunkSize, range.end());
-      ranges.push_back(IndexRange(begin, end));
-      nextIndex = end;
+   std::size_t begin = range.begin();
+   while (begin < range.end()) {
+      std::size_t end = std::min(begin + grainSize, range.end());
+      ranges.push_back(IndexRange(begin, end));      
+      begin = end;
    }
    
    // return ranges  
