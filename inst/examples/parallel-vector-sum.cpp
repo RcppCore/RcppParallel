@@ -10,6 +10,7 @@ double vectorSum(NumericVector x) {
 }
 
 // [[Rcpp::depends(RcppParallel)]]
+#define RCPP_PARALLEL_USE_TBB 0
 #include <RcppParallel.h>
 
 struct Sum : public RcppParallel::Worker
@@ -21,20 +22,14 @@ struct Sum : public RcppParallel::Worker
    double value;
    
    // constructors
-   Sum() : input(NULL), value(0) {}
    Sum(double* input) : input(input), value(0) {}
+   Sum(Sum& sum, RcppParallel::Split) : input(sum.input), value(0) {}
    
    // accumulate just the element of the range I've been asked to
    void operator()(std::size_t begin, std::size_t end) {
       value += std::accumulate(input + begin, input + end, 0.0);
    }
-   
-   // split me from another Sum
-   void split(const Sum& source) {
-      input = source.input;
-      value = 0;
-   }
-    
+     
    // join my value with that of another Sum
    void join(const Sum& rhs) { 
       value += rhs.value; 

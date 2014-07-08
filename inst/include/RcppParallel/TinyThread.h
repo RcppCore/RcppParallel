@@ -136,8 +136,7 @@ inline void ttParallelReduce(std::size_t begin, std::size_t end,
    std::vector<thread*> threads;
    std::vector<Worker*> workers;
    for (std::size_t i = 0; i<ranges.size(); ++i) {
-      Reducer* pReducer = new Reducer();
-      pReducer->split(static_cast<Reducer&>(reducer));
+      Reducer* pReducer = new Reducer(reducer, RcppParallel::Split());
       workers.push_back(pReducer);
       threads.push_back(new thread(workerThread, new Work(ranges[i], *pReducer)));  
    }

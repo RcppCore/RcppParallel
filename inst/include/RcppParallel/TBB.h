@@ -25,38 +25,29 @@ template <typename Reducer>
 struct TBBReducer 
 {  
    explicit TBBReducer(Reducer& reducer) 
-    : pReducer_(&reducer), wasSplit_(false)
+      : pSplitReducer_(NULL), reducer_(reducer)
    {
    }
    
-   virtual ~TBBReducer() {
-      try
-      {
-         if (wasSplit_)
-            delete pReducer_;
-      }
-      catch(...)
-      {
-      }
+   TBBReducer(TBBReducer& tbbReducer, tbb::split)
+      : pSplitReducer_(new Reducer(tbbReducer.reducer_, RcppParallel::Split())),
+        reducer_(*pSplitReducer_)
+   {
    }
    
-   void operator()(const tbb::blocked_range<size_t>& r) {
-      pReducer_->operator()(r.begin(), r.end());
-   }
-   
-   TBBReducer(TBBReducer& reducer, tbb::split) 
-      : pReducer_(new Reducer()), wasSplit_(true) 
-   {  
-      pReducer_->split(*reducer.pReducer_);   
-   }
+   virtual ~TBBReducer() { delete pSplitReducer_; }
 
-   void join(const TBBReducer& reducer) { 
-      pReducer_->join(*reducer.pReducer_); 
+   void operator()(const tbb::blocked_range<size_t>& r) {
+      reducer_(r.begin(), r.end());
+   }
+   
+   void join(const TBBReducer& tbbReducer) { 
+      reducer_.join(tbbReducer.reducer_); 
    }
    
 private:
-   Reducer* pReducer_;
-   bool wasSplit_;
+   Reducer* pSplitReducer_;
+   Reducer& reducer_;
 };
    
 } // anonymous namespace

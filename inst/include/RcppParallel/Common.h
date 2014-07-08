@@ -15,6 +15,10 @@ struct Worker {
    virtual void operator()(std::size_t begin, std::size_t end) = 0;
 };
 
+// Tag type used for disambiguating splitting constructors
+
+struct Split {};
+
 } // namespace RcppParallel
 
 

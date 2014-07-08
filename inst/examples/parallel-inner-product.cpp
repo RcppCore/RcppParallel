@@ -9,6 +9,7 @@ double innerProduct(NumericVector x, NumericVector y) {
 }
 
 // [[Rcpp::depends(RcppParallel)]]
+#define RCPP_PARALLEL_USE_TBB 0
 #include <RcppParallel.h>
 
 struct InnerProduct : public RcppParallel::Worker
@@ -21,21 +22,15 @@ struct InnerProduct : public RcppParallel::Worker
    double product;
    
    // constructors
-   InnerProduct() : x(NULL), y(NULL), product(0) {}
    InnerProduct(double * const x, double * const y) : x(x), y(y), product(0) {}
+   InnerProduct(InnerProduct& innerProduct, RcppParallel::Split) 
+      : x(innerProduct.x), y(innerProduct.y), product(0) {}
    
    // process just the elements of the range I've been asked to
    void operator()(std::size_t begin, std::size_t end) {
       product += std::inner_product(x + begin, x + end, y + begin, 0.0);
    }
    
-   // split me from another InnerProduct
-   void split(const InnerProduct& source) {
-     x = source.x;
-     y = source.y;
-     product = 0;
-   }
-    
    // join my value with that of another InnerProduct
    void join(const InnerProduct& rhs) { 
      product += rhs.product; 
