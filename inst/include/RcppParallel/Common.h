@@ -10,9 +10,18 @@ namespace RcppParallel {
 // the tinythreads interface allows to pass only a void* to the
 // thread main rather than a generic type / template)
 
-struct Worker {
+struct Worker 
+{  
+   // construct and destruct (delete virtually)
+   Worker() {}
    virtual ~Worker() {}
-   virtual void operator()(std::size_t begin, std::size_t end) = 0;
+   
+   // dispatch work over a range of values
+   virtual void operator()(std::size_t begin, std::size_t end) = 0;   
+   
+   // disable copying and assignment
+   Worker(const Worker&);
+   void operator=(const Worker&);
 };
 
 // Tag type used for disambiguating splitting constructors
