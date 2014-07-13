@@ -9,11 +9,12 @@ template <typename T>
 class MatrixAccessor {
 public:
    class Row {
+   
    public:   
-      class Iterator 
-         : public std::iterator<std::input_iterator_tag, T, std::size_t> {
-      public:
       
+      class Iterator : public std::iterator<std::input_iterator_tag, T, std::size_t> {
+      
+      public:
          inline Iterator(Row& row, std::size_t i)
             : start_(row.start_), parentNrow_(row.parentNrow_), index_(i)
          {
@@ -93,7 +94,9 @@ public:
    };
    
    class Column {
+   
    public:
+   
       typedef T* Iterator;
    
       inline Column(MatrixAccessor& parent, std::size_t i) 
@@ -152,6 +155,7 @@ public:
    inline Column column(std::size_t i) {
       return Column(*this, i);
    }
+   
 private:
    T* data_;
    std::size_t nrow_;
