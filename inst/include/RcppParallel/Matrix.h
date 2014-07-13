@@ -14,38 +14,38 @@ public:
          : public std::iterator<std::input_iterator_tag, T, std::size_t> {
       public:
       
-         Iterator(Row& row, std::size_t i)
+         inline Iterator(Row& row, std::size_t i)
             : start_(row.start_), parentNrow_(row.parentNrow_), index_(i)
          {
          }
          
-         Iterator(const Iterator& other) 
+         inline Iterator(const Iterator& other) 
             : start_(other.start_), 
               parentNrow_(other.parentNrow_), 
               index_(other.index_)
          {
          }
          
-         Iterator& operator++() { 
+         inline Iterator& operator++() { 
             index_++;
             return *this;
          }
          
-         Iterator operator++(int) {
+         inline Iterator operator++(int) {
             Iterator tmp(*this); 
             operator++(); 
             return tmp;
          }
          
-         bool operator==(const Iterator& rhs) {
+         inline bool operator==(const Iterator& rhs) {
             return index_ == rhs.index_;
          }
          
-         bool operator!=(const Iterator& rhs) {
+         inline bool operator!=(const Iterator& rhs) {
             return index_ != rhs.index_;
          }
          
-         T& operator*() { return start_[index_ * parentNrow_]; }
+         inline T& operator*() { return start_[index_ * parentNrow_]; }
          
       private:
          T* start_;
@@ -53,32 +53,32 @@ public:
          std::size_t index_;
       };
    
-      Row(MatrixAccessor& parent, std::size_t i)
+      inline Row(MatrixAccessor& parent, std::size_t i)
          : start_(parent.begin() + i),
            parentNrow_(parent.nrow()),
            parentNcol_(parent.ncol())
       {
       }
       
-      Row(const Row& other)
+      inline Row(const Row& other)
          : start_(other.start_),
            parentNrow_(other.parentNrow_),
            parentNcol_(other.parentNcol_)
       {        
       }
       
-      Row& operator=(const Row& rhs) {
+      inline Row& operator=(const Row& rhs) {
          start_ = rhs.start_;
          parentNrow_ = rhs.parentNrow_;
          parentNcol_ = rhs.parentNcol_;
          return *this;
       }
       
-      Iterator begin() {
+      inline Iterator begin() {
          return Iterator(*this, 0);
       }
       
-      Iterator end() {
+      inline Iterator end() {
          return Iterator(*this, parentNcol_);
       }
       
@@ -96,60 +96,62 @@ public:
    public:
       typedef T* Iterator;
    
-      Column(MatrixAccessor& parent, std::size_t i) 
+      inline Column(MatrixAccessor& parent, std::size_t i) 
          : begin_(parent.begin() + (i * parent.nrow())),
            end_(begin_ + parent.nrow())
       {   
       }
       
-      Column(const Column& other) 
+      inline Column(const Column& other) 
          : begin_(other.begin_), end_(other.end_)
       {   
       }
       
-      Column& operator=(const Column& rhs) {
+      inline Column& operator=(const Column& rhs) {
          begin_ = rhs.begin_;
          end_ = rhs.end_;
          return *this;
       }
       
-      inline T* begin() { return begin_; }
-      inline T* end() { return end_; }
+      inline Iterator begin() { return begin_; }
+      inline Iterator end() { return end_; }
       
    private:
       T* begin_;
       T* end_;
    };
 
+   typedef T* Iterator;
+
    template <typename Source>
-   explicit MatrixAccessor(const Source& source) 
+   inline explicit MatrixAccessor(const Source& source) 
       : data_(source.begin()),
         nrow_(source.nrow()),
         ncol_(source.ncol())
    {
    }
 
-   MatrixAccessor(const T* data, std::size_t nrow, std::size_t ncol) 
+   inline MatrixAccessor(const T* data, std::size_t nrow, std::size_t ncol) 
       : data_(data), nrow_(nrow), ncol_(ncol) 
    {
    }
    
-   inline T* begin() { return data_; }
-   inline T* end() { return data_ + length(); }
-     
    inline std::size_t length() const { return nrow_ * ncol_; }
    
+   inline Iterator begin() { return data_; }
+   inline Iterator end() { return data_ + length(); }
+     
    inline std::size_t nrow() const { return nrow_; }
+   
+   inline Row row(std::size_t i) {
+      return Row(*this, i);
+   }
+   
    inline std::size_t ncol() const { return ncol_; }
    
    inline Column column(std::size_t i) {
       return Column(*this, i);
    }
-   
-   inline Row row(std::size_t i) {
-      return Row(*this, i);
-   }
-
 private:
    T* data_;
    std::size_t nrow_;
