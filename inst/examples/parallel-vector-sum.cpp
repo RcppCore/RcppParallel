@@ -24,7 +24,7 @@ using namespace RcppParallel;
 struct Sum : public Worker
 {   
    // source vector
-   VectorReader<double> input;
+   NumericVectorReader input;
    
    // value that I have accumulated
    double value;
@@ -35,7 +35,7 @@ struct Sum : public Worker
    
    // accumulate just the element of the range I've been asked to
    void operator()(std::size_t begin, std::size_t end) {
-      value += std::accumulate(input.begin() + begin, input.begin() + end, 0.0);
+      value += std::accumulate(input[begin], input[end], 0.0);
    }
      
    // join my value with that of another Sum
@@ -51,7 +51,7 @@ double parallelVectorSum(NumericVector x) {
    Sum sum(x);
    
    // call parallel_reduce to start the work
-   RcppParallel::parallelReduce(0, x.length(), sum);
+   parallelReduce(0, x.length(), sum);
    
    // return the computed sum
    return sum.value;

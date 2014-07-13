@@ -28,23 +28,23 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
+using namespace RcppParallel;
 
-struct SquareRoot : public RcppParallel::Worker
+struct SquareRoot : public Worker
 {
    // source matrix
-   double* input;
+   NumericMatrixReader input;
    
    // destination matrix
-   double* output;
+   NumericMatrixWriter output;
    
    // initialize with source and destination
-   SquareRoot() : input(NULL), output(NULL) {}
-   SquareRoot(double* input, double* output) 
+   SquareRoot(NumericMatrix input, NumericMatrix output) 
       : input(input), output(output) {}
    
    // take the square root of the range of elements requested
    void operator()(std::size_t begin, std::size_t end) {
-      std::transform(input + begin, input + end, output + begin, ::sqrt);
+      std::transform(input[begin], input[end], output[begin], ::sqrt);
    }
 };
 
@@ -55,10 +55,10 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
   NumericMatrix output(x.nrow(), x.ncol());
   
   // SquareRoot instance that takes a pointer to the input & output data
-  SquareRoot squareRoot(x.begin(), output.begin());
+  SquareRoot squareRoot(x, output);
   
   // call parallelFor to do the work
-  RcppParallel::parallelFor(0, x.length(), squareRoot);
+  parallelFor(0, x.length(), squareRoot);
   
   // return the output matrix
   return output;
