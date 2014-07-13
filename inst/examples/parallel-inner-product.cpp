@@ -22,14 +22,14 @@ double innerProduct(NumericVector x, NumericVector y) {
 struct InnerProduct : public RcppParallel::Worker
 {   
    // source vectors
-   double * x;
-   double * y;
+   const double* x;
+   const double* y;
    
    // product that I have accumulated
    double product;
    
    // constructors
-   InnerProduct(double * const x, double * const y) : x(x), y(y), product(0) {}
+   InnerProduct(const double* x, const double* y) : x(x), y(y), product(0) {}
    InnerProduct(InnerProduct& innerProduct, RcppParallel::Split) 
       : x(innerProduct.x), y(innerProduct.y), product(0) {}
    

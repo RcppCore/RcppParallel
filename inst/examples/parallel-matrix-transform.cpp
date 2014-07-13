@@ -32,14 +32,14 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
 struct SquareRoot : public RcppParallel::Worker
 {
    // source matrix
-   double* input;
+   const double* input;
    
    // destination matrix
    double* output;
    
    // initialize with source and destination
    SquareRoot() : input(NULL), output(NULL) {}
-   SquareRoot(double* input, double* output) 
+   SquareRoot(const double* input, double* output) 
       : input(input), output(output) {}
    
    // take the square root of the range of elements requested
