@@ -1,12 +1,12 @@
-#ifndef __RCPP_PARALLEL_MATRIX__
-#define __RCPP_PARALLEL_MATRIX__
+#ifndef __RCPP_PARALLEL_RMATRIX__
+#define __RCPP_PARALLEL_RMATRIX__
 
 namespace RcppParallel {
 
 #include <iterator>
 
 template <typename T>
-class MatrixAccessor {
+class RMatrix {
 public:
    class Row {
    
@@ -54,7 +54,7 @@ public:
          std::size_t index_;
       };
    
-      inline Row(MatrixAccessor& parent, std::size_t i)
+      inline Row(RMatrix& parent, std::size_t i)
          : start_(parent.begin() + i),
            parentNrow_(parent.nrow()),
            parentNcol_(parent.ncol())
@@ -99,7 +99,7 @@ public:
    
       typedef T* Iterator;
    
-      inline Column(MatrixAccessor& parent, std::size_t i) 
+      inline Column(RMatrix& parent, std::size_t i) 
          : begin_(parent.begin() + (i * parent.nrow())),
            end_(begin_ + parent.nrow())
       {   
@@ -127,14 +127,14 @@ public:
    typedef T* Iterator;
 
    template <typename Source>
-   inline explicit MatrixAccessor(const Source& source) 
+   inline explicit RMatrix(const Source& source) 
       : data_(source.begin()),
         nrow_(source.nrow()),
         ncol_(source.ncol())
    {
    }
 
-   inline MatrixAccessor(const T* data, std::size_t nrow, std::size_t ncol) 
+   inline RMatrix(const T* data, std::size_t nrow, std::size_t ncol) 
       : data_(data), nrow_(nrow), ncol_(ncol) 
    {
    }
@@ -162,9 +162,6 @@ private:
    std::size_t ncol_;
 };
 
-typedef MatrixAccessor<double> NumericMatrixAccessor;
-typedef MatrixAccessor<int> IntegerMatrixAccessor;
-
 } // namespace RcppParallel
 
-#endif // __RCPP_PARALLEL_MATRIX__
+#endif // __RCPP_PARALLEL_RMATRIX__
