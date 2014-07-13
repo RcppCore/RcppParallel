@@ -18,25 +18,24 @@ double innerProduct(NumericVector x, NumericVector y) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
-using namespace RcppParallel;
 
-struct InnerProduct : public Worker
+struct InnerProduct : public RcppParallel::Worker
 {   
    // source vectors
-   NumericVectorReader x;
-   NumericVectorReader y;
+   double * x;
+   double * y;
    
    // product that I have accumulated
    double product;
    
    // constructors
-   InnerProduct(NumericVector x, NumericVector y) : x(x), y(y), product(0) {}
-   InnerProduct(InnerProduct& innerProduct, Split) 
+   InnerProduct(double * const x, double * const y) : x(x), y(y), product(0) {}
+   InnerProduct(InnerProduct& innerProduct, RcppParallel::Split) 
       : x(innerProduct.x), y(innerProduct.y), product(0) {}
    
    // process just the elements of the range I've been asked to
    void operator()(std::size_t begin, std::size_t end) {
-      product += std::inner_product(x[begin], x[end], y[begin], 0.0);
+      product += std::inner_product(x + begin, x + end, y + begin, 0.0);
    }
    
    // join my value with that of another InnerProduct
@@ -49,10 +48,10 @@ struct InnerProduct : public Worker
 double parallelInnerProduct(NumericVector x, NumericVector y) {
    
    // declare the InnerProduct instance that takes a pointer to the vector data
-   InnerProduct innerProduct(x, y);
+   InnerProduct innerProduct(x.begin(), y.begin());
    
    // call paralleReduce to start the work
-   parallelReduce(0, x.length(), innerProduct);
+   RcppParallel::parallelReduce(0, x.length(), innerProduct);
    
    // return the computed product
    return innerProduct.product;

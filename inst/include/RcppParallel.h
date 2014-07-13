@@ -15,9 +15,6 @@
 #endif
 #endif
 
-#include "RcppParallel/Vector.h"
-#include "RcppParallel/Matrix.h"
-
 namespace RcppParallel {
 
 inline void parallelFor(std::size_t begin, std::size_t end, 
