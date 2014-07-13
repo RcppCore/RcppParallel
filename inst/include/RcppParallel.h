@@ -15,6 +15,8 @@
 #endif
 #endif
 
+#include "RcppParallel/Vector.h"
+
 namespace RcppParallel {
 
 inline void parallelFor(std::size_t begin, std::size_t end, 
