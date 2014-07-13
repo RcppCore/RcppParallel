@@ -70,7 +70,7 @@ public:
       Row& operator=(const Row& rhs) {
          start_ = rhs.start_;
          parentNrow_ = rhs.parentNrow_;
-         parentNcol_ = rhs.parnetNcol_;
+         parentNcol_ = rhs.parentNcol_;
          return *this;
       }
       
