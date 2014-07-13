@@ -18,8 +18,9 @@ double innerProduct(NumericVector x, NumericVector y) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
+using namespace RcppParallel;
 
-struct InnerProduct : public RcppParallel::Worker
+struct InnerProduct : public Worker
 {   
    // source vectors
    const double* x;
@@ -30,7 +31,7 @@ struct InnerProduct : public RcppParallel::Worker
    
    // constructors
    InnerProduct(const double* x, const double* y) : x(x), y(y), product(0) {}
-   InnerProduct(InnerProduct& innerProduct, RcppParallel::Split) 
+   InnerProduct(InnerProduct& innerProduct, Split) 
       : x(innerProduct.x), y(innerProduct.y), product(0) {}
    
    // process just the elements of the range I've been asked to
@@ -51,7 +52,7 @@ double parallelInnerProduct(NumericVector x, NumericVector y) {
    InnerProduct innerProduct(x.begin(), y.begin());
    
    // call paralleReduce to start the work
-   RcppParallel::parallelReduce(0, x.length(), innerProduct);
+   parallelReduce(0, x.length(), innerProduct);
    
    // return the computed product
    return innerProduct.product;

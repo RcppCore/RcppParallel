@@ -19,8 +19,9 @@ double vectorSum(NumericVector x) {
 
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
+using namespace RcppParallel;
 
-struct Sum : public RcppParallel::Worker
+struct Sum : public Worker
 {   
    // source vector
    const double* input;
@@ -30,7 +31,7 @@ struct Sum : public RcppParallel::Worker
    
    // constructors
    Sum(const double* input) : input(input), value(0) {}
-   Sum(Sum& sum, RcppParallel::Split) : input(sum.input), value(0) {}
+   Sum(Sum& sum, Split) : input(sum.input), value(0) {}
    
    // accumulate just the element of the range I've been asked to
    void operator()(std::size_t begin, std::size_t end) {
@@ -50,7 +51,7 @@ double parallelVectorSum(NumericVector x) {
    Sum sum(x.begin());
    
    // call parallel_reduce to start the work
-   RcppParallel::parallelReduce(0, x.length(), sum);
+   parallelReduce(0, x.length(), sum);
    
    // return the computed sum
    return sum.value;
