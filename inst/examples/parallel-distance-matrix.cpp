@@ -14,34 +14,68 @@ using namespace Rcpp;
  * Port of R code to Rcpp (serial version)
  */
 
-double kl_divergence(NumericVector vec1, NumericVector vec2) {
+// helper function for taking the average of two numbers
+inline double average(double val1, double val2) {
+   return (val1 + val2) / 2;
+}
+
+// generic function for kl_divergence
+template <typename InputIterator1, typename InputIterator2>
+inline double kl_divergence(InputIterator1 begin1, InputIterator1 end1, 
+                            InputIterator2 begin2) {
   
-  double rval = 0;
-  for (int i = 0; i < vec1.size(); i++) {
-      double r = 0;
-      if (vec1[i] > 0 && vec2[i] > 0) {
-        r = std::log(vec1[i]/vec2[i]) * vec1[i];
-      }
-      rval += r;
-  }
-  return rval;  
+   // value to return
+   double rval = 0;
+   
+   // set iterators to beginning of ranges
+   InputIterator1 it1 = begin1;
+   InputIterator2 it2 = begin2;
+   
+   // for each input item
+   while (it1 != end1) {
+      
+      // take the value and increment the iterator
+      double d1 = *it1++;
+      double d2 = *it2++;
+      
+      // accululate if appropirate
+      if (d1 > 0 && d2 > 0)
+         rval += std::log(d1 / d2) * d1;
+   }
+  
+   return rval;  
 }
 
 // [[Rcpp::export]]
 NumericMatrix rcpp_js_distance(NumericMatrix mat) {
   
-  // allocate the matrix we will return
-  NumericMatrix rmat(mat.nrow(), mat.nrow());
-
-  for (int i = 0; i < rmat.nrow(); i++) {
-    for (int j = 0; j < i; j++) {
-      NumericVector avg = (mat(i,_) + mat(j,_))/2;
-      double d1 = kl_divergence(mat(i,_), avg);
-      double d2 = kl_divergence(mat(j,_), avg);
-      rmat(i,j) = std::sqrt(.5 * (d1 + d2));
-    }
-  }
-  return rmat;
+   // allocate the matrix we will return
+   NumericMatrix rmat(mat.nrow(), mat.nrow());
+   
+   for (int i = 0; i < rmat.nrow(); i++) {
+      for (int j = 0; j < i; j++) {
+      
+         // rows we will operate on
+         NumericMatrix::Row row1 = mat.row(i);
+         NumericMatrix::Row row2 = mat.row(j);
+         
+         // compute the average using std::tranform from the STL
+         std::vector<double> avg(row1.size());
+         std::transform(row1.begin(), row1.end(), // input range 1
+                        row2.begin(),             // input range 2
+                        avg.begin(),              // output range 
+                        average);                 // function to apply
+      
+         // calculate divergences
+         double d1 = kl_divergence(row1.begin(), row1.end(), avg.begin());
+         double d2 = kl_divergence(row2.begin(), row2.end(), avg.begin());
+        
+         // write to output matrix
+         rmat(i,j) = std::sqrt(.5 * (d1 + d2));
+      }
+   }
+   
+   return rmat;
 }
 
 /**
@@ -56,16 +90,12 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
  * accessor class provided by RcppParallel to read and write to directly the
  * underlying matrix memory.
  * 
- * - This implemention will gain performance in two ways: (1) parallel 
- * processing to divide the work amound threads; and (2) using the RMatrix class
- * to directly access memory removes some additional function call and copying
- * overhead.
+ * - Other than organzing the code as a function object and using `RMatrix`, 
+ * the parallel code is almost identical to the serial code. The main
+ * difference is that the outer loop starts with the `begin` index passed
+ * to the worker function rather than 0.
  * 
- * You'll also notice that the computation of the average of the two rows is
- * done using `std::transform` from the STL rather than Rcpp vector sugar (since
- * we can't rely on Rcpp classes in a background thread).
- * 
- * Here's the `JsDistance` function object:
+ * Here is the definition of the `JsDistance` function object:
  */
 
 // [[Rcpp::depends(RcppParallel)]]
@@ -75,15 +105,15 @@ using namespace RcppParallel;
 struct JsDistance : public Worker {
    
    // input matrix to read from
-   RMatrix<double> input;
+   RMatrix<double> mat;
    
    // output matrix to write to
-   RMatrix<double> output;
+   RMatrix<double> rmat;
    
    // initialize from Rcpp input and output matrixes (the RMatrix class
    // can be automatically converted to from the Rcpp matrix type)
-   JsDistance(NumericMatrix input, NumericMatrix output)
-      : input(input), output(output) {}
+   JsDistance(NumericMatrix mat, NumericMatrix rmat)
+      : mat(mat), rmat(rmat) {}
    
    // function call operator that work for the specified range (begin/end)
    void operator()(std::size_t begin, std::size_t end) {
@@ -91,8 +121,8 @@ struct JsDistance : public Worker {
          for (int j = 0; j < i; j++) {
             
             // rows we will operate on
-            RMatrix<double>::Row row1 = input.row(i);
-            RMatrix<double>::Row row2 = input.row(j);
+            RMatrix<double>::Row row1 = mat.row(i);
+            RMatrix<double>::Row row2 = mat.row(j);
             
             // compute the average using std::tranform from the STL
             std::vector<double> avg(row1.length());
@@ -102,30 +132,13 @@ struct JsDistance : public Worker {
                            average);                 // function to apply
               
             // calculate divergences
-            double d1 = kl_divergence(row1, avg);
-            double d2 = kl_divergence(row2, avg);
+            double d1 = kl_divergence(row1.begin(), row1.end(), avg.begin());
+            double d2 = kl_divergence(row2.begin(), row2.end(), avg.begin());
                
             // write to output matrix
-            output(i,j) = sqrt(.5 * (d1 + d2));
+            rmat(i,j) = sqrt(.5 * (d1 + d2));
          }
       }
-   }
-   
-   // kl_divergence helper function
-   double kl_divergence(RMatrix<double>::Row row, const std::vector<double>& avg) {
-      double rval = 0;
-      for (int i = 0; i < row.length(); i++) {
-         double r = 0;
-         if (row[i] > 0 && avg[i] > 0)
-            r = log(row[i]/avg[i]) * row[i];
-         rval += r;
-      }
-      return rval;  
-   }
-   
-   // average helper function (static so that we can pass it easily to std::transform)
-   static double average(double val1, double val2) {
-      return (val1 + val2) / 2;
    }
 };
 
@@ -153,8 +166,7 @@ NumericMatrix rcpp_parallel_js_distance(NumericMatrix mat) {
 
 /**
  * Comparing the results on a MacBook Pro with 4 cores (8 with hyperthreading) 
- * we see a roughly 10x performance gain (about 2.5x is a result of lower-level 
- * access to the Matrix data and 4x a result of parallelism):
+ * we see a roughly 5x performance gain:
  */
 
 /*** R
