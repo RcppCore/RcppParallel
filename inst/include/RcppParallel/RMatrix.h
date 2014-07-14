@@ -12,7 +12,8 @@ public:
    
    public:   
       
-      class iterator : public std::iterator<std::input_iterator_tag, T, std::size_t> {
+      class iterator 
+         : public std::iterator<std::input_iterator_tag, T, std::size_t> {
       
       public:
          inline iterator(Row& row, std::size_t i)
@@ -74,6 +75,10 @@ public:
          return iterator(*this, parent_.ncol());
       }
       
+      inline size_t length() {
+         return parent_.ncol();
+      }
+      
       inline T& operator[](std::size_t i) {
         return start_[i * parent_.nrow()];
       }
@@ -108,6 +113,12 @@ public:
       
       inline iterator begin() { return begin_; }
       inline iterator end() { return end_; }
+      
+      inline size_t length() { return end_ - begin_; }
+      
+      inline T& operator[](std::size_t i) {
+        return begin_ + i;
+      }
       
    private:
       T* begin_;
