@@ -33,10 +33,10 @@ using namespace RcppParallel;
 struct SquareRoot : public Worker
 {
    // source matrix
-   NumericMatrixAccessor input;
+   RMatrix<double> input;
    
    // destination matrix
-   NumericMatrixAccessor output;
+   RMatrix<double> output;
    
    // initialize with source and destination
    SquareRoot(NumericMatrix input, NumericMatrix output) 
