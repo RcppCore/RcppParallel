@@ -1,23 +1,76 @@
+/**
+ * @title Parallel Distance Matrix Calculation with RcppParallel
+ * @author JJ Allaire, Jim Bullard
+ * @license GPL (>= 2)
+ * @tags parallel featured
+ * @summary Demonstrates computing an n x n distance matrix from an n x p data matrix.
+ *
+ * The RcppParallel package includes high level functions for doing parallel 
+ * programming with Rcpp. For example, the `parallelReduce` function can be used
+ * aggreggate values from a set of inputs in parallel. This article describes 
+ * using RcppParallel to compute pairwise distances for each row in an input
+ * data matrix and return an n x n lower-triangular distance matrix which can be
+ * used with clustering tools from within R, e.g., hclust.
+ */
 #include <Rcpp.h>
 using namespace Rcpp;
-
 #include <cmath>
-
+ 
+ 
 /**
+ * Calculating distance matrices is a common practice in clustering applications
+ * (unsupervised learning). Certain clustering methods, such as partitioning 
+ * around medoids (PAM) and hierarchical clustering, operate directly on this 
+ * matrix.
  * 
- * TODO: R implementation
+ * A distance matrix stores the n*(n-1)/2 pairwise distances/similarities
+ * between observations in an n x p matrix where n correspond to the independent
+ * observational units and p represent the covariates measured on each
+ * individual. Typically, we are limited by the size of n as the algorithm
+ * scales quadratically in both time and space in n.
  * 
+ * In this example, we compute the Jensen-Shannon distance (JSD); a metric
+ * not a part of base R. First, we present the R-only version.
  */
 
+/*** R
+jsDistR <- function(mat) {
+  kld = function(p,q) sum(ifelse(p == 0 | q == 0, 0, log(p/q)*p))
+  res = matrix(0, nrow(mat), nrow(mat))
+  for (i in 1:(nrow(mat) - 1)) {
+    for (j in (i+1):nrow(mat)) {
+      m = (mat[i,] + mat[j,])/2
+      d1 = kld(mat[i,], m)
+      d2 = kld(mat[j,], m)
+      res[j,i] = sqrt(.5*(d1 + d2))
+    }
+  }
+  res
+}
+*/
 
 /**
- * Port of R code to Rcpp (serial version)
+ * Port of jsDistR into a serial version using Rcpp
  */
 
 // helper function for taking the average of two numbers
 inline double average(double val1, double val2) {
    return (val1 + val2) / 2;
 }
+
+/**
+ * We will benchmark the the Jensen-Shannon Distance metric 
+ * (https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence)
+ * 
+ * Abstractly, a Distance function will take two vectors in R<sup>J</sup> and
+ * return a value in R<sup>+</sup>. In order to take advantage of iterators and
+ * therefore aspects of the STL, in our implementation these functions take
+ * three parameters: an iterator at the beginning and end of vector 1 and an
+ * iterator at the beginning of vector 2.
+ *
+ * In this implementation, we don't support arbitrary distance metrics, i.e.,
+ * the JSD code computes the values from within the parallel kernel.
+ */
 
 // generic function for kl_divergence
 template <typename InputIterator1, typename InputIterator2>
@@ -38,11 +91,10 @@ inline double kl_divergence(InputIterator1 begin1, InputIterator1 end1,
       double d1 = *it1++;
       double d2 = *it2++;
       
-      // accululate if appropirate
+      // accumulate if appropirate
       if (d1 > 0 && d2 > 0)
          rval += std::log(d1 / d2) * d1;
    }
-  
    return rval;  
 }
 
@@ -78,6 +130,8 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
    return rmat;
 }
 
+
+
 /**
  * Parallel version. A few notes about the implementation:
  * 
@@ -102,6 +156,7 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
 #include <RcppParallel.h>
 using namespace RcppParallel;
 
+
 struct JsDistance : public Worker {
    
    // input matrix to read from
@@ -112,7 +167,7 @@ struct JsDistance : public Worker {
    
    // initialize from Rcpp input and output matrixes (the RMatrix class
    // can be automatically converted to from the Rcpp matrix type)
-   JsDistance(NumericMatrix mat, NumericMatrix rmat)
+   JsDistance(NumericMatrix mat, NumericMatrix rmat, )
       : mat(mat), rmat(rmat) {}
    
    // function call operator that work for the specified range (begin/end)
@@ -165,27 +220,90 @@ NumericMatrix rcpp_parallel_js_distance(NumericMatrix mat) {
 
 
 /**
- * Comparing the results on a MacBook Pro with 4 cores (8 with hyperthreading) 
- * we see a roughly 5x performance gain:
+ * We now compare the three different implementations, pure R, serial Rcpp, and parallel Rcpp. We won't 
+ * be able to compare large matrices to the R-only version as it is too slow for large matrices. 
  */
 
 /*** R
-
-# create a matrix
-n  = 1000
-m = matrix(runif(n*10), ncol = 10)
-m = m/rowSums(m)
-
-# ensure that serial and parallel versions give the same result
-all.equal(rcpp_js_distance(m), rcpp_parallel_js_distance(m)) 
-
-# compare performance
 library(rbenchmark)
-res <- benchmark(rcpp_js_distance(m),
-                 rcpp_parallel_js_distance(m),
-                 replications = 10,
-                 order="relative")
-res[,1:4]
+require(lattice)
+
+# First, create a matrix for correctness testing.
+invisible(replicate(10, {
+  m = matrix(runif(100), ncol = 10, nrow = 10)
+  m = m/rowSums(m)
+  a = rcpp_js_distance(m)
+  b = rcpp_parallel_js_distance(m)
+  c = jsDistR(m)
+
+  # demonstrate that they give the same result.
+  stopifnot(all(a == b))
+  stopifnot(all(b - c < 1e-10)) ## precision differences
+}))
+
+# now construct a small benchmark in both n and p.
+nn <- seq(100, 200, by = 20)
+pp <- seq(10, 100, by = 5)
+
+bres = lapply(nn, function(n) {
+  lapply(pp, function(p) {
+    m = matrix(runif(n*p), ncol = p, nrow = n)
+    m = m/rowSums(m) # normalize to make it a probability distribution.
+    benchmark(rcpp_js_distance(m),
+              rcpp_parallel_js_distance(m),
+              jsDistR(m),
+              replications = 1,
+              order = "relative")
+  })
+})
+
+# print the largest of the simulations. 
+bres[[length(nn)]][[length(pp)]]
+
+extractTime = function(w) {
+  m = sapply(bres, function(an) {
+    sapply(an, function(ap) {
+      ap$elapsed[w]
+    })
+  })
+  rownames(m) = pp
+  colnames(m) = nn
+  m
+}
+
+show(levelplot(extractTime(2)/extractTime(1), 
+          main = "Performance of Rcpp-serial implementation \n to RcppParallel"))
+show(levelplot(extractTime(3)/extractTime(1), xlab = "p", ylab = "n", 
+          main = "Performance of R-only implementation \n to RcppParallel"))
+
+# We now benchmark the two Rcpp-based versions on a much larger input data matrix
+# to evaluate the performance.
+nn = seq(1000, 3000, by = 1000)
+pp = seq(100, 500, by = 100)
+bres = lapply(nn, function(n) {
+  lapply(pp, function(p) {
+    m = matrix(runif(n*p), ncol = p, n)
+    m = m/rowSums(m)
+    benchmark(rcpp_js_distance(m),
+              rcpp_parallel_js_distance(m),
+              replications = 1,
+              order = "relative")
+  })
+})
+bres[[length(nn)]][[length(pp)]]
+
+show(levelplot(extractTime(2)/extractTime(1), 
+          main = "Performance of Rcpp-serial implementation \n to RcppParallel"))
+
 */
 
-
+/**
+ * A comparison of the performance of the two functions shows the parallel 
+ * version performing betweem 4 and 6 times faster on my machine with 4 cores (8
+ * with hyperthreading)
+ */
+ 
+ /**
+ * If you interested in learning more about using RcppParallel see 
+ * [https://github.com/RcppCore/RcppParallel](https://github.com/RcppCore/RcppParallel).
+ */ 
