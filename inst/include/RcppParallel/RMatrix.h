@@ -16,7 +16,7 @@ public:
       
       public:
          inline iterator(Row& row, std::size_t i)
-            : start_(row.start_), parentNrow_(row.parentNrow_), index_(i)
+            : start_(row.start_), parentNrow_(row.parent_.nrow()), index_(i)
          {
          }
          
@@ -55,24 +55,15 @@ public:
       };
    
       inline Row(RMatrix& parent, std::size_t i)
-         : start_(parent.begin() + i),
-           parentNrow_(parent.nrow()),
-           parentNcol_(parent.ncol())
+         : parent_(parent),
+           start_(parent.begin() + i)
       {
       }
       
       inline Row(const Row& other)
-         : start_(other.start_),
-           parentNrow_(other.parentNrow_),
-           parentNcol_(other.parentNcol_)
+         : parent_(other.parent_),
+           start_(other.start_)
       {        
-      }
-      
-      inline Row& operator=(const Row& rhs) {
-         start_ = rhs.start_;
-         parentNrow_ = rhs.parentNrow_;
-         parentNcol_ = rhs.parentNcol_;
-         return *this;
       }
       
       inline iterator begin() {
@@ -80,17 +71,16 @@ public:
       }
       
       inline iterator end() {
-         return iterator(*this, parentNcol_);
+         return iterator(*this, parent_.ncol());
       }
       
       inline T& operator[](std::size_t i) {
-        return start_[i * parentNrow_];
+        return start_[i * parent_.nrow()];
       }
               
    private:
+      RMatrix& parent_;
       T* start_;
-      std::size_t parentNrow_;
-      std::size_t parentNcol_;
    };
    
    class Column {
