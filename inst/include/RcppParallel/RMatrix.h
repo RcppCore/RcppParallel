@@ -140,18 +140,17 @@ public:
    {
    }
    
-   inline std::size_t length() const { return nrow_ * ncol_; }
-   
    inline iterator begin() { return data_; }
    inline iterator end() { return data_ + length(); }
      
+   inline std::size_t length() const { return nrow_ * ncol_; }  
+     
    inline std::size_t nrow() const { return nrow_; }
+   inline std::size_t ncol() const { return ncol_; }
    
    inline Row row(std::size_t i) {
       return Row(*this, i);
    }
-   
-   inline std::size_t ncol() const { return ncol_; }
    
    inline Column column(std::size_t i) {
       return Column(*this, i);
