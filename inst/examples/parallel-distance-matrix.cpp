@@ -165,7 +165,7 @@ m = matrix(runif(n*10), ncol = 10)
 m = m/rowSums(m)
 
 # ensure that serial and parallel versions give the same result
-all.equal(js_distance(m), parallel_js_distance(m)) 
+all.equal(rcpp_js_distance(m), rcpp_parallel_js_distance(m)) 
 
 # compare performance
 library(rbenchmark)
