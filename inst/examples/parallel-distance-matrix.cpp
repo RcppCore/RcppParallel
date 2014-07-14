@@ -167,7 +167,7 @@ struct JsDistance : public Worker {
    
    // initialize from Rcpp input and output matrixes (the RMatrix class
    // can be automatically converted to from the Rcpp matrix type)
-   JsDistance(NumericMatrix mat, NumericMatrix rmat, )
+   JsDistance(NumericMatrix mat, NumericMatrix rmat)
       : mat(mat), rmat(rmat) {}
    
    // function call operator that work for the specified range (begin/end)
