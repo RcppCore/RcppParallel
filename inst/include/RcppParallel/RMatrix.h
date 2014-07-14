@@ -13,12 +13,17 @@ public:
    public:   
       
       class iterator 
-         : public std::iterator<std::input_iterator_tag, T, std::size_t> {
+         : public std::iterator<std::random_access_iterator_tag, T, std::size_t> {
       
       public:
          inline iterator(Row& row, std::size_t i)
             : start_(row.start_), parentNrow_(row.parent_.nrow()), index_(i)
          {
+         }
+         
+         inline iterator(std::size_t start, std::size_t parentNrow, std::size_t index)
+            : start_(start), parentNrow_(parentNrow), index_(index)
+         {      
          }
          
          inline iterator(const iterator& other) 
@@ -39,15 +44,50 @@ public:
             return tmp;
          }
          
-         inline bool operator==(const iterator& rhs) {
-            return index_ == rhs.index_;
+         inline iterator& operator--(){
+            index_-- ;
+            return *this ;
          }
          
-         inline bool operator!=(const iterator& rhs) {
-            return index_ != rhs.index_;
+         inline iterator operator--(int){
+            iterator tmp(*this);
+            index_-- ;
+            return tmp ;
+         }
+
+         iterator operator+(std::size_t n) { 
+            return iterator(start_, parentNrow_ ,index_ + n ) ; 
+         }
+         iterator operator-(std::size_t n) { 
+            return iterator(start_, parentNrow_, index_ - n ) ; 
          }
          
+         std::size_t operator+(const iterator& other) {
+            return index_ + other.index_;
+         }
+         
+         std::size_t operator-(const iterator& other) { 
+            return index_ - other.index_ ; 
+         }
+         
+         iterator& operator+=(std::size_t n) { index_ += n ; return *this; }
+         iterator& operator-=(std::size_t n) { index_ -= n ; return *this; }
+         
+         bool operator==(const iterator& other) { return index_ == other.index_; }
+         bool operator!=(const iterator& other) { return index_ != other.index_; }
+         bool operator<(const iterator& other) { return index_ < other.index_; }
+         bool operator>(const iterator& other) { return index_ > other.index_; }
+         bool operator<=(const iterator& other) { return index_ <= other.index_; }
+         bool operator>=(const iterator& other) { return index_ >= other.index_; }
+         
+
          inline T& operator*() { return start_[index_ * parentNrow_]; }
+         
+         inline T* operator->(){ return &(start_[index_ * parentNrow_]); }
+      
+         inline T& operator[](int i) {
+            return start_[(index_+i) * parentNrow_]; ;
+         }
          
       private:
          T* start_;
