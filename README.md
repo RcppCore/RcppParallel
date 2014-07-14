@@ -21,7 +21,7 @@ Note that the benchmark times above are for the TBB back-end (Posix systems only
 You can install the RcppParallel package from GitHub as follows:
 
 ```s
-devtools::install_github("jjallaire/RcppParallel")
+devtools::install_github("RcppCore/RcppParallel")
 ```
 
 #### sourceCpp
