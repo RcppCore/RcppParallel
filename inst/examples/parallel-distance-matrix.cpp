@@ -47,24 +47,23 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
 /**
  * Parallel version. A few notes about the implementation:
  * 
- * - To implement a parallel version we need to create a [function
- * object](http://en.wikipedia.org/wiki/Function_object) that can 
- * process discrete chunks of work (i.e. ranges of input index).
+ * - To implement a parallel version we need to create a [function 
+ * object](http://en.wikipedia.org/wiki/Function_object) that can process
+ * discrete chunks of work (i.e. ranges of input index).
  * 
- * - Since the parallel version will be called from background threads,
- * we can't use R and Rcpp APIs directly. Rather, we use the threadsafe 
- * `RMatrix` accessor class provided by RcppParallel to read and write
- * to directly the underlying matrix memory.
+ * - Since the parallel version will be called from background threads, we can't
+ * use R and Rcpp APIs directly. Rather, we use the threadsafe `RMatrix`
+ * accessor class provided by RcppParallel to read and write to directly the
+ * underlying matrix memory.
  * 
- * - This implemention will gain performance in two ways: (1) parallel
- * processing to divide the work amound threads; and (2) using the
- * RMatrix class to directly access memory removes some additional 
- * function call and copying overhead.
+ * - This implemention will gain performance in two ways: (1) parallel 
+ * processing to divide the work amound threads; and (2) using the RMatrix class
+ * to directly access memory removes some additional function call and copying
+ * overhead.
  * 
- * You'll also notice that the computation of the average of the 
- * two rows is done using `std::transform` from the STL rather than
- * Rcpp vector sugar (since we can't rely on Rcpp classes in a 
- * background thread).
+ * You'll also notice that the computation of the average of the two rows is
+ * done using `std::transform` from the STL rather than Rcpp vector sugar (since
+ * we can't rely on Rcpp classes in a background thread).
  * 
  * Here's the `JsDistance` function object:
  */
@@ -132,8 +131,8 @@ struct JsDistance : public Worker {
 
 /**
  * Now that we have the `JsDistance` function object we can pass it to 
- * `parallelFor`, specifying an iteration range based on the number
- * of rows in the input matrix:
+ * `parallelFor`, specifying an iteration range based on the number of rows in
+ * the input matrix:
  */
 
 // [[Rcpp::export]]
@@ -153,8 +152,8 @@ NumericMatrix rcpp_parallel_js_distance(NumericMatrix mat) {
 
 
 /**
- * Comparing the results on a MacBook Pro with 4 cores (8 with hyperthreading)
- * we see a roughly 10x performance gain (about 2.5x is a result of lower-level
+ * Comparing the results on a MacBook Pro with 4 cores (8 with hyperthreading) 
+ * we see a roughly 10x performance gain (about 2.5x is a result of lower-level 
  * access to the Matrix data and 4x a result of parallelism):
  */
 
