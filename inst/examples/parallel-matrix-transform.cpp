@@ -12,14 +12,14 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 NumericMatrix matrixSqrt(NumericMatrix orig) {
 
-  // allocate the matrix we will return
-  NumericMatrix mat(orig.nrow(), orig.ncol());
-
-  // transform it
-  std::transform(orig.begin(), orig.end(), mat.begin(), ::sqrt);
-
-  // return the new matrix
-  return mat;
+   // allocate the matrix we will return
+   NumericMatrix mat(orig.nrow(), orig.ncol());
+   
+   // transform it
+   std::transform(orig.begin(), orig.end(), mat.begin(), ::sqrt);
+   
+   // return the new matrix
+   return mat;
 }
 
 /**
