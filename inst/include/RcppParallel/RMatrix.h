@@ -148,6 +148,10 @@ public:
    inline std::size_t nrow() const { return nrow_; }
    inline std::size_t ncol() const { return ncol_; }
    
+   inline T& operator()(std::size_t i, std::size_t j) {
+      return *(data_ + (i + j * nrow_));
+   }
+   
    inline Row row(std::size_t i) {
       return Row(*this, i);
    }

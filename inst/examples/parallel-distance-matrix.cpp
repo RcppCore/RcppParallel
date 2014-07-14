@@ -62,6 +62,12 @@ void testMatrix(NumericMatrix x) {
       std::cout << *it << std::endl;  
    }
    
+   for (size_t i = 0; i<m.ncol(); i++) {
+      for (size_t j = 0; j<m.nrow(); j++) {
+         std::cout << m(j, i) << std::endl;
+      }
+   }
+   
    
 }
 
