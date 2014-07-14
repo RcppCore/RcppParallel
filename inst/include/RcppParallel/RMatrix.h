@@ -12,37 +12,37 @@ public:
    
    public:   
       
-      class Iterator : public std::iterator<std::input_iterator_tag, T, std::size_t> {
+      class iterator : public std::iterator<std::input_iterator_tag, T, std::size_t> {
       
       public:
-         inline Iterator(Row& row, std::size_t i)
+         inline iterator(Row& row, std::size_t i)
             : start_(row.start_), parentNrow_(row.parentNrow_), index_(i)
          {
          }
          
-         inline Iterator(const Iterator& other) 
+         inline iterator(const iterator& other) 
             : start_(other.start_), 
               parentNrow_(other.parentNrow_), 
               index_(other.index_)
          {
          }
          
-         inline Iterator& operator++() { 
+         inline iterator& operator++() { 
             index_++;
             return *this;
          }
          
-         inline Iterator operator++(int) {
-            Iterator tmp(*this); 
+         inline iterator operator++(int) {
+            iterator tmp(*this); 
             operator++(); 
             return tmp;
          }
          
-         inline bool operator==(const Iterator& rhs) {
+         inline bool operator==(const iterator& rhs) {
             return index_ == rhs.index_;
          }
          
-         inline bool operator!=(const Iterator& rhs) {
+         inline bool operator!=(const iterator& rhs) {
             return index_ != rhs.index_;
          }
          
@@ -75,12 +75,12 @@ public:
          return *this;
       }
       
-      inline Iterator begin() {
-         return Iterator(*this, 0);
+      inline iterator begin() {
+         return iterator(*this, 0);
       }
       
-      inline Iterator end() {
-         return Iterator(*this, parentNcol_);
+      inline iterator end() {
+         return iterator(*this, parentNcol_);
       }
       
       inline T& operator[](std::size_t i) {
@@ -97,7 +97,7 @@ public:
    
    public:
    
-      typedef T* Iterator;
+      typedef T* iterator;
    
       inline Column(RMatrix& parent, std::size_t i) 
          : begin_(parent.begin() + (i * parent.nrow())),
@@ -116,15 +116,15 @@ public:
          return *this;
       }
       
-      inline Iterator begin() { return begin_; }
-      inline Iterator end() { return end_; }
+      inline iterator begin() { return begin_; }
+      inline iterator end() { return end_; }
       
    private:
       T* begin_;
       T* end_;
    };
 
-   typedef T* Iterator;
+   typedef T* iterator;
 
    template <typename Source>
    inline explicit RMatrix(const Source& source) 
@@ -141,8 +141,8 @@ public:
    
    inline std::size_t length() const { return nrow_ * ncol_; }
    
-   inline Iterator begin() { return data_; }
-   inline Iterator end() { return data_ + length(); }
+   inline iterator begin() { return data_; }
+   inline iterator end() { return data_ + length(); }
      
    inline std::size_t nrow() const { return nrow_; }
    

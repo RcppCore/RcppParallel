@@ -49,7 +49,7 @@ void testMatrix(NumericMatrix x) {
     
    //NumericMatrixAccessor::Column column = m.column(3);
    
-   for (RMatrix<double>::Column::Iterator it = m.column(3).begin();
+   for (RMatrix<double>::Column::iterator it = m.column(3).begin();
         it != m.column(3).end(); ++it) {
       std::cout << *it << std::endl;  
    }
@@ -57,7 +57,7 @@ void testMatrix(NumericMatrix x) {
    
    //NumericMatrixAccessor::Row row = m.row(3);
    
-   for (RMatrix<double>::Row::Iterator it = m.row(3).begin();
+   for (RMatrix<double>::Row::iterator it = m.row(3).begin();
         it != m.row(3).end(); ++it) {
       std::cout << *it << std::endl;  
    }
