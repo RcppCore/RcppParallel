@@ -64,13 +64,13 @@ using namespace RcppParallel;
 struct Sum : public Worker
 {   
    // source vector
-   double * input;
+   const double * input;
    
    // value that I have accumulated
    double value;
    
    // constructors
-   Sum(double* input) : input(input), value(0) {}
+   Sum(const double* input) : input(input), value(0) {}
    Sum(Sum& sum, Split) : input(sum.input), value(0) {}
    
    // accumulate just the element of the range I've been asked to
