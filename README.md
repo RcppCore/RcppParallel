@@ -8,11 +8,11 @@ The high level interface enables safe and robust parallel programming without di
 
 Here are links to three examples that illustrate using RcppParallel:
 
-[Parallel Matrix Transform](inst/examples/parallel-matrix-transform.cpp) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this  example the parallel version performs about 2.5x faster than the serial version on a 4-core machine.
+[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this  example the parallel version performs about 2.5x faster than the serial version on a 4-core machine.
 
-[Parallel Vector Sum](inst/examples/parallel-vector-sum.cpp) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4x faster than the serial version on a 4-core machine.
+[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4x faster than the serial version on a 4-core machine.
 
-[Parallel Inner Product](inst/examples/parallel-inner-product.cpp) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version on a 4-core machine.
+[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version on a 4-core machine.
 
 Note that the benchmark times above are for the TBB back-end (Posix systems only). Performance on Windows is about 30% slower.
 
