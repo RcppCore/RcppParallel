@@ -2,7 +2,7 @@
  * @title Computing the Inner Product of Two Vectors with RcppParallel
  * @author JJ Allaire
  * @license GPL (>= 2)
- * @tags parallel featured
+ * @tags parallel
  * @summary Demonstrates computing the inner product of two vectors in 
  *   parallel using the RcppParallel package.
  *
