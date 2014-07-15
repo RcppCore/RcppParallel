@@ -140,7 +140,7 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
 
 
 /**
- * Adapting the serial version to run in parallel is straightforward. A few
+ * Adapting the serial version to run in parallel is straightforward. A few 
  * notes about the implementation:
  * 
  * - To implement a parallel version we need to create a [function 
@@ -153,11 +153,13 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
  * underlying matrix memory.
  * 
  * - Other than organzing the code as a function object and using `RMatrix`, the
- * parallel code is almost identical to the serial code. The main difference is
- * that the outer loop starts with the `begin` index passed to the worker
+ * parallel code is almost identical to the serial code. The main difference is 
+ * that the outer loop starts with the `begin` index passed to the worker 
  * function rather than 0.
  * 
- * Here is the definition of the `JsDistance` function object:
+ * Parallelizing in this case has big payoff: we observe performance of about 5x
+ * the serial version on a machine with 4 cores (8 with hyperthreading). Here is
+ * the definition of the `JsDistance` function object:
  */
 
 // [[Rcpp::depends(RcppParallel)]]
@@ -307,7 +309,7 @@ show(levelplot(extractTime(2)/extractTime(1),
 
 /**
  * A comparison of the performance of the two functions shows the parallel 
- * version performing betweem 4 and 6 times faster on my machine with 4 cores (8
+ * version performing betweem 4 and 6 times faster on a machine with 4 cores (8
  * with hyperthreading)
  */
  
