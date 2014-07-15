@@ -34,7 +34,7 @@
  */
 
 /*** R
-jsDistR <- function(mat) {
+js_distance <- function(mat) {
   kld = function(p,q) sum(ifelse(p == 0 | q == 0, 0, log(p/q)*p))
   res = matrix(0, nrow(mat), nrow(mat))
   for (i in 1:(nrow(mat) - 1)) {
@@ -235,82 +235,34 @@ NumericMatrix rcpp_parallel_js_distance(NumericMatrix mat) {
  */
 
 /*** R
+
+# create a matrix
+n  = 1000
+m = matrix(runif(n*10), ncol = 10)
+m = m/rowSums(m)
+
+# ensure that serial and parallel versions give the same result
+r_res <- js_distance(m)
+rcpp_res <- rcpp_js_distance(m)
+rcpp_parallel_res <- rcpp_parallel_js_distance(m)
+stopifnot(all(rcpp_res == rcpp_parallel_res))
+stopifnot(all(rcpp_parallel_res - r_res < 1e-10)) ## precision differences
+
+# compare performance
 library(rbenchmark)
-library(lattice)
-
-# First, create a matrix for correctness testing.
-invisible(replicate(10, {
-  m = matrix(runif(100), ncol = 10, nrow = 10)
-  m = m/rowSums(m)
-  a = rcpp_js_distance(m)
-  b = rcpp_parallel_js_distance(m)
-  c = jsDistR(m)
-
-  # demonstrate that they give the same result.
-  stopifnot(all(a == b))
-  stopifnot(all(b - c < 1e-10)) ## precision differences
-}))
-
-# now construct a small benchmark in both n and p.
-nn <- seq(100, 200, by = 20)
-pp <- seq(10, 100, by = 5)
-
-bres = lapply(nn, function(n) {
-  lapply(pp, function(p) {
-    m = matrix(runif(n*p), ncol = p, nrow = n)
-    m = m/rowSums(m) # normalize to make it a probability distribution.
-    benchmark(rcpp_js_distance(m),
-              rcpp_parallel_js_distance(m),
-              jsDistR(m),
-              replications = 1,
-              order = "relative")
-  })
-})
-
-# print the largest of the simulations. 
-bres[[length(nn)]][[length(pp)]]
-
-extractTime = function(w) {
-  m = sapply(bres, function(an) {
-    sapply(an, function(ap) {
-      ap$elapsed[w]
-    })
-  })
-  rownames(m) = pp
-  colnames(m) = nn
-  m
-}
-
-show(levelplot(extractTime(2)/extractTime(1), 
-          main = "Performance of Rcpp-serial implementation \n to RcppParallel"))
-show(levelplot(extractTime(3)/extractTime(1), xlab = "p", ylab = "n", 
-          main = "Performance of R-only implementation \n to RcppParallel"))
-
-# We now benchmark the two Rcpp-based versions on a much larger input data matrix
-# to evaluate the performance.
-nn = seq(1000, 3000, by = 1000)
-pp = seq(100, 500, by = 100)
-bres = lapply(nn, function(n) {
-  lapply(pp, function(p) {
-    m = matrix(runif(n*p), ncol = p, n)
-    m = m/rowSums(m)
-    benchmark(rcpp_js_distance(m),
-              rcpp_parallel_js_distance(m),
-              replications = 1,
-              order = "relative")
-  })
-})
-bres[[length(nn)]][[length(pp)]]
-
-show(levelplot(extractTime(2)/extractTime(1), 
-          main = "Performance of Rcpp-serial implementation \n to RcppParallel"))
-
+res <- benchmark(js_distance(m),
+                 rcpp_js_distance(m),
+                 rcpp_parallel_js_distance(m),
+                 replications = 2,
+                 order="relative")
+res[,1:4]
 */
 
 /**
- * A comparison of the performance of the two functions shows the parallel 
- * version performing betweem 4 and 6 times faster on a machine with 4 cores (8
- * with hyperthreading)
+ * The serial Rcpp version give a 30 to 40x speedup over straight R code.
+ * On a machine with 4 cores (8 with hyperthreading) the parallel Rcpp version 
+ * yields another 4x speedup comparison for a total of 140x improvement 
+ * in performance over the original R version.
  */
  
  /**
