@@ -57,13 +57,13 @@ using namespace RcppParallel;
 struct SquareRoot : public Worker
 {
    // source matrix
-   RMatrix<double> input;
+   const RMatrix<double> input;
    
    // destination matrix
    RMatrix<double> output;
    
    // initialize with source and destination
-   SquareRoot(NumericMatrix input, NumericMatrix output) 
+   SquareRoot(const NumericMatrix input, NumericMatrix output) 
       : input(input), output(output) {}
    
    // take the square root of the range of elements requested
