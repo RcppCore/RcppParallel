@@ -1,11 +1,28 @@
+/**
+ * @title Computing the Inner Product of Two Vectors with RcppParallel
+ * @author JJ Allaire
+ * @license GPL (>= 2)
+ * @tags parallel featured
+ * @summary Demonstrates computing the inner product of two vectors in 
+ *   parallel using the RcppParallel package.
+ *
+ * The [RcppParallel](https://github.com/RcppCore/RcppParallel) package includes
+ * high level functions for doing parallel programming with Rcpp. For example, 
+ * the `parallelReduce` function can be used aggreggate values from a set of 
+ * inputs in parallel. This article describes using RcppParallel to parallelize 
+ * the [inner-product](http://gallery.rcpp.org/articles/stl-inner-product/)
+ * example previously posted to the Rcpp Gallery.
+ */
+
+/**
+ * First the serial version of computing the inner product. For this we use
+ * a simple call to the STL `std::inner_product` function:
+ */
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
 #include <algorithm>
-
-/**
- * First the serial version:
- */
 
 // [[Rcpp::export]]
 double innerProduct(NumericVector x, NumericVector y) {
@@ -13,7 +30,12 @@ double innerProduct(NumericVector x, NumericVector y) {
 }
 
 /**
- * Now the parallel version:
+ * Now we adapt our code to run in parallel using RcppParallel. We'll use the 
+ * `parallelReduce` function to do this. This function requires a "worker" 
+ * function object that (defined below as `InnerProduct`). For details on worker
+ * objects see the 
+ * [parallel-vector-sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) 
+ * article on the Rcpp Gallery.
  */
 
 // [[Rcpp::depends(RcppParallel)]]
@@ -45,6 +67,21 @@ struct InnerProduct : public Worker
    }
 };
 
+/**
+ * Note that `InnerProduct` derives from the `RcppParallel::Worker` class, this
+ * is required for function objects passed to `parallelReduce`.
+ * 
+ * Note also that we use use raw `double *` for accessing the vectors. This is 
+ * because this code will execute on a background thread where it's not safe to 
+ * call R or Rcpp APIs.
+ */
+
+/**
+ * Now that we've defined the functor, implementing the parallel inner product 
+ * function is straightforward. Just initialize an instance of `InnerProduct`
+ * with pointers to the input data and call `parallelReduce`:
+ */
+
 // [[Rcpp::export]]
 double parallelInnerProduct(NumericVector x, NumericVector y) {
    
@@ -59,11 +96,11 @@ double parallelInnerProduct(NumericVector x, NumericVector y) {
 }
 
 /**
- * Compare serial and parallel performance:
+ * A comparison of the performance of the two functions shows the parallel
+ * version performing about 2.5 times as fast on a machine with 4 cores:
  */
-
-/*** R
  
+/*** R
 x <- runif(1000000)
 y <- runif(1000000)
 
@@ -75,4 +112,8 @@ res <- benchmark(sum(x*y),
 res[,1:4]
 */
 
-
+/**
+ * If you interested in learning more about using RcppParallel see 
+ * [https://github.com/RcppCore/RcppParallel](https://github.com/RcppCore/RcppParallel).
+ */ 
+ 

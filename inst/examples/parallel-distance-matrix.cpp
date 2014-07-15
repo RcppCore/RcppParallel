@@ -1,36 +1,36 @@
 /**
  * @title Parallel Distance Matrix Calculation with RcppParallel
- * @author JJ Allaire, Jim Bullard
+ * @author JJ Allaire and Jim Bullard
  * @license GPL (>= 2)
  * @tags parallel featured
- * @summary Demonstrates computing an n x n distance matrix from an n x p data matrix.
+ * @summary Demonstrates computing an n x n distance matrix from an n x p data
+ *   matrix.
  *
- * The RcppParallel package includes high level functions for doing parallel 
- * programming with Rcpp. For example, the `parallelReduce` function can be used
- * aggreggate values from a set of inputs in parallel. This article describes 
- * using RcppParallel to compute pairwise distances for each row in an input
- * data matrix and return an n x n lower-triangular distance matrix which can be
- * used with clustering tools from within R, e.g., hclust.
+ * The [RcppParallel](https://github.com/RcppCore/RcppParallel) package includes
+ * high level functions for doing parallel programming with Rcpp. For example, 
+ * the `parallelFor` function can be used to convert the work of a standard 
+ * serial "for" loop into a parallel one.
+ * 
+ * This article describes using RcppParallel to compute pairwise distances for
+ * each row in an input data matrix and return an n x n lower-triangular
+ * distance matrix which can be used with clustering tools from within R, e.g., 
+ * [hclust](http://stat.ethz.ch/R-manual/R-patched/library/stats/html/hclust.html).
  */
-#include <Rcpp.h>
-using namespace Rcpp;
-#include <cmath>
- 
- 
+  
 /**
  * Calculating distance matrices is a common practice in clustering applications
  * (unsupervised learning). Certain clustering methods, such as partitioning 
  * around medoids (PAM) and hierarchical clustering, operate directly on this 
  * matrix.
  * 
- * A distance matrix stores the n*(n-1)/2 pairwise distances/similarities
+ * A distance matrix stores the n*(n-1)/2 pairwise distances/similarities 
  * between observations in an n x p matrix where n correspond to the independent
- * observational units and p represent the covariates measured on each
- * individual. Typically, we are limited by the size of n as the algorithm
+ * observational units and p represent the covariates measured on each 
+ * individual. Typically, we are limited by the size of n as the algorithm 
  * scales quadratically in both time and space in n.
  * 
- * In this example, we compute the Jensen-Shannon distance (JSD); a metric
- * not a part of base R. First, we present the R-only version.
+ * In this example, we compute the Jensen-Shannon distance (JSD); a metric not a
+ * part of base R. First, we present the R-only version:
  */
 
 /*** R
@@ -49,27 +49,29 @@ jsDistR <- function(mat) {
 }
 */
 
+
 /**
- * Port of jsDistR into a serial version using Rcpp
+ * Now a serial C++ implementation of jsDistR using Rcpp:
  */
 
-// helper function for taking the average of two numbers
-inline double average(double val1, double val2) {
-   return (val1 + val2) / 2;
-}
+#include <Rcpp.h>
+using namespace Rcpp;
+
+#include <cmath>
 
 /**
  * We will benchmark the the Jensen-Shannon Distance metric 
  * (https://en.wikipedia.org/wiki/Jensen%E2%80%93Shannon_divergence)
  * 
- * Abstractly, a Distance function will take two vectors in R<sup>J</sup> and
- * return a value in R<sup>+</sup>. In order to take advantage of iterators and
- * therefore aspects of the STL, in our implementation these functions take
- * three parameters: an iterator at the beginning and end of vector 1 and an
- * iterator at the beginning of vector 2.
+ * Abstractly, a Distance function will take two vectors in R<sup>J</sup> and 
+ * return a value in R<sup>+</sup>. In this implementation, we don't support
+ * arbitrary distance metrics, i.e., the JSD code computes the values from
+ * within the parallel kernel.
+ * 
+ * Our implementation takes three parameters: iterators to the beginning and end
+ * of vector 1 and an iterator to the beginning of vector 2 (the end position of
+ * vector2 is implied by the end position of vector1).
  *
- * In this implementation, we don't support arbitrary distance metrics, i.e.,
- * the JSD code computes the values from within the parallel kernel.
  */
 
 // generic function for kl_divergence
@@ -97,6 +99,12 @@ inline double kl_divergence(InputIterator1 begin1, InputIterator1 end1,
    }
    return rval;  
 }
+
+// helper function for taking the average of two numbers
+inline double average(double val1, double val2) {
+   return (val1 + val2) / 2;
+}
+
 
 // [[Rcpp::export]]
 NumericMatrix rcpp_js_distance(NumericMatrix mat) {
@@ -131,23 +139,23 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
 }
 
 
-
 /**
- * Parallel version. A few notes about the implementation:
+ * Adapting the serial version to run in parallel is straightforward. A few
+ * notes about the implementation:
  * 
  * - To implement a parallel version we need to create a [function 
- * object](http://en.wikipedia.org/wiki/Function_object) that can process
- * discrete chunks of work (i.e. ranges of input index).
+ * object](http://en.wikipedia.org/wiki/Function_object) that can process 
+ * discrete chunks of work (i.e. ranges of input).
  * 
  * - Since the parallel version will be called from background threads, we can't
- * use R and Rcpp APIs directly. Rather, we use the threadsafe `RMatrix`
- * accessor class provided by RcppParallel to read and write to directly the
+ * use R and Rcpp APIs directly. Rather, we use the threadsafe `RMatrix` 
+ * accessor class provided by RcppParallel to read and write to directly the 
  * underlying matrix memory.
  * 
- * - Other than organzing the code as a function object and using `RMatrix`, 
- * the parallel code is almost identical to the serial code. The main
- * difference is that the outer loop starts with the `begin` index passed
- * to the worker function rather than 0.
+ * - Other than organzing the code as a function object and using `RMatrix`, the
+ * parallel code is almost identical to the serial code. The main difference is
+ * that the outer loop starts with the `begin` index passed to the worker
+ * function rather than 0.
  * 
  * Here is the definition of the `JsDistance` function object:
  */
@@ -155,7 +163,6 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
 using namespace RcppParallel;
-
 
 struct JsDistance : public Worker {
    
@@ -220,13 +227,14 @@ NumericMatrix rcpp_parallel_js_distance(NumericMatrix mat) {
 
 
 /**
- * We now compare the three different implementations, pure R, serial Rcpp, and parallel Rcpp. We won't 
- * be able to compare large matrices to the R-only version as it is too slow for large matrices. 
+ * We now compare the performance of the three different implementations: pure
+ * R, serial Rcpp, and parallel Rcpp. We won't be able to compare large matrices
+ * to the R-only version as it is too slow for large matrices.
  */
 
 /*** R
 library(rbenchmark)
-require(lattice)
+library(lattice)
 
 # First, create a matrix for correctness testing.
 invisible(replicate(10, {
