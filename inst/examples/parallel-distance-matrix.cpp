@@ -58,6 +58,7 @@ js_distance <- function(mat) {
 using namespace Rcpp;
 
 #include <cmath>
+#include <algorithm>
 
 /**
  * We will benchmark the the Jensen-Shannon Distance metric 

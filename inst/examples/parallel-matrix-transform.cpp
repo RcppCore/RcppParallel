@@ -24,6 +24,7 @@
 using namespace Rcpp;
 
 #include <cmath>
+#include <algorithm>
 
 // [[Rcpp::export]]
 NumericMatrix matrixSqrt(NumericMatrix orig) {
