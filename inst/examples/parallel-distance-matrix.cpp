@@ -170,14 +170,14 @@ using namespace RcppParallel;
 struct JsDistance : public Worker {
    
    // input matrix to read from
-   RMatrix<double> mat;
+   const RMatrix<double> mat;
    
    // output matrix to write to
    RMatrix<double> rmat;
    
    // initialize from Rcpp input and output matrixes (the RMatrix class
    // can be automatically converted to from the Rcpp matrix type)
-   JsDistance(NumericMatrix mat, NumericMatrix rmat)
+   JsDistance(const NumericMatrix mat, NumericMatrix rmat)
       : mat(mat), rmat(rmat) {}
    
    // function call operator that work for the specified range (begin/end)
@@ -254,16 +254,16 @@ library(rbenchmark)
 res <- benchmark(js_distance(m),
                  rcpp_js_distance(m),
                  rcpp_parallel_js_distance(m),
-                 replications = 2,
+                 replications = 1,
                  order="relative")
 res[,1:4]
 */
 
 /**
- * The serial Rcpp version give a 30 to 40x speedup over straight R code.
+ * The serial Rcpp versions yields a 50x speedup over straight R code.
  * On a machine with 4 cores (8 with hyperthreading) the parallel Rcpp version 
- * yields another 4x speedup comparison for a total of 140x improvement 
- * in performance over the original R version.
+ * yields another 5x plus speedup, yeilding a total speedup of 300x over
+ * the original R version.
  */
  
  /**
