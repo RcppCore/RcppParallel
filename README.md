@@ -6,7 +6,7 @@ The high level interface enables safe and robust parallel programming without di
 
 ### Examples
 
-Here are links to some examples that illustrate using RcppParallel. The referenced performance benchmarks were executed on a MacBook Pro with 4 cores (8 with hyperthreading). 
+Here are links to some examples that illustrate using RcppParallel. Performance benchmarks were executed on a MacBook Pro with 4 cores (8 with hyperthreading). 
 
 [Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
 
