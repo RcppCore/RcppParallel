@@ -12,7 +12,7 @@ Here are links to some examples that illustrate using RcppParallel:
 
 [Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4x faster than the serial version on a 4-core machine.
 
-[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5x faster than the serial version on 4-core machine.
+[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 6x faster than the serial version on 4-core machine.
 
 [Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version on a 4-core machine.
 
