@@ -230,6 +230,10 @@ public:
       return Row(*const_cast<RMatrix*>(this), i);
    }
    
+   inline Column column(std::size_t i) {
+      return Column(*this, i);
+   }
+   
    inline const Column column(std::size_t i) const {
       return Column(*const_cast<RMatrix*>(this), i);
    }
