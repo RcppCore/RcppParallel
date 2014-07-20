@@ -15,6 +15,7 @@
 #endif
 #endif
 
+#include "RcppParallel/RVector.h"
 #include "RcppParallel/RMatrix.h"
 
 namespace RcppParallel {
