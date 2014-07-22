@@ -175,11 +175,11 @@ public:
       inline size_t length() const { return end_ - begin_; }
       
       inline T& operator[](std::size_t i) {
-        return begin_ + i;
+        return *(begin_ + i);
       }
       
       inline const T& operator[](std::size_t i) const {
-        return begin_ + i;
+        return *(begin_ + i);
       }
       
    private:
