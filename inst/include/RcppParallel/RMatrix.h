@@ -192,7 +192,7 @@ public:
 
    template <typename Source>
    inline explicit RMatrix(const Source& source) 
-      : data_(source.begin()),
+      : data_(const_cast<Source&>(source).begin()),
         nrow_(source.nrow()),
         ncol_(source.ncol())
    {
