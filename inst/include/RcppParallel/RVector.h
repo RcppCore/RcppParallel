@@ -12,8 +12,8 @@ public:
 
    template <typename Source>
    inline explicit RVector(const Source& source) 
-      : begin_(source.begin()),
-        end_(source.begin() + source.length())
+      : begin_(const_cast<Source&>(source).begin()),
+        end_(begin_ + source.length())
 
    {
    }
