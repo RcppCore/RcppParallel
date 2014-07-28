@@ -17,6 +17,7 @@
 
 #include "RcppParallel/RVector.h"
 #include "RcppParallel/RMatrix.h"
+#include <RcppParallel/Timer.h>
 
 namespace RcppParallel {
 
