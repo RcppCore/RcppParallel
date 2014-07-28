@@ -55,7 +55,6 @@ namespace RcppParallel {
             } else {
                 timers.push_back( Timer( timers.front().origin() ) ) ;
             }
-            std::cout << timers.size() << " timers" << std::endl ;
             return timers.back() ;
         }
         
