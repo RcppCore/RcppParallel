@@ -10,6 +10,7 @@ before_install:
   - ./travis-tool.sh r_binary_install Rcpp
    
 script:
+  - R CMD INSTALL RcppParallel
   - cd ..
   - git clone https://github.com/romainfrancois/RcppParallelTests.git
   - cd RcppParallelTests
