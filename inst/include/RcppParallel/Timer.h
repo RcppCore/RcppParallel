@@ -2,6 +2,36 @@
 #define __RCPP_PARALLEL_TIMER__
 
 namespace RcppParallel {
+    typedef uint64_t nanotime_t;
+
+    template <typename Timer>
+    class ProportionTimer {
+    public:
+        ProportionTimer() : timer(), n(0){}
+        
+        ProportionTimer( nanotime_t origin ) : timer(origin), n(0){}
+        
+        inline operator SEXP() const {
+            Rcpp::NumericVector out = (SEXP)timer ;
+            out.attr("n") = n ;
+            return out ;
+        }
+        
+        inline nanotime_t origin() const{
+            return timer.origin() ;
+        }
+        
+        inline int get_n() const {
+            return n ;    
+        }
+        
+        inline void step( const std::string& name) {
+            timer.step(name) ;    
+        }
+        
+        Timer timer ;
+        int n ;
+    } ;
     
     template <typename Timer>
     class SingleTimer {
@@ -69,6 +99,68 @@ namespace RcppParallel {
         std::list<Timer> timers ;
         Mutex mutex ;
         
+    } ;
+    
+    template <typename Reducer, typename Timer, typename Mutex, typename Locker>
+    class TimedReducer : public Worker {
+    public:
+        typedef TimersList<ProportionTimer<Timer>,Mutex,Locker> Timers ; 
+        
+        Reducer* reducer ;
+        Timers& timers ;
+        ProportionTimer<Timer>& timer ;
+        bool owner ;
+        
+        TimedReducer( Reducer& reducer_, Timers& timers_) : 
+            reducer(&reducer_), 
+            timers(timers_), 
+            timer(timers.get_new_timer()), 
+            owner(false)
+        {
+            timer.step("init");
+        }
+        
+        TimedReducer( const TimedReducer& other, Split s) : 
+            reducer( new Reducer(*other.reducer, s) ), 
+            timers( other.timers ), 
+            timer( timers.get_new_timer() ), 
+            owner(true)
+        {
+            timer.step("init") ;
+        }
+        
+        ~TimedReducer(){
+            if(owner) {
+                delete reducer ;
+            }
+            reducer = 0 ;
+        }
+        
+        inline void operator()( size_t begin, size_t end){
+            timer.n += (end-begin) ;
+            timer.step("start") ;
+            (*reducer)(begin, end) ;
+            timer.step("work") ;
+        }
+        
+        inline void join(const TimedReducer& rhs){
+            timer.n += rhs.timer.n ;
+            timer.step("start") ;
+            (*reducer).join(*rhs.reducer) ;
+            timer.step("join") ;
+        }
+        
+        inline Rcpp::List get() const {
+            timer.step("start") ;
+            Rcpp::List res = Rcpp::List::create( (SEXP)timers, reducer->get() );
+            timer.step("structure") ;
+            return res ;
+        }
+        
+    private:
+        // just to be on the safe side, making sure these are not called
+        TimedReducer() ;
+        TimedReducer( const TimedReducer& ) ;
     } ;
     
     
