@@ -5,20 +5,19 @@ before_install:
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
   - ./travis-tool.sh github_package testthat
-  - ./travis-tool.sh github_package Rcpp11/Rcpp11
-  - ./travis-tool.sh github_package Rcpp11/attributes
-  - ./travis-tool.sh r_binary_install Rcpp
-   
-script:
-  - R CMD INSTALL RcppParallel
-  - cd ..
-  - git clone https://github.com/romainfrancois/RcppParallelTests.git
-  - cd RcppParallelTests
+  - if [ "$RCPP" = "Rcpp" ]; then ./travis-tool.sh github_package RcppCore/Rcpp; fi
+  - if [ "$RCPP" = "Rcpp11" ]; then ./travis-tool.sh github_package Rcpp11/Rcpp11; ./travis-tool.sh github_package Rcpp11/attributes; fi
+ 
+script: 
+  - R CMD INSTALL .
+  - cd tests
   - Rscript testthat.R
-  - cd ../RcppParallel
-  
+
 notifications:
   email:
     on_success: change
     on_failure: change
 
+env:
+  - RCPP=Rcpp
+  - RCPP=Rcpp11
