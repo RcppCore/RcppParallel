@@ -28,7 +28,8 @@ public:
    // Access begin() and end()
    std::size_t begin() const { return begin_; }
    std::size_t end() const { return end_; }
-  
+   std::size_t size() const { return end_ - begin_ ; }
+   
 private:
    std::size_t begin_;
    std::size_t end_;
