@@ -61,71 +61,84 @@ namespace RcppParallel {
     template <typename Timer>
     class FixedSizeTimers {
     public:
-        FixedSizeTimers( int n ) : timers(n){}
+        FixedSizeTimers( int n, int ndata_ ) : 
+            timers(n), ndata(ndata_)
+        {}
         
-        inline Timer& get(int i) {
+        inline ProportionTimer<Timer>& get(int i) {
             return timers[i] ;
+        }
+        
+        inline ProportionTimer<Timer>& operator[](int i){ 
+            return timers[i]; 
         }
         
         inline operator SEXP(){
             Rcpp::List out = wrap(timers) ;
             out.attr("class") = Rcpp::CharacterVector::create("FixedSizeTimers", "Timer") ;
+            out.attr("n") = ndata ;
             return out ;
         }
         
     private:
-        std::vector<Timer> timers ;
+        std::vector< ProportionTimer<Timer> > timers ;
+        int ndata ;
     } ;
     
     template <typename Timer, typename Mutex, typename Locker>
     class TimersList {
     public:
         
-        TimersList(): timers(){
-            timers.push_back( ProportionTimer<Timer>() );
-            childs.push_back( std::vector<int>() ) ;
+        TimersList(int n_): 
+            timers(), origin(Rcpp::get_nanotime()), n(n_)
+        {
+            timers.push_back( ProportionTimer<Timer>( origin, 0 ) ) ;
+            childs.push_back( std::vector<int>() );
+        }
+        
+        ProportionTimer<Timer>& front(){
+            return timers.front() ;
         }
         
         ProportionTimer<Timer>& get_new_timer(int parent_id){
             Locker lock(mutex) ;
             int id = timers.size() ;
-            timers.push_back( ProportionTimer<Timer>( timers.front().origin(), id ) ) ;
+            timers.push_back( ProportionTimer<Timer>( origin, id ) ) ;
             childs.push_back( std::vector<int>() );
-            std::list<std::vector<int> >::iterator it = childs.begin() ;
+            std::list< std::vector<int> >::iterator it = childs.begin() ;
             for(int i=0; i<parent_id; i++) ++it ;
             it->push_back(id) ;
             return timers.back() ;
         }
         
         inline operator SEXP(){
-            int n = timers.size() ;
-            Rcpp::List data(n) ;
+            int nt = timers.size() ;
+            Rcpp::List data(nt) ;
             typename std::list<ProportionTimer<Timer> >::const_iterator timers_it = timers.begin() ;
             std::list<std::vector<int> >::const_iterator childs_it = childs.begin() ;
-            for( int i=0; i<n; i++, ++timers_it, ++childs_it ){
+            for( int i=0; i<nt; i++, ++timers_it, ++childs_it ){
                 Rcpp::NumericVector x = (SEXP)*timers_it ;
-                x.attr("childs") = Rcpp::wrap( *childs_it ) ;
-                x.attr("id") = timers_it->id ;
+                Rcpp::IntegerVector kids = Rcpp::wrap(*childs_it) ;
+                x.attr("childs") = kids + 1 ;
                 data[i] = x ;
             }
             data.attr("class") = Rcpp::CharacterVector::create( "TimersList" , "Timer" ) ;
+            data.attr("n") = n ;
             return data ;
         }
         
-        inline ProportionTimer<Timer>& front(){ 
-            return timers.front(); 
-        }
-        
-        std::list<ProportionTimer<Timer> > timers ;
-        std::list<std::vector<int> > childs ;
+        std::list< ProportionTimer<Timer> > timers ;
+        std::list< std::vector<int> > childs ;
         Mutex mutex ;
+        nanotime_t origin ;
+        int n ;
         
     private:
         TimersList( const TimersList& ) ;
     
     } ;
     
-    template <typename Reducer, typename Timer, typename Mutex, typename Locker>
+    template <typename Reducer, typename Timer, typename Mutex, typename Locker, typename OUT = Rcpp::List>
     class TimedReducer : public Worker {
     public:
         typedef TimersList<Timer,Mutex,Locker> Timers ; 
@@ -168,16 +181,17 @@ namespace RcppParallel {
         }
         
         inline void join(const TimedReducer& rhs){
-            timer.n += rhs.timer.n ;
-            timer.step("start") ;
+            rhs.timer.step("start") ;
             reducer->join(*rhs.reducer) ;
-            timer.step("join") ;
+            rhs.timer.step("join") ;
         }
         
         inline Rcpp::List get() const {
-            timer.step("start") ;
-            Rcpp::List res = Rcpp::List::create( (SEXP)timers, reducer->get() );
-            timer.step("structure") ;
+            timers.front().step("start") ;
+            OUT out = reducer->get() ;
+            timers.front().step("structure") ;
+            
+            Rcpp::List res = Rcpp::List::create( (SEXP)timers, out );
             return res ;
         }
         
