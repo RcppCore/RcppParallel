@@ -3,13 +3,13 @@ Type: Package
 Title: Parallel programming tools for Rcpp
 Version: 4.2.5
 Date: 2014-07-08
-Author: RStudio, Inc.; Intel, Inc.; Marcus Geelnard
-Copyright: RStudio, Inc.
+Author: JJ Allaire; Romain Francois; Intel, Inc.; Marcus Geelnard
 Maintainer: JJ Allaire <jj@rstudio.com>
 Description: High level functions for doing parallel programming with Rcpp.
   For example, the parallelFor function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce 
   function can be used for accumulating aggregate or other values.
+Suggests: Rcpp, testthat
 SystemRequirements: GNU make
 License: GPL-2
 Collate: 
