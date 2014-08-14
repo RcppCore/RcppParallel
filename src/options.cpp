@@ -1,7 +1,9 @@
 
+#include <RcppParallel.h>
+
 #include <Rinternals.h>
 
-#ifndef _WIN32
+#ifdef RCPP_PARALLEL_USE_TBB
 
 #include <string>
 #include <exception>

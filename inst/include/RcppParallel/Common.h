@@ -1,6 +1,7 @@
 #ifndef __RCPP_PARALLEL_COMMON__
 #define __RCPP_PARALLEL_COMMON__
 
+#include <cstddef>
 
 namespace RcppParallel {
 

@@ -1,6 +1,8 @@
 #ifndef __RCPP_PARALLEL_TINYTHREAD__
 #define __RCPP_PARALLEL_TINYTHREAD__
 
+#include <cstdlib>
+
 #include "Common.h"
 
 #include <tthread/tinythread.h>

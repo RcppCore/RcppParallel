@@ -6,13 +6,11 @@
 #include "RcppParallel/TinyThread.h"
 
 // Use TBB only where it's known to compile and work correctly
-#ifndef RCPP_PARALLEL_USE_TBB
 #if defined(__APPLE__) || defined(__gnu_linux__)
   #define RCPP_PARALLEL_USE_TBB 1
   #include "RcppParallel/TBB.h"
 #else
   #define RCPP_PARALLEL_USE_TBB 0
-#endif
 #endif
 
 #include "RcppParallel/RVector.h"
