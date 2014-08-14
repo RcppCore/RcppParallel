@@ -1,6 +1,10 @@
 
 PKG_CPPFLAGS += -I../inst/include/
 
+UNAME := $(shell uname)
+
+ifeq ($(UNAME), Darwin)
+
 .PHONY: all tbb
 
 all: $(SHLIB) tbb
@@ -12,5 +16,8 @@ tbb:
 
 clean:
 	(cd tbb/src; make clean)
+
+endif
+
 
 
