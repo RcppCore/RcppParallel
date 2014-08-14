@@ -9,7 +9,6 @@ Description: High level functions for doing parallel programming with Rcpp.
   For example, the parallelFor function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce 
   function can be used for accumulating aggregate or other values.
-Suggests: Rcpp, testthat
 SystemRequirements: GNU make
 License: GPL-2
 Collate: 
