@@ -5,13 +5,13 @@
 // TinyThread implementation
 #include "RcppParallel/TinyThread.h"
 
-// TBB implementation (enabled by default except on Windows)
+// Use TBB only where it's known to compile and work correctly
 #ifndef RCPP_PARALLEL_USE_TBB
-#ifdef _WIN32
-  #define RCPP_PARALLEL_USE_TBB 0
-#else
+#if defined(__APPLE__) || defined(__gnu_linux__)
   #define RCPP_PARALLEL_USE_TBB 1
   #include "RcppParallel/TBB.h"
+#else
+  #define RCPP_PARALLEL_USE_TBB 0
 #endif
 #endif
 

@@ -4,6 +4,13 @@ PKG_CPPFLAGS += -I../inst/include/
 UNAME := $(shell uname)
 
 ifeq ($(UNAME), Darwin)
+  USE_TBB=yes
+endif
+ifeq ($(UNAME), Linux)
+  USE_TBB=yes
+endif
+
+ifdef USE_TBB
 
 .PHONY: all tbb
 
