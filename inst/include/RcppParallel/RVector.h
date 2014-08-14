@@ -1,6 +1,8 @@
 #ifndef __RCPP_PARALLEL_RVECTOR__
 #define __RCPP_PARALLEL_RVECTOR__
 
+#include <cstddef>
+
 namespace RcppParallel {
 
 template <typename T>

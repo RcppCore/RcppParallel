@@ -3,7 +3,7 @@
 
 #include <Rinternals.h>
 
-#ifdef RCPP_PARALLEL_USE_TBB
+#if RCPP_PARALLEL_USE_TBB
 
 #include <string>
 #include <exception>

@@ -1,9 +1,10 @@
 #ifndef __RCPP_PARALLEL_RMATRIX__
 #define __RCPP_PARALLEL_RMATRIX__
 
-namespace RcppParallel {
-
+#include <cstddef>
 #include <iterator>
+
+namespace RcppParallel {
 
 template <typename T>
 class RMatrix {
