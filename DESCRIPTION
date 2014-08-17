@@ -1,8 +1,8 @@
 Package: RcppParallel
 Type: Package
 Title: Parallel programming tools for Rcpp
-Version: 4.2.5.2
-Date: 2014-07-08
+Version: 4.2.5.3
+Date: 2014-08-17
 Author: JJ Allaire; Romain Francois; Intel, Inc.; Marcus Geelnard
 Maintainer: JJ Allaire <jj@rstudio.com>
 Description: High level functions for doing parallel programming with Rcpp.
