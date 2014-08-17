@@ -6,13 +6,11 @@ dllInfo <- NULL
 
    # load tbb if we aren't on windows
    sysname <- Sys.info()['sysname']
-   if (sysname != "Windows") {
+   if (sysname %in% c("Linux", "Darwin")) {
      if (sysname == "Darwin")
         ext = ".dylib"
      else if (sysname == "Linux")
         ext = ".so.2"
-     else
-        ext = .Platform$dynlib.ext
      dll <- system.file(paste("lib/libtbb", ext, sep = ""), package = "RcppParallel")
      dllInfo <<- dyn.load(dll, local = FALSE, now = TRUE)
    }
@@ -52,7 +50,7 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    else
       stackSize <- as.integer(stackSize)
    
-   if (Sys.info()['sysname'] != "Windows") {
+   if (Sys.info()['sysname'] %in% c("Linux", "Darwin")) {
       invisible(.Call("setThreadOptions", numThreads, stackSize, 
                       PACKAGE = "RcppParallel"))
    } 
