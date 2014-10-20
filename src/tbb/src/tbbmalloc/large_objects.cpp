@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbbmalloc_internal.h"
@@ -33,6 +25,95 @@
 
 namespace rml {
 namespace internal {
+
+
+// ---------------- Cache Bin Aggregator Operation Helpers ---------------- //
+// The list of possible operations.
+enum CacheBinOperationType {
+    CBOP_INVALID = 0,
+    CBOP_GET,
+    CBOP_PUT_LIST,
+    CBOP_CLEAN_TO_THRESHOLD,
+    CBOP_CLEAN_ALL,
+    CBOP_DECR_USED_SIZE
+};
+
+// The operation status list. CBST_NOWAIT can be specified for non-blocking operations.
+enum CacheBinOperationStatus {
+    CBST_WAIT = 0,
+    CBST_NOWAIT,
+    CBST_DONE
+};
+
+// The list of structures which describe the operation data
+struct OpGet {
+    static const CacheBinOperationType type = CBOP_GET;
+    LargeMemoryBlock **res;
+    size_t size;
+    uintptr_t currTime;
+};
+
+struct OpPutList {
+    static const CacheBinOperationType type = CBOP_PUT_LIST;
+    LargeMemoryBlock *head;
+};
+
+struct OpCleanToThreshold {
+    static const CacheBinOperationType type = CBOP_CLEAN_TO_THRESHOLD;
+    LargeMemoryBlock **res;
+    uintptr_t currTime;
+};
+
+struct OpCleanAll {
+    static const CacheBinOperationType type = CBOP_CLEAN_ALL;
+    LargeMemoryBlock **res;
+};
+
+struct OpDecrUsedSize {
+    static const CacheBinOperationType type = CBOP_DECR_USED_SIZE;
+    size_t size;
+};
+
+union CacheBinOperationData {
+private:
+    OpGet opGet;
+    OpPutList opPutList;
+    OpCleanToThreshold opCleanToThreshold;
+    OpCleanAll opCleanAll;
+    OpDecrUsedSize opDecrUsedSize;
+};
+
+// Forward declarations
+template <typename OpTypeData> OpTypeData& opCast(CacheBinOperation &op);
+
+// Describes the aggregator operation
+struct CacheBinOperation : public MallocAggregatedOperation<CacheBinOperation>::type {
+    CacheBinOperationType type;
+
+    template <typename OpTypeData>
+    CacheBinOperation(OpTypeData &d, CacheBinOperationStatus st = CBST_WAIT) {
+        opCast<OpTypeData>(*this) = d;
+        type = OpTypeData::type;
+        MallocAggregatedOperation<CacheBinOperation>::type::status = st;
+    }
+private:
+    CacheBinOperationData data;
+
+    template <typename OpTypeData>
+    friend OpTypeData& opCast(CacheBinOperation &op);
+};
+
+// The opCast function can be the member of CacheBinOperation but it will have
+// small stylistic ambiguity: it will look like a getter (with a cast) for the
+// CacheBinOperation::data data member but it should return a reference to
+// simplify the code from a lot of getter/setter calls. So the global cast in
+// the style of static_cast (or reinterpret_cast) seems to be more readable and
+// have more explicit semantic.
+template <typename OpTypeData>
+OpTypeData& opCast(CacheBinOperation &op) {
+    return *reinterpret_cast<OpTypeData*>(&op.data);
+}
+// ------------------------------------------------------------------------ //
 
 #if __TBB_MALLOC_LOCACHE_STAT
 intptr_t mallocCalls, cacheHits;
@@ -46,6 +127,20 @@ inline bool lessThanWithOverflow(intptr_t a, intptr_t b)
 }
 
 /* ----------------------------------- Operation processing methods ------------------------------------ */
+
+template<typename Props> void LargeObjectCacheImpl<Props>::CacheBin::CacheBinFunctor::
+    OperationPreprocessor::commitOperation(CacheBinOperation *op) const 
+{
+    FencedStore( (intptr_t&)(op->status), CBST_DONE );
+}
+
+template<typename Props> void LargeObjectCacheImpl<Props>::CacheBin::CacheBinFunctor::
+    OperationPreprocessor::addOpToOpList(CacheBinOperation *op, CacheBinOperation **opList) const
+{
+    op->next = *opList;
+    *opList = op;
+}
+
 template<typename Props> bool LargeObjectCacheImpl<Props>::CacheBin::CacheBinFunctor::
     OperationPreprocessor::getFromPutList(CacheBinOperation *opGet, uintptr_t currTime)
 {
@@ -301,7 +396,7 @@ template<typename Props> bool LargeObjectCacheImpl<Props>::
 }
 
 template<typename Props> bool LargeObjectCacheImpl<Props>::
-    CacheBin::cleanAll(ExtMemoryPool *extMemPool, BinBitMask *bitMask, int idx)
+    CacheBin::releaseAllToBackend(ExtMemoryPool *extMemPool, BinBitMask *bitMask, int idx)
 {
     LargeMemoryBlock *toRelease = NULL;
 
@@ -330,7 +425,7 @@ template<typename Props> void LargeObjectCacheImpl<Props>::
     ExecuteOperation( &op, extMemPool, bitMask, idx );
 }
 /* ----------------------------------------------------------------------------------------------------- */
-/* ------------------------------ Unsafe methods used with the agreggator ------------------------------ */
+/* ------------------------------ Unsafe methods used with the aggregator ------------------------------ */
 template<typename Props> LargeMemoryBlock *LargeObjectCacheImpl<Props>::
     CacheBin::putList(LargeMemoryBlock *head, LargeMemoryBlock *tail, BinBitMask *bitMask, int idx, int num)
 {
@@ -340,7 +435,7 @@ template<typename Props> LargeMemoryBlock *LargeObjectCacheImpl<Props>::
     LargeMemoryBlock *toRelease = NULL;
     if (!lastCleanedAge) {
         // 1st object of such size was released.
-        // Not cache it, and remeber when this occurs
+        // Not cache it, and remember when this occurs
         // to take into account during cache miss.
         lastCleanedAge = tail->age;
         toRelease = tail;
@@ -499,10 +594,10 @@ bool LargeObjectCacheImpl<Props>::regularCleanup(ExtMemoryPool *extMemPool, uint
         if (!doThreshDecr && tooLargeLOC>2 && binsSummary.isLOCTooLarge()) {
             // if LOC is too large for quite long time, decrease the threshold
             // based on bin hit statistics.
-            // For this, redo cleanup from the beginnig.
+            // For this, redo cleanup from the beginning.
             // Note: on this iteration total usedSz can be not too large
             // in comparison to total cachedSz, as we calculated it only
-            // partially. We are ok this it.
+            // partially. We are ok with it.
             i = bitMask.getMaxTrue(numBins-1)+1;
             doThreshDecr = true;
             binsSummary.reset();
@@ -529,7 +624,7 @@ bool LargeObjectCacheImpl<Props>::cleanAll(ExtMemoryPool *extMemPool)
 {
     bool released = false;
     for (int i = numBins-1; i >= 0; i--)
-        released |= bin[i].cleanAll(extMemPool, &bitMask, i);
+        released |= bin[i].releaseAllToBackend(extMemPool, &bitMask, i);
     return released;
 }
 

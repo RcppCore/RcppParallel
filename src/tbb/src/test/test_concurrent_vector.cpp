@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/concurrent_vector.h"
@@ -32,112 +24,25 @@
 #include "tbb/tbb_exception.h"
 #include <cstdio>
 #include <cstdlib>
+#include <functional>
+#include <vector>
+#include <numeric>
 #include "harness_report.h"
 #include "harness_assert.h"
 #include "harness_allocator.h"
+#include "harness_defs.h"
+#include "test_container_move_support.h"
+
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+    // Workaround for overzealous compiler warnings in /Wp64 mode
+    #pragma warning (push)
+    #pragma warning (disable: 4800)
+#endif
 
 #if TBB_USE_EXCEPTIONS
 static bool known_issue_verbose = false;
 #define KNOWN_ISSUE(msg) if(!known_issue_verbose) known_issue_verbose = true, REPORT(msg)
 #endif /* TBB_USE_EXCEPTIONS */
-
-tbb::atomic<long> FooCount;
-long MaxFooCount = 0;
-
-//! Problem size
-const size_t N = 500000;
-
-//! Exception for concurrent_vector
-class Foo_exception : public std::bad_alloc {
-public:
-    virtual const char *what() const throw() { return "out of Foo limit"; }
-    virtual ~Foo_exception() throw() {}
-};
-
-static const int initial_value_of_bar = 42;
-struct Foo {
-    int my_bar;
-public:
-    enum State {
-        ZeroInitialized=0,
-        DefaultInitialized=0xDEFAUL,
-        CopyInitialized=0xC0314,
-        Destroyed=0xDEADF00
-    } state;
-    bool is_valid() const {
-        return state==DefaultInitialized||state==CopyInitialized;
-    }
-    bool is_valid_or_zero() const {
-        return is_valid()||(state==ZeroInitialized && !my_bar);
-    }
-    int& zero_bar() {
-        ASSERT( is_valid_or_zero(), NULL );
-        return my_bar;
-    }
-    int& bar() {
-        ASSERT( is_valid(), NULL );
-        return my_bar;
-    }
-    int bar() const {
-        ASSERT( is_valid(), NULL );
-        return my_bar;
-    }
-    Foo( int barr = initial_value_of_bar ) {
-        my_bar = barr;
-        if(MaxFooCount && FooCount >= MaxFooCount)
-            __TBB_THROW( Foo_exception() );
-        FooCount++;
-        state = DefaultInitialized;
-    }
-    Foo( const Foo& foo ) {
-        my_bar = foo.my_bar;
-        ASSERT( foo.is_valid_or_zero(), "bad source for copy" );
-        if(MaxFooCount && FooCount >= MaxFooCount)
-            __TBB_THROW( Foo_exception() );
-        FooCount++;
-        state = CopyInitialized;
-    }
-    ~Foo() {
-        ASSERT( is_valid_or_zero(), NULL );
-        my_bar = ~initial_value_of_bar;
-        if(state != ZeroInitialized) --FooCount;
-        state = Destroyed;
-    }
-    bool operator==(const Foo &f) const { return my_bar == f.my_bar; }
-    bool operator<(const Foo &f) const { return my_bar < f.my_bar; }
-    bool is_const() const {return true;}
-    bool is_const() {return false;}
-protected:
-    char reserve[1];
-    void operator=( const Foo& );
-};
-
-class FooWithAssign: public Foo {
-public:
-    void operator=( const FooWithAssign& x ) {
-        my_bar = x.my_bar;
-        ASSERT( x.is_valid_or_zero(), "bad source for assignment" );
-        ASSERT( is_valid(), NULL );
-    }
-    bool operator==(const Foo &f) const { return my_bar == f.my_bar; }
-    bool operator<(const Foo &f) const { return my_bar < f.my_bar; }
-};
-
-class FooIterator: public std::iterator<std::input_iterator_tag,FooWithAssign> {
-    int x_bar;
-public:
-    FooIterator(int x) {
-        x_bar = x;
-    }
-    FooIterator &operator++() {
-        x_bar++; return *this;
-    }
-    FooWithAssign operator*() {
-        FooWithAssign foo; foo.bar() = x_bar;
-        return foo;
-    }
-    bool operator!=(const FooIterator &i) { return x_bar != i.x_bar; }
-};
 
 inline void NextSize( int& s ) {
     if( s<=32 ) ++s;
@@ -163,7 +68,7 @@ void TestResizeAndCopy() {
     allocator_t::init_counters();
     for( int old_size=0; old_size<=128; NextSize( old_size ) ) {
         for( int new_size=0; new_size<=1280; NextSize( new_size ) ) {
-            long count = FooCount;
+            size_t count = FooCount;
             vector_t v;
             ASSERT( count==FooCount, NULL );
             v.assign(old_size/2, Foo() );
@@ -205,7 +110,7 @@ void TestCapacity() {
     allocator_t::init_counters();
     for( size_t old_size=0; old_size<=11000; old_size=(old_size<5 ? old_size+1 : 3*old_size) ) {
         for( size_t new_size=0; new_size<=11000; new_size=(new_size<5 ? new_size+1 : 3*new_size) ) {
-            long count = FooCount;
+            size_t count = FooCount;
             {
                 vector_t v; v.reserve(old_size);
                 ASSERT( v.capacity()>=old_size, NULL );
@@ -216,11 +121,7 @@ void TestCapacity() {
                 size_t fill_size = 2*new_size;
                 for( size_t i=0; i<fill_size; ++i ) {
                     ASSERT( size_t(FooCount)==count+i, NULL );
-#if TBB_DEPRECATED
-                    size_t j = v.grow_by(1);
-#else
                     size_t j = v.grow_by(1) - v.begin();
-#endif
                     ASSERT( j==i, NULL );
                     v[j].bar() = int(~j);
                 }
@@ -352,7 +253,7 @@ void CheckIteratorComparison( V& u ) {
 }
 
 template<typename Vector, typename T>
-void TestGrowToAtleastWithSourceParameter(T const& src){
+void TestGrowToAtLeastWithSourceParameter(T const& src){
     static const size_t vector_size = 10;
     Vector v1(vector_size,src);
     Vector v2;
@@ -393,7 +294,7 @@ void TestSequentialFor() {
     for( int i=0; size_t(i)<u.size(); ++i ) {
         CheckConstIterator(u,i,cp);
         V::const_iterator &cpr = ++cp;
-        ASSERT( &cpr == &cp, "preincrement not returning a reference?");
+        ASSERT( &cpr == &cp, "pre-increment not returning a reference?");
     }
     tbb::tick_count t2 = tbb::tick_count::now();
     REMARK("Time for serial for:  assign time = %8.5f, check time = %8.5f\n",
@@ -405,13 +306,13 @@ void TestSequentialFor() {
     for( int i=int(u.size()); i>0; ) {
         --i;
         V::const_iterator &cpr = --cp;
-        ASSERT( &cpr == &cp, "predecrement not returning a reference?");
+        ASSERT( &cpr == &cp, "pre-decrement not returning a reference?");
         if( i>0 ) {
             typename V::const_iterator cp_old = cp--;
-            int here = (*cp_old).bar();
+            intptr_t here = (*cp_old).bar();
             ASSERT( here==u[i].bar(), NULL );
             typename V::const_iterator cp_new = cp++;
-            int prev = (*cp_new).bar();
+            intptr_t prev = (*cp_new).bar();
             ASSERT( prev==u[i-1].bar(), NULL );
         }
         CheckConstIterator(u,i,cp);
@@ -525,9 +426,7 @@ namespace test_grow_to_at_least_helpers {
             for( size_t i=range.begin(); i!=range.end(); ++i ) {
                 size_t n = my_vector.size();
                 size_t req = (i % (2*n+1))+1;
-    #if TBB_DEPRECATED
-                my_vector.grow_to_at_least(req);
-    #else
+
                 typename MyVector::iterator p;
                 Foo::State desired_state;
                 if (my_use_two_args_form){
@@ -539,7 +438,6 @@ namespace test_grow_to_at_least_helpers {
                 }
                 if( p-my_vector.begin() < typename MyVector::difference_type(req) )
                     ASSERT( p->state == desired_state || p->state == Foo::ZeroInitialized, NULL );
-    #endif
                 ASSERT( my_vector.size()>=req, NULL );
             }
         }
@@ -574,120 +472,262 @@ void TestConcurrentGrowToAtLeast() {
     TestConcurrentGrowToAtLeastImpl<false>();
     TestConcurrentGrowToAtLeastImpl<true>();
 }
+
+struct grain_map: NoAssign {
+    enum grow_method_enum {
+        grow_by_range = 1,
+        grow_by_default,
+        grow_by_copy,
+        grow_by_init_list,
+        push_back,
+        push_back_move,
+        emplace_back,
+        last_method
+    };
+
+    struct range_part {
+        size_t number_of_parts;
+        grain_map::grow_method_enum method;
+        bool distribute;
+        Foo::State expected_element_state;
+    };
+
+    const std::vector<range_part> distributed;
+    const std::vector<range_part> batched;
+    const size_t total_number_of_parts;
+
+    grain_map(const range_part* begin, const range_part* end)
+    : distributed(separate(begin,end, &distributed::is_not))
+    , batched(separate(begin,end, &distributed::is_yes))
+    , total_number_of_parts(std::accumulate(begin, end, (size_t)0, &sum_number_of_parts::sum))
+    {}
+
+private:
+    struct sum_number_of_parts{
+        static size_t sum(size_t accumulator, grain_map::range_part const& rp){ return accumulator + rp.number_of_parts;}
+    };
+
+    template <typename functor_t>
+    static std::vector<range_part> separate(const range_part* begin, const range_part* end, functor_t f){
+        std::vector<range_part> part;
+        part.reserve(std::distance(begin,end));
+        //copy all that false==f(*it)
+        std::remove_copy_if(begin, end, std::back_inserter(part), f);
+
+        return part;
+    }
+
+    struct distributed {
+        static bool is_not(range_part const& rp){ return !rp.distribute;}
+        static bool is_yes(range_part const& rp){ return rp.distribute;}
+    };
+};
+
 //! Test concurrent invocations of method concurrent_vector::grow_by
 template<typename MyVector>
 class GrowBy: NoAssign {
     MyVector& my_vector;
+    const grain_map& my_grain_map;
+    size_t my_part_weight;
 public:
-    void operator()( const tbb::blocked_range<int>& range ) const {
+    void operator()( const tbb::blocked_range<size_t>& range ) const {
         ASSERT( range.begin() < range.end(), NULL );
-#if TBB_DEPRECATED
-        for( int i=range.begin(); i!=range.end(); ++i )
-#else
-        const int h = range.size() / 2 ;
-        {
-            const int begin = range.begin();
-            const int left_part = h/2 ;
-            const int right_part = h - left_part;
-            //elements added by this call are counted by copy_inits_by_grow_by_range variable bellow
-            my_vector.grow_by(FooIterator(begin),FooIterator(begin+left_part));
-            //these ones are counted by def_inits_by_grow_by_bunch
-            typename MyVector::iterator const s = my_vector.grow_by(right_part);
-            for( int k = 0; k < right_part; ++k )
-                s[k].bar() = begin + left_part + k;
+
+        size_t current_adding_index_in_cvector = range.begin();
+
+        for(size_t index=0; index < my_grain_map.batched.size(); ++index){
+            const grain_map::range_part& batch_part = my_grain_map.batched[index];
+            const size_t number_of_items_to_add = batch_part.number_of_parts * my_part_weight;
+            const size_t end = current_adding_index_in_cvector + number_of_items_to_add;
+
+            switch(batch_part.method){
+            case grain_map::grow_by_range : {
+                    my_vector.grow_by(FooIterator(current_adding_index_in_cvector),FooIterator(end));
+                } break;
+            case grain_map::grow_by_default : {
+                    typename MyVector::iterator const s = my_vector.grow_by(number_of_items_to_add);
+                    for( size_t k = 0; k < number_of_items_to_add; ++k )
+                        s[k].bar() = current_adding_index_in_cvector + k;
+                } break;
+#if __TBB_INITIALIZER_LISTS_PRESENT
+            case grain_map::grow_by_init_list : {
+                    FooIterator curr(current_adding_index_in_cvector);
+                    for ( size_t k = 0; k < number_of_items_to_add; ++k ) {
+                        if ( k + 4 < number_of_items_to_add ) {
+                            my_vector.grow_by( { *curr++, *curr++, *curr++, *curr++, *curr++ } );
+                            k += 4;
+                        } else {
+                            my_vector.grow_by( { *curr++ } );
+                        }
+                    }
+                    ASSERT( curr == FooIterator(end), NULL );
+                } break;
+#endif
+            default : { ASSERT(false, "using unimplemented method of batch add in ConcurrentGrow test.");} break;
+            };
+
+            current_adding_index_in_cvector = end;
         }
 
-        for(int i=range.begin() + h; i!=range.end(); ++i )
-#endif
-        {
-            if( i&1 ) {//counted by def_inits_by_grow_by_single_odd
-#if TBB_DEPRECATED
-                my_vector[my_vector.grow_by(1)].bar() = i;
-#else
-                my_vector.grow_by(1)->bar() = i;
-#endif
-            } else {// "Even" part
-                typename MyVector::value_type f;
-                f.bar() = i;
-#if TBB_DEPRECATED
-                size_t r;
-#else
-                typename MyVector::iterator r;
-#endif
-                if( i&2 ){
-                    //counted by copy_inits_by_push_back_single_second_bit_set
-                    r = my_vector.push_back( f );
-                }else{
-                    //counted by copy_inits_by_grow_by_single_second_bit_cleared_part
-                    r = my_vector.grow_by(1, f);
-                }
-#if TBB_DEPRECATED
-                ASSERT( my_vector[r].bar()==i, NULL );
-#else
-                ASSERT( r->bar()==i, NULL );
-#endif
+        std::vector<size_t> items_left_to_add(my_grain_map.distributed.size());
+        for (size_t i=0; i<my_grain_map.distributed.size(); ++i ){
+            items_left_to_add[i] = my_grain_map.distributed[i].number_of_parts * my_part_weight;
+        }
+
+        for (;current_adding_index_in_cvector < range.end(); ++current_adding_index_in_cvector){
+            size_t method_index = current_adding_index_in_cvector % my_grain_map.distributed.size();
+
+            if (! items_left_to_add[method_index]) {
+                struct not_zero{
+                    static bool is(size_t items_to_add){ return items_to_add;}
+                };
+                method_index = std::distance(items_left_to_add.begin(), std::find_if(items_left_to_add.begin(), items_left_to_add.end(), &not_zero::is));
+                ASSERT(method_index < my_grain_map.distributed.size(), "incorrect test setup - wrong expected distribution: left free space but no elements to add?");
+            };
+
+            ASSERT(items_left_to_add[method_index], "logic error ?");
+            const grain_map::range_part& distributed_part = my_grain_map.distributed[method_index];
+
+            typename MyVector::iterator r;
+            typename MyVector::value_type source;
+            source.bar() = current_adding_index_in_cvector;
+
+            switch(distributed_part.method){
+            case grain_map::grow_by_default : {
+                    (r = my_vector.grow_by(1))->bar() = current_adding_index_in_cvector;
+                } break;
+            case grain_map::grow_by_copy : {
+                    r = my_vector.grow_by(1, source);
+                } break;
+            case grain_map::push_back : {
+                    r = my_vector.push_back(source);
+                } break;
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+            case grain_map::push_back_move : {
+                    r = my_vector.push_back(std::move(source));
+                } break;
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+            case grain_map::emplace_back : {
+                    r = my_vector.emplace_back(current_adding_index_in_cvector);
+                } break;
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+
+            default : { ASSERT(false, "using unimplemented method of batch add in ConcurrentGrow test.");} break;
+            };
+
+            ASSERT( static_cast<size_t>(r->bar()) == current_adding_index_in_cvector, NULL );
             }
         }
+
+    GrowBy( MyVector& vector, const grain_map& m, size_t part_weight )
+    : my_vector(vector)
+    , my_grain_map(m)
+    , my_part_weight(part_weight)
+    {
     }
-    GrowBy( MyVector& vector ) : my_vector(vector) {}
 };
 
-//! Test concurrent invocations of method concurrent_vector::grow_by
+const grain_map::range_part concurrent_grow_single_range_map [] = {
+//  number_of_parts,         method,             distribute,   expected_element_state
+        {3,           grain_map::grow_by_range,     false,
+                                                            #if  __TBB_CPP11_RVALUE_REF_PRESENT
+                                                                Foo::MoveInitialized
+                                                            #else
+                                                                Foo::CopyInitialized
+                                                            #endif
+        },
+#if __TBB_INITIALIZER_LISTS_PRESENT && !__TBB_CPP11_INIT_LIST_TEMP_OBJS_LIFETIME_BROKEN
+        {1,           grain_map::grow_by_init_list, false,   Foo::CopyInitialized},
+#endif
+        {2,           grain_map::grow_by_default,   false,   Foo::DefaultInitialized},
+        {1,           grain_map::grow_by_default,   true,    Foo::DefaultInitialized},
+        {1,           grain_map::grow_by_copy,      true,    Foo::CopyInitialized},
+        {1,           grain_map::push_back,         true,    Foo::CopyInitialized},
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+        {1,           grain_map::push_back_move,    true,    Foo::MoveInitialized},
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+        {1,           grain_map::emplace_back,      true,    Foo::DirectInitialized},
+#endif // __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+};
+
+//! Test concurrent invocations of grow methods
 void TestConcurrentGrowBy( int nthread ) {
 
     typedef static_counting_allocator<debug_allocator<Foo> > MyAllocator;
     typedef tbb::concurrent_vector<Foo, MyAllocator> MyVector;
 
+#if __TBB_INITIALIZER_LISTS_PRESENT && __TBB_CPP11_INIT_LIST_TEMP_OBJS_LIFETIME_BROKEN
+    static bool is_reported = false;
+    if ( !is_reported ) {
+        REPORT( "Known issue: concurrent tests of grow_by(std::initializer_list) are skipped.\n" );
+        is_reported = true;
+    }
+#endif
+
     MyAllocator::init_counters();
     {
-        static const int grain_size = 100;
-        static const int range_size = grain_size * 8; //this should be grain_size * (power of two) in order to get minimal ranges equal to grain_size
+        grain_map m(concurrent_grow_single_range_map, Harness::end(concurrent_grow_single_range_map));
+
+        static const size_t desired_grain_size = 100;
+
+        static const size_t part_weight = desired_grain_size / m.total_number_of_parts;
+        static const size_t grain_size = part_weight * m.total_number_of_parts;
+        static const size_t number_of_grains = 8; //this should be (power of two) in order to get minimal ranges equal to grain_size
+        static const size_t range_size = grain_size * number_of_grains;
 
         MyAllocator a;
         MyVector v( a );
-        tbb::parallel_for( tbb::blocked_range<int>(0,range_size,grain_size), GrowBy<MyVector>(v), tbb::simple_partitioner() );
+        tbb::parallel_for( tbb::blocked_range<size_t>(0,range_size,grain_size), GrowBy<MyVector>(v, m, part_weight), tbb::simple_partitioner() );
         ASSERT( v.size()==size_t(range_size), NULL );
 
         // Verify that v is a permutation of 0..m
-        int inversions = 0, def_inits = 0, copy_inits = 0;
-        bool  found [range_size] = {0};
-        for( int i=0; i<range_size; ++i ) {
+        size_t inversions = 0, direct_inits = 0, def_inits = 0, copy_inits = 0, move_inits = 0;
+        std::vector<bool> found(range_size, 0);
+        for( size_t i=0; i<range_size; ++i ) {
             if( v[i].state == Foo::DefaultInitialized ) ++def_inits;
+            else if( v[i].state == Foo::DirectInitialized ) ++direct_inits;
             else if( v[i].state == Foo::CopyInitialized ) ++copy_inits;
+            else if( v[i].state == Foo::MoveInitialized ) ++move_inits;
             else {
                 REMARK("i: %d ", i);
                 ASSERT( false, "v[i] seems not initialized");
             }
-            int index = v[i].bar();
+            intptr_t index = v[i].bar();
             ASSERT( !found[index], NULL );
             found[index] = true;
             if( i>0 )
                 inversions += v[i].bar()<v[i-1].bar();
         }
-        for( int i=0; i<range_size; ++i ) {
+        for( size_t i=0; i<range_size; ++i ) {
             ASSERT( found[i], NULL );
-            ASSERT( nthread>1 || v[i].bar()==i, "sequential execution is wrong" );
+            ASSERT( nthread>1 || v[i].bar() == static_cast<intptr_t>(i), "sequential execution is wrong" );
         }
 
-        REMARK("Initialization by default constructor: %d, by copy: %d\n", def_inits, copy_inits);
+        REMARK("Initialization by default constructor: %d, by copy: %d, by move: %d\n", def_inits, copy_inits, move_inits);
 
-#if !TBB_DEPRECATED
-        const int grow_by_bunch_add_part = range_size/2;                                                        //Number of elements added in "Bunch" part above
-#else
-        const int grow_by_bunch_add_part = 0;
-#endif
-        const int single_add_part = range_size - grow_by_bunch_add_part;                                        //Number of elements added in "Single add" part above
+        size_t expected_direct_inits = 0, expected_def_inits = 0, expected_copy_inits = 0, expected_move_inits = 0;
+        for (size_t i=0; i<Harness::array_length(concurrent_grow_single_range_map); ++i){
+            const grain_map::range_part& rp =concurrent_grow_single_range_map[i];
+            switch (rp.expected_element_state){
+            case Foo::DefaultInitialized: { expected_def_inits += rp.number_of_parts ; } break;
+            case Foo::DirectInitialized:  { expected_direct_inits += rp.number_of_parts ;} break;
+            case Foo::MoveInitialized:    { expected_move_inits += rp.number_of_parts ;} break;
+            case Foo::CopyInitialized:    { expected_copy_inits += rp.number_of_parts ;} break;
+            default: {ASSERT(false, "unexpected expected state");}break;
+            };
+        }
 
-        const int copy_inits_by_grow_by_range = grow_by_bunch_add_part/2;                                                                       //Number of elements added by iterator range form of grow_by above
-        const int def_inits_by_grow_by_bunch = grow_by_bunch_add_part - copy_inits_by_grow_by_range;                                            //Number of elements added by single argument form of grow_by
+        expected_def_inits    *= part_weight * number_of_grains;
+        expected_move_inits   *= part_weight * number_of_grains;
+        expected_copy_inits   *= part_weight * number_of_grains;
+        expected_direct_inits *= part_weight * number_of_grains;
 
-        const int def_inits_by_grow_by_single_odd = single_add_part/2;                                                                          //Number of elements added by grow_by(1) for odd indexes
-        const int second_bit_set_part = single_add_part - def_inits_by_grow_by_single_odd;                                                      //Number of elements added by grow_by(1,f) and push_back(f) for even indexes above
-        const int copy_inits_by_push_back_single_second_bit_set = (second_bit_set_part)/2;                                                      //Number of elements added push_back(f) for even indexes above
-        const int copy_inits_by_grow_by_single_second_bit_cleared_part = second_bit_set_part - copy_inits_by_push_back_single_second_bit_set;   //Number of elements added by grow_by(1,f) for even indexes above
-
-        ASSERT( def_inits == def_inits_by_grow_by_bunch + def_inits_by_grow_by_single_odd , NULL);
-        ASSERT( copy_inits == copy_inits_by_grow_by_range + copy_inits_by_push_back_single_second_bit_set + copy_inits_by_grow_by_single_second_bit_cleared_part, NULL );
+        ASSERT( def_inits == expected_def_inits , NULL);
+        ASSERT( copy_inits == expected_copy_inits , NULL);
+        ASSERT( move_inits == expected_move_inits , NULL);
+        ASSERT( direct_inits == expected_direct_inits , NULL);
 
         if( nthread>1 && inversions<range_size/20 )
             REPORT("Warning: not much concurrency in TestConcurrentGrowBy (%d inversions)\n", inversions);
@@ -700,37 +740,54 @@ void TestConcurrentGrowBy( int nthread ) {
     ASSERT( items_allocated == items_freed, NULL);
     ASSERT( allocations == frees, NULL);
 }
-#if !TBB_DEPRECATED
-void TestSerialGrowByRange(bool segmented_vector ){
-    tbb::concurrent_vector<int> v;
-    if (segmented_vector){
-        v.reserve(1);
-    }
-    int init_range[] = {1,2,3,4,5,6,7,8,9,10};
-    v.grow_by(init_range,init_range+(Harness::array_length(init_range)));
-    ASSERT(std::equal(v.begin(),v.end(),init_range),"grow_by(I,I) did not properly copied all elements ?");
+
+template <typename Vector>
+void test_grow_by_empty_range( Vector &v, typename Vector::value_type* range_begin_end ) {
+    const Vector v_copy = v;
+    ASSERT( v.grow_by( range_begin_end, range_begin_end ) == v.end(), "grow_by(empty_range) returned a wrong iterator." );
+    ASSERT( v == v_copy, "grow_by(empty_range) has changed the vector." );
 }
-#endif //!TBB_DEPRECATED
+
+void TestSerialGrowByRange( bool segmented_vector ) {
+    tbb::concurrent_vector<int> v;
+    if ( segmented_vector ) {
+        v.reserve( 1 );
+    }
+    int init_range[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+    ASSERT( v.grow_by( init_range, init_range + (Harness::array_length( init_range )) ) == v.begin(), "grow_by(I,I) returned a wrong iterator." );
+    ASSERT( std::equal( v.begin(), v.end(), init_range ), "grow_by(I,I) did not properly copied all elements ?" );
+    test_grow_by_empty_range( v, init_range );
+    test_grow_by_empty_range( v, (int*)NULL );
+}
+
 //TODO: move this to more appropriate place, smth like test_harness.cpp
 void TestArrayLength(){
-    int five_elementh_array[5] = {0};
-    ASSERT(Harness::array_length(five_elementh_array)==5,"array_length failed to determine length of non empty non dynamic array");
+    int five_element_array[5] = {0};
+    ASSERT(Harness::array_length(five_element_array)==5,"array_length failed to determine length of non empty non dynamic array");
 }
 
 #if __TBB_INITIALIZER_LISTS_PRESENT
 #include "test_initializer_list.h"
 
-void TestInitList(){
-    REMARK("testing initializer_list methods \n");
+struct test_grow_by {
+    template<typename container_type, typename element_type>
+    static void do_test( std::initializer_list<element_type> const& il, container_type const& expected ) {
+        container_type vd;
+        vd.grow_by( il );
+        ASSERT( vd == expected, "grow_by with an initializer list failed" );
+    }
+};
+
+void TestInitList() {
+    REMARK( "testing initializer_list methods \n" );
     using namespace initializer_list_support_tests;
-    TestInitListSupport<tbb::concurrent_vector<char> >({1,2,3,4,5});
-    TestInitListSupport<tbb::concurrent_vector<int> >({});
+    TestInitListSupport<tbb::concurrent_vector<char>, test_grow_by>( { 1, 2, 3, 4, 5 } );
+    TestInitListSupport<tbb::concurrent_vector<int>, test_grow_by>( {} );
 }
 #endif //if __TBB_INITIALIZER_LISTS_PRESENT
 
 #if __TBB_RANGE_BASED_FOR_PRESENT
 #include "test_range_based_for.h"
-#include <functional>
 
 void TestRangeBasedFor(){
     using namespace range_based_for_support_tests;
@@ -747,6 +804,51 @@ void TestRangeBasedFor(){
     ASSERT( range_based_for_accumulate(a_c_vector, std::plus<int>(), 0) == gauss_summ_of_int_sequence(sequence_length), "incorrect accumulated value generated via range based for ?");
 }
 #endif //if __TBB_RANGE_BASED_FOR_PRESENT
+
+#if TBB_USE_EXCEPTIONS
+#endif //TBB_USE_EXCEPTIONS
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+namespace move_semantics_helpers{
+    struct move_only_type:NoCopy{
+        const int* my_pointer;
+        move_only_type(move_only_type && other): my_pointer(other.my_pointer){other.my_pointer=NULL;}
+        explicit move_only_type(const int* value): my_pointer(value) {}
+    };
+}
+
+void TestPushBackMoveOnlyContainee(){
+    using namespace move_semantics_helpers;
+    typedef tbb::concurrent_vector<move_only_type > vector_t;
+    vector_t v;
+    static const int magic_number =7;
+    move_only_type src(&magic_number);
+    v.push_back(std::move(src));
+    ASSERT(v[0].my_pointer == &magic_number,"item was incorrectly moved during push_back?");
+    ASSERT(src.my_pointer == NULL,"item was incorrectly moved during push_back?");
+}
+
+namespace emplace_helpers{
+    struct wrapper_type:NoCopy{
+        int value1;
+        int value2;
+        explicit wrapper_type(int v1, int v2) : value1 (v1), value2(v2) {}
+        friend bool operator==(const wrapper_type& lhs, const wrapper_type& rhs){
+            return (lhs.value1 == rhs.value1) && (lhs.value2 == rhs.value2 );
+        }
+    };
+}
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+//TODO: extend the test to number of types e.g. std::string
+void TestEmplaceBack(){
+    using namespace emplace_helpers;
+    typedef tbb::concurrent_vector<wrapper_type > vector_t;
+    vector_t v;
+    v.emplace_back(1,2);
+    ASSERT(v[0] == wrapper_type(1,2),"incorrectly in-place constructed item during emplace_back?");
+}
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
 
 //! Test the assignment operator and swap
 void TestAssign() {
@@ -787,6 +889,35 @@ void TestAssign() {
     }
 }
 
+struct c_vector_type : default_container_traits {
+    template<typename element_type, typename allocator_type>
+    struct apply{
+        typedef tbb::concurrent_vector<element_type,  allocator_type > type;
+    };
+
+    typedef FooIterator init_iterator_type;
+    enum{ expected_number_of_items_to_allocate_for_steal_move = 0 };
+
+    template<typename element_type, typename allocator_type, typename iterator>
+    static bool equal(tbb::concurrent_vector<element_type, allocator_type > const& c, iterator begin, iterator end){
+        bool equal_sizes = (size_t)std::distance(begin, end) == c.size();
+        return  equal_sizes && std::equal(c.begin(), c.end(), begin);
+    }
+};
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+void TestSerialGrowByWithMoveIterators(){
+    typedef default_stateful_fixture_make_helper<c_vector_type>::type fixture_t;
+    typedef fixture_t::container_t vector_t;
+
+    fixture_t fixture("TestSerialGrowByWithMoveIterators");
+
+    vector_t dst(fixture.dst_allocator);
+    dst.grow_by(std::make_move_iterator(fixture.source.begin()), std::make_move_iterator(fixture.source.end()));
+
+    fixture.verify_content_deep_moved(dst);
+}
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
 // Test the comparison operators
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
@@ -848,11 +979,7 @@ public:
     void operator()( const tbb::blocked_range<Number>& r ) const {
         for( Number i=r.begin(); i!=r.end(); ++i ) {
             if( i%2 && is_prime(i) ) {
-#if TBB_DEPRECATED
-                Primes[Primes.grow_by(1)] = i;
-#else
                 Primes.push_back( i );
-#endif
             }
         }
     }
@@ -907,6 +1034,62 @@ void TestSort() {
 }
 
 #if TBB_USE_EXCEPTIONS
+
+template<typename c_vector>
+size_t get_early_size(c_vector & v){
+      return v.grow_by(0) - v.begin();
+}
+
+void verify_c_vector_size(size_t size, size_t capacity, size_t early_size, const char * const test_name){
+    ASSERT_IN_TEST( size <= capacity, "", test_name);
+    ASSERT_IN_TEST( early_size >= size, "", test_name);
+}
+
+template<typename c_vector_t>
+void verify_c_vector_size(c_vector_t & c_v, const char * const test_name){
+    verify_c_vector_size(c_v.size(), c_v.capacity(), get_early_size(c_v), test_name);
+}
+
+void verify_c_vector_capacity_is_below(size_t capacity, size_t high, const char * const test_name){
+    ASSERT_IN_TEST(capacity > 0, "unexpected capacity", test_name);
+    ASSERT_IN_TEST(capacity < high, "unexpected capacity", test_name);
+}
+
+template<typename vector_t>
+void verify_last_segment_allocation_failed(vector_t const& victim, const char* const test_name){
+    ASSERT_THROWS_IN_TEST(victim.at(victim.size()), std::range_error, "",test_name );
+}
+
+template<typename vector_t>
+void verify_assignment_operator_throws_bad_last_alloc(vector_t & victim, const char* const test_name){
+    vector_t copy_of_victim(victim, victim.get_allocator());
+    ASSERT_THROWS_IN_TEST(victim = copy_of_victim, tbb::bad_last_alloc, "", test_name);
+}
+
+template<typename vector_t>
+void verify_copy_and_assign_from_produce_the_same(vector_t const& victim, const char* const test_name){
+    //TODO: remove explicit copy of allocator when full support of C++11 allocator_traits in concurrent_vector is present
+    vector_t copy_of_victim(victim, victim.get_allocator());
+    ASSERT_IN_TEST(copy_of_victim == victim, "copy doesn't match original", test_name);
+    vector_t copy_of_victim2(10, victim[0], victim.get_allocator());
+    copy_of_victim2 = victim;
+    ASSERT_IN_TEST(copy_of_victim == copy_of_victim2, "assignment doesn't match copying", test_name);
+}
+
+template<typename allocator_t>
+void verify_vector_partially_copied(
+        tbb::concurrent_vector<FooWithAssign, allocator_t> const& victim, size_t planned_victim_size,
+        tbb::concurrent_vector<FooWithAssign, allocator_t> const& src,  bool is_memory_allocation_failure ,const char* const test_name)
+{
+    if (is_memory_allocation_failure) { // allocator generated exception
+        typedef tbb::concurrent_vector<FooWithAssign, allocator_t> vector_t;
+        ASSERT_IN_TEST( victim == vector_t(src.begin(), src.begin() + victim.size(), src.get_allocator()), "failed to properly copy of source ?", test_name );
+    }else{
+        ASSERT_IN_TEST( std::equal(victim.begin(), victim.begin() + planned_victim_size, src.begin()), "failed to properly copy items before the exception?", test_name );
+        ASSERT_IN_TEST( ::all_of( victim.begin() + planned_victim_size, victim.end(), &is_state<Foo::ZeroInitialized> ), "failed to zero-initialize items left not constructed after the exception?", test_name );
+    }
+}
+
 //------------------------------------------------------------------------
 // Test exceptions safety (from allocator and items constructors)
 //------------------------------------------------------------------------
@@ -916,7 +1099,7 @@ void TestExceptions() {
 
     enum methods {
         zero_method = 0,
-        ctor_copy, ctor_size, assign_nt, assign_ir, op_equ, reserve, compact, grow,
+        ctor_copy, ctor_size, assign_nt, assign_ir, reserve, compact,
         all_methods
     };
     ASSERT( !FooCount, NULL );
@@ -927,7 +1110,8 @@ void TestExceptions() {
         for(int t = 0; t < 2; ++t) // exception type
         for(int m = zero_method+1; m < all_methods; ++m)
         {
-            ASSERT( FooCount == N, "Previous iteration miss some Foo's de-/initialization" );
+            track_foo_count<__LINE__> check_all_foo_destroyed_on_exit("TestExceptions");
+            track_allocator_memory<allocator_t> verify_no_leak_at_exit("TestExceptions");
             allocator_t::init_counters();
             if(t) MaxFooCount = FooCount + N/4;
             else allocator_t::set_limits(N/4);
@@ -947,9 +1131,6 @@ void TestExceptions() {
                 case assign_ir: {
                         victim.assign(FooIterator(0), FooIterator(N));
                     } break;
-                case op_equ: {
-                        victim.reserve(2); victim = src; // fragmented assignment
-                    } break;
                 case reserve: {
                         try {
                             victim.reserve(victim.max_size()+1);
@@ -965,19 +1146,6 @@ void TestExceptions() {
                         if(t) MaxFooCount = FooCount + 10; else allocator_t::set_limits(1, false); // block any allocation, check NULL return from allocator
                         victim.shrink_to_fit(); // should start defragmenting first segment
                     } break;
-                case grow: {
-                        tbb::task_scheduler_init init(2);
-                        if(t) MaxFooCount = FooCount + 31; // these numbers help to reproduce the live lock for versions < TBB2.2
-                        try {
-                            tbb::parallel_for( tbb::blocked_range<int>(0, N, 70), GrowBy<vector_t>(victim) );
-                        } catch(...) {
-#if TBB_USE_CAPTURED_EXCEPTION
-                            throw tbb::bad_last_alloc();
-#else
-                            throw;
-#endif
-                        }
-                    } break;
                 default:;
                 }
                 if(!t || m != reserve) ASSERT(false, "should throw an exception");
@@ -985,13 +1153,11 @@ void TestExceptions() {
                 allocator_t::set_limits(); MaxFooCount = 0;
                 size_t capacity = victim.capacity();
                 size_t size = victim.size();
-#if TBB_DEPRECATED
-                size_t req_size = victim.grow_by(0);
-#else
-                size_t req_size = victim.grow_by(0) - victim.begin();
-#endif
-                ASSERT( size <= capacity, NULL);
-                ASSERT( req_size >= size, NULL);
+
+                size_t req_size = get_early_size(victim);
+
+                verify_c_vector_size(size, capacity, req_size, "TestExceptions");
+
                 switch(m) {
                 case reserve:
                     if(t) ASSERT(false, NULL);
@@ -1012,45 +1178,6 @@ void TestExceptions() {
                         ASSERT(size_t(i) == size, NULL);
                         break;
                     }
-                case grow:
-                case op_equ:
-                    if(!t) {
-                        ASSERT(capacity > 0, NULL);
-                        ASSERT(capacity < N, "unexpected capacity");
-                    }
-                    {
-                        vector_t copy_of_victim(victim);
-                        ASSERT(copy_of_victim.size() > 0, NULL);
-                        for(int i = 0; ; ++i) {
-                            try {
-                                FooWithAssign &foo = victim.at(i);
-                                if( !foo.is_valid_or_zero() ) {
-                                    std::printf("i: %d size: %u req_size: %u  state: %d\n", i, unsigned(size), unsigned(req_size), foo.state);
-                                }
-                                int bar = foo.zero_bar();
-                                if(m != grow) ASSERT( bar == i || (t && bar == 0), NULL);
-                                if(size_t(i) < copy_of_victim.size()) ASSERT( copy_of_victim[i].bar() == bar, NULL);
-                            } catch(std::range_error &) { // skip broken segment
-                                ASSERT( size_t(i) < req_size, NULL );
-                                if(m == op_equ) break;
-                            } catch(std::out_of_range &){
-                                ASSERT( i > 0, NULL ); break;
-                            } catch(...) {
-                                KNOWN_ISSUE("ERROR: unrecognized exception - known compiler issue\n"); break;
-                            }
-                        }
-                        vector_t copy_of_victim2(10); copy_of_victim2 = victim;
-                        ASSERT(copy_of_victim == copy_of_victim2, "assignment doesn't match copying");
-                        if(m == op_equ) {
-                            try {
-                                victim = copy_of_victim2;
-                            } catch(tbb::bad_last_alloc &) { break;
-                            } catch(...) {
-                                KNOWN_ISSUE("ERROR: unrecognized exception - known compiler issue\n"); break;
-                            }
-                            ASSERT(t, NULL);
-                        }
-                    } break;
                 case compact:
                     ASSERT(capacity > 0, "unexpected capacity");
                     ASSERT(victim == src, "shrink_to_fit() is broken");
@@ -1065,6 +1192,239 @@ void TestExceptions() {
         ASSERT(false, "unexpected exception");
     }
 }
+
+//TODO: split into two separate tests
+//TODO: remove code duplication in exception safety tests
+void TestExceptionSafetyGuaranteesForAssignOperator(){
+    //TODO: use __FUNCTION__ for test name
+    const char* const test_name = "TestExceptionSafetyGuaranteesForAssignOperator";
+    typedef static_counting_allocator<debug_allocator<FooWithAssign>, std::size_t> allocator_t;
+    typedef tbb::concurrent_vector<FooWithAssign, allocator_t> vector_t;
+
+    track_foo_count<__LINE__> check_all_foo_destroyed_on_exit(test_name);
+    track_allocator_memory<allocator_t> verify_no_leak_at_exit(test_name);
+
+    vector_t src(FooIterator(0), FooIterator(N)); // original data
+
+    const size_t planned_victim_size = N/4;
+
+    for(int t = 0; t < 2; ++t) {// exception type
+        vector_t victim;
+        victim.reserve(2); // get fragmented assignment
+
+        ASSERT_THROWS_IN_TEST(
+            {
+                limit_foo_count_in_scope foo_limit(FooCount + planned_victim_size, t);
+                limit_allocated_items_in_scope<allocator_t> allocator_limit(allocator_t::items_allocated + planned_victim_size, !t);
+
+                victim = src; // fragmented assignment
+            },
+            std::bad_alloc, "", test_name
+        );
+
+        verify_c_vector_size(victim, test_name);
+
+        if(!t) {
+            verify_c_vector_capacity_is_below(victim.capacity(), N, test_name);
+        }
+
+        verify_vector_partially_copied(victim, planned_victim_size, src, !t, test_name);
+        verify_last_segment_allocation_failed(victim, test_name);
+        verify_copy_and_assign_from_produce_the_same(victim, test_name);
+        verify_assignment_operator_throws_bad_last_alloc(victim, test_name);
+    }
+}
+//TODO: split into two separate tests
+void TestExceptionSafetyGuaranteesForConcurrentGrow(){
+    const char* const test_name = "TestExceptionSafetyGuaranteesForConcurrentGrow";
+    typedef static_counting_allocator<debug_allocator<FooWithAssign>, std::size_t> allocator_t;
+    typedef tbb::concurrent_vector<FooWithAssign, allocator_t> vector_t;
+
+    track_foo_count<__LINE__> check_all_foo_destroyed_on_exit(test_name);
+    track_allocator_memory<allocator_t> verify_no_leak_at_exit(test_name);
+
+    vector_t src(FooIterator(0), FooIterator(N)); // original data
+
+    const size_t planned_victim_size = N/4;
+    static const int grain_size = 70;
+
+    tbb::task_scheduler_init init(2);
+
+    for(int t = 0; t < 2; ++t) {// exception type
+        vector_t victim;
+
+#if TBB_USE_CAPTURED_EXCEPTION
+        #define EXPECTED_EXCEPTION    tbb::captured_exception
+#else
+        #define EXPECTED_EXCEPTION    std::bad_alloc
+#endif
+
+        ASSERT_THROWS_IN_TEST(
+            {
+                limit_foo_count_in_scope foo_limit(FooCount +  31, t); // these numbers help to reproduce the live lock for versions < TBB2.2
+                limit_allocated_items_in_scope<allocator_t> allocator_limit(allocator_t::items_allocated + planned_victim_size, !t);
+
+                grain_map m(concurrent_grow_single_range_map, Harness::end(concurrent_grow_single_range_map));
+
+                static const size_t part_weight =  grain_size / m.total_number_of_parts;
+
+                tbb::parallel_for(
+                        tbb::blocked_range<size_t>(0, N, grain_size),
+                        GrowBy<vector_t>(victim, m, part_weight)
+                );
+            },
+            EXPECTED_EXCEPTION, "", test_name
+        );
+
+        verify_c_vector_size(victim, test_name);
+
+        if(!t) {
+            verify_c_vector_capacity_is_below(victim.capacity(), N, test_name);
+        }
+
+        for(int i = 0; ; ++i) {
+            try {
+                Foo &foo = victim.at(i);
+                ASSERT( foo.is_valid_or_zero(),"" );
+            } catch(std::range_error &) { // skip broken segment
+                ASSERT( size_t(i) < get_early_size(victim), NULL );
+            } catch(std::out_of_range &){
+                ASSERT( i > 0, NULL ); break;
+            } catch(...) {
+                KNOWN_ISSUE("ERROR: unrecognized exception - known compiler issue\n"); break;
+            }
+        }
+
+        verify_copy_and_assign_from_produce_the_same(victim, test_name);
+    }
+}
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+void TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorMemoryFailure(){
+    const char* const test_name = "TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorMemoryFailure";
+
+    //TODO: add ability to inject debug_allocator into stateful_allocator_fixture::allocator_t
+    //typedef static_counting_allocator<debug_allocator<FooWithAssign>, std::size_t> allocator_t;
+    typedef default_stateful_fixture_make_helper<c_vector_type, Harness::false_type>::type fixture_t;
+    typedef arena_allocator_fixture<FooWithAssign, Harness::false_type> arena_allocator_fixture_t;
+    typedef fixture_t::allocator_t allocator_t;
+    typedef fixture_t::container_t vector_t;
+
+    fixture_t fixture(test_name);
+    arena_allocator_fixture_t arena_allocator_fixture(4 * fixture.container_size);
+
+    const size_t allocation_limit = fixture.container_size/4;
+
+    vector_t victim(arena_allocator_fixture.allocator);
+    victim.reserve(2); // get fragmented assignment
+
+    ASSERT_THROWS_IN_TEST(
+        {
+            limit_allocated_items_in_scope<allocator_t> allocator_limit(allocator_t::items_allocated + allocation_limit);
+            victim = std::move(fixture.source); // fragmented assignment
+        },
+        std::bad_alloc, "", test_name
+    );
+
+    verify_c_vector_size(victim, test_name);
+    verify_c_vector_capacity_is_below(victim.capacity(), allocation_limit + 2, test_name);
+
+    fixture.verify_part_of_content_deep_moved(victim, victim.size());
+
+    verify_last_segment_allocation_failed(victim, test_name);
+    verify_copy_and_assign_from_produce_the_same(victim, test_name);
+    verify_assignment_operator_throws_bad_last_alloc(victim, test_name);
+}
+
+void TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorExceptionInElementCtor(){
+    const char* const test_name = "TestExceptionSafetyGuaranteesForMoveAssignOperator";
+    //typedef static_counting_allocator<debug_allocator<FooWithAssign>, std::size_t> allocator_t;
+    typedef default_stateful_fixture_make_helper<c_vector_type, Harness::false_type>::type fixture_t;
+    typedef arena_allocator_fixture<FooWithAssign, Harness::false_type> arena_allocator_fixture_t;
+    typedef fixture_t::container_t vector_t;
+
+    fixture_t fixture(test_name);
+    const size_t planned_victim_size = fixture.container_size/4;
+    arena_allocator_fixture_t arena_allocator_fixture(4 * fixture.container_size);
+
+    vector_t victim(arena_allocator_fixture.allocator);
+    victim.reserve(2); // get fragmented assignment
+
+    ASSERT_THROWS_IN_TEST(
+        {
+            limit_foo_count_in_scope foo_limit(FooCount + planned_victim_size);
+            victim = std::move(fixture.source); // fragmented assignment
+        },
+        std::bad_alloc, "", test_name
+    );
+
+    verify_c_vector_size(victim, test_name);
+
+    fixture.verify_part_of_content_deep_moved(victim, planned_victim_size);
+
+    verify_last_segment_allocation_failed(victim, test_name);
+    verify_copy_and_assign_from_produce_the_same(victim, test_name);
+    verify_assignment_operator_throws_bad_last_alloc(victim, test_name);
+}
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+
+namespace push_back_exception_safety_helpers{
+    //TODO: remove code duplication with emplace_helpers::wrapper_type
+    struct throwing_foo:Foo{
+        int value1;
+        int value2;
+        explicit throwing_foo(int v1, int v2) : value1 (v1), value2(v2) {        }
+    };
+
+    template< typename foo_t = throwing_foo>
+    struct fixture{
+        typedef tbb::concurrent_vector<foo_t, debug_allocator<foo_t> > vector_t;
+        vector_t v;
+
+        void test( void(*p_test)(vector_t&), const char * test_name){
+            track_foo_count<__LINE__> verify_no_foo_leaked_during_exception(test_name);
+            ASSERT_IN_TEST(v.empty(),"incorrect test setup?", test_name );
+            ASSERT_THROWS_IN_TEST(p_test(v), Foo_exception ,"", test_name);
+            ASSERT_IN_TEST(is_state<Foo::ZeroInitialized>(v[0]),"incorrectly filled item during exception in emplace_back?", test_name);
+        }
+    };
+}
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+void TestPushBackMoveExceptionSafety(){
+    typedef push_back_exception_safety_helpers::fixture<Foo> fixture_t;
+    fixture_t t;
+
+    limit_foo_count_in_scope foo_limit(FooCount + 1);
+
+    struct test{
+        static void test_move_push_back(fixture_t::vector_t& v){
+            Foo f;
+            v.push_back(std::move(f));
+        }
+    };
+    t.test(&test::test_move_push_back, "TestPushBackMoveExceptionSafety");
+}
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+void TestEmplaceBackExceptionSafety(){
+    typedef push_back_exception_safety_helpers::fixture<> fixture_t;
+    fixture_t t;
+
+    Foo dummy; //make FooCount non zero;
+    Harness::suppress_unused_warning(dummy);
+    limit_foo_count_in_scope foo_limit(FooCount);
+
+    struct test{
+        static void test_emplace(fixture_t::vector_t& v){
+            v.emplace_back(1,2);
+        }
+    };
+    t.test(&test::test_emplace, "TestEmplaceBackExceptionSafety");
+}
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+
 #endif /* TBB_USE_EXCEPTIONS */
 
 //------------------------------------------------------------------------
@@ -1140,31 +1500,206 @@ void TestV3BackwardCompatibility(){
     TestInternalSegmentsTableLayout();
 }
 
+#include "harness_defs.h"
+
+#include <vector>
+#include <numeric>
+#include <functional>
+
+// The helper to run a test only when a default construction is present.
+template <bool default_construction_present> struct do_default_construction_test {
+    template<typename FuncType> void operator() ( FuncType func ) const { func(); }
+};
+template <> struct do_default_construction_test<false> {
+    template<typename FuncType> void operator()( FuncType ) const {}
+};
+
+template <typename Type, typename Allocator>
+class test_grow_by_and_resize : NoAssign {
+    tbb::concurrent_vector<Type, Allocator> &my_c;
+public:
+    test_grow_by_and_resize( tbb::concurrent_vector<Type, Allocator> &c ) : my_c(c) {}
+    void operator()() const {
+        const typename tbb::concurrent_vector<Type, Allocator>::size_type sz = my_c.size();
+        my_c.grow_by( 5 );
+        ASSERT( my_c.size() == sz + 5, NULL );
+        my_c.resize( sz );
+        ASSERT( my_c.size() == sz, NULL );
+    }
+};
+
+template <typename Type, typename Allocator>
+void CompareVectors( const tbb::concurrent_vector<Type, Allocator> &c1, const tbb::concurrent_vector<Type, Allocator> &c2 ) {
+    ASSERT( !(c1 == c2) && c1 != c2, NULL );
+    ASSERT( c1 <= c2 && c1 < c2 && c2 >= c1 && c2 > c1, NULL );
+}
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT
+template <typename Type, typename Allocator>
+void CompareVectors( const tbb::concurrent_vector<std::weak_ptr<Type>, Allocator> &, const tbb::concurrent_vector<std::weak_ptr<Type>, Allocator> & ) {
+    /* do nothing for std::weak_ptr */
+}
+#endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
+
+template <bool default_construction_present, typename Type, typename Allocator>
+void Examine( tbb::concurrent_vector<Type, Allocator> c, const std::vector<Type> &vec ) {
+    typedef tbb::concurrent_vector<Type, Allocator> vector_t;
+    typedef typename vector_t::size_type size_type_t;
+
+    ASSERT( c.size() == vec.size(), NULL );
+    for ( size_type_t i=0; i<c.size(); ++i ) ASSERT( Harness::IsEqual()(c[i], vec[i]), NULL );
+    do_default_construction_test<default_construction_present>()(test_grow_by_and_resize<Type,Allocator>(c));
+    c.grow_by( size_type_t(5), c[0] );
+    c.grow_to_at_least( c.size()+5, c.at(0) );
+    vector_t c2;
+    c2.reserve( 5 );
+    std::copy( c.begin(), c.begin() + 5, std::back_inserter( c2 ) );
+
+    c.grow_by( c2.begin(), c2.end() );
+    ASSERT( Harness::IsEqual()(c.front(), *(c2.rend()-1)), NULL );
+    ASSERT( Harness::IsEqual()(c.back(), *c2.rbegin()), NULL);
+    ASSERT( Harness::IsEqual()(*c.cbegin(), *(c.crend()-1)), NULL );
+    ASSERT( Harness::IsEqual()(*(c.cend()-1), *c.crbegin()), NULL );
+    c.swap( c2 );
+    ASSERT( c.size() == 5, NULL );
+    CompareVectors( c, c2 );
+    c.swap( c2 );
+    c2.clear();
+    ASSERT( c2.size() == 0, NULL );
+    c2.shrink_to_fit();
+    Allocator a = c.get_allocator();
+    a.deallocate( a.allocate(1), 1 );
+}
+
+template <typename Type>
+class test_default_construction : NoAssign {
+    const std::vector<Type> &my_vec;
+public:
+    test_default_construction( const std::vector<Type> &vec ) : my_vec(vec) {}
+    void operator()() const {
+        // Construction with initial size specified by argument n.
+        tbb::concurrent_vector<Type> c7( my_vec.size() );
+        std::copy( my_vec.begin(), my_vec.end(), c7.begin() );
+        Examine</*default_construction_present = */true>( c7, my_vec );
+        tbb::concurrent_vector< Type, debug_allocator<Type> > c8( my_vec.size() );
+        std::copy( c7.begin(), c7.end(), c8.begin() );
+        Examine</*default_construction_present = */true>( c8, my_vec );
+    }
+};
+
+template <bool default_construction_present, typename Type>
+void TypeTester( const std::vector<Type> &vec ) {
+    __TBB_ASSERT( vec.size() >= 5, "Array should have at least 5 elements" );
+    // Construct empty vector.
+    tbb::concurrent_vector<Type> c1;
+    std::copy( vec.begin(), vec.end(), std::back_inserter(c1) );
+    Examine<default_construction_present>( c1, vec );
+#if __TBB_INITIALIZER_LISTS_PRESENT
+    // Constructor from initializer_list.
+    tbb::concurrent_vector<Type> c2({vec[0],vec[1],vec[2]});
+    std::copy( vec.begin()+3, vec.end(), std::back_inserter(c2) );
+    Examine<default_construction_present>( c2, vec );
+#endif
+    // Copying constructor.
+    tbb::concurrent_vector<Type> c3(c1);
+    Examine<default_construction_present>( c3, vec );
+    // Construct with non-default allocator
+    tbb::concurrent_vector< Type, debug_allocator<Type> > c4;
+    std::copy( vec.begin(), vec.end(), std::back_inserter(c4) );
+    Examine<default_construction_present>( c4, vec );
+    // Copying constructor for vector with different allocator type.
+    tbb::concurrent_vector<Type> c5(c4);
+    Examine<default_construction_present>( c5, vec );
+    tbb::concurrent_vector< Type, debug_allocator<Type> > c6(c3);
+    Examine<default_construction_present>( c6, vec );
+    // Construction with initial size specified by argument n.
+    do_default_construction_test<default_construction_present>()(test_default_construction<Type>(vec));
+    // Construction with initial size specified by argument n, initialization by copying of t, and given allocator instance.
+    debug_allocator<Type> allocator;
+    tbb::concurrent_vector< Type, debug_allocator<Type> > c9(vec.size(), vec[1], allocator);
+    Examine<default_construction_present>( c9, std::vector<Type>(vec.size(), vec[1]) );
+    // Construction with copying iteration range and given allocator instance.
+    tbb::concurrent_vector< Type, debug_allocator<Type> > c10(c1.begin(), c1.end(), allocator);
+    Examine<default_construction_present>( c10, vec );
+    tbb::concurrent_vector<Type> c11(vec.begin(), vec.end());
+    Examine<default_construction_present>( c11, vec );
+}
+
+void TestTypes() {
+    const int NUMBER = 100;
+
+    std::vector<int> intArr;
+    for ( int i=0; i<NUMBER; ++i ) intArr.push_back(i);
+    TypeTester</*default_construction_present = */true>( intArr );
+
+#if __TBB_CPP11_REFERENCE_WRAPPER_PRESENT
+    std::vector< std::reference_wrapper<int> > refArr;
+    // The constructor of std::reference_wrapper<T> from T& is explicit in some versions of libstdc++.
+    for ( int i=0; i<NUMBER; ++i ) refArr.push_back( std::reference_wrapper<int>(intArr[i]) );
+    TypeTester</*default_construction_present = */false>( refArr );
+#else
+    REPORT( "Known issue: C++11 reference wrapper tests are skipped.\n" );
+#endif /* __TBB_CPP11_REFERENCE_WRAPPER_PRESENT */
+
+    std::vector< tbb::atomic<int> > tbbIntArr( NUMBER );
+    for ( int i=0; i<NUMBER; ++i ) tbbIntArr[i] = i;
+    TypeTester</*default_construction_present = */true>( tbbIntArr );
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT
+    std::vector< std::shared_ptr<int> > shrPtrArr;
+    for ( int i=0; i<NUMBER; ++i ) shrPtrArr.push_back( std::make_shared<int>(i) );
+    TypeTester</*default_construction_present = */true>( shrPtrArr );
+
+    std::vector< std::weak_ptr<int> > wkPtrArr;
+    std::copy( shrPtrArr.begin(), shrPtrArr.end(), std::back_inserter(wkPtrArr) );
+    TypeTester</*default_construction_present = */true>( wkPtrArr );
+#else
+    REPORT( "Known issue: C++11 smart pointer tests are skipped.\n" );
+#endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
+}
+
 int TestMain () {
     if( MinThread<1 ) {
         REPORT("ERROR: MinThread=%d, but must be at least 1\n",MinThread); MinThread = 1;
     }
+    TestFoo();
     TestV3BackwardCompatibility();
-#if !TBB_DEPRECATED
     TestIteratorTraits<tbb::concurrent_vector<Foo>::iterator,Foo>();
     TestIteratorTraits<tbb::concurrent_vector<Foo>::const_iterator,const Foo>();
     TestArrayLength();
+    TestAllOf();
 #if __TBB_INITIALIZER_LISTS_PRESENT
     TestInitList();
+#else
+    REPORT("Known issue: initializer list tests are skipped.\n");
 #endif
     TestSequentialFor<FooWithAssign> ();
     TestResizeAndCopy();
     TestAssign();
-    TestGrowToAtleastWithSourceParameter<tbb::concurrent_vector<int> >(12345);
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    TestMoveConstructor<c_vector_type>();
+    TestMoveAssignOperator<c_vector_type>();
+    TestConstructorWithMoveIterators<c_vector_type>();
+    TestAssignWithMoveIterators<c_vector_type>();
+    TestSerialGrowByWithMoveIterators();
+#else
+    REPORT("Known issue: tests for vector move constructor/assignment operator are skipped.\n");
+#endif
+    TestGrowToAtLeastWithSourceParameter<tbb::concurrent_vector<int> >(12345);
     TestSerialGrowByRange(false);
     TestSerialGrowByRange(true);
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    TestPushBackMoveOnlyContainee();
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    TestEmplaceBack();
+#endif  //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif  //__TBB_CPP11_RVALUE_REF_PRESENT
 #if HAVE_m128
     TestVectorTypes<ClassWithSSE>();
 #endif
 #if HAVE_m256
     if (have_AVX()) TestVectorTypes<ClassWithAVX>();
 #endif
-#endif /* !TBB_DEPRECATED */
     TestCapacity();
     ASSERT( !FooCount, NULL );
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
@@ -1174,7 +1709,6 @@ int TestMain () {
         TestConcurrentGrowBy( nthread );
     }
     ASSERT( !FooCount, NULL );
-#if !TBB_DEPRECATED
     TestComparison();
     TestFindPrimes();
     TestSort();
@@ -1185,9 +1719,26 @@ int TestMain () {
     REPORT("Known issue: exception safety test is skipped.\n");
 #elif TBB_USE_EXCEPTIONS
     TestExceptions();
+    TestExceptionSafetyGuaranteesForAssignOperator();
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    TestExceptionSafetyGuaranteesMoveConstructorWithUnEqualAllocatorMemoryFailure<c_vector_type>();
+    TestExceptionSafetyGuaranteesMoveConstructorWithUnEqualAllocatorExceptionInElementCtor<c_vector_type>();
+    TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorMemoryFailure();
+    TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorExceptionInElementCtor();
+    TestPushBackMoveExceptionSafety();    
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    TestEmplaceBackExceptionSafety();
+#endif /*__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT */
+#else
+    REPORT("Known issue: exception safety tests for move constructor/assignment operator , grow_by are skipped.\n");
+#endif /*__TBB_CPP11_RVALUE_REF_PRESENT */
 #endif /* TBB_USE_EXCEPTIONS */
-#endif /* !TBB_DEPRECATED */
+    TestTypes();
     ASSERT( !FooCount, NULL );
     REMARK("sizeof(concurrent_vector<int>) == %d\n", (int)sizeof(tbb::concurrent_vector<int>));
     return Harness::Done;
 }
+
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+    #pragma warning (pop)
+#endif // warning 4800 is back

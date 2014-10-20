@@ -1,34 +1,22 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
-
-#if __TBB_CPF_BUILD && !defined(TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX)
-    #define TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX 1
-#endif
 
 //------------------------------------------------------------------------
 // Test TBB mutexes when used with parallel_for.h
@@ -63,11 +51,6 @@
 
 #ifndef TBB_TEST_LOW_WORKLOAD
     #define TBB_TEST_LOW_WORKLOAD TBB_USE_THREADING_TOOLS
-#endif
-
-#if _MSC_VER && TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
-    // link with a preview library is required. __TBB_LIB_NAME should be defined properly (in makefiles)
-    #pragma comment(lib, __TBB_STRING(__TBB_LIB_NAME))
 #endif
 
 // This test deliberately avoids a "using tbb" statement,
@@ -401,7 +384,7 @@ struct RecursiveAcquisition {
         }
 
         if( (i&1)!=0 ) {
-            // acquire lock on location RecurArray[i] using explict acquire
+            // acquire lock on location RecurArray[i] using explicit acquire
             tbb::recursive_mutex::scoped_lock r_lock;
             r_lock.acquire( RecurMutex[i] );
             int a = RecurArray[i];
@@ -562,7 +545,7 @@ void TestRecursiveMutexISO( const char * name ) {
 #include "harness_tsx.h"
 #include "tbb/task_scheduler_init.h"
 
-#if __TBB_TSX_AVAILABLE && (__INTEL_COMPILER || __GNUC__ || _MSC_VER)
+#if __TBB_TSX_TESTING_ENABLED_FOR_THIS_COMPILER
 
 //! Function object for use with parallel_for.h to see if a transaction is actually attempted.
 tbb::atomic<size_t> n_transactions_attempted;
@@ -585,6 +568,7 @@ struct AddOne_CheckTransaction: NoAssign {
     AddOne_CheckTransaction( C& counter_ ) : counter(counter_) {}
 };
 
+/* TestTransaction() checks if a speculative mutex actually uses transactions. */
 template<typename M>
 void TestTransaction( const char * name )
 {
@@ -610,11 +594,11 @@ void TestTransaction( const char * name )
     }
 
     if( n_transactions_attempted==0 )
-        REPORT( "ERROR: HLE transactions are never attempted\n" );
+        REPORT( "ERROR: transactions were never attempted\n" );
     else
         REMARK("%d successful transactions in %6.6f seconds\n", (int)n_transactions_attempted, (stop - start).seconds());
 }
-#endif  /* __TBB_TSX_AVAILABLE && (__INTEL_COMPILER || __GNUC__ || _MSC_VER) */
+#endif  /* __TBB_TSX_TESTING_ENABLED_FOR_THIS_COMPILER */
 
 int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
@@ -642,9 +626,7 @@ int TestMain () {
             Test<tbb::recursive_mutex>( "Recursive Mutex" );
             Test<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
             Test<tbb::spin_rw_mutex>( "Spin RW Mutex" );
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
-            Test<tbb::speculative_spin_rw_mutex>( "Spin RW Mutex speculative" );
-#endif
+            Test<tbb::speculative_spin_rw_mutex>( "Spin RW Mutex/speculative" );
 
             TestTryAcquire_OneThread<tbb::spin_mutex>("Spin Mutex");
             TestTryAcquire_OneThread<tbb::speculative_spin_mutex>("Spin Mutex/speculative");
@@ -655,21 +637,16 @@ int TestMain () {
 #endif /* USE_PTHREAD */
             TestTryAcquire_OneThread<tbb::recursive_mutex>( "Recursive Mutex" );
             TestTryAcquire_OneThread<tbb::spin_rw_mutex>("Spin RW Mutex"); // only tests try_acquire for writers
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
-            TestTryAcquire_OneThread<tbb::speculative_spin_rw_mutex>("Spin RW Mutex speculative"); // only tests try_acquire for writers
-#endif
+            TestTryAcquire_OneThread<tbb::speculative_spin_rw_mutex>("Spin RW Mutex/speculative"); // only tests try_acquire for writers
             TestTryAcquire_OneThread<tbb::queuing_rw_mutex>("Queuing RW Mutex"); // only tests try_acquire for writers
+
             TestTryAcquireReader_OneThread<tbb::spin_rw_mutex>("Spin RW Mutex");
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
-            TestTryAcquireReader_OneThread<tbb::speculative_spin_rw_mutex>("Spin RW Mutex speculative");
-#endif
+            TestTryAcquireReader_OneThread<tbb::speculative_spin_rw_mutex>("Spin RW Mutex/speculative");
             TestTryAcquireReader_OneThread<tbb::queuing_rw_mutex>("Queuing RW Mutex");
 
             TestReaderWriterLock<tbb::queuing_rw_mutex>( "Queuing RW Mutex" );
             TestReaderWriterLock<tbb::spin_rw_mutex>( "Spin RW Mutex" );
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
-            TestReaderWriterLock<tbb::speculative_spin_rw_mutex>( "Spin RW Mutex speculative" );
-#endif
+            TestReaderWriterLock<tbb::speculative_spin_rw_mutex>( "Spin RW Mutex/speculative" );
 
             TestRecursiveMutex<tbb::recursive_mutex>( "Recursive Mutex" );
 
@@ -692,14 +669,12 @@ int TestMain () {
         }
     }
 
-#if __TBB_TSX_AVAILABLE && (__INTEL_COMPILER || __GNUC__ || _MSC_VER)
+#if __TBB_TSX_TESTING_ENABLED_FOR_THIS_COMPILER
     // additional test for speculative mutexes to see if we actually attempt lock elisions
     if( have_TSX() ) {
         tbb::task_scheduler_init init( MaxThread );
         TestTransaction<tbb::speculative_spin_mutex>( "Spin Mutex/speculative" );
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
         TestTransaction<tbb::speculative_spin_rw_mutex>( "Spin RW Mutex/speculative" );
-#endif
     }
     else {
         REMARK("Hardware transactions not supported\n");

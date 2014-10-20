@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness_graph.h"
@@ -46,6 +38,12 @@ struct fake_continue_sender : public tbb::flow::sender<tbb::flow::continue_msg>
     // Define implementations of virtual methods that are abstract in the base class
     /*override*/ bool register_successor( successor_type& ) { return false; }
     /*override*/ bool remove_successor( successor_type& )   { return false; }  
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    /*override*/void internal_add_built_successor( successor_type &) { }
+    /*override*/void internal_delete_built_successor( successor_type &) { }
+    /*override*/void copy_successors(std::vector<successor_type *> &) {}
+    /*override*/size_t successor_count() {return 0;}
+#endif
 };
 
 template< typename InputType >
@@ -78,6 +76,13 @@ void run_continue_nodes( int p, tbb::flow::graph& g, tbb::flow::continue_node< O
         for (size_t r = 0; r < num_receivers; ++r ) {
             tbb::flow::make_edge( n, receivers[r] );
         }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        ASSERT(n.successor_count() == (size_t)num_receivers, NULL);
+        ASSERT(n.predecessor_count() == 0, NULL);
+        typename tbb::flow::continue_node<OutputType>::successor_vector_type my_succs;
+        n.copy_successors(my_succs);
+        ASSERT(my_succs.size() == num_receivers, NULL);
+#endif
 
         NativeParallelFor( p, parallel_puts<tbb::flow::continue_msg>(n) );
         g.wait_for_all();
@@ -89,6 +94,14 @@ void run_continue_nodes( int p, tbb::flow::graph& g, tbb::flow::continue_node< O
             size_t c = receivers[r].my_count;
             // 3) the nodes will send to multiple successors.
             ASSERT( (int)c == p, NULL );
+        }
+
+        for (size_t r = 0; r < num_receivers; ++r ) {
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            tbb::flow::remove_edge( n, *(my_succs[r]) );
+#else
+            tbb::flow::remove_edge( n, receivers[r] );
+#endif
         }
     }
 }
@@ -114,6 +127,7 @@ struct inc_functor {
     tbb::atomic<size_t> local_execute_count;
     inc_functor( ) { local_execute_count = 0; }
     inc_functor( const inc_functor &f ) { local_execute_count = f.local_execute_count; }
+    void operator=(const inc_functor &f) { local_execute_count = f.local_execute_count; }
 
     OutputType operator()( tbb::flow::continue_msg ) {
        ++global_execute_count;
@@ -162,6 +176,12 @@ void continue_nodes_with_copy( ) {
         size_t global_count = global_execute_count;
         size_t inc_count = body_copy.local_execute_count;
         ASSERT( global_count == expected_count && global_count == inc_count, NULL );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        g.reset(tbb::flow::rf_reset_bodies);
+        body_copy = tbb::flow::copy_body< inc_functor<OutputType> >( exe_node );
+        inc_count = body_copy.local_execute_count;
+        ASSERT( Offset == inc_count, "reset(rf_reset_bodies) did not reset functor" );
+#endif
 
     }
 }
@@ -234,6 +254,105 @@ void test_two_graphs(){
     ASSERT(count==0, "Node executed without waiting for all predecessors");
 }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+void test_extract() {
+    int my_count = 0;
+    tbb::flow::continue_msg cm;
+    tbb::flow::graph g;
+    tbb::flow::broadcast_node<tbb::flow::continue_msg> b0(g);
+    tbb::flow::broadcast_node<tbb::flow::continue_msg> b1(g);
+    tbb::flow::continue_node<tbb::flow::continue_msg>  c0(g, add_to_counter(my_count));
+    tbb::flow::queue_node<tbb::flow::continue_msg> q0(g);
+
+    tbb::flow::make_edge(b0, c0);
+    tbb::flow::make_edge(b1, c0);
+    tbb::flow::make_edge(c0, q0);
+    for( int i = 0; i < 2; ++i ) {
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 1, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
+        ASSERT(c0.predecessor_count() == 2 && c0.successor_count() == 1, "c0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 1 && q0.successor_count() == 0, "q0 has incorrect counts");
+    
+        /* b0         */
+        /*   \        */
+        /*    c0 - q0 */
+        /*   /        */
+        /* b1         */
+    
+        b0.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(my_count == 0, "continue_node fired too soon");
+        b1.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(my_count == 1, "continue_node didn't fire");
+        ASSERT(q0.try_get(cm), "continue_node didn't forward");
+    
+        b0.extract();
+    
+        /* b0         */
+        /*            */
+        /*    c0 - q0 */
+        /*   /        */
+        /* b1         */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
+        ASSERT(c0.predecessor_count() == 1 && c0.successor_count() == 1, "c0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 1 && q0.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(tbb::flow::continue_msg());
+        b0.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(my_count == 1, "b0 messages being forwarded to continue_node even though it is disconnected");
+        b1.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(my_count == 2, "continue_node didn't fire though it has only one predecessor");
+        ASSERT(q0.try_get(cm), "continue_node didn't forward second time");
+    
+        c0.extract();
+    
+        /* b0         */
+        /*            */
+        /*    c0   q0 */
+        /*            */
+        /* b1         */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 0, "b1 has incorrect counts");
+        ASSERT(c0.predecessor_count() == 0 && c0.successor_count() == 0, "c0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 0 && q0.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(tbb::flow::continue_msg());
+        b0.try_put(tbb::flow::continue_msg());
+        b1.try_put(tbb::flow::continue_msg());
+        b1.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(my_count == 2, "continue didn't fire though it has only one predecessor");
+        ASSERT(!q0.try_get(cm), "continue_node forwarded though it shouldn't");
+        make_edge(b0, c0);
+    
+        /* b0         */
+        /*   \        */
+        /*    c0   q0 */
+        /*            */
+        /* b1         */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 1, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 0, "b1 has incorrect counts");
+        ASSERT(c0.predecessor_count() == 1 && c0.successor_count() == 0, "c0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 0 && q0.successor_count() == 0, "q0 has incorrect counts");
+    
+        b0.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+    
+        ASSERT(my_count == 3, "continue didn't fire though it has only one predecessor");
+        ASSERT(!q0.try_get(cm), "continue_node forwarded though it shouldn't");
+    
+        tbb::flow::make_edge(b1, c0);
+        tbb::flow::make_edge(c0, q0);
+        my_count = 0;
+    }
+}
+#endif
+
 int TestMain() {
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
@@ -243,6 +362,9 @@ int TestMain() {
        test_concurrency(p);
    }
    test_two_graphs();
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+   test_extract();
+#endif
    return Harness::Done;
 }
 

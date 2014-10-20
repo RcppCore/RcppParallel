@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 
@@ -48,7 +40,7 @@
 #endif
 #include "harness.h"
 
-#if __linux__
+#if __linux__ || __APPLE__
 #define MALLOC_REPLACEMENT_AVAILABLE 1
 #elif _WIN32 && !__MINGW32__ && !__MINGW64__ && !__TBB_WIN8UI_SUPPORT
 #define MALLOC_REPLACEMENT_AVAILABLE 2
@@ -62,13 +54,17 @@
 #include "harness_defs.h"
 #include <stdlib.h>
 #include <string.h>
+#if !__APPLE__
 #include <malloc.h>
+#endif
 #include <stdio.h>
 #include <new>
+#if MALLOC_REPLACEMENT_AVAILABLE == 1
+#include <unistd.h> // for sysconf
+#include <dlfcn.h>
+#endif
 
 #if __linux__
-#include <dlfcn.h>
-#include <unistd.h> // for sysconf
 #include <stdint.h> // for uintptr_t
 
 extern "C" {
@@ -84,6 +80,11 @@ void *__libc_valloc(size_t size);
 size_t dlmalloc_usable_size(const void *ptr);
 #endif
 }
+
+#elif __APPLE__
+
+#include <malloc/malloc.h>
+#define malloc_usable_size(p) malloc_size(p)
 
 #elif _WIN32
 #include <stddef.h>
@@ -111,10 +112,13 @@ using namespace std;
 #include <string>
 #endif
 
-
 template<typename T>
 static inline T alignDown(T arg, uintptr_t alignment) {
     return T( (uintptr_t)arg  & ~(alignment-1));
+}
+template<typename T>
+static inline T alignUp(T arg, uintptr_t alignment) {
+    return T(((uintptr_t)arg+(alignment-1)) & ~(alignment-1));
 }
 template<typename T>
 static inline bool isAligned(T arg, uintptr_t alignment) {
@@ -184,20 +188,21 @@ const uint32_t minLargeObjectSize = fittingSize5 + 1;
 
 /* end of code replicated from src/tbbmalloc */
 
-/* Correct only for large blocks, i.e. not smaller then minLargeObjectSize */
-static bool scalableMallocLargeBlock(void *object, size_t size)
+static void scalableMallocCheckSize(void *object, size_t size)
 {
-    ASSERT(size >= minLargeObjectSize, NULL);
+    ASSERT(object, NULL);
+    if (size >= minLargeObjectSize) {
+        LargeMemoryBlock *lmb = ((LargeObjectHdr*)object-1)->memoryBlock;
+        ASSERT(uintptr_t(lmb)<uintptr_t(((LargeObjectHdr*)object-1))
+               && lmb->objectSize >= size, NULL);
+    }
 #if MALLOC_REPLACEMENT_AVAILABLE == 1
     ASSERT(malloc_usable_size(object) >= size, NULL);
 #elif MALLOC_REPLACEMENT_AVAILABLE == 2
     // Check that _msize works correctly
     ASSERT(_msize(object) >= size, NULL);
-    ASSERT(_aligned_msize(object,16,0) >= size, NULL);
+    ASSERT(size<8 || _aligned_msize(object,8,0) >= size, NULL);
 #endif
-
-    LargeMemoryBlock *lmb = ((LargeObjectHdr*)object-1)->memoryBlock;
-    return uintptr_t(lmb)<uintptr_t(((LargeObjectHdr*)object-1)) && lmb->objectSize==size;
 }
 
 struct BigStruct {
@@ -208,15 +213,14 @@ void CheckStdFuncOverload(void *(*malloc_p)(size_t), void *(*calloc_p)(size_t, s
                           void *(*realloc_p)(void *, size_t), void (*free_p)(void *))
 {
     void *ptr = malloc_p(minLargeObjectSize);
-    ASSERT(ptr!=NULL && scalableMallocLargeBlock(ptr, minLargeObjectSize), NULL);
+    scalableMallocCheckSize(ptr, minLargeObjectSize);
     free(ptr);
 
     ptr = calloc_p(minLargeObjectSize, 2);
-    ASSERT(ptr!=NULL && scalableMallocLargeBlock(ptr, minLargeObjectSize*2), NULL);
-    void *ptr1 = realloc_p(ptr, minLargeObjectSize*10);
-    ASSERT(ptr1!=NULL && scalableMallocLargeBlock(ptr1, minLargeObjectSize*10), NULL);
+    scalableMallocCheckSize(ptr, 2*minLargeObjectSize);
+    void *ptr1 = realloc_p(ptr, 10*minLargeObjectSize);
+    scalableMallocCheckSize(ptr1, 10*minLargeObjectSize);
     free_p(ptr1);
-
 }
 
 #if MALLOC_REPLACEMENT_AVAILABLE == 1
@@ -224,25 +228,31 @@ void CheckStdFuncOverload(void *(*malloc_p)(size_t), void *(*calloc_p)(size_t, s
 void CheckUnixAlignFuncOverload(void *(*memalign_p)(size_t, size_t),
                                 void *(*valloc_p)(size_t), void (*free_p)(void*))
 {
-    void *ptr = memalign_p(128, 4*minLargeObjectSize);
-    ASSERT(ptr!=NULL && scalableMallocLargeBlock(ptr, 4*minLargeObjectSize), NULL);
-    free_p(ptr);
-
-    ptr = valloc_p(minLargeObjectSize);
-    ASSERT(ptr!=NULL && isAligned(ptr, sysconf(_SC_PAGESIZE)) &&
-           scalableMallocLargeBlock(ptr, minLargeObjectSize), NULL);
+    if (memalign_p) {
+        void *ptr = memalign_p(128, 4*minLargeObjectSize);
+        scalableMallocCheckSize(ptr, 4*minLargeObjectSize);
+        ASSERT(isAligned(ptr, 128), NULL);
+        free_p(ptr);
+    }
+    void *ptr = valloc_p(minLargeObjectSize);
+    scalableMallocCheckSize(ptr, minLargeObjectSize);
+    ASSERT(isAligned(ptr, sysconf(_SC_PAGESIZE)), NULL);
     free_p(ptr);
 }
 
 #if __TBB_PVALLOC_PRESENT
 void CheckPvalloc(void *(*pvalloc_p)(size_t), void (*free_p)(void*))
 {
-    long memoryPageSize = sysconf(_SC_PAGESIZE);
-    int sz = 1024*minLargeObjectSize;
-    void *ptr = pvalloc_p(sz);
-    ASSERT(ptr!=NULL &&                // align size up to the page size
-           scalableMallocLargeBlock(ptr, ((sz-1) | (memoryPageSize-1)) + 1), NULL);
-    free_p(ptr);
+    const long memoryPageSize = sysconf(_SC_PAGESIZE);
+    // request large object with not power-of-2 size
+    const size_t largeSz = alignUp(minLargeObjectSize, 16*1024) + 1;
+
+    for (size_t sz = 0; sz<=largeSz; sz+=largeSz) {
+        void *ptr = pvalloc_p(sz);
+        scalableMallocCheckSize(ptr, sz? alignUp(sz, memoryPageSize) : memoryPageSize);
+        ASSERT(isAligned(ptr, memoryPageSize), NULL);
+        free_p(ptr);
+    }
 }
 #else
 #define CheckPvalloc(alloc_p, free_p) ((void)0)
@@ -297,10 +307,12 @@ int TestMain() {
 
 #if __TBB_POSIX_MEMALIGN_PRESENT
     int ret = posix_memalign(&ptr, 1024, 3*minLargeObjectSize);
-    ASSERT(0==ret && ptr!=NULL && scalableMallocLargeBlock(ptr, 3*minLargeObjectSize), NULL);
+    scalableMallocCheckSize(ptr, 3*minLargeObjectSize);
+    ASSERT(0==ret && isAligned(ptr, 1024), NULL);
     free(ptr);
 #endif
 
+#if __linux__
     CheckUnixAlignFuncOverload(memalign, valloc, free);
     CheckPvalloc(pvalloc, free);
 
@@ -310,45 +322,51 @@ int TestMain() {
            && !info.hblkhd && !info.usmblks && !info.fsmblks
            && !info.uordblks && !info.fordblks && !info.keepcost, NULL);
 
-#if __linux__ && !__ANDROID__
-    // Those non-standart functions are exported by GLIBC, and might be used
-    // in conjunction with standart malloc/free. Test that we ovrload them as well.
+ #if !__ANDROID__
+    // These non-standard functions are exported by GLIBC, and might be used
+    // in conjunction with standard malloc/free. Test that we overload them as well.
     // Bionic doesn't have them.
     CheckStdFuncOverload(__libc_malloc, __libc_calloc, __libc_realloc, __libc_free);
     CheckUnixAlignFuncOverload(__libc_memalign, __libc_valloc, __libc_free);
     CheckPvalloc(__libc_pvalloc, __libc_free);
+ #endif
+#elif __APPLE__
+    CheckUnixAlignFuncOverload(NULL, valloc, free);
 #endif // __linux__
 
 #elif MALLOC_REPLACEMENT_AVAILABLE == 2
 
-    ptr = _aligned_malloc(minLargeObjectSize,16);
-    ASSERT(ptr!=NULL && scalableMallocLargeBlock(ptr, minLargeObjectSize), NULL);
+    ptr = _aligned_malloc(minLargeObjectSize, 16);
+    scalableMallocCheckSize(ptr, minLargeObjectSize);
+    ASSERT(isAligned(ptr, 16), NULL);
 
     // Testing of workaround for vs "is power of 2 pow N" bug that accepts zeros
-    ptr1 = _aligned_malloc(minLargeObjectSize,0);
-    ASSERT(ptr1!=NULL, NULL);
+    ptr1 = _aligned_malloc(minLargeObjectSize, 0);
+    scalableMallocCheckSize(ptr, minLargeObjectSize);
+    ASSERT(isAligned(ptr, sizeof(void*)), NULL);
     _aligned_free(ptr1);
 
-    ptr1 = _aligned_realloc(ptr, minLargeObjectSize*10,16);
-    ASSERT(ptr1!=NULL && scalableMallocLargeBlock(ptr1, minLargeObjectSize*10), NULL);
+    ptr1 = _aligned_realloc(ptr, minLargeObjectSize*10, 16);
+    scalableMallocCheckSize(ptr1, minLargeObjectSize*10);
+    ASSERT(isAligned(ptr, 16), NULL);
     _aligned_free(ptr1);
 
 #endif
 
     BigStruct *f = new BigStruct;
-    ASSERT(f!=NULL && scalableMallocLargeBlock(f, sizeof(BigStruct)), NULL);
+    scalableMallocCheckSize(f, sizeof(BigStruct));
     delete f;
 
     f = new BigStruct[10];
-    ASSERT(f!=NULL && scalableMallocLargeBlock(f, 10*sizeof(BigStruct)), NULL);
+    scalableMallocCheckSize(f, 10*sizeof(BigStruct));
     delete []f;
 
     f = new(std::nothrow) BigStruct;
-    ASSERT(f!=NULL && scalableMallocLargeBlock(f, sizeof(BigStruct)), NULL);
+    scalableMallocCheckSize(f, sizeof(BigStruct));
     delete f;
 
     f = new(std::nothrow) BigStruct[2];
-    ASSERT(f!=NULL && scalableMallocLargeBlock(f, 2*sizeof(BigStruct)), NULL);
+    scalableMallocCheckSize(f, 2*sizeof(BigStruct));
     delete []f;
 
 #if _WIN32

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "scheduler.h"
@@ -199,7 +191,7 @@ task_group_context::~task_group_context () {
         }
     }
 #if __TBB_FP_CONTEXT
-    task_group_context_accessor( *this ).my_cpu_ctl_env.~cpu_ctl_env();
+    internal::punned_cast<cpu_ctl_env*>(&my_cpu_ctl_env)->~cpu_ctl_env();
 #endif
     poison_value(my_version_and_traits);
     if ( my_exception )
@@ -226,7 +218,7 @@ void task_group_context::init () {
     __TBB_STATIC_ASSERT( sizeof(cpu_ctl_env) <= sizeof(my_cpu_ctl_env), "FPU settings storage does not fit to uint64_t" );
     suppress_unused_warning( my_cpu_ctl_env.space );
 
-    cpu_ctl_env &ctl = task_group_context_accessor(*this).my_cpu_ctl_env;
+    cpu_ctl_env &ctl = *internal::punned_cast<cpu_ctl_env*>(&my_cpu_ctl_env);
     new ( &ctl ) cpu_ctl_env;
     if ( my_version_and_traits & fp_settings )
         ctl.get_env();
@@ -272,8 +264,7 @@ void task_group_context::bind_to ( generic_scheduler *local_sched ) {
 #if __TBB_FP_CONTEXT
     // Inherit FPU settings only if the context has not captured FPU settings yet.
     if ( !(my_version_and_traits & fp_settings) )
-        // When inheriting FPU settings we just copy the FPU settings (do not capture them). So we do not inherit fp_settings traits.
-        task_group_context_accessor(*this).my_cpu_ctl_env = task_group_context_accessor(*my_parent).my_cpu_ctl_env;
+        copy_fp_settings(*my_parent);
 #endif
 
     // Condition below prevents unnecessary thrashing parent context's cache line
@@ -345,6 +336,7 @@ void task_group_context::propagate_task_group_state ( T task_group_context::*mpt
     }
     else {
         for ( task_group_context *ancestor = my_parent; ancestor != NULL; ancestor = ancestor->my_parent ) {
+            __TBB_ASSERT(internal::is_alive(ancestor->my_version_and_traits), "context tree was corrupted");
             if ( ancestor == &src ) {
                 for ( task_group_context *ctx = this; ctx != ancestor; ctx = ctx->my_parent )
                     ctx->*mptr_state = new_state;
@@ -451,12 +443,22 @@ void task_group_context::capture_fp_settings () {
     //! TODO: Add assertion that this context does not have children
     // No fences are necessary since this context can be accessed from another thread
     // only after stealing happened (which means necessary fences were used).
-    cpu_ctl_env &ctl = task_group_context_accessor(*this).my_cpu_ctl_env;
+    cpu_ctl_env &ctl = *internal::punned_cast<cpu_ctl_env*>(&my_cpu_ctl_env);
     if ( !(my_version_and_traits & fp_settings) ) {
         new ( &ctl ) cpu_ctl_env;
         my_version_and_traits |= fp_settings;
     }
     ctl.get_env();
+}
+
+void task_group_context::copy_fp_settings( const task_group_context &src ) {
+    __TBB_ASSERT( !(my_version_and_traits & fp_settings), "The context already has FPU settings." );
+    __TBB_ASSERT( src.my_version_and_traits & fp_settings, "The source context does not have FPU settings." );
+
+    cpu_ctl_env &ctl = *internal::punned_cast<cpu_ctl_env*>(&my_cpu_ctl_env);
+    cpu_ctl_env &src_ctl = *internal::punned_cast<cpu_ctl_env*>(&src.my_cpu_ctl_env);
+    new (&ctl) cpu_ctl_env( src_ctl );
+    my_version_and_traits |= fp_settings;
 }
 #endif /* __TBB_FP_CONTEXT */
 

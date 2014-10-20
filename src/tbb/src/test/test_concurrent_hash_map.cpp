@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef TBB_USE_PERFORMANCE_WARNINGS
@@ -259,6 +251,20 @@ struct Insert {
         }
     }
 };
+
+#if __TBB_INITIALIZER_LISTS_PRESENT
+struct InsertInitList {
+    static void apply( MyTable& table, int i ) {
+        if ( UseKey( i ) ) {
+            // TODO: investigate why the following sequence causes an additional allocation sometimes:
+            // table.insert( MyTable::value_type( MyKey::make( i ), i*i ) );
+            // table.insert( MyTable::value_type( MyKey::make( i ), i*i+1 ) );
+            std::initializer_list<MyTable::value_type> il = { MyTable::value_type( MyKey::make( i ), i*i )/*, MyTable::value_type( MyKey::make( i ), i*i+1 ) */ };
+            table.insert( il );
+        }
+    }
+};
+#endif /* __TBB_INITIALIZER_LISTS_PRESENT */
 
 struct Find {
     static void apply( MyTable& table, int i ) {
@@ -506,30 +512,42 @@ void TestInsertFindErase( int nthread ) {
     ParallelTraverseTable(table,n,0);
     CheckAllocator(table, 0, 100);
 
-    DoConcurrentOperations<Insert,MyTable>(table,n,"insert",nthread);
-    ASSERT( MyDataCount==m, NULL );
-    TraverseTable(table,n,m);
-    ParallelTraverseTable(table,n,m);
-    CheckAllocator(table, m, 100);
+    int expected_allocs = 0, expected_frees = 100;
+#if __TBB_INITIALIZER_LISTS_PRESENT
+    for ( int i = 0; i < 2; ++i ) {
+        if ( i==0 )
+            DoConcurrentOperations<InsertInitList, MyTable>( table, n, "insert(std::initializer_list)", nthread );
+        else
+#endif
+            DoConcurrentOperations<Insert, MyTable>( table, n, "insert", nthread );
+        ASSERT( MyDataCount == m, NULL );
+        TraverseTable( table, n, m );
+        ParallelTraverseTable( table, n, m );
+        expected_allocs += m;
+        CheckAllocator( table, expected_allocs, expected_frees );
 
-    DoConcurrentOperations<Find,MyTable>(table,n,"find",nthread);
-    ASSERT( MyDataCount==m, NULL );
-    CheckAllocator(table, m, 100);
+        DoConcurrentOperations<Find, MyTable>( table, n, "find", nthread );
+        ASSERT( MyDataCount == m, NULL );
+        CheckAllocator( table, expected_allocs, expected_frees );
 
-    DoConcurrentOperations<FindConst,MyTable>(table,n,"find(const)",nthread);
-    ASSERT( MyDataCount==m, NULL );
-    CheckAllocator(table, m, 100);
+        DoConcurrentOperations<FindConst, MyTable>( table, n, "find(const)", nthread );
+        ASSERT( MyDataCount == m, NULL );
+        CheckAllocator( table, expected_allocs, expected_frees );
 
-    EraseCount=0;
-    DoConcurrentOperations<Erase,MyTable>(table,n,"erase",nthread);
-    ASSERT( EraseCount==m, NULL );
-    ASSERT( MyDataCount==0, NULL );
-    TraverseTable(table,n,0);
-    CheckAllocator(table, m, m+100);
+        EraseCount = 0;
+        DoConcurrentOperations<Erase, MyTable>( table, n, "erase", nthread );
+        ASSERT( EraseCount == m, NULL );
+        ASSERT( MyDataCount == 0, NULL );
+        TraverseTable( table, n, 0 );
+        expected_frees += m;
+        CheckAllocator( table, expected_allocs, expected_frees );
 
-    bad_hashing = true;
-    table.clear();
-    bad_hashing = false;
+        bad_hashing = true;
+        table.clear();
+        bad_hashing = false;
+#if __TBB_INITIALIZER_LISTS_PRESENT
+    }
+#endif
 
     if(nthread > 1) {
         YourTable ie_table;
@@ -916,15 +934,24 @@ void TestExceptions() {
 #if __TBB_INITIALIZER_LISTS_PRESENT
 #include "test_initializer_list.h"
 
+struct test_insert {
+    template<typename container_type, typename element_type>
+    static void do_test( std::initializer_list<element_type> il, container_type const& expected ) {
+        container_type vd;
+        vd.insert( il );
+        ASSERT( vd == expected, "inserting with an initializer list failed" );
+    }
+};
+
 void TestInitList(){
     using namespace initializer_list_support_tests;
     REMARK("testing initializer_list methods \n");
 
     typedef tbb::concurrent_hash_map<int,int> ch_map_type;
-    std::initializer_list<ch_map_type::value_type > pairs_il = {{1,1},{2,2},{3,3},{4,4},{5,5}};
+    std::initializer_list<ch_map_type::value_type> pairs_il = {{1,1},{2,2},{3,3},{4,4},{5,5}};
 
-    TestInitListSupportWithoutAssign<ch_map_type>(pairs_il);
-    TestInitListSupportWithoutAssign<ch_map_type>({});
+    TestInitListSupportWithoutAssign<ch_map_type, test_insert>( pairs_il );
+    TestInitListSupportWithoutAssign<ch_map_type, test_insert>( {} );
 }
 #endif //if __TBB_INITIALIZER_LISTS_PRESENT
 
@@ -946,12 +973,366 @@ void TestRangeBasedFor(){
     ASSERT( range_based_for_accumulate(a_ch_map, pair_second_summer(), 0) == gauss_summ_of_int_sequence(sequence_length), "incorrect accumulated value generated via range based for ?");
 }
 #endif //if __TBB_RANGE_BASED_FOR_PRESENT
-//------------------------------------------------------------------------
-// Test driver
-//------------------------------------------------------------------------
+
+#include "harness_defs.h"
+
+// The helper to run a test only when a default construction is present.
+template <bool default_construction_present> struct do_default_construction_test {
+    template<typename FuncType> void operator() ( FuncType func ) const { func(); }
+};
+template <> struct do_default_construction_test<false> {
+    template<typename FuncType> void operator()( FuncType ) const {}
+};
+
+template <typename Table>
+class test_insert_by_key : NoAssign {
+    typedef typename Table::value_type value_type;
+    Table &my_c;
+    const value_type &my_value;
+public:
+    test_insert_by_key( Table &c, const value_type &value ) : my_c(c), my_value(value) {}
+    void operator()() const {
+        {
+            typename Table::accessor a;
+            ASSERT( my_c.insert( a, my_value.first ), NULL );
+            ASSERT( Harness::IsEqual()(a->first, my_value.first), NULL );
+            a->second = my_value.second;
+        } {
+            typename Table::const_accessor ca;
+            ASSERT( !my_c.insert( ca, my_value.first ), NULL );
+            ASSERT( Harness::IsEqual()(ca->first, my_value.first), NULL);
+            ASSERT( Harness::IsEqual()(ca->second, my_value.second), NULL);
+        }
+    }
+};
+
+#include <vector>
+#include <list>
+#include <algorithm>
+
+template <typename Table, typename Iterator, typename Range = typename Table::range_type>
+class test_range : NoAssign {
+    typedef typename Table::value_type value_type;
+    Table &my_c;
+    const std::list<value_type> &my_lst;
+    std::vector< tbb::atomic<bool> >& my_marks;
+public:
+    test_range( Table &c, const std::list<value_type> &lst, std::vector< tbb::atomic<bool> > &marks ) : my_c(c), my_lst(lst), my_marks(marks) {
+        std::fill( my_marks.begin(), my_marks.end(), false );
+    }
+    void operator()( const Range &r ) const { do_test_range( r.begin(), r.end() ); }
+    void do_test_range( Iterator i, Iterator j ) const {
+        for ( Iterator it = i; it != j; ) {
+            Iterator it_prev = it++;
+            typename std::list<value_type>::const_iterator it2 = std::search( my_lst.begin(), my_lst.end(), it_prev, it, Harness::IsEqual() );
+            ASSERT( it2 != my_lst.end(), NULL );
+            typename std::list<value_type>::difference_type dist = std::distance( my_lst.begin(), it2 );
+            ASSERT( !my_marks[dist], NULL );
+            my_marks[dist] = true;
+        }
+    }
+};
+
+template <bool default_construction_present, typename Table>
+class check_value : NoAssign {
+    typedef typename Table::const_iterator const_iterator;
+    typedef typename Table::iterator iterator;
+    typedef typename Table::size_type size_type;
+    Table &my_c;
+public:
+    check_value( Table &c ) : my_c(c) {}
+    void operator()(const typename Table::value_type &value ) {
+        const Table &const_c = my_c;
+        ASSERT( my_c.count( value.first ) == 1, NULL );
+        { // tests with a const accessor.
+            typename Table::const_accessor ca;
+            // find
+            ASSERT( my_c.find( ca, value.first ), NULL);
+            ASSERT( !ca.empty() , NULL);
+            ASSERT( Harness::IsEqual()(ca->first, value.first), NULL );
+            ASSERT( Harness::IsEqual()(ca->second, value.second), NULL );
+            // erase
+            ASSERT( my_c.erase( ca ), NULL );
+            ASSERT( my_c.count( value.first ) == 0, NULL );
+            // insert (pair)
+            ASSERT( my_c.insert( ca, value ), NULL);
+            ASSERT( Harness::IsEqual()(ca->first, value.first), NULL );
+            ASSERT( Harness::IsEqual()(ca->second, value.second), NULL );
+        } { // tests with a non-const accessor.
+            typename Table::accessor a;
+            // find
+            ASSERT( my_c.find( a, value.first ), NULL);
+            ASSERT( !a.empty() , NULL);
+            ASSERT( Harness::IsEqual()(a->first, value.first), NULL );
+            ASSERT( Harness::IsEqual()(a->second, value.second), NULL );
+            // erase
+            ASSERT( my_c.erase( a ), NULL );
+            ASSERT( my_c.count( value.first ) == 0, NULL );
+            // insert
+            ASSERT( my_c.insert( a, value ), NULL);
+            ASSERT( Harness::IsEqual()(a->first, value.first), NULL );
+            ASSERT( Harness::IsEqual()(a->second, value.second), NULL );
+        }
+        // erase by key
+        ASSERT( my_c.erase( value.first ), NULL );
+        ASSERT( my_c.count( value.first ) == 0, NULL );
+        do_default_construction_test<default_construction_present>()(test_insert_by_key<Table>( my_c, value ));
+        // insert by value
+        ASSERT( my_c.insert( value ) != default_construction_present, NULL );
+        // equal_range
+        std::pair<iterator,iterator> r1 = my_c.equal_range( value.first );
+        iterator r1_first_prev = r1.first++;
+        ASSERT( Harness::IsEqual()( *r1_first_prev, value ) && Harness::IsEqual()( r1.first, r1.second ), NULL );
+        std::pair<const_iterator,const_iterator> r2 = const_c.equal_range( value.first );
+        const_iterator r2_first_prev = r2.first++;
+        ASSERT( Harness::IsEqual()( *r2_first_prev, value ) && Harness::IsEqual()( r2.first, r2.second ), NULL );
+    }
+};
 
 #include "tbb/task_scheduler_init.h"
 
+template <typename Value, typename U = Value>
+struct CompareTables {
+    template <typename T>
+    static bool IsEqual( const T& t1, const T& t2 ) {
+        return (t1 == t2) && !(t1 != t2);
+    }
+};
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT
+template <typename U>
+struct CompareTables< std::pair<const std::weak_ptr<U>, std::weak_ptr<U> > > {
+    template <typename T>
+    static bool IsEqual( const T&, const T& ) {
+        /* do nothing for std::weak_ptr */
+        return true;
+    }
+};
+#endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
+
+template <bool default_construction_present, typename Table>
+void Examine( Table c, const std::list<typename Table::value_type> &lst) {
+    typedef const Table const_table;
+    typedef typename Table::const_iterator const_iterator;
+    typedef typename Table::iterator iterator;
+    typedef typename Table::value_type value_type;
+    typedef typename Table::size_type size_type;
+
+    ASSERT( !c.empty(), NULL );
+    ASSERT( c.size() == lst.size(), NULL );
+    ASSERT( c.max_size() >= c.size(), NULL );
+
+    const check_value<default_construction_present,Table> cv(c);
+    std::for_each( lst.begin(), lst.end(), cv );
+
+    std::vector< tbb::atomic<bool> > marks( lst.size() );
+
+    test_range<Table,iterator>( c, lst, marks ).do_test_range( c.begin(), c.end() );
+    ASSERT( std::find( marks.begin(), marks.end(), false ) == marks.end(), NULL );
+
+    test_range<const_table,const_iterator>( c, lst, marks ).do_test_range( c.begin(), c.end() );
+    ASSERT( std::find( marks.begin(), marks.end(), false ) == marks.end(), NULL );
+
+    tbb::task_scheduler_init init;
+
+    typedef typename Table::range_type range_type;
+    tbb::parallel_for( c.range(), test_range<Table,typename range_type::iterator,range_type>( c, lst, marks ) );
+    ASSERT( std::find( marks.begin(), marks.end(), false ) == marks.end(), NULL );
+
+    const_table const_c = c;
+    ASSERT( CompareTables<value_type>::IsEqual( c, const_c ), NULL );
+
+    typedef typename const_table::const_range_type const_range_type;
+    tbb::parallel_for( c.range(), test_range<const_table,typename const_range_type::iterator,const_range_type>( const_c, lst, marks ) );
+    ASSERT( std::find( marks.begin(), marks.end(), false ) == marks.end(), NULL );
+
+    const size_type new_bucket_count = 2*c.bucket_count();
+    c.rehash( new_bucket_count );
+    ASSERT( c.bucket_count() >= new_bucket_count, NULL );
+
+    Table c2;
+    typename std::list<value_type>::const_iterator begin5 = lst.begin();
+    std::advance( begin5, 5 );
+    c2.insert( lst.begin(), begin5 );
+    std::for_each( lst.begin(), begin5, check_value<default_construction_present, Table>( c2 ) );
+
+    c2.swap( c );
+    ASSERT( CompareTables<value_type>::IsEqual( c2, const_c ), NULL );
+    ASSERT( c.size() == 5, NULL );
+    std::for_each( lst.begin(), lst.end(), check_value<default_construction_present,Table>(c2) );
+
+    tbb::swap( c, c2 );
+    ASSERT( CompareTables<value_type>::IsEqual( c, const_c ), NULL );
+    ASSERT( c2.size() == 5, NULL );
+
+    c2.clear();
+    ASSERT( CompareTables<value_type>::IsEqual( c2, Table() ), NULL );
+
+    typename Table::allocator_type a = c.get_allocator();
+    value_type *ptr = a.allocate(1);
+    ASSERT( ptr, NULL );
+    a.deallocate( ptr, 1 );
+}
+
+template <bool default_construction_present, typename Value>
+void TypeTester( const std::list<Value> &lst ) {
+    __TBB_ASSERT( lst.size() >= 5, "Array should have at least 5 elements" );
+    typedef typename Value::first_type first_type;
+    typedef typename Value::second_type second_type;
+    typedef tbb::concurrent_hash_map<first_type,second_type> ch_map;
+    // Construct an empty hash map.
+    ch_map c1;
+    c1.insert( lst.begin(), lst.end() );
+    Examine<default_construction_present>( c1, lst );
+#if __TBB_INITIALIZER_LISTS_PRESENT && !__TBB_CPP11_INIT_LIST_TEMP_OBJS_LIFETIME_BROKEN
+    // Constructor from initializer_list.
+    typename std::list<Value>::const_iterator it = lst.begin();
+    ch_map c2( {*it++, *it++, *it++} );
+    c2.insert( it, lst.end() );
+    Examine<default_construction_present>( c2, lst );
+#endif
+    // Copying constructor.
+    ch_map c3(c1);
+    Examine<default_construction_present>( c3, lst );
+    // Construct with non-default allocator
+    typedef tbb::concurrent_hash_map< first_type,second_type,tbb::tbb_hash_compare<first_type>,debug_allocator<Value> > ch_map_debug_alloc;
+    ch_map_debug_alloc c4;
+    c4.insert( lst.begin(), lst.end() );
+    Examine<default_construction_present>( c4, lst );
+    // Copying constructor for vector with different allocator type.
+    ch_map_debug_alloc c5(c4);
+    Examine<default_construction_present>( c5, lst );
+    // Construction empty table with n preallocated buckets.
+    ch_map c6( lst.size() );
+    c6.insert( lst.begin(), lst.end() );
+    Examine<default_construction_present>( c6, lst );
+    ch_map_debug_alloc c7( lst.size() );
+    c7.insert( lst.begin(), lst.end() );
+    Examine<default_construction_present>( c7, lst );
+    // Construction with copying iteration range and given allocator instance.
+    ch_map c8( c1.begin(), c1.end() );
+    Examine<default_construction_present>( c8, lst );
+    debug_allocator<Value> allocator;
+    ch_map_debug_alloc c9( lst.begin(), lst.end(), allocator );
+    Examine<default_construction_present>( c9, lst );
+}
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT
+namespace tbb {
+    template<> struct tbb_hash_compare< const std::shared_ptr<int> > {
+        static size_t hash( const std::shared_ptr<int>& ptr ) { return static_cast<size_t>( *ptr ) * interface5::internal::hash_multiplier; }
+        static bool equal( const  std::shared_ptr<int>& ptr1, const  std::shared_ptr<int>& ptr2 ) { return ptr1 == ptr2; }
+    };
+    template<> struct tbb_hash_compare< const std::weak_ptr<int> > {
+        static size_t hash( const std::weak_ptr<int>& ptr ) { return static_cast<size_t>( *ptr.lock() ) * interface5::internal::hash_multiplier; }
+        static bool equal( const std::weak_ptr<int>& ptr1, const  std::weak_ptr<int>& ptr2 ) { return ptr1.lock() == ptr2.lock(); }
+    };
+}
+#endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
+
+void TestCPP11Types() {
+    const int NUMBER = 10;
+
+    typedef std::pair<const int, int> int_int_t;
+    std::list<int_int_t> arrIntInt;
+    for ( int i=0; i<NUMBER; ++i ) arrIntInt.push_back( int_int_t(i, NUMBER-i) );
+    TypeTester</*default_construction_present = */true>( arrIntInt );
+
+#if __TBB_CPP11_REFERENCE_WRAPPER_PRESENT
+    typedef std::pair<const std::reference_wrapper<const int>, int> ref_int_t;
+    std::list<ref_int_t> arrRefInt;
+    for ( std::list<int_int_t>::iterator it = arrIntInt.begin(); it != arrIntInt.end(); ++it )
+        arrRefInt.push_back( ref_int_t( it->first, it->second ) );
+    TypeTester</*default_construction_present = */true>( arrRefInt );
+
+    typedef std::pair< const int, std::reference_wrapper<int> > int_ref_t;
+    std::list<int_ref_t> arrIntRef;
+    for ( std::list<int_int_t>::iterator it = arrIntInt.begin(); it != arrIntInt.end(); ++it )
+        arrIntRef.push_back( int_ref_t( it->first, it->second ) );
+    TypeTester</*default_construction_present = */false>( arrIntRef );
+#else
+    REPORT("Known issue: C++11 reference wrapper tests are skipped.\n");
+#endif /* __TBB_CPP11_REFERENCE_WRAPPER_PRESENT */
+
+    typedef std::pair< const int, tbb::atomic<int> > int_tbb_t;
+    std::list<int_tbb_t> arrIntTbb;
+    for ( int i=0; i<NUMBER; ++i ) {
+        tbb::atomic<int> b;
+        b = NUMBER-i;
+        arrIntTbb.push_back( int_tbb_t(i, b) );
+    }
+    TypeTester</*default_construction_present = */true>( arrIntTbb );
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT
+    typedef std::pair< const std::shared_ptr<int>, std::shared_ptr<int> > shr_shr_t;
+    std::list<shr_shr_t> arrShrShr;
+    for ( int i=0; i<NUMBER; ++i ) arrShrShr.push_back( shr_shr_t( std::make_shared<int>(i), std::make_shared<int>(NUMBER-i) ) );
+    TypeTester< /*default_construction_present = */true>( arrShrShr );
+
+    typedef std::pair< const std::weak_ptr<int>, std::weak_ptr<int> > wk_wk_t;
+    std::list< wk_wk_t > arrWkWk;
+    std::copy( arrShrShr.begin(), arrShrShr.end(), std::back_inserter(arrWkWk) );
+    TypeTester< /*default_construction_present = */true>( arrWkWk );
+#else
+    REPORT("Known issue: C++11 smart pointer tests are skipped.\n");
+#endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
+}
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+#include "test_container_move_support.h"
+
+struct hash_map_move_traits : default_container_traits {
+    enum{ expected_number_of_items_to_allocate_for_steal_move = 0 };
+
+    template<typename T>
+    struct hash_compare {
+        bool equal( const T& lhs, const T& rhs ) const {
+            return lhs==rhs;
+        }
+        size_t hash( const T& k ) const {
+            return tbb::tbb_hasher(k);
+        }
+    };
+    template<typename element_type, typename allocator_type>
+    struct apply {
+        typedef tbb::concurrent_hash_map<element_type, element_type, hash_compare<element_type>, allocator_type > type;
+    };
+
+    typedef FooPairIterator init_iterator_type;
+    template<typename hash_map_type, typename iterator>
+    static bool equal(hash_map_type const& c, iterator begin, iterator end){
+        bool equal_sizes = ( static_cast<size_t>(std::distance(begin, end)) == c.size() );
+        if (!equal_sizes)
+            return false;
+
+        for (iterator it = begin; it != end; ++it ){
+            if (c.count( (*it).first) == 0){
+                return false;
+            }
+        }
+        return true;
+    }
+};
+
+void TestMoveSupport(){
+    TestMoveConstructor<hash_map_move_traits>();
+    TestConstructorWithMoveIterators<hash_map_move_traits>();
+    TestMoveAssignOperator<hash_map_move_traits>();
+#if TBB_USE_EXCEPTIONS
+    TestExceptionSafetyGuaranteesMoveConstructorWithUnEqualAllocatorMemoryFailure<hash_map_move_traits>();
+    TestExceptionSafetyGuaranteesMoveConstructorWithUnEqualAllocatorExceptionInElementCtor<hash_map_move_traits>();
+#else
+    REPORT("Known issue: exception safety tests for C++11 move semantics support are skipped.\n");
+#endif //TBB_USE_EXCEPTIONS
+}
+#else
+void TestMoveSupport(){
+    REPORT("Known issue: tests for C++11 move semantics support are skipped.\n");
+}
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+//------------------------------------------------------------------------
+// Test driver
+//------------------------------------------------------------------------
 int TestMain () {
     if( MinThread<0 ) {
         REPORT("ERROR: must use at least one thread\n");
@@ -977,6 +1358,8 @@ int TestMain () {
     TestExceptions();
 #endif /* TBB_USE_EXCEPTIONS */
 
+    TestMoveSupport();
+
     // Do concurrency tests.
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
         tbb::task_scheduler_init init( nthread );
@@ -987,6 +1370,8 @@ int TestMain () {
     if(bad_hashing) { //should be false
         tbb::internal::runtime_warning("none\nERROR: it must not be executed");
     }
+
+    TestCPP11Types();
 
     return Harness::Done;
 }

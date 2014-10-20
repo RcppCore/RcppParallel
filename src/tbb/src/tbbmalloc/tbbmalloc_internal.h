@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_tbbmalloc_internal_H
@@ -145,6 +137,7 @@ class FreeBlock;
 class TLSData;
 class Backend;
 class MemoryPool;
+struct CacheBinOperation;
 extern const uint32_t minLargeObjectSize;
 
 class TLSKey {
@@ -172,7 +165,7 @@ inline void AtomicUpdate(Arg &location, Arg newVal, const Compare &cmp)
 }
 
 // TODO: make BitMaskBasic more general
-// (currenty, it fits BitMaskMin well, but not as suitable for BitMaskMax)
+// (currently, it fits BitMaskMin well, but not as suitable for BitMaskMax)
 template<unsigned NUM>
 class BitMaskBasic {
     static const unsigned SZ = (NUM-1)/(CHAR_BIT*sizeof(uintptr_t))+1;
@@ -268,95 +261,6 @@ struct LargeObjectCacheProps {
         LongWaitFactor = LONG_WAIT;
 };
 
-// ---------------- Cache Bin Aggregator Operation Helpers ---------------- //
-// The list of possible operations.
-enum CacheBinOperationType {
-    CBOP_INVALID = 0,
-    CBOP_GET,
-    CBOP_PUT_LIST,
-    CBOP_CLEAN_TO_THRESHOLD,
-    CBOP_CLEAN_ALL,
-    CBOP_DECR_USED_SIZE
-};
-
-// The operation status list. CBST_NOWAIT can be specified for non-blocking operations.
-enum CacheBinOperationStatus {
-    CBST_WAIT = 0,
-    CBST_NOWAIT,
-    CBST_DONE
-};
-
-// The list of structures which describe the operation data
-struct OpGet {
-    static const CacheBinOperationType type = CBOP_GET;
-    LargeMemoryBlock **res;
-    size_t size;
-    uintptr_t currTime;
-};
-
-struct OpPutList {
-    static const CacheBinOperationType type = CBOP_PUT_LIST;
-    LargeMemoryBlock *head;
-};
-
-struct OpCleanToThreshold {
-    static const CacheBinOperationType type = CBOP_CLEAN_TO_THRESHOLD;
-    LargeMemoryBlock **res;
-    uintptr_t currTime;
-};
-
-struct OpCleanAll {
-    static const CacheBinOperationType type = CBOP_CLEAN_ALL; 
-    LargeMemoryBlock **res;
-};
-
-struct OpDecrUsedSize {
-    static const CacheBinOperationType type = CBOP_DECR_USED_SIZE;
-    size_t size;
-};
-
-union CacheBinOperationData {
-private:
-    OpGet opGet;
-    OpPutList opPutList;
-    OpCleanToThreshold opCleanToThreshold;
-    OpCleanAll opCleanAll;
-    OpDecrUsedSize opDecrUsedSize;
-};
-
-// Forward declarations
-struct CacheBinOperation;
-template <typename OpTypeData> OpTypeData& opCast(CacheBinOperation &op);
-
-// Describes the aggregator operation
-struct CacheBinOperation : public MallocAggregatedOperation<CacheBinOperation>::type {
-    CacheBinOperationType type;
-
-    template <typename OpTypeData>
-    CacheBinOperation(OpTypeData &d, CacheBinOperationStatus st = CBST_WAIT) {
-        opCast<OpTypeData>(*this) = d;
-        type = OpTypeData::type;
-        MallocAggregatedOperation<CacheBinOperation>::type::status = st;
-    }
-private:
-    CacheBinOperationData data;
-
-    template <typename OpTypeData>
-    friend OpTypeData& opCast(CacheBinOperation &op);
-};
-
-// The opCast function can be the member of CacheBinOperation but it will have
-// small stylistic ambiguity: it will look like a getter (with a cast) for the
-// CacheBinOperation::data data member but it should return a reference to
-// simplify the code from a lot of getter/setter calls. So the global cast in
-// the style of static_cast (or reinterpret_cast) seems to be more readable and
-// have more explict semantic.
-template <typename OpTypeData>
-OpTypeData& opCast(CacheBinOperation &op) {
-    return *reinterpret_cast<OpTypeData*>(&op.data);
-}
-// ------------------------------------------------------------------------ //
-
 template<typename Props>
 class LargeObjectCacheImpl {
 private:
@@ -409,7 +313,7 @@ private:
   /* time of last get called for the bin */
         uintptr_t         lastGet;
 
-        /* The functor called by the agreggator for the operation list */
+        /* The functor called by the aggregator for the operation list */
         class CacheBinFunctor {
             CacheBin *const bin;
             ExtMemoryPool *const extMemPool;
@@ -420,8 +324,8 @@ private:
             bool needCleanup;
             uintptr_t currTime;
 
-            /* Perfoms preprocessing under the operation list. */
-            /* All the OP_PUT_LIST opearations are merged in the one operation.
+            /* Do preprocessing under the operation list. */
+            /* All the OP_PUT_LIST operations are merged in the one operation.
                All OP_GET operations are merged with the OP_PUT_LIST operations but
                it demands the update of the moving average value in the bin.
                Only the last OP_CLEAN_TO_THRESHOLD operation has sense.
@@ -446,21 +350,18 @@ private:
                    lastGet - the same meaning as CacheBin::lastGet */
                 uintptr_t lastGetOpTime, lastGet;
 
-                /* The total sum of all usedSize dercements requested with CBOP_DECR_USED_SIZE operations. */
+                /* The total sum of all usedSize decrements requested with CBOP_DECR_USED_SIZE operations. */
                 size_t decrUsedSize;
 
-                /* The list of blocks for the OP_PUT_LIST opearation. */
+                /* The list of blocks for the OP_PUT_LIST operation. */
                 LargeMemoryBlock *head, *tail;
                 int putListNum;
 
                 /* if the OP_CLEAN_ALL is requested. */
                 bool isCleanAll;
 
-                void commitOperation(CacheBinOperation *op) const { FencedStore( (intptr_t&)(op->status), CBST_DONE ); }
-                void addOpToOpList(CacheBinOperation *op, CacheBinOperation **opList) const {
-                    op->next = *opList;
-                    *opList = op;
-                }
+                inline void commitOperation(CacheBinOperation *op) const;
+                inline void addOpToOpList(CacheBinOperation *op, CacheBinOperation **opList) const;
                 bool getFromPutList(CacheBinOperation* opGet, uintptr_t currTime);
                 void addToPutList( LargeMemoryBlock *head, LargeMemoryBlock *tail, int num );
 
@@ -487,7 +388,7 @@ private:
         typename MallocAggregator<CacheBinOperation>::type aggregator;
 
         void ExecuteOperation(CacheBinOperation *op, ExtMemoryPool *extMemPool, BinBitMask *bitMask, int idx, bool longLifeTime = true);
-  /* ---------- unsafe methods used with the agreggator ---------- */
+  /* ---------- unsafe methods used with the aggregator ---------- */
         void forgetOutdatedState(uintptr_t currTime);
         LargeMemoryBlock *putList(LargeMemoryBlock *head, LargeMemoryBlock *tail, BinBitMask *bitMask, int idx, int num);
         LargeMemoryBlock *get();
@@ -517,7 +418,7 @@ private:
         void putList(ExtMemoryPool *extMemPool, LargeMemoryBlock *head, BinBitMask *bitMask, int idx);
         LargeMemoryBlock *get(ExtMemoryPool *extMemPool, size_t size, BinBitMask *bitMask, int idx);
         bool cleanToThreshold(ExtMemoryPool *extMemPool, BinBitMask *bitMask, uintptr_t currTime, int idx);
-        bool cleanAll(ExtMemoryPool *extMemPool, BinBitMask *bitMask, int idx);
+        bool releaseAllToBackend(ExtMemoryPool *extMemPool, BinBitMask *bitMask, int idx);
         void decrUsedSize(ExtMemoryPool *extMemPool, size_t size, BinBitMask *bitMask, int idx);
 
         void decreaseThreshold() {
@@ -748,6 +649,16 @@ public:
     void signal() { AtomicAdd(active, -1); }
 };
 
+enum MemRegionType {
+    // The region does not guarantee the block size.
+    MEMREG_FLEXIBLE_SIZE = 0,
+    // The region can hold exact number of blocks with the size of the
+    // first reqested block.
+    MEMREG_SEVERAL_BLOCKS,
+    // The region holds only one block with a reqested size.
+    MEMREG_ONE_BLOCK
+};
+
 class Backend {
 private:
 /* Blocks in range [minBinnedSize; getMaxBinnedSize()] are kept in bins,
@@ -757,7 +668,7 @@ private:
     enum {
         minBinnedSize = 8*1024UL,
         /*   If huge pages are available, maxBinned_HugePage used.
-             If not, maxBinned_SmallPage is the thresold.
+             If not, maxBinned_SmallPage is the threshold.
              TODO: use pool's granularity for upper bound setting.*/
         maxBinned_SmallPage = 1024*1024UL,
         // TODO: support other page sizes
@@ -855,19 +766,20 @@ private:
     // as pool is not available till returning from pool_create.
     bool           rawMemReceived;
 
-    // Using of maximal observed requested size allows descrease
-    // memory consumption for small requests and descrease fragmentation
+    // Using of maximal observed requested size allows decrease
+    // memory consumption for small requests and decrease fragmentation
     // for workloads when small and large allocation requests are mixed.
     // TODO: decrease, not only increase it
     size_t         maxRequestedSize;
 
-    FreeBlock *addNewRegion(size_t rawSize, bool exact, bool addToBin);
+    FreeBlock *addNewRegion(size_t size, MemRegionType type, bool addToBin);
     FreeBlock *findBlockInRegion(MemRegion *region, size_t exactBlockSize);
     void startUseBlock(MemRegion *region, FreeBlock *fBlock, bool addToBin);
     void releaseRegion(MemRegion *region);
 
     FreeBlock *askMemFromOS(size_t totalReqSize, intptr_t startModifiedCnt,
-                            int *lockedBinsThreshold, int numOfLockedBins);
+                            int *lockedBinsThreshold, int numOfLockedBins,
+                            bool *splittable);
     FreeBlock *genericGetBlock(int num, size_t size, bool resSlabAligned);
     void genericPutBlock(FreeBlock *fBlock, size_t blockSz);
     FreeBlock *splitUnalignedBlock(FreeBlock *fBlock, int num, size_t size,
@@ -987,7 +899,7 @@ struct ExtMemoryPool {
     // i.e., not system default pool for scalable_malloc/scalable_free
     bool userPool() const { return rawAlloc; }
 
-     // true if something has beed released
+     // true if something has been released
     bool softCachesCleanup();
     bool releaseAllLocalCaches();
     bool hardCachesCleanup();
@@ -1051,7 +963,7 @@ public:
 // init() and printStatus() is called only under global initialization lock.
 // Race is possible between registerAllocation() and registerReleasing(),
 // harm is that up to single huge page releasing is missed (because failure
-// to get huge page is registred only 1st time), that is negligible.
+// to get huge page is registered only 1st time), that is negligible.
 // setMode is also can be called concurrently.
 // Object must reside in zero-initialized memory
 class HugePagesStatus {
@@ -1173,8 +1085,7 @@ public:
         if (!malloc_proxy) {
 #if __FreeBSD__
 /* If !canUsePthread, we can't call pthread_self() before, but now pthread
-   is already on, so can do it. False positives here lead to silent switching
-   from malloc to mmap for all large allocations with bad performance impact. */
+   is already on, so can do it. */
             if (!canUsePthread) {
                 canUsePthread = true;
                 owner_thread = pthread_self();

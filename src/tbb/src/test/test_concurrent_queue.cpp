@@ -1,49 +1,31 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #define NOMINMAX
 #include "harness_defs.h"
-#include "test_concurrent_queue.h"
 #include "tbb/concurrent_queue.h"
 #include "tbb/tick_count.h"
 #include "harness.h"
 #include "harness_allocator.h"
 
-#if _MSC_VER==1500 && !__INTEL_COMPILER
-    // VS2008/VC9 seems to have an issue; limits pull in math.h
-    #pragma warning( push )
-    #pragma warning( disable: 4985 )
-#endif
-#include <limits>
-#if _MSC_VER==1500 && !__INTEL_COMPILER
-    #pragma warning( pop )
-#endif
-
+#include <vector>
 
 static tbb::atomic<long> FooConstructed;
 static tbb::atomic<long> FooDestroyed;
@@ -112,8 +94,8 @@ public:
         ++FooExConstructed;
         serial = serial_source++;
     }
-
     FooEx( const FooEx& item ) : state(LIVE) {
+        ASSERT( item.state == LIVE, NULL );
         ++FooExConstructed;
         if( MaxFooCount && (FooExConstructed-FooExDestroyed) >= MaxFooCount ) // in push()
             throw Foo_exception();
@@ -132,6 +114,12 @@ public:
         if( MaxFooCount==2*Threshold && (FooExConstructed-FooExDestroyed) <= MaxFooCount/4 ) // in pop()
             throw Foo_exception();
     }
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    void operator=( FooEx&& item ) {
+        operator=( item );
+        item.serial = 0;
+    }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
 } ;
 #endif /* TBB_USE_EXCEPTIONS */
 
@@ -147,13 +135,27 @@ static tbb::atomic<long> PopKind[3];
 
 const int M = 10000;
 
-#if TBB_DEPRECATED
-#define CALL_BLOCKING_POP(q,v) (q)->pop(v)
-#define CALL_TRY_POP(q,v,i) (((i)&0x2)?q->try_pop(v):q->pop_if_present(v))
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT && __TBB_CPP11_RVALUE_REF_PRESENT
+const size_t push_selector_variants = 3;
+#elif __TBB_CPP11_RVALUE_REF_PRESENT
+const size_t push_selector_variants = 2;
 #else
-#define CALL_BLOCKING_POP(q,v) while( !(q)->try_pop(v) ) __TBB_Yield()
-#define CALL_TRY_POP(q,v,i) q->try_pop(v)
+const size_t push_selector_variants = 1;
 #endif
+
+template<typename CQ, typename ValueType, typename CounterType>
+void push( CQ& q, ValueType v, CounterType i ) {
+    switch( i % push_selector_variants ) {
+    case 0: q.push( v ); break;
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    case 1: q.push( std::move(v) ); break;
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    case 2: q.emplace( v ); break;
+#endif
+#endif
+    default: ASSERT( false, NULL ); break;
+    }
+}
 
 template<typename CQ,typename T>
 struct Body: NoAssign {
@@ -173,15 +175,15 @@ struct Body: NoAssign {
             f.serial = DEAD;
             bool prepopped = false;
             if( j&1 ) {
-                prepopped = CALL_TRY_POP(queue,f,j);
+                prepopped = queue->try_pop( f );
                 ++pop_kind[prepopped];
             }
             T g;
             g.thread_id = thread_id;
             g.serial = j+1;
-            queue->push( g );
+            push( *queue, g, j );
             if( !prepopped ) {
-                CALL_BLOCKING_POP(queue,f);
+                while( !(queue)->try_pop(f) ) __TBB_Yield();
                 ++pop_kind[2];
             }
             ASSERT( f.thread_id<=nthread, NULL );
@@ -195,14 +197,21 @@ struct Body: NoAssign {
     }
 };
 
-#if !TBB_DEPRECATED
 // Define wrapper classes to test tbb::concurrent_queue<T>
 template<typename T, typename A = tbb::cache_aligned_allocator<T> >
-class ConcQWithSizeWrapper : public tbb::concurrent_queue<T> {
+class ConcQWithSizeWrapper : public tbb::concurrent_queue<T, A> {
 public:
     ConcQWithSizeWrapper() {}
+    ConcQWithSizeWrapper( const ConcQWithSizeWrapper& q ) : tbb::concurrent_queue<T, A>( q ) {}
+    ConcQWithSizeWrapper(const A& a) : tbb::concurrent_queue<T, A>( a ) {}
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    ConcQWithSizeWrapper(ConcQWithSizeWrapper&& q) : tbb::concurrent_queue<T>( std::move(q) ) {}
+    ConcQWithSizeWrapper(ConcQWithSizeWrapper&& q, const A& a)
+        : tbb::concurrent_queue<T, A>( std::move(q), a ) { }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
     template<typename InputIterator>
-    ConcQWithSizeWrapper( InputIterator begin, InputIterator end, const A& a = A()) : tbb::concurrent_queue<T>(begin,end,a) {}
+    ConcQWithSizeWrapper( InputIterator begin, InputIterator end, const A& a = A())
+        : tbb::concurrent_queue<T, A>(begin,end,a) {}
     size_t size() const { return this->unsafe_size(); }
 };
 
@@ -225,12 +234,136 @@ public:
     size_t capacity() const { return my_capacity; }
     void   set_capacity( const int n ) { my_capacity = n; }
     bool   try_push( const T& source ) { this->push( source ); return (size_t)source.serial<my_capacity; }
-    //bool   push_if_not_full( const T& source ) { return try_push(source); }
     bool   try_pop( T& dest ) { this->tbb::concurrent_queue<T>::try_pop( dest ); return (size_t)dest.serial<my_capacity; }
-    //void   pop( T& dest ) { this->try_pop( dest ); }
     size_t my_capacity;
 };
-#endif /* !TBB_DEPRECATED */
+
+template <typename Queue>
+void AssertEquality(Queue &q, const std::vector<typename Queue::value_type> &vec) {
+    ASSERT(q.size() == typename Queue::size_type(vec.size()), NULL);
+    ASSERT(std::equal(q.unsafe_begin(), q.unsafe_end(), vec.begin(), Harness::IsEqual()), NULL);
+}
+
+template <typename Queue>
+void AssertEmptiness(Queue &q) {
+    ASSERT(q.empty(), NULL);
+    ASSERT(!q.size(), NULL);
+    typename Queue::value_type elem;
+    ASSERT(!q.try_pop(elem), NULL);
+}
+
+enum push_t { push_op, try_push_op };
+
+template<push_t push_op>
+struct pusher {
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    template<typename CQ, typename VType>
+    static bool push( CQ& queue, VType&& val ) {
+        queue.push( std::forward<VType>( val ) );
+        return true;
+    }
+#else
+    template<typename CQ, typename VType>
+    static bool push( CQ& queue, const VType& val ) {
+        queue.push( val );
+        return true;
+    }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+};
+
+template<>
+struct pusher< try_push_op > {
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    template<typename CQ, typename VType>
+    static bool push( CQ& queue, VType&& val ) {
+        return queue.try_push( std::forward<VType>( val ) );
+    }
+#else
+    template<typename CQ, typename VType>
+    static bool push( CQ& queue, const VType& val ) {
+        return queue.try_push( val );
+    }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+};
+
+enum pop_t { pop_op, try_pop_op };
+
+template<pop_t pop_op>
+struct popper {
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    template<typename CQ, typename VType>
+    static bool pop( CQ& queue, VType&& val ) {
+        if( queue.empty() ) return false;
+        queue.pop( std::forward<VType>( val ) );
+        return true;
+    }
+#else
+    template<typename CQ, typename VType>
+    static bool pop( CQ& queue, VType& val ) {
+        if( queue.empty() ) return false;
+        queue.pop( val );
+        return true;
+    }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+};
+
+template<>
+struct popper< try_pop_op > {
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    template<typename CQ, typename VType>
+    static bool pop( CQ& queue, VType&& val ) {
+        return queue.try_pop( std::forward<VType>( val ) );
+    }
+#else
+    template<typename CQ, typename VType>
+    static bool pop( CQ& queue, VType& val ) {
+        return queue.try_pop( val );
+    }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+};
+
+template <push_t push_op, typename Queue>
+void FillTest(Queue &q, const std::vector<typename Queue::value_type> &vec) {
+    for (typename std::vector<typename Queue::value_type>::const_iterator it = vec.begin(); it != vec.end(); ++it)
+        ASSERT(pusher<push_op>::push(q, *it), NULL);
+    AssertEquality(q, vec);
+}
+
+template <pop_t pop_op, typename Queue>
+void EmptyTest(Queue &q, const std::vector<typename Queue::value_type> &vec) {
+    typedef typename Queue::value_type value_type;
+
+    value_type elem;
+    typename std::vector<value_type>::const_iterator it = vec.begin();
+    while (popper<pop_op>::pop(q, elem)) {
+        ASSERT(Harness::IsEqual()(elem, *it), NULL);
+        ++it;
+    }
+    ASSERT(it == vec.end(), NULL);
+    AssertEmptiness(q);
+}
+
+template <typename T, typename A>
+void bounded_queue_specific_test(tbb::concurrent_queue<T, A> &, const std::vector<T> &) { /* do nothing */ }
+
+template <typename T, typename A>
+void bounded_queue_specific_test(tbb::concurrent_bounded_queue<T, A> &q, const std::vector<T> &vec) {
+    typedef typename tbb::concurrent_bounded_queue<T, A>::size_type size_type;
+
+    FillTest<try_push_op>(q, vec);
+    tbb::concurrent_bounded_queue<T, A> q2 = q;
+    EmptyTest<pop_op>(q, vec);
+
+    // capacity
+    q2.set_capacity(size_type(vec.size()));
+    ASSERT(q2.capacity() == size_type(vec.size()), NULL);
+    ASSERT(q2.size() == size_type(vec.size()), NULL);
+    ASSERT(!q2.try_push(vec[0]), NULL);
+
+#if TBB_USE_EXCEPTIONS
+    q.abort();
+#endif
+}
 
 template<typename CQ, typename T>
 void TestPushPop( size_t prefill, ptrdiff_t capacity, int nthread ) {
@@ -251,7 +384,7 @@ void TestPushPop( size_t prefill, ptrdiff_t capacity, int nthread ) {
             T f;
             f.thread_id = nthread;
             f.serial = 1+int(i);
-            queue.push(f);
+            push(queue, f, i);
             ASSERT( unsigned(queue.size())==i+1, NULL );
             ASSERT( !queue.empty(), NULL );
         }
@@ -272,8 +405,8 @@ void TestPushPop( size_t prefill, ptrdiff_t capacity, int nthread ) {
             ASSERT( int(queue.size())==i, NULL );
             sum += f.serial-1;
         }
-        ASSERT( queue.empty(), NULL );
-        ASSERT( queue.size()==0, NULL );
+        ASSERT( queue.empty(), "The queue should be empty" );
+        ASSERT( queue.size()==0, "The queue should have zero size" );
         if( sum!=expected )
             REPORT("sum=%d expected=%d\n",sum,expected);
         ASSERT( T::get_n_constructed()==T::get_n_destroyed(), NULL );
@@ -316,17 +449,20 @@ void TestPushPop( size_t prefill, ptrdiff_t capacity, int nthread ) {
 class Bar {
     state_t state;
 public:
+    static size_t construction_num, destruction_num;
     ptrdiff_t my_id;
     Bar() : state(LIVE), my_id(-1) {}
-    Bar(size_t _i) : state(LIVE), my_id(_i) {}
+    Bar(size_t _i) : state(LIVE), my_id(_i) { construction_num++; }
     Bar( const Bar& a_bar ) : state(LIVE) {
         ASSERT( a_bar.state==LIVE, NULL );
         my_id = a_bar.my_id;
+        construction_num++;
     }
     ~Bar() {
         ASSERT( state==LIVE, NULL );
         state = DEAD;
         my_id = DEAD;
+        destruction_num++;
     }
     void operator=( const Bar& a_bar ) {
         ASSERT( a_bar.state==LIVE, NULL );
@@ -335,6 +471,9 @@ public:
     }
     friend bool operator==(const Bar& bar1, const Bar& bar2 ) ;
 } ;
+
+size_t Bar::construction_num = 0;
+size_t Bar::destruction_num = 0;
 
 bool operator==(const Bar& bar1, const Bar& bar2) {
     ASSERT( bar1.state==LIVE, NULL );
@@ -434,22 +573,6 @@ bool operator==(const BarEx& bar1, const BarEx& bar2) {
 }
 #endif /* TBB_USE_EXCEPTIONS */
 
-#if TBB_DEPRECATED
-
-#if __INTEL_COMPILER==1200 && _MSC_VER==1600
-// A workaround due to ICL 12.0 with /Qvc10 generating buggy code in TestIterator
-#define CALL_BEGIN(q,i) q.begin()
-#define CALL_END(q,i)   q.end()
-#else
-#define CALL_BEGIN(q,i) (((i)&0x1)?q.begin():q.unsafe_begin())
-#define CALL_END(q,i)   (((i)&0x1)?q.end():q.unsafe_end())
-#endif
-
-#else
-#define CALL_BEGIN(q,i) q.unsafe_begin()
-#define CALL_END(q,i)   q.unsafe_end()
-#endif /* TBB_DEPRECATED */
-
 template<typename CQ, typename T, typename TIter, typename CQ_EX, typename T_EX>
 void TestConstructors ()
 {
@@ -461,8 +584,8 @@ void TestConstructors ()
     for( size_t size=0; size<1001; ++size ) {
         for( size_t i=0; i<size; ++i )
             src_queue.push(T(i+(i^size)));
-        typename CQ::const_iterator sqb( CALL_BEGIN(src_queue,size) );
-        typename CQ::const_iterator sqe( CALL_END(src_queue,size));
+        typename CQ::const_iterator sqb( src_queue.unsafe_begin() );
+        typename CQ::const_iterator sqe( src_queue.unsafe_end()   );
 
         CQ dst_queue(sqb, sqe);
 
@@ -485,8 +608,8 @@ void TestConstructors ()
         ASSERT( sab==TIter(bar_array+0), NULL );
         ASSERT( sae==TIter(bar_array+size), NULL );
 
-        dqb = CALL_BEGIN(dst_queue2,size);
-        dqe = CALL_END(dst_queue2,size);
+        dqb = dst_queue2.unsafe_begin();
+        dqe = dst_queue2.unsafe_end();
         TIter v_iter(sab);
         for( ; dqb != dqe; ++dqb, ++v_iter )
             ASSERT( *dqb == *v_iter, "unexpected element" );
@@ -510,14 +633,14 @@ void TestConstructors ()
 
         ASSERT( src_queue.size()==dst_queue4.size(), NULL );
 
-        dqb = CALL_BEGIN(dst_queue4,i);
-        dqe = CALL_END(dst_queue4,i);
-        iter = CALL_BEGIN(src_queue,i);
+        dqb = dst_queue4.unsafe_begin();
+        dqe = dst_queue4.unsafe_end();
+        iter = src_queue.unsafe_begin();
 
         for( ; dqb != dqe; ++dqb, ++iter )
             ASSERT( *dqb == *iter, "unexpected element" );
 
-        ASSERT( iter==CALL_END(src_queue,i), "different size?" );
+        ASSERT( iter==src_queue.unsafe_end(), "different size?" );
     }
 
     CQ dst_queue5( src_queue );
@@ -579,16 +702,144 @@ void TestConstructors ()
 
         ASSERT( src_queue_ex.size()==dst_queue_ex.size(), NULL );
 
-        typename CQ_EX::const_iterator dqb_ex  = CALL_BEGIN(dst_queue_ex, size);
-        typename CQ_EX::const_iterator dqe_ex  = CALL_END(dst_queue_ex, size);
-        typename CQ_EX::const_iterator iter_ex = CALL_BEGIN(src_queue_ex, size);
+        typename CQ_EX::const_iterator dqb_ex  = dst_queue_ex.unsafe_begin();
+        typename CQ_EX::const_iterator dqe_ex  = dst_queue_ex.unsafe_end();
+        typename CQ_EX::const_iterator iter_ex = src_queue_ex.unsafe_begin();
 
         for( ; dqb_ex != dqe_ex; ++dqb_ex, ++iter_ex )
             ASSERT( *dqb_ex == *iter_ex, "unexpected element" );
-        ASSERT( iter_ex==CALL_END(src_queue_ex,size), "different size?" );
+        ASSERT( iter_ex==src_queue_ex.unsafe_end(), "different size?" );
     }
 #endif /* TBB_USE_EXCEPTIONS */
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    // Testing work of move constructors
+    src_queue.clear();
+
+    typedef typename CQ::size_type qsize_t;
+    for( qsize_t size = 0; size < 1001; ++size ) {
+        for( qsize_t i = 0; i < size; ++i )
+            src_queue.push( T(i + (i ^ size)) );
+        std::vector<const T*> locations(size);
+        typename CQ::const_iterator qit = src_queue.unsafe_begin();
+        for( qsize_t i = 0; i < size; ++i, ++qit )
+            locations[i] = &(*qit);
+
+        qsize_t size_of_queue = src_queue.size();
+        CQ dst_queue( std::move(src_queue) );
+
+        ASSERT( src_queue.empty() && src_queue.size() == 0, "not working move constructor?" );
+        ASSERT( size == size_of_queue && size_of_queue == dst_queue.size(),
+                "not working move constructor?" );
+
+        qit = dst_queue.unsafe_begin();
+        for( qsize_t i = 0; i < size; ++i, ++qit )
+            ASSERT( locations[i] == &(*qit), "there was data movement during move constructor" );
+
+        for( qsize_t i = 0; i < size; ++i ) {
+            T test(i + (i ^ size));
+            T popped;
+            bool pop_result = dst_queue.try_pop( popped );
+
+            ASSERT( pop_result, NULL );
+            ASSERT( test == popped, NULL );
+        }
+    }
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
 }
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+template<class T>
+class allocator: public tbb::cache_aligned_allocator<T> {
+public:
+    size_t m_unique_id;
+
+    allocator() : m_unique_id( 0 ) {}
+
+    allocator(size_t unique_id) { m_unique_id = unique_id; }
+
+    template<typename U>
+    allocator(const allocator<U>& a) throw() { m_unique_id = a.m_unique_id; }
+
+    template<typename U>
+    struct rebind { typedef allocator<U> other; };
+
+    friend bool operator==(const allocator& lhs, const allocator& rhs) {
+        return lhs.m_unique_id == rhs.m_unique_id;
+    }
+};
+
+// Checks operability of the queue the data was moved from
+template<typename T, typename CQ>
+void TestQueueOperabilityAfterDataMove( CQ& queue ) {
+    const size_t size = 10;
+    std::vector<T> v(size);
+    for( size_t i = 0; i < size; ++i ) v[i] = T( i * i + i );
+
+    FillTest<push_op>(queue, v);
+    EmptyTest<try_pop_op>(queue, v);
+    bounded_queue_specific_test(queue, v);
+}
+
+template<class CQ, class T>
+void TestMoveConstructors() {
+    T::construction_num = T::destruction_num = 0;
+    CQ src_queue( allocator<T>(0) );
+    const size_t size = 10;
+    for( size_t i = 0; i < size; ++i )
+        src_queue.push( T(i + (i ^ size)) );
+
+    ASSERT( T::construction_num == 2 * size, NULL );
+    ASSERT( T::destruction_num == size, NULL );
+    const T* locations[size];
+    typename CQ::const_iterator qit = src_queue.unsafe_begin();
+    for( size_t i = 0; i < size; ++i, ++qit )
+        locations[i] = &(*qit);
+
+    // Ensuring allocation operation takes place during move when allocators are different
+    CQ dst_queue( std::move(src_queue), allocator<T>(1) );
+    ASSERT( T::construction_num == 2 * size + size, NULL );
+    ASSERT( T::destruction_num == 2 * size + size, NULL );
+
+    TestQueueOperabilityAfterDataMove<T>( src_queue );
+
+    qit = dst_queue.unsafe_begin();
+    for( size_t i = 0; i < size; ++i, ++qit ) {
+        ASSERT( locations[i] != &(*qit), "item was not moved" );
+        locations[i] = &(*qit);
+    }
+
+    T::construction_num = T::destruction_num = 0;
+    // Ensuring there is no allocation operation during move with equal allocators
+    CQ dst_queue2( std::move(dst_queue), allocator<T>(1) );
+    ASSERT( T::construction_num == 0, NULL );
+    ASSERT( T::destruction_num == 0, NULL );
+
+    TestQueueOperabilityAfterDataMove<T>( dst_queue );
+
+    qit = dst_queue2.unsafe_begin();
+    for( size_t i = 0; i < size; ++i, ++qit ) {
+        ASSERT( locations[i] == &(*qit), "item was moved" );
+    }
+
+    for( size_t i = 0; i < size; ++i) {
+        T test(i + (i ^ size));
+        T popped;
+        bool pop_result = dst_queue2.try_pop( popped );
+        ASSERT( pop_result, NULL );
+        ASSERT( test == popped, NULL );
+    }
+    ASSERT( dst_queue2.empty(), NULL );
+    ASSERT( dst_queue2.size() == 0, NULL );
+}
+
+void TestMoveConstruction() {
+    REMARK("Testing move constructors with specified allocators...");
+    TestMoveConstructors< ConcQWithSizeWrapper< Bar, allocator<Bar> >, Bar >();
+    TestMoveConstructors< tbb::concurrent_bounded_queue< Bar, allocator<Bar> >, Bar >();
+    REMARK(" work\n");
+}
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
 
 template<typename Iterator1, typename Iterator2>
 void TestIteratorAux( Iterator1 i, Iterator2 j, int size ) {
@@ -648,10 +899,10 @@ void TestIterator() {
     CQ queue;
     const CQ& const_queue = queue;
     for( int j=0; j<500; ++j ) {
-        TestIteratorAux( CALL_BEGIN(queue,j)      , CALL_END(queue,j)      , j );
-        TestIteratorAux( CALL_BEGIN(const_queue,j), CALL_END(const_queue,j), j );
-        TestIteratorAux( CALL_BEGIN(const_queue,j), CALL_END(queue,j)      , j );
-        TestIteratorAux( CALL_BEGIN(queue,j)      , CALL_END(const_queue,j), j );
+        TestIteratorAux( queue.unsafe_begin()      , queue.unsafe_end()      , j );
+        TestIteratorAux( const_queue.unsafe_begin(), const_queue.unsafe_end(), j );
+        TestIteratorAux( const_queue.unsafe_begin(), queue.unsafe_end()      , j );
+        TestIteratorAux( queue.unsafe_begin()      , const_queue.unsafe_end(), j );
         Foo f;
         f.serial = j+1;
         queue.push(f);
@@ -684,17 +935,6 @@ void TestEmptyQueue() {
     ASSERT( size_t(queue.capacity())>=size_t(-1)/(sizeof(void*)+sizeof(T)), NULL );
 }
 
-#ifdef CALL_TRY_POP
-#undef CALL_TRY_POP
-#endif
-#if TBB_DEPRECATED
-#define CALL_TRY_PUSH(q,f,i) (((i)&0x1)?(q).push_if_not_full(f):(q).try_push(f))
-#define CALL_TRY_POP(q,f) (q).pop_if_present(f)
-#else
-#define CALL_TRY_PUSH(q,f,i) (q).try_push(f)
-#define CALL_TRY_POP(q,f) (q).try_pop(f)
-#endif
-
 template<typename CQ,typename T>
 void TestFullQueue() {
     for( int n=0; n<10; ++n ) {
@@ -704,24 +944,18 @@ void TestFullQueue() {
         for( int i=0; i<=n; ++i ) {
             T f;
             f.serial = i;
-            bool result = CALL_TRY_PUSH( queue, f, i );
+            bool result = queue.try_push( f );
             ASSERT( result==(i<n), NULL );
         }
         for( int i=0; i<=n; ++i ) {
             T f;
-            bool result = CALL_TRY_POP( queue, f );
+            bool result = queue.try_pop( f );
             ASSERT( result==(i<n), NULL );
             ASSERT( !result || f.serial==i, NULL );
         }
         ASSERT( T::get_n_constructed()==T::get_n_destroyed(), NULL );
     }
 }
-
-#if TBB_DEPRECATED
-#define CALL_PUSH_IF_NOT_FULL(q,v,i) (((i)&0x1)?q.push_if_not_full(v):(q.push(v), true))
-#else
-#define CALL_PUSH_IF_NOT_FULL(q,v,i) (q.push(v), true)
-#endif
 
 template<typename CQ>
 void TestClear() {
@@ -735,8 +969,7 @@ void TestClear() {
     for( size_t i=0; i<n; ++i ) {
         Foo f;
         f.serial = int(i);
-        bool result = CALL_PUSH_IF_NOT_FULL(queue, f, i);
-        ASSERT( result, NULL );
+        queue.push( f );
     }
     ASSERT( unsigned(queue.size())==n, NULL );
     queue.clear();
@@ -744,8 +977,7 @@ void TestClear() {
     for( size_t i=0; i<n; ++i ) {
         Foo f;
         f.serial = int(i);
-        bool result = CALL_PUSH_IF_NOT_FULL(queue, f, i);
-        ASSERT( result, NULL );
+        queue.push( f );
     }
     ASSERT( unsigned(queue.size())==n, NULL );
     queue.clear();
@@ -753,18 +985,16 @@ void TestClear() {
     for( size_t i=0; i<n; ++i ) {
         Foo f;
         f.serial = int(i);
-        bool result = CALL_PUSH_IF_NOT_FULL(queue, f, i);
-        ASSERT( result, NULL );
+        queue.push( f );
     }
     ASSERT( unsigned(queue.size())==n, NULL );
 }
 
-#if TBB_DEPRECATED
 template<typename T>
 struct TestNegativeQueueBody: NoAssign {
-    tbb::concurrent_queue<T>& queue;
+    tbb::concurrent_bounded_queue<T>& queue;
     const int nthread;
-    TestNegativeQueueBody( tbb::concurrent_queue<T>& q, int n ) : queue(q), nthread(n) {}
+    TestNegativeQueueBody( tbb::concurrent_bounded_queue<T>& q, int n ) : queue(q), nthread(n) {}
     void operator()( int k ) const {
         if( k==0 ) {
             int number_of_pops = nthread-1;
@@ -790,10 +1020,9 @@ struct TestNegativeQueueBody: NoAssign {
 //! Test a queue with a negative size.
 template<typename T>
 void TestNegativeQueue( int nthread ) {
-    tbb::concurrent_queue<T> queue;
+    tbb::concurrent_bounded_queue<T> queue;
     NativeParallelFor( nthread, TestNegativeQueueBody<T>(queue,nthread) );
 }
-#endif /* TBB_DEPRECATED */
 
 #if TBB_USE_EXCEPTIONS
 template<typename CQ,typename A1,typename A2,typename T>
@@ -818,7 +1047,7 @@ void TestExceptionBody() {
                 A2::set_limits(N/2);
                 for( int k=0; k<N; k++ ) {
                     if( i==0 )
-                        queue0.push( T() );
+                        push(queue0, T(), i);
                     else
                         queue1.push( k );
                 }
@@ -846,7 +1075,7 @@ void TestExceptionBody() {
                     switch(m) {
                     case m_push:
                             for( int k=0; k<N; k++ ) {
-                                queue_test.push( T() );
+                                push( queue_test, T(), k );
                                 n_pushed++;
                             }
                             break;
@@ -858,7 +1087,7 @@ void TestExceptionBody() {
                                 n_popped++;
                             }
                             n_pushed = 0;
-                            A2::set_limits(); 
+                            A2::set_limits();
                             break;
                     }
                     if( !t && m==m_push ) ASSERT(false, "should throw an exception");
@@ -869,7 +1098,7 @@ void TestExceptionBody() {
                                 long tc = MaxFooCount;
                                 MaxFooCount = 0;
                                 for( int k=0; k<(int)tc; k++ ) {
-                                    queue_test.push( T() );
+                                    push( queue_test, T(), k );
                                     n_pushed++;
                                 }
                                 MaxFooCount = tc;
@@ -880,7 +1109,7 @@ void TestExceptionBody() {
                             n_pushed -= (n_popped+1); // including one that threw an exception
                             ASSERT( n_pushed>=0, "n_pushed cannot be less than 0" );
                             for( int k=0; k<1000; k++ ) {
-                                queue_test.push( T() );
+                                push( queue_test, T(), k );
                                 n_pushed++;
                             }
                             ASSERT( !queue_test.empty(), "queue must not be empty" );
@@ -920,12 +1149,8 @@ void TestExceptions() {
 #elif TBB_USE_EXCEPTIONS
     typedef static_counting_allocator<std::allocator<FooEx>, size_t> allocator_t;
     typedef static_counting_allocator<std::allocator<char>, size_t> allocator_char_t;
-#if !TBB_DEPRECATED
     TestExceptionBody<ConcQWithSizeWrapper<FooEx, allocator_t>,allocator_t,allocator_char_t,FooEx>();
     TestExceptionBody<tbb::concurrent_bounded_queue<FooEx, allocator_t>,allocator_t,allocator_char_t,FooEx>();
-#else
-    TestExceptionBody<tbb::concurrent_queue<FooEx, allocator_t>,allocator_t,allocator_char_t,FooEx>();
-#endif
 #endif /* TBB_USE_EXCEPTIONS */
 }
 
@@ -998,59 +1223,38 @@ void TestVectorTypes() {
 void TestEmptiness()
 {
     REMARK(" Test Emptiness\n");
-#if !TBB_DEPRECATED
     TestEmptyQueue<ConcQWithCapacity<char>, char>();
     TestEmptyQueue<ConcQWithCapacity<Foo>, Foo>();
     TestEmptyQueue<tbb::concurrent_bounded_queue<char>, char>();
     TestEmptyQueue<tbb::concurrent_bounded_queue<Foo>, Foo>();
-#else
-    TestEmptyQueue<tbb::concurrent_queue<char>, char>();
-    TestEmptyQueue<tbb::concurrent_queue<Foo>, Foo>();
-#endif
 }
 
 void TestFullness()
 {
     REMARK(" Test Fullness\n");
-#if !TBB_DEPRECATED
     TestFullQueue<ConcQWithCapacity<Foo>,Foo>();
     TestFullQueue<tbb::concurrent_bounded_queue<Foo>,Foo>();
-#else
-    TestFullQueue<tbb::concurrent_queue<Foo>,Foo>();
-#endif
 }
 
 void TestClearWorks() 
 {
     REMARK(" Test concurrent_queue::clear() works\n");
-#if !TBB_DEPRECATED
     TestClear<ConcQWithCapacity<Foo> >();
     TestClear<tbb::concurrent_bounded_queue<Foo> >();
-#else
-    TestClear<tbb::concurrent_queue<Foo> >();
-#endif
 }
 
 void TestQueueTypeDeclaration()
 {
     REMARK(" Test concurrent_queue's types work\n");
-#if !TBB_DEPRECATED
     TestConcurrentQueueType<tbb::concurrent_queue<Foo> >();
     TestConcurrentQueueType<tbb::concurrent_bounded_queue<Foo> >();
-#else
-    TestConcurrentQueueType<tbb::concurrent_queue<Foo> >();
-#endif
 }
 
 void TestQueueIteratorWorks()
 {
     REMARK(" Test concurrent_queue's iterators work\n");
-#if !TBB_DEPRECATED
     TestIterator<tbb::concurrent_queue<Foo> >();
     TestIterator<tbb::concurrent_bounded_queue<Foo> >();
-#else
-    TestIterator<tbb::concurrent_queue<Foo> >();
-#endif
 }
 
 #if TBB_USE_EXCEPTIONS
@@ -1063,18 +1267,13 @@ class Empty;
 void TestQueueConstructors() 
 {
     REMARK(" Test concurrent_queue's constructors work\n");
-#if !TBB_DEPRECATED
     TestConstructors<ConcQWithSizeWrapper<Bar>,Bar,BarIterator,ConcQWithSizeWrapper<BAR_EX>,BAR_EX>();
     TestConstructors<tbb::concurrent_bounded_queue<Bar>,Bar,BarIterator,tbb::concurrent_bounded_queue<BAR_EX>,BAR_EX>();
-#else
-    TestConstructors<tbb::concurrent_queue<Bar>,Bar,BarIterator,tbb::concurrent_queue<BAR_EX>,BAR_EX>();
-#endif
 }
 
 void TestQueueWorksWithPrimitiveTypes()
 {
     REMARK(" Test concurrent_queue works with primitive types\n");
-#if !TBB_DEPRECATED
     TestPrimitiveTypes<tbb::concurrent_queue<char>, char>( MaxThread, (char)1 );
     TestPrimitiveTypes<tbb::concurrent_queue<int>, int>( MaxThread, (int)-12 );
     TestPrimitiveTypes<tbb::concurrent_queue<float>, float>( MaxThread, (float)-1.2f );
@@ -1083,33 +1282,19 @@ void TestQueueWorksWithPrimitiveTypes()
     TestPrimitiveTypes<tbb::concurrent_bounded_queue<int>, int>( MaxThread, (int)-12 );
     TestPrimitiveTypes<tbb::concurrent_bounded_queue<float>, float>( MaxThread, (float)-1.2f );
     TestPrimitiveTypes<tbb::concurrent_bounded_queue<double>, double>( MaxThread, (double)-4.3 );
-#else
-    TestPrimitiveTypes<tbb::concurrent_queue<char>, char>( MaxThread, (char)1 );
-    TestPrimitiveTypes<tbb::concurrent_queue<int>, int>( MaxThread, (int)-12 );
-    TestPrimitiveTypes<tbb::concurrent_queue<float>, float>( MaxThread, (float)-1.2f );
-    TestPrimitiveTypes<tbb::concurrent_queue<double>, double>( MaxThread, (double)-4.3 );
-#endif
 }
 
 void TestQueueWorksWithSSE()
 {
     REMARK(" Test concurrent_queue works with SSE data\n");
 #if HAVE_m128
-#if !TBB_DEPRECATED
     TestVectorTypes<ClassWithSSE, tbb::concurrent_queue<ClassWithSSE> >();
     TestVectorTypes<ClassWithSSE, tbb::concurrent_bounded_queue<ClassWithSSE> >();
-#else
-    TestVectorTypes<ClassWithSSE, tbb::concurrent_queue<ClassWithSSE> >();
-#endif
 #endif /* HAVE_m128 */
 #if HAVE_m256
     if( have_AVX() ) {
-#if !TBB_DEPRECATED
         TestVectorTypes<ClassWithAVX, tbb::concurrent_queue<ClassWithAVX> >();
         TestVectorTypes<ClassWithAVX, tbb::concurrent_bounded_queue<ClassWithAVX> >();
-#else
-        TestVectorTypes<ClassWithAVX, tbb::concurrent_queue<ClassWithAVX> >();
-#endif
     }
 #endif /* HAVE_m256 */
 }
@@ -1119,16 +1304,7 @@ void TestConcurrentPushPop()
     REMARK(" Test concurrent_queue's concurrent push and pop\n");
     for( int nthread=MinThread; nthread<=MaxThread; ++nthread ) {
         REMARK(" Testing with %d thread(s)\n", nthread );
-#if TBB_DEPRECATED
         TestNegativeQueue<Foo>(nthread);
-        for( size_t prefill=0; prefill<64; prefill+=(1+prefill/3) ) {
-            TestPushPop<tbb::concurrent_queue<Foo>,Foo>(prefill,ptrdiff_t(-1),nthread);
-            TestPushPop<tbb::concurrent_queue<Foo>,Foo>(prefill,ptrdiff_t(1),nthread);
-            TestPushPop<tbb::concurrent_queue<Foo>,Foo>(prefill,ptrdiff_t(2),nthread);
-            TestPushPop<tbb::concurrent_queue<Foo>,Foo>(prefill,ptrdiff_t(10),nthread);
-            TestPushPop<tbb::concurrent_queue<Foo>,Foo>(prefill,ptrdiff_t(100),nthread);
-        }
-#else
         for( size_t prefill=0; prefill<64; prefill+=(1+prefill/3) ) {
             TestPushPop<ConcQPushPopWrapper<Foo>,Foo>(prefill,ptrdiff_t(-1),nthread);
             TestPushPop<ConcQPushPopWrapper<Foo>,Foo>(prefill,ptrdiff_t(1),nthread);
@@ -1143,7 +1319,6 @@ void TestConcurrentPushPop()
             TestPushPop<tbb::concurrent_bounded_queue<Foo>,Foo>(prefill,ptrdiff_t(10),nthread);
             TestPushPop<tbb::concurrent_bounded_queue<Foo>,Foo>(prefill,ptrdiff_t(100),nthread);
         }
-#endif /* !TBB_DEPRECATED */
     }
 }
 
@@ -1269,71 +1444,229 @@ void TestAbort() {
 #endif
 }
 
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+struct MoveOperationTracker {
+    static size_t copy_constructor_called_times;
+    static size_t move_constructor_called_times;
+    static size_t copy_assignment_called_times;
+    static size_t move_assignment_called_times;
 
-template <typename Q>
-class FloggerBody : NoAssign {
-    Q *q;
+    MoveOperationTracker() {}
+    MoveOperationTracker(const MoveOperationTracker&) {
+        ++copy_constructor_called_times;
+    }
+    MoveOperationTracker(MoveOperationTracker&&) {
+        ++move_constructor_called_times;
+    }
+    MoveOperationTracker& operator=(MoveOperationTracker const&) {
+        ++copy_assignment_called_times;
+        return *this;
+    }
+    MoveOperationTracker& operator=(MoveOperationTracker&&) {
+        ++move_assignment_called_times;
+        return *this;
+    }
+};
+size_t MoveOperationTracker::copy_constructor_called_times = 0;
+size_t MoveOperationTracker::move_constructor_called_times = 0;
+size_t MoveOperationTracker::copy_assignment_called_times = 0;
+size_t MoveOperationTracker::move_assignment_called_times = 0;
+
+template <class CQ, push_t push_op, pop_t pop_op>
+void TestMoveSupport() {
+    size_t &mcct = MoveOperationTracker::move_constructor_called_times;
+    size_t &ccct = MoveOperationTracker::copy_constructor_called_times;
+    size_t &cact = MoveOperationTracker::copy_assignment_called_times;
+    size_t &mact = MoveOperationTracker::move_assignment_called_times;
+    mcct = ccct = cact = mact = 0;
+
+    CQ q;
+
+    ASSERT(mcct == 0, "Value must be zero-initialized");
+    ASSERT(ccct == 0, "Value must be zero-initialized");
+    ASSERT(pusher<push_op>::push( q, MoveOperationTracker() ), NULL);
+    ASSERT(mcct == 1, "Not working push(T&&) or try_push(T&&)?");
+    ASSERT(ccct == 0, "Copying of arg occurred during push(T&&) or try_push(T&&)");
+
+    MoveOperationTracker ob;
+    ASSERT(pusher<push_op>::push( q, std::move(ob) ), NULL);
+    ASSERT(mcct == 2, "Not working push(T&&) or try_push(T&&)?");
+    ASSERT(ccct == 0, "Copying of arg occurred during push(T&&) or try_push(T&&)");
+
+    ASSERT(cact == 0, "Copy assignment called during push(T&&) or try_push(T&&)");
+    ASSERT(mact == 0, "Move assignment called during push(T&&) or try_push(T&&)");
+
+    bool result = popper<pop_op>::pop( q, ob );
+    ASSERT(result, NULL);
+    ASSERT(cact == 0, "Copy assignment called during try_pop(T&&)");
+    ASSERT(mact == 1, "Move assignment was not called during try_pop(T&&)");
+}
+
+void TestMoveSupportInPushPop() {
+    REMARK("Testing Move Support in Push/Pop...");
+    TestMoveSupport< tbb::concurrent_queue<MoveOperationTracker>, push_op, try_pop_op >();
+    TestMoveSupport< tbb::concurrent_bounded_queue<MoveOperationTracker>, push_op, pop_op >();
+    TestMoveSupport< tbb::concurrent_bounded_queue<MoveOperationTracker>, try_push_op, try_pop_op >();
+    REMARK(" works.\n");
+}
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+class NonTrivialConstructorType {
 public:
-    FloggerBody(Q *q_) : q(q_) {}  
-    void operator()(const int threadID) const {
-        typedef typename Q::value_type value_type;
-        value_type elem = value_type(threadID);
-        for (size_t i=0; i<275; ++i) {
-            q->push(elem);
-            (void) q->try_pop(elem);
-        }
+    NonTrivialConstructorType( int a = 0 ) : m_a( a ), m_str( "" ) {}
+    NonTrivialConstructorType( const std::string& str ) : m_a( 0 ), m_str( str ) {}
+    NonTrivialConstructorType( int a, const std::string& str ) : m_a( a ), m_str( str ) {}
+    int get_a() const { return m_a; }
+    std::string get_str() const { return m_str; }
+private:
+    int m_a;
+    std::string m_str;
+};
+
+enum emplace_t { emplace_op, try_emplace_op };
+
+template< emplace_t emplace_op >
+struct emplacer {
+    template< typename CQ, typename... Args>
+    static void emplace( CQ& queue, Args&&... val ) { queue.emplace( std::forward<Args>( val )... ); }
+};
+
+template<>
+struct emplacer< try_emplace_op > {
+    template<typename CQ, typename... Args>
+    static void emplace( CQ& queue, Args&&... val ) {
+        bool result = queue.try_emplace( std::forward<Args>( val )... );
+        ASSERT( result, "try_emplace error\n" );
     }
 };
 
-template <typename HackedQRep, typename Q>
-void TestFloggerHelp(HackedQRep* hack_rep, Q* q, size_t items_per_page) {
-    size_t nq = HackedQRep::n_queue;
-    size_t hack_val = std::numeric_limits<std::size_t>::max() & ~( nq * items_per_page - 1 );
-    hack_rep->head_counter = hack_val;
-    hack_rep->tail_counter = hack_val;
-    size_t k = hack_rep->tail_counter & -(ptrdiff_t)nq;
-
-    for (size_t i=0; i<nq; ++i) {
-        hack_rep->array[i].head_counter = k;
-        hack_rep->array[i].tail_counter = k;
+template<typename CQ, emplace_t emplace_op>
+void TestEmplaceInQueue() {
+    CQ cq;
+    std::string test_str = "I'm being emplaced!";
+    {
+        emplacer<emplace_op>::emplace( cq, 5 );
+        ASSERT( cq.size() == 1, NULL );
+        NonTrivialConstructorType popped( -1 );
+        bool result = cq.try_pop( popped );
+        ASSERT( result, NULL );
+        ASSERT( popped.get_a() == 5, NULL );
+        ASSERT( popped.get_str() == std::string( "" ), NULL );
     }
-    NativeParallelFor(MaxThread, FloggerBody<Q>(q));
-    ASSERT(q->empty(), "FAILED flogger/empty test.");
-    delete q;
+
+    ASSERT( cq.empty(), NULL );
+
+    {
+        NonTrivialConstructorType popped( -1 );
+        emplacer<emplace_op>::emplace( cq, std::string(test_str) );
+        bool result = cq.try_pop( popped );
+        ASSERT( result, NULL );
+        ASSERT( popped.get_a() == 0, NULL );
+        ASSERT( popped.get_str() == test_str, NULL );
+    }
+
+    ASSERT( cq.empty(), NULL );
+
+    {
+        NonTrivialConstructorType popped( -1, "" );
+        emplacer<emplace_op>::emplace( cq, 5, std::string(test_str) );
+        bool result = cq.try_pop( popped );
+        ASSERT( result, NULL );
+        ASSERT( popped.get_a() == 5, NULL );
+        ASSERT( popped.get_str() == test_str, NULL );
+    }
+}
+void TestEmplace() {
+    REMARK("Testing support for 'emplace' method...");
+    TestEmplaceInQueue< ConcQWithSizeWrapper<NonTrivialConstructorType>, emplace_op >();
+    TestEmplaceInQueue< tbb::concurrent_bounded_queue<NonTrivialConstructorType>, emplace_op >();
+    TestEmplaceInQueue< tbb::concurrent_bounded_queue<NonTrivialConstructorType>, try_emplace_op >();
+    REMARK(" works.\n");
+}
+#endif /* __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT */
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+
+template <typename Queue>
+void Examine(Queue q, const std::vector<typename Queue::value_type> &vec) {
+    typedef typename Queue::value_type value_type;
+
+    AssertEquality(q, vec);
+
+    const Queue cq = q;
+    AssertEquality(cq, vec);
+
+    q.clear();
+    AssertEmptiness(q);
+
+    FillTest<push_op>(q, vec);
+    EmptyTest<try_pop_op>(q, vec);
+
+    bounded_queue_specific_test(q, vec);
+
+    typename Queue::allocator_type a = q.get_allocator();
+    value_type *ptr = a.allocate(1);
+    ASSERT(ptr, NULL);
+    a.deallocate(ptr, 1);
 }
 
-template <typename T>
-void TestFlogger(T /*max*/) {
-    { // test strict_ppl::concurrent_queue or deprecated::concurrent_queue
-        tbb::concurrent_queue<T>* q = new tbb::concurrent_queue<T>;
-#if !TBB_DEPRECATED
-        REMARK("Wraparound on strict_ppl::concurrent_queue...");
-        hacked_concurrent_queue_rep* hack_rep = ((hacked_concurrent_queue<T>*)(void*)q)->my_rep;
-        TestFloggerHelp(hack_rep, q, hack_rep->items_per_page);
-        REMARK(" works.\n");
+template <typename Queue, typename QueueDebugAlloc>
+void TypeTester(const std::vector<typename Queue::value_type> &vec) {
+    typedef typename std::vector<typename Queue::value_type>::const_iterator iterator;
+    ASSERT(vec.size() >= 5, "Array should have at least 5 elements");
+    // Construct an empty queue.
+    Queue q1;
+    for (iterator it = vec.begin(); it != vec.end(); ++it) q1.push(*it);
+    Examine(q1, vec);
+    // Copying constructor.
+    Queue q3(q1);
+    Examine(q3, vec);
+    // Construct with non-default allocator.
+    QueueDebugAlloc q4;
+    for (iterator it = vec.begin(); it != vec.end(); ++it) q4.push(*it);
+    Examine(q4, vec);
+    // Copying constructor with the same allocator type.
+    QueueDebugAlloc q5(q4);
+    Examine(q5, vec);
+    // Construction with given allocator instance.
+    typename QueueDebugAlloc::allocator_type a;
+    QueueDebugAlloc q6(a);
+    for (iterator it = vec.begin(); it != vec.end(); ++it) q6.push(*it);
+    Examine(q6, vec);
+    // Construction with copying iteration range and given allocator instance.
+    QueueDebugAlloc q7(q1.unsafe_begin(), q1.unsafe_end(), a);
+    Examine<QueueDebugAlloc>(q7, vec);
+}
+
+template <typename value_type>
+void TestTypes(const std::vector<value_type> &vec) {
+    TypeTester< ConcQWithSizeWrapper<value_type>, ConcQWithSizeWrapper<value_type, debug_allocator<value_type> > >(vec);
+    TypeTester< tbb::concurrent_bounded_queue<value_type>, tbb::concurrent_bounded_queue<value_type, debug_allocator<value_type> > >(vec);
+}
+
+void TestTypes() {
+    const int NUMBER = 10;
+
+    std::vector<int> arrInt;
+    for (int i = 0; i < NUMBER; ++i) arrInt.push_back(i);
+    std::vector< tbb::atomic<int> > arrTbb;
+    for (int i = 0; i < NUMBER; ++i) {
+        tbb::atomic<int> a;
+        a = i;
+        arrTbb.push_back(a);
+    }
+    TestTypes(arrInt);
+    TestTypes(arrTbb);
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT
+    std::vector< std::shared_ptr<int> > arrShr;
+    for (int i = 0; i < NUMBER; ++i) arrShr.push_back(std::make_shared<int>(i));
+    std::vector< std::weak_ptr<int> > arrWk;
+    std::copy(arrShr.begin(), arrShr.end(), std::back_inserter(arrWk));
+    TestTypes(arrShr);
+    TestTypes(arrWk);
 #else
-        REMARK("Wraparound on deprecated::concurrent_queue...");
-        hacked_bounded_concurrent_queue* hack_q = (hacked_bounded_concurrent_queue*)(void*)q;
-        hacked_bounded_concurrent_queue_rep* hack_rep = hack_q->my_rep;
-        TestFloggerHelp(hack_rep, q, hack_q->items_per_page);
-        REMARK(" works.\n");
-#endif
-    }
-    { // test tbb::concurrent_bounded_queue
-        tbb::concurrent_bounded_queue<T>* q = new tbb::concurrent_bounded_queue<T>;
-        REMARK("Wraparound on tbb::concurrent_bounded_queue...");
-        hacked_bounded_concurrent_queue* hack_q = (hacked_bounded_concurrent_queue*)(void*)q;
-        hacked_bounded_concurrent_queue_rep* hack_rep = hack_q->my_rep;
-        TestFloggerHelp(hack_rep, q, hack_q->items_per_page);
-        REMARK(" works.\n");
-    }
-}
-
-void TestWraparound() {
-    REMARK("Testing Wraparound...\n");
-    TestFlogger(std::numeric_limits<int>::max());
-    TestFlogger(std::numeric_limits<unsigned char>::max());
-    REMARK("Done Testing Wraparound.\n");
+    REPORT("Known issue: C++11 smart pointer tests are skipped.\n");
+#endif /* __TBB_CXX11_TYPES_PRESENT */
 }
 
 int TestMain () {
@@ -1360,7 +1693,15 @@ int TestMain () {
 
     TestAbort();
 
-    TestWraparound();
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    TestMoveSupportInPushPop();
+    TestMoveConstruction();
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    TestEmplace();
+#endif /* __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT */
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
+
+    TestTypes();
 
     return Harness::Done;
 }

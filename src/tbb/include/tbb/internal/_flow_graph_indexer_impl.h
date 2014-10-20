@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB__flow_graph_indexer_impl_H
@@ -33,7 +25,6 @@
 #error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
-#if TBB_PREVIEW_GRAPH_NODES
 #include "tbb/internal/_flow_graph_types_impl.h"
 
 namespace internal {
@@ -58,6 +49,13 @@ namespace internal {
             tbb::flow::get<N-1>(my_input).set_up(p, indexer_node_put_task);
             indexer_helper<TupleTypes,N-1>::template set_indexer_node_pointer<IndexerNodeBaseType,PortTuple>(my_input, p);
         }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        template<typename InputTuple>
+        static inline void reset_inputs(InputTuple &my_input, reset_flags f) {
+            join_helper<N-1>::reset_inputs(my_input, f);
+            tbb::flow::get<N-1>(my_input).reset_receiver(f);
+        }
+#endif
     };
 
     template<typename TupleTypes>
@@ -68,6 +66,12 @@ namespace internal {
             task *(*indexer_node_put_task)(const T&, void *) = do_try_put<IndexerNodeBaseType, T, 0>;
             tbb::flow::get<0>(my_input).set_up(p, indexer_node_put_task);
         }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        template<typename InputTuple>
+        static inline void reset_inputs(InputTuple &my_input, reset_flags f) {
+            tbb::flow::get<0>(my_input).reset_receiver(f);
+        }
+#endif
     };
 
     template<typename T>
@@ -76,11 +80,39 @@ namespace internal {
         void* my_indexer_ptr;
         typedef task* (* forward_function_ptr)(T const &, void* );
         forward_function_ptr my_try_put_task;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        spin_mutex my_pred_mutex;
+        edge_container<sender<T> > my_built_predecessors;
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
     public:
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        indexer_input_port() : my_pred_mutex() {}
+        indexer_input_port( const indexer_input_port & /*other*/ ) : receiver<T>(), my_pred_mutex() {
+        }
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
         void set_up(void *p, forward_function_ptr f) {
                 my_indexer_ptr = p;
                 my_try_put_task = f;
             }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        typedef std::vector<sender<T> *> predecessor_vector_type;
+        /*override*/size_t predecessor_count() {
+            spin_mutex::scoped_lock l(my_pred_mutex);
+            return my_built_predecessors.edge_count();
+        }
+        /*override*/void internal_add_built_predecessor(sender<T> &p) {
+            spin_mutex::scoped_lock l(my_pred_mutex);
+            my_built_predecessors.add_edge(p);
+        }
+        /*override*/void internal_delete_built_predecessor(sender<T> &p) {
+            spin_mutex::scoped_lock l(my_pred_mutex);
+            my_built_predecessors.delete_edge(p);
+        }
+        /*override*/void copy_predecessors( predecessor_vector_type &v) {
+            spin_mutex::scoped_lock l(my_pred_mutex);
+            return my_built_predecessors.copy_edges(v);
+        }
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
     protected:
         template< typename R, typename B > friend class run_and_put_task;
         template<typename X, typename Y> friend class internal::broadcast_cache;
@@ -88,7 +120,16 @@ namespace internal {
         task *try_put_task(const T &v) {
             return my_try_put_task(v, my_indexer_ptr);
         }
-        /*override*/void reset_receiver() {}
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    public:
+        /*override*/void reset_receiver(__TBB_PFG_RESET_ARG(reset_flags f)) {
+            if(f&rf_extract) my_built_predecessors.receiver_extract(*this);
+        }
+#else
+        /*override*/void reset_receiver(__TBB_PFG_RESET_ARG(reset_flags /*f*/)) { }
+#endif
+
     };
 
     template<typename InputTuple, typename OutputType, typename StructTypes>
@@ -115,10 +156,18 @@ namespace internal {
         typedef StructTypes tuple_types;
         typedef receiver<output_type> successor_type;
         typedef indexer_node_FE<InputTuple, output_type,StructTypes> input_ports_type;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        typedef std::vector<successor_type *> successor_vector_type;
+#endif
 
     private:
         // ----------- Aggregator ------------
-        enum op_type { reg_succ, rem_succ, try__put_task };
+        enum op_type { reg_succ, rem_succ, try__put_task
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            , add_blt_succ, del_blt_succ,
+             blt_succ_cnt, blt_succ_cpy
+#endif
+        };
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
         typedef indexer_node_base<InputTuple,output_type,StructTypes> my_class;
 
@@ -129,6 +178,10 @@ namespace internal {
                 output_type const *my_arg;
                 successor_type *my_succ;
                 task *bypass_t;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+                size_t cnt_val;
+                successor_vector_type *succv;
+#endif
             };
             indexer_node_base_operation(const output_type* e, op_type t) :
                 type(char(t)), my_arg(e) {}
@@ -162,6 +215,24 @@ namespace internal {
                         __TBB_store_with_release(current->status, SUCCEEDED);  // return of try_put_task actual return value
                     }
                     break;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+                case add_blt_succ:
+                    my_successors.internal_add_built_successor(*(current->my_succ));
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case del_blt_succ:
+                    my_successors.internal_delete_built_successor(*(current->my_succ));
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case blt_succ_cnt:
+                    current->cnt_val = my_successors.successor_count();
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+                case blt_succ_cpy:
+                    my_successors.copy_successors(*(current->succv));
+                    __TBB_store_with_release(current->status, SUCCEEDED);
+                    break;
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
                 }
             }
         }
@@ -197,8 +268,36 @@ namespace internal {
             return op_data.bypass_t;
         }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        void internal_add_built_successor( successor_type &r) {
+            indexer_node_base_operation op_data(r, add_blt_succ);
+            my_aggregator.execute(&op_data);
+        }
+
+        void internal_delete_built_successor( successor_type &r) {
+            indexer_node_base_operation op_data(r, del_blt_succ);
+            my_aggregator.execute(&op_data);
+        }
+
+        size_t successor_count() {
+            indexer_node_base_operation op_data(blt_succ_cnt);
+            my_aggregator.execute(&op_data);
+            return op_data.cnt_val;
+        }
+
+        void copy_successors( successor_vector_type &v) {
+            indexer_node_base_operation op_data(blt_succ_cpy);
+            op_data.succv = &v;
+            my_aggregator.execute(&op_data);
+        } 
+#endif /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
     protected:
-        /*override*/void reset() {}
+        /*override*/void reset(__TBB_PFG_RESET_ARG(reset_flags f)) {
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            my_successors.reset(f);
+            indexer_helper<StructTypes,N>::reset_inputs(this->my_inputs, f);
+#endif
+        }
 
     private:
         broadcast_cache<output_type, null_rw_mutex> my_successors;
@@ -350,6 +449,5 @@ namespace internal {
     };
 
 } /* namespace internal */
-#endif  // TBB_PREVIEW_GRAPH_NODES
 
 #endif  /* __TBB__flow_graph_indexer_impl_H */

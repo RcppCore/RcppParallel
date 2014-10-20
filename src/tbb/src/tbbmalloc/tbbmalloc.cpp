@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "TypeDefinitions.h" // Customize.h and proxy.h get included
@@ -36,47 +28,13 @@
 #undef UNICODE
 
 #if USE_PTHREAD
-#include <dlfcn.h>
+#include <dlfcn.h> // dlopen
 #elif USE_WINTHREAD
 #include "tbb/machine/windows_api.h"
 #endif
 
-#if MALLOC_CHECK_RECURSION
-
-#include <pthread.h>
-#include <stdio.h>
-#include <unistd.h>
-#if __sun
-#include <string.h> /* for memset */
-#include <errno.h>
-#endif
-
-#if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
-
-extern "C" {
-
-void   safer_scalable_free( void*, void (*)(void*) );
-void * safer_scalable_realloc( void*, size_t, void* );
-
-bool __TBB_internal_find_original_malloc(int num, const char *names[], void *table[])  __attribute__ ((weak));
-
-}
-
-#endif /* MALLOC_UNIXLIKE_OVERLOAD_ENABLED */
-#endif /* MALLOC_CHECK_RECURSION */
-
 namespace rml {
 namespace internal {
-
-#if MALLOC_CHECK_RECURSION
-
-static void   (*original_free_ptr)(void*) = 0;
-#if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
-static void*  (*original_realloc_ptr)(void*,size_t) = 0;
-static size_t (*original_msize_ptr)(void*) = 0;
-#endif
-
-#endif /* MALLOC_CHECK_RECURSION */
 
 /** Caller is responsible for ensuring this routine is called exactly once. */
 extern "C" void MallocInitializeITT() {
@@ -105,32 +63,6 @@ extern "C" void MallocInitializeITT() {
 #endif
 
 void init_tbbmalloc() {
-#if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
-    if (malloc_proxy && __TBB_internal_find_original_malloc) {
-        const char *alloc_names[] = {"malloc", "free", "realloc"};
-        void *orig_alloc_ptrs[arrayLength(alloc_names)];
-
-        if (__TBB_internal_find_original_malloc(arrayLength(alloc_names),
-                                                alloc_names, orig_alloc_ptrs)) {
-            void* (*original_malloc_ptr)(size_t);
-
-            (void *&)original_malloc_ptr  = orig_alloc_ptrs[0];
-            (void *&)original_free_ptr    = orig_alloc_ptrs[1];
-            (void *&)original_realloc_ptr = orig_alloc_ptrs[2];
-            MALLOC_ASSERT( original_malloc_ptr!=malloc_proxy,
-                           "standard malloc not found" );
-            // malloc_usable_size() is optional, continue if it's not found
-            const char *usable_size_name[] = {"malloc_usable_size"};
-            __TBB_internal_find_original_malloc(arrayLength(usable_size_name),
-                               usable_size_name, (void **)&original_msize_ptr);
-/* It's workaround for a bug in GNU Libc 2.9 (as it shipped with Fedora 10).
-   1st call to libc's malloc should be not from threaded code.
- */
-            original_free_ptr(original_malloc_ptr(1024));
-        }
-    }
-#endif /* MALLOC_UNIXLIKE_OVERLOAD_ENABLED */
-
 #if DO_ITT_NOTIFY
     MallocInitializeITT();
 #endif
@@ -182,48 +114,6 @@ struct RegisterProcessShutdownNotification {
 static RegisterProcessShutdownNotification reg;
 #endif /* !USE_WINTHREAD */
 #endif /* !__TBB_SOURCE_DIRECTLY_INCLUDED */
-
-#if MALLOC_CHECK_RECURSION
-
-#if MALLOC_UNIXLIKE_OVERLOAD_ENABLED
-
-extern "C" {
-
-void * __TBB_internal_malloc(size_t size)
-{
-    return scalable_malloc(size);
-}
-
-void * __TBB_internal_calloc(size_t num, size_t size)
-{
-    return scalable_calloc(num, size);
-}
-
-int __TBB_internal_posix_memalign(void **memptr, size_t alignment, size_t size)
-{
-    return scalable_posix_memalign(memptr, alignment, size);
-}
-
-void* __TBB_internal_realloc(void* ptr, size_t sz)
-{
-    return safer_scalable_realloc(ptr, sz, (void*&)original_realloc_ptr);
-}
-
-void __TBB_internal_free(void *object)
-{
-    safer_scalable_free(object, original_free_ptr);
-}
-
-size_t __TBB_internal_msize(void *ptr)
-{
-    return safer_scalable_msize(ptr, original_msize_ptr);
-}
-
-} /* extern "C" */
-
-#endif /* MALLOC_UNIXLIKE_OVERLOAD_ENABLED */
-
-#endif /* MALLOC_CHECK_RECURSION */
 
 } } // namespaces
 

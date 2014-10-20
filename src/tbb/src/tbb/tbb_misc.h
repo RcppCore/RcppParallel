@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef _TBB_tbb_misc_H
@@ -166,7 +158,7 @@ public:
     FastRandom( uint64_t seed) { init(seed); }
     template <typename T>
     void init( T seed ) {
-        return init(seed,int_to_type<sizeof(seed)>());
+        init(seed,int_to_type<sizeof(seed)>());
     }
     void init( uint64_t seed , int_to_type<8> ) {
         init(uint32_t((seed>>32)+seed), int_to_type<4>());
@@ -254,7 +246,7 @@ inline void run_initializer( bool (*f)(), atomic<do_once_state>& state ) {
   #else
     #error affinity_helper is not implemented in this OS
   #endif
-    class affinity_helper {
+    class affinity_helper : no_copy {
         basic_mask_t* threadMask;
         int is_changed;
     public:
@@ -263,15 +255,13 @@ inline void run_initializer( bool (*f)(), atomic<do_once_state>& state ) {
         void protect_affinity_mask();
     };
 #else
-    class affinity_helper {
+    class affinity_helper : no_copy {
     public:
         void protect_affinity_mask() {}
     };
 #endif /* __TBB_USE_OS_AFFINITY_SYSCALL */
 
-#if __TBB_CPF_BUILD || TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 extern bool cpu_has_speculation();
-#endif
 
 } // namespace internal
 } // namespace tbb

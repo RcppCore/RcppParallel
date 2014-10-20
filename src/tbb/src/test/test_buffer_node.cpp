@@ -1,37 +1,32 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness.h"
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
-
-#include <cstdio>
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#include "harness_graph.h"
+#include <vector>
+#include <algorithm>
+#endif
 
 #define N 1000
 #define C 10
@@ -350,6 +345,18 @@ int test_serial() {
     ASSERT( j == bogus_value, NULL );
 
     tbb::flow::make_edge(b, b2);
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT( b.successor_count() == 1, NULL);
+    ASSERT( b.predecessor_count() == 0, NULL);
+    ASSERT( b2.successor_count() == 0, NULL);
+    ASSERT( b2.predecessor_count() == 1, NULL);
+    typename tbb::flow::buffer_node<T>::successor_vector_type my_succs;
+    b.copy_successors(my_succs);
+    ASSERT(my_succs.size() == 1, NULL);
+    typename tbb::flow::buffer_node<T>::predecessor_vector_type my_preds;
+    b.copy_predecessors(my_preds);
+    ASSERT(my_preds.size() == 0, NULL);
+#endif
 
     vsum = T(0);
     for (int i = 0; i < N; ++i) {
@@ -428,5 +435,10 @@ int TestMain() {
     } 
     stop = tbb::tick_count::now();
     REMARK("Buffer_Node Time=%6.6f\n", (stop-start).seconds());
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    test_resets<int,tbb::flow::buffer_node<int> >();
+    test_resets<float,tbb::flow::buffer_node<float> >();
+    test_buffer_extract<tbb::flow::buffer_node<int> >().run_tests();
+#endif
     return Harness::Done;
 }

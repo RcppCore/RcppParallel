@@ -1,32 +1,27 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness.h"
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#include "harness_graph.h"
+#endif
 #include "tbb/flow_graph.h"
 #include "tbb/atomic.h"
 #include "tbb/task_scheduler_init.h"
@@ -45,7 +40,18 @@ struct serial_receiver : public tbb::flow::receiver<T> {
        return const_cast<tbb::task *>(tbb::flow::interface7::SUCCESSFULLY_ENQUEUED);
    }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    void internal_add_built_predecessor( tbb::flow::sender<T> & ) { }
+    void internal_delete_built_predecessor( tbb::flow::sender<T> & ) { }
+    void copy_predecessors( std::vector<tbb::flow::sender<T>*> & ) { }
+    size_t predecessor_count() { return 0; }
+#endif
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+   /*override*/void reset_receiver(tbb::flow::reset_flags /*f*/) {next_value = T(0);}
+#else
    /*override*/void reset_receiver() {next_value = T(0);}
+#endif
 };
 
 template< typename T >
@@ -60,13 +66,28 @@ struct parallel_receiver : public tbb::flow::receiver<T> {
        return const_cast<tbb::task *>(tbb::flow::interface7::SUCCESSFULLY_ENQUEUED);
    }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    void internal_add_built_predecessor( tbb::flow::sender<T> & ) { }
+    void internal_delete_built_predecessor( tbb::flow::sender<T> & ) { }
+    void copy_predecessors( std::vector<tbb::flow::sender<T>*> & ) { }
+    size_t predecessor_count( ) { return 0; }
+   /*override*/void reset_receiver(tbb::flow::reset_flags /*f*/) {my_count = 0;}
+#else
    /*override*/void reset_receiver() {my_count = 0;}
+#endif
 };
 
 template< typename T >
 struct empty_sender : public tbb::flow::sender<T> {
         /* override */ bool register_successor( tbb::flow::receiver<T> & ) { return false; }
         /* override */ bool remove_successor( tbb::flow::receiver<T> & ) { return false; }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        void    internal_add_built_successor( tbb::flow::receiver<T> & ) { }
+        void internal_delete_built_successor( tbb::flow::receiver<T> & ) { }
+        void copy_successors( std::vector<tbb::flow::receiver<T>*> & ) { }
+        size_t successor_count() { return 0; }
+#endif
+
 };
 
 
@@ -118,7 +139,15 @@ void test_puts_with_decrements( int num_threads, tbb::flow::limiter_node< T >& l
     tbb::atomic<int> accept_count;
     accept_count = 0;
     tbb::flow::make_edge( lim, r );
-    lim.decrement.register_predecessor( s );
+    tbb::flow::make_edge(s, lim.decrement);
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT(lim.decrement.predecessor_count() == 1, NULL);
+    ASSERT(lim.successor_count() == 1, NULL);
+    ASSERT(lim.predecessor_count() == 0, NULL);
+    std::vector<tbb::flow::sender<tbb::flow::continue_msg> *> dec_preds;
+    lim.decrement.copy_predecessors(dec_preds);
+    ASSERT(dec_preds.size() == 1, NULL);
+#endif
     // test puts with decrements
     NativeParallelFor( num_threads, put_dec_body<T>(lim, accept_count) );
     int c = accept_count;
@@ -192,7 +221,7 @@ int test_serial() {
        serial_receiver<T> r;
        empty_sender< tbb::flow::continue_msg > s;
        tbb::flow::make_edge( lim, r );
-       lim.decrement.register_predecessor( s );
+       tbb::flow::make_edge(s, lim.decrement);
        for ( int j = 0; j < N; ++j ) {
            bool msg = lim.try_put( T(j) );
            ASSERT( ( j < i && msg == true ) || ( j >= i && msg == false ), NULL );
@@ -273,6 +302,16 @@ test_multifunction_to_limiter(int _max, int _nparallel) {
     tbb::flow::make_edge(tbb::flow::output_port<DECREMENT_OUTPUT>(mf_node), lim_node.decrement);
     tbb::flow::make_edge(lim_node, fn_node);
     tbb::flow::make_edge(fn_node, mf_node);
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    REMARK("pred cnt == %d\n",(int)(lim_node.predecessor_count()));
+    REMARK("succ cnt == %d\n",(int)(lim_node.successor_count()));
+    tbb::flow::limiter_node<int>::successor_vector_type my_succs;
+    lim_node.copy_successors(my_succs);
+    REMARK("succ cnt from vector  == %d\n",(int)(my_succs.size()));
+    tbb::flow::limiter_node<int>::predecessor_vector_type my_preds;
+    lim_node.copy_predecessors(my_preds);
+    REMARK("pred cnt from vector  == %d\n",(int)(my_preds.size()));
+#endif
     mf_node.try_put(1);
     g.wait_for_all();
     ASSERT(emit_count == receive_count, "counts do not match");
@@ -357,6 +396,112 @@ void test_reserve_release_messages() {
   }
 }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+void test_extract() {
+    tbb::flow::graph g;
+    int j;
+    tbb::flow::limiter_node<int> node0(g, /*threshold*/1);
+    tbb::flow::queue_node<int> q0(g);
+    tbb::flow::queue_node<int> q1(g);
+    tbb::flow::queue_node<int> q2(g);
+    tbb::flow::broadcast_node<tbb::flow::continue_msg> b0(g);
+    tbb::flow::broadcast_node<tbb::flow::continue_msg> b1(g);
+
+    for( int i = 0; i < 2; ++i ) {
+
+        ASSERT(node0.predecessor_count() == 0, "incorrect predecessor count at start");
+        ASSERT(node0.successor_count() == 0, "incorrect successor count at start");
+        ASSERT(node0.decrement.predecessor_count() == 0, "incorrect decrement pred count at start");
+
+        tbb::flow::make_edge(q0, node0);
+        tbb::flow::make_edge(q1, node0);
+        tbb::flow::make_edge(node0, q2);
+        tbb::flow::make_edge(b0, node0.decrement);
+        tbb::flow::make_edge(b1, node0.decrement);
+        g.wait_for_all();
+
+        /*    b0   b1              */
+        /*      \  |               */
+        /*  q0\  \ |               */
+        /*     \  \|               */
+        /*      +-node0---q2       */
+        /*     /                   */
+        /*  q1/                    */
+
+        q0.try_put(i);
+        g.wait_for_all();
+        ASSERT(node0.predecessor_count() == 2, "incorrect predecessor count after construction");
+        ASSERT(node0.successor_count() == 1, "incorrect successor count after construction");
+        ASSERT(node0.decrement.predecessor_count() == 2, "incorrect decrement pred count after construction");
+        ASSERT(q2.try_get(j) && j == i, "improper value forwarded to output queue");
+        q0.try_put(2*i);
+        g.wait_for_all();
+        ASSERT(!q2.try_get(j), "limiter_node forwarded item improperly");
+        b0.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(!q2.try_get(j), "limiter_node forwarded item improperly");
+        b0.try_put(tbb::flow::continue_msg());
+        g.wait_for_all();
+        ASSERT(q2.try_get(j) && j == 2*i, "limiter_node failed to forward item");
+
+        tbb::flow::limiter_node<int>::successor_vector_type sv;
+        tbb::flow::limiter_node<int>::predecessor_vector_type pv;
+        tbb::flow::continue_receiver::predecessor_vector_type dv;
+        std::vector<tbb::flow::receiver<int>*> sv1;
+        std::vector<tbb::flow::sender<int>*> pv1;
+        std::vector<tbb::flow::sender<tbb::flow::continue_msg>*> dv1;
+
+        node0.copy_predecessors(pv);
+        node0.copy_successors(sv);
+        node0.decrement.copy_predecessors(dv);
+        pv1.push_back(&(q0));
+        pv1.push_back(&(q1));
+        sv1.push_back(&(q2));
+        dv1.push_back(&(b0));
+        dv1.push_back(&(b1));
+
+        ASSERT(pv.size() == 2, "improper size for predecessors");
+        ASSERT(sv.size() == 1, "improper size for successors");
+        ASSERT(lists_match(pv,pv1), "predecesosr lists do not match");
+        ASSERT(lists_match(sv,sv1), "successor lists do not match");
+        ASSERT(lists_match(dv,dv1), "successor lists do not match");
+
+        if(i == 0) {
+            node0.extract();
+        }
+        else {
+            q0.extract();
+            b0.extract();
+            q2.extract();
+
+            ASSERT(node0.predecessor_count() == 1, "incorrect predecessor count after extract second iter");
+            ASSERT(node0.successor_count() == 0, "incorrect successor count after extract second iter");
+            ASSERT(node0.decrement.predecessor_count() == 1, "incorrect decrement pred count after extract second iter");
+
+            node0.copy_predecessors(pv);
+            node0.copy_successors(sv);
+            node0.decrement.copy_predecessors(dv);
+            pv1.clear();
+            sv1.clear();
+            dv1.clear();
+            pv1.push_back(&(q1));
+            dv1.push_back(&(b1));
+
+            ASSERT(lists_match(pv,pv1), "predecesosr lists do not match second iter");
+            ASSERT(lists_match(sv,sv1), "successor lists do not match second iter");
+            ASSERT(lists_match(dv,dv1), "successor lists do not match second iter");
+
+            q1.extract();
+            b1.extract();
+        }
+        ASSERT(node0.predecessor_count() == 0, "incorrect predecessor count after extract");
+        ASSERT(node0.successor_count() == 0, "incorrect successor count after extract");
+        ASSERT(node0.decrement.predecessor_count() == 0, "incorrect decrement pred count after extract");
+
+    }
+
+}
+#endif  // TBB_PREVIEW_FLOW_GRAPH_FEATURES
 
 int TestMain() { 
     for (int i = 1; i <= 8; ++i) {
@@ -369,5 +514,8 @@ int TestMain() {
     test_multifunction_to_limiter(300,13);
     test_multifunction_to_limiter(3000,1);
     test_reserve_release_messages();
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    test_extract();
+#endif
    return Harness::Done;
 }

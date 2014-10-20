@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 /** @file harness_graph.cpp     
@@ -280,7 +272,15 @@ struct harness_counting_receiver : public tbb::flow::receiver<T>, NoCopy {
         ASSERT( n == num_copies*max_value, NULL );
     }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    /*override*/void internal_add_built_predecessor(tbb::flow::sender<T> &) {}
+    /*override*/void internal_delete_built_predecessor(tbb::flow::sender<T> &) {}
+    /*override*/void copy_predecessors(std::vector<tbb::flow::sender<T> *> &) { }
+    /*override*/size_t predecessor_count() { return 0; }
+    /*override*/void reset_receiver(tbb::flow::reset_flags /*f*/) { my_count = 0; }
+#else
     /*override*/void reset_receiver() { my_count = 0; }
+#endif
 
 };
 
@@ -336,8 +336,15 @@ struct harness_mapped_receiver : public tbb::flow::receiver<T>, NoCopy {
             ASSERT( n == num_copies*max_value, NULL );
         }
     }
-
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    /*override*/void internal_add_built_predecessor(tbb::flow::sender<T> &) {}
+    /*override*/void internal_delete_built_predecessor(tbb::flow::sender<T> &) {}
+    /*override*/void copy_predecessors(std::vector<tbb::flow::sender<T> *> &) { }
+    /*override*/size_t predecessor_count() { return 0; }
+    /*override*/void reset_receiver(tbb::flow::reset_flags /*f*/) { my_count = 0; if(my_map) delete my_map; my_map = new map_type; }
+#else
     /*override*/void reset_receiver() { my_count = 0; if(my_map) delete my_map; my_map = new map_type; }
+#endif
 
 };
 
@@ -373,6 +380,13 @@ struct harness_counting_sender : public tbb::flow::sender<T>, NoCopy {
         ASSERT( s == &r, NULL );
         return true;
     }
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    /* override */ void internal_add_built_successor( successor_type &) {}
+    /* override */ void internal_delete_built_successor( successor_type &) {}
+    /* override */ void copy_successors(std::vector<successor_type *> &) { }
+    /* override */ size_t successor_count() { return 0; }
+#endif
 
     /* override */ bool try_get( T & v ) { 
         size_t i = my_count.fetch_and_increment();
@@ -418,6 +432,529 @@ struct harness_counting_sender : public tbb::flow::sender<T>, NoCopy {
 
 };
 
+// test for resets of buffer-type nodes.
+tbb::atomic<int> serial_fn_state0;
+tbb::atomic<int> serial_fn_state1;
+tbb::atomic<int> serial_continue_state0;
+
+template<typename T>
+struct serial_fn_body {
+    tbb::atomic<int> *_flag;
+    serial_fn_body(tbb::atomic<int> &myatomic) : _flag(&myatomic) { }
+    T operator()(const T& in) {
+        if(*_flag == 0) {
+            *_flag = 1;
+            // wait until we are released
+            tbb::internal::atomic_backoff backoff;
+            do {
+                backoff.pause();
+            } while(*_flag == 1);
+        }
+        // return value
+        return in;
+    }
+};
+
+template<typename T>
+struct serial_continue_body {
+    tbb::atomic<int> *_flag;
+    serial_continue_body(tbb::atomic<int> &myatomic) : _flag(&myatomic) {}
+    T operator()(const tbb::flow::continue_msg& /*in*/) {
+        // signal we have received a value
+        *_flag = 1;
+        // wait until we are released
+        tbb::internal::atomic_backoff backoff;
+        do {
+            backoff.pause();
+        } while(*_flag == 1);
+        // return value
+        return (T)1;
+    }
+};
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+
+
+// walk two lists via iterator, match elements of each, in possibly-different ordder, and
+// return true if all elements of sv appear in tv.
+template<typename SV, typename TV>
+bool lists_match(SV &sv, TV &tv) {
+    if(sv.size() != tv.size()) return false;
+    std::vector<bool> bv(sv.size(), false);
+    for(typename TV::iterator itv = tv.begin(); itv != tv.end(); ++itv) {
+        int ibv = 0;
+        for(typename SV::iterator isv = sv.begin(); isv != sv.end(); ++isv) {
+            if(!bv[ibv]) {
+                if(*itv == *isv) {
+                    bv[ibv] = true;
+                    goto found_it;;
+                }
+            }
+            ++ibv;
+        }
+        return false;
+found_it:
+        continue;
+    }
+    return true;
+}
+
+template<typename T, typename BufferType>
+void test_resets() {
+    const int NN = 3;
+    tbb::task_group_context   tgc;
+    tbb::flow::graph          g(tgc);
+    BufferType                b0(g);
+    tbb::flow::queue_node<T>  q0(g);
+    T j;
+    bool nFound[NN];
+    
+    // reset empties buffer
+    for(T i = 0; i < NN; ++i) {
+        b0.try_put(i);
+        nFound[(int)i] = false;
+    }
+    g.wait_for_all();
+    g.reset();
+    ASSERT(!b0.try_get(j), "reset did not empty buffer");
+
+    // reset doesn't delete edge
+
+    tbb::flow::make_edge(b0,q0);
+    g.reset();
+    for(T i = 0; i < NN; ++i) {
+        b0.try_put(i);
+    }
+
+    g.wait_for_all();
+    for( T i = 0; i < NN; ++i) {
+        ASSERT(q0.try_get(j), "Missing value from buffer");
+        ASSERT(!nFound[(int)j], "Duplicate value found");
+        nFound[(int)j] = true;
+    }
+
+    for(int ii = 0; ii < NN; ++ii) {
+        ASSERT(nFound[ii], "missing value");
+    }
+    ASSERT(!q0.try_get(j), "Extra values in output");
+
+    // reset reverses a reversed edge.
+    // we will use a serial rejecting node to get the edge to reverse.
+    tbb::flow::function_node<T, T, tbb::flow::rejecting> sfn(g, tbb::flow::serial, serial_fn_body<T>(serial_fn_state0));
+    tbb::flow::queue_node<T> outq(g);
+    tbb::flow::remove_edge(b0,q0);
+    tbb::flow::make_edge(b0, sfn);
+    tbb::flow::make_edge(sfn,outq);
+    g.wait_for_all();  // wait for all the tasks started by building the graph are done.
+    serial_fn_state0 = 0;
+
+    // b0 ------> sfn ------> outq
+
+    for(int icnt = 0; icnt < 2; ++icnt) {
+        serial_fn_state0 = 0;
+        b0.try_put((T)0);  // will start sfn
+        // wait until function_node starts
+        tbb::internal::atomic_backoff backoff;
+        do {
+            backoff.pause();
+        } while(serial_fn_state0 == 0);
+        // now the function_node is executing.
+        // this will start a task to forward the second item
+        b0.try_put((T)1);  // first item will be consumed by task completing the execution
+        // of the serial function node
+        b0.try_put((T)2);  // second item will remain after cancellation
+        // now wait for the task that attempts to forward the buffer item to
+        // complete.
+        tbb::internal::atomic_backoff backoff2;
+        do {
+            backoff.pause();
+        } while(g.root_task()->ref_count() >= 3);
+        // now cancel the graph.
+        ASSERT(tgc.cancel_group_execution(), "task group already cancelled");
+        serial_fn_state0 = 0;  // release the function_node.
+        g.wait_for_all();  // wait for all the tasks to complete.
+        // check that at most one output reached the queue_node
+        T outt;
+        T outt2;
+        bool got_item1 = outq.try_get(outt);
+        bool got_item2 = outq.try_get(outt2);
+        // either the output queue was empty (if the function_node tested for cancellation before putting the
+        // result to the queue) or there was one element in the queue (the 0).
+        ASSERT(!got_item1 || ((int)outt == 0 && !got_item2), "incorrect output from function_node");
+        // the edge between the buffer and the function_node should be reversed, and the last
+        // message we put in the buffer should still be there.  We can't directly test for the
+        // edge reversal.
+        got_item1 = b0.try_get(outt);
+        ASSERT(got_item1, " buffer lost a message");
+        ASSERT(2 == (int)outt || 1 == (int)outt, " buffer had incorrect message");  // the one not consumed by the node.
+        ASSERT(g.is_cancelled(), "Graph was not cancelled");
+        g.reset();
+    }  // icnt
+
+    // reset with remove_edge removes edge.  (icnt ==0 => forward edge, 1 => reversed edge
+    for(int icnt = 0; icnt < 2; ++icnt) {
+        if(icnt == 1) {
+            // set up reversed edge
+            tbb::flow::make_edge(b0, sfn);
+            tbb::flow::make_edge(sfn,outq);
+            serial_fn_state0 = 0;
+            b0.try_put((T)0);  // starts up the function node
+            b0.try_put((T)1);  // shoyuld reverse the edge
+            tbb::internal::atomic_backoff backoff;
+            do {
+                backoff.pause();
+            } while(serial_fn_state0 == 0);
+            ASSERT(tgc.cancel_group_execution(), "task group already cancelled");
+            serial_fn_state0 = 0;  // release the function_node.
+            g.wait_for_all();  // wait for all the tasks to complete.
+        }
+        g.reset(tbb::flow::rf_extract);
+        // test that no one is a successor to the buffer now.
+        serial_fn_state0 = 1;  // let the function_node go if it gets an input message
+        b0.try_put((T)23);
+        g.wait_for_all();
+        ASSERT((int)serial_fn_state0 == 1, "function_node executed when it shouldn't");
+        T outt;
+        ASSERT(b0.try_get(outt) && (T)23 == outt, "node lost its input"); 
+    }
+}
+
+template< typename NODE_TYPE >
+class test_buffer_base_extract {
+protected:
+    tbb::flow::graph &g;
+    NODE_TYPE &in0;
+    NODE_TYPE &in1;
+    NODE_TYPE &middle;
+    NODE_TYPE &out0;
+    NODE_TYPE &out1;
+    NODE_TYPE *ins[2];
+    NODE_TYPE *outs[2];
+    typename NODE_TYPE::successor_type *ms_ptr;
+    typename NODE_TYPE::predecessor_type *mp_ptr;
+
+    typename NODE_TYPE::predecessor_vector_type in0_p_vec;
+    typename NODE_TYPE::successor_vector_type in0_s_vec;
+    typename NODE_TYPE::predecessor_vector_type in1_p_vec;
+    typename NODE_TYPE::successor_vector_type in1_s_vec;
+    typename NODE_TYPE::predecessor_vector_type out0_p_vec;
+    typename NODE_TYPE::successor_vector_type out0_s_vec;
+    typename NODE_TYPE::predecessor_vector_type out1_p_vec;
+    typename NODE_TYPE::successor_vector_type out1_s_vec;
+    typename NODE_TYPE::predecessor_vector_type mp_vec;
+    typename NODE_TYPE::successor_vector_type ms_vec;
+
+    virtual void set_up_vectors() {
+        in0_p_vec.clear(); 
+        in0_s_vec.clear();
+        in1_p_vec.clear(); 
+        in1_s_vec.clear();
+        mp_vec.clear(); 
+        ms_vec.clear();
+        out0_p_vec.clear(); 
+        out0_s_vec.clear();
+        out1_p_vec.clear(); 
+        out1_s_vec.clear();
+        in0.copy_predecessors(in0_p_vec);
+        in0.copy_successors(in0_s_vec);
+        in1.copy_predecessors(in1_p_vec);
+        in1.copy_successors(in1_s_vec);
+        middle.copy_predecessors(mp_vec);
+        middle.copy_successors(ms_vec);
+        out0.copy_predecessors(out0_p_vec);
+        out0.copy_successors(out0_s_vec);
+        out1.copy_predecessors(out1_p_vec);
+        out1.copy_successors(out1_s_vec);
+    }
+
+    void make_and_validate_full_graph() {
+        /*     in0           out0  */
+        /*         \       /       */
+        /*           middle        */
+        /*         /       \       */
+        /*     in1           out1  */
+        tbb::flow::make_edge( in0, middle );
+        tbb::flow::make_edge( in1, middle );
+        tbb::flow::make_edge( middle, out0 );
+        tbb::flow::make_edge( middle, out1 );
+
+        set_up_vectors();
+
+        ASSERT( in0.predecessor_count() == 0 && in0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in0.successor_count() == 1 && in0_s_vec.size() == 1 && in0_s_vec[0] == ms_ptr, "expected 1 successor" );
+        ASSERT( in1.predecessor_count() == 0 && in1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in1.successor_count() == 1 && in1_s_vec.size() == 1 && in1_s_vec[0] == ms_ptr, "expected 1 successor" );
+        ASSERT( middle.predecessor_count() == 2 && mp_vec.size() == 2, "expected 2 predecessors" );
+        ASSERT( middle.successor_count() == 2 && ms_vec.size() == 2, "expected 2 successors" );
+        ASSERT( out0.predecessor_count() == 1 && out0_p_vec.size() == 1 && out0_p_vec[0] == mp_ptr, "expected 1 predecessor" );
+        ASSERT( out0.successor_count() == 0 && out0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out1.predecessor_count() == 1 && out1_p_vec.size() == 1 && out1_p_vec[0] == mp_ptr, "expected 1 predecessor" );
+        ASSERT( out1.successor_count() == 0 && out1_s_vec.size() == 0, "expected 0 successors" );
+
+        int first_pred = mp_vec[0] == ins[0] ? 0 : ( mp_vec[0] == ins[1] ? 1 : -1 );
+        int second_pred = mp_vec[1] == ins[0] ? 0 : ( mp_vec[1] == ins[1] ? 1 : -1 );
+        ASSERT( first_pred != -1 && second_pred != -1 && first_pred != second_pred, "bad predecessor(s) for middle" ); 
+
+        int first_succ = ms_vec[0] == outs[0] ? 0 : ( ms_vec[0] == outs[1] ? 1 : -1 );
+        int second_succ = ms_vec[1] == outs[0] ? 0 : ( ms_vec[1] == outs[1] ? 1 : -1 );
+        ASSERT( first_succ != -1 && second_succ != -1 && first_succ != second_succ, "bad successor(s) for middle" ); 
+ 
+        in0.try_put(1);
+        in1.try_put(2);
+        g.wait_for_all();
+
+        int r = 0;
+        int v = 0;
+    
+        ASSERT( in0.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( in1.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( middle.try_get(v) == false, "buffer should not have a value" );
+        while ( out0.try_get(v) ) {
+            ASSERT( (v == 1 || v == 2) && (v&r) == 0, "duplicate value" );
+            r |= v;
+            g.wait_for_all();
+        }
+        while ( out1.try_get(v) ) {
+            ASSERT( (v == 1 || v == 2) && (v&r) == 0, "duplicate value" );
+            r |= v;
+            g.wait_for_all();
+        }
+        ASSERT( r == 3, "not all values received" );
+        g.wait_for_all();
+    }
+
+    void validate_half_graph() {
+        /*     in0           out0  */
+        /*                         */
+        /*           middle        */
+        /*         /       \       */
+        /*     in1           out1  */
+        set_up_vectors();
+
+        ASSERT( in0.predecessor_count() == 0 && in0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in0.successor_count() == 0 && in0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( in1.predecessor_count() == 0 && in1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in1.successor_count() == 1 && in1_s_vec.size() == 1 && in1_s_vec[0] == ms_ptr, "expected 1 successor" );
+        ASSERT( middle.predecessor_count() == 1 && mp_vec.size() == 1, "expected 1 predecessor" );
+        ASSERT( middle.successor_count() == 1 && ms_vec.size() == 1, "expected 1 successor" );
+        ASSERT( out0.predecessor_count() == 0 && out0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( out0.successor_count() == 0 && out0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out1.predecessor_count() == 1 && out1_p_vec.size() == 1 && out1_p_vec[0] == mp_ptr, "expected 1 predecessor" );
+        ASSERT( out1.successor_count() == 0 && out1_s_vec.size() == 0, "expected 0 successors" );
+    
+        ASSERT( middle.predecessor_count() == 1 && mp_vec.size() == 1, "expected two predecessors" );
+        ASSERT( middle.successor_count() == 1 && ms_vec.size() == 1, "expected two successors" );
+    
+        ASSERT( mp_vec[0] == ins[1], "incorrect predecessor" );
+        ASSERT( ms_vec[0] == outs[1], "incorrect successor" );
+    
+        in0.try_put(1);
+        in1.try_put(2);
+        g.wait_for_all();
+    
+        int v = 0;
+        ASSERT( in0.try_get(v) == true && v == 1, "buffer should have a value of 1" );
+        ASSERT( in1.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( middle.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( out0.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( out1.try_get(v) == true && v == 2, "buffer should have a value of 2" );
+        g.wait_for_all();
+    }
+
+    void validate_empty_graph() {
+        /*     in0           out0  */
+        /*                         */
+        /*           middle        */
+        /*                         */
+        /*     in1           out1  */
+        set_up_vectors();
+
+        ASSERT( in0.predecessor_count() == 0 && in0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in0.successor_count() == 0 && in0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( in1.predecessor_count() == 0 && in1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in1.successor_count() == 0 && in1_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( middle.predecessor_count() == 0 && mp_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( middle.successor_count() == 0 && ms_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out0.predecessor_count() == 0 && out0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( out0.successor_count() == 0 && out0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out1.predecessor_count() == 0 && out1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( out1.successor_count() == 0 && out1_s_vec.size() == 0, "expected 0 successors" );
+    
+        ASSERT( middle.predecessor_count() == 0 && mp_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( middle.successor_count() == 0 && ms_vec.size() == 0, "expected 0 successors" );
+    
+        in0.try_put(1);
+        in1.try_put(2);
+        g.wait_for_all();
+    
+        int v = 0;
+        ASSERT( in0.try_get(v) == true && v == 1, "buffer should have a value of 1" );
+        ASSERT( in1.try_get(v) == true && v == 2, "buffer should have a value of 2" );
+        ASSERT( middle.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( out0.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( out1.try_get(v) == false, "buffer should not have a value" );
+        g.wait_for_all();
+    }
+
+    // forbid the ecompiler generation of operator= (VS2012 warning)
+    test_buffer_base_extract& operator=(test_buffer_base_extract & /*other*/);
+
+public:
+
+    test_buffer_base_extract(tbb::flow::graph &_g, NODE_TYPE &i0, NODE_TYPE &i1, NODE_TYPE &m, NODE_TYPE &o0, NODE_TYPE &o1) : 
+        g(_g), in0(i0), in1(i1), middle(m), out0(o0), out1(o1) {
+        ins[0] = &in0;
+        ins[1] = &in1;
+        outs[0] = &out0;
+        outs[1] = &out1;
+        ms_ptr = static_cast< typename NODE_TYPE::successor_type * >(&middle);
+        mp_ptr = static_cast< typename NODE_TYPE::predecessor_type *>(&middle);
+    }
+ 
+    virtual ~test_buffer_base_extract() {}
+
+    void run_tests() {
+        make_and_validate_full_graph();
+
+        in0.extract();
+        out0.extract();
+        validate_half_graph();
+
+        in1.extract();
+        out1.extract();
+        validate_empty_graph();
+
+        make_and_validate_full_graph();
+
+        middle.extract();
+        validate_empty_graph();
+
+        make_and_validate_full_graph();
+    }
+   
+};
+
+template< typename NODE_TYPE >
+class test_buffer_extract : public test_buffer_base_extract<NODE_TYPE> {
+protected:
+    tbb::flow::graph my_g;
+    NODE_TYPE my_in0;
+    NODE_TYPE my_in1;
+    NODE_TYPE my_middle;
+    NODE_TYPE my_out0;
+    NODE_TYPE my_out1;
+public:
+    test_buffer_extract() : test_buffer_base_extract<NODE_TYPE>( my_g, my_in0, my_in1, my_middle, my_out0, my_out1), 
+                            my_in0(my_g), my_in1(my_g), my_middle(my_g), my_out0(my_g), my_out1(my_g) { }
+};
+
+template< >
+class test_buffer_extract< tbb::flow::sequencer_node<int> > : public test_buffer_base_extract< tbb::flow::sequencer_node<int> > {
+protected:
+    typedef tbb::flow::sequencer_node<int> my_node_t;
+    tbb::flow::graph my_g;
+    my_node_t my_in0;
+    my_node_t my_in1;
+    my_node_t my_middle;
+    my_node_t my_out0;
+    my_node_t my_out1;
+
+    typedef tbb::atomic<size_t> count_t;
+    count_t middle_count;
+    count_t out0_count;
+    count_t out1_count;
+
+    struct always_zero { size_t operator()(int) { return 0; } };
+    struct always_inc { 
+        count_t *c;
+        always_inc(count_t &_c) : c(&_c) {}
+        size_t operator()(int) { 
+            return c->fetch_and_increment();
+        } 
+    };
+
+    /*override*/void set_up_vectors() {
+        middle_count = 0;
+        out0_count = 0;
+        out1_count = 0;
+        my_g.reset(); // reset the sequencer nodes to start at 0 again
+        test_buffer_base_extract< my_node_t >::set_up_vectors();
+    }
+
+
+public:
+    test_buffer_extract() : test_buffer_base_extract<my_node_t>( my_g, my_in0, my_in1, my_middle, my_out0, my_out1), 
+                            my_in0(my_g, always_zero()), my_in1(my_g, always_zero()), my_middle(my_g, always_inc(middle_count)), 
+                            my_out0(my_g, always_inc(out0_count)), my_out1(my_g, always_inc(out1_count)) { 
+    }
+};
+
+// test for simple node that has one input, one output (overwrite_node, write_once_node, limiter_node)
+// decrement tests have to be done separately.
+template<template< class > class NType, typename ItemType>
+void test_extract_on_node() {
+    tbb::flow::graph g;
+    ItemType dont_care;
+    NType<ItemType> node0(g);
+    tbb::flow::queue_node<ItemType> q0(g);
+    tbb::flow::queue_node<ItemType> q1(g);
+    tbb::flow::queue_node<ItemType> q2(g);
+    for( int i = 0; i < 2; ++i) {
+        tbb::flow::make_edge(q0,node0);
+        tbb::flow::make_edge(q1,node0);
+        tbb::flow::make_edge(node0, q2);
+        q0.try_put(ItemType(i));
+        g.wait_for_all();
+    
+        /* q0               */
+        /*   \              */
+        /*    \             */
+        /*      node0 -- q2 */
+        /*    /             */
+        /*   /              */
+        /* q1               */
+    
+        ASSERT(node0.predecessor_count() == 2 && q0.successor_count() == 1 && q1.successor_count() == 1, "bad predecessor count");
+        ASSERT(node0.successor_count() == 1 && q2.predecessor_count() == 1, "bad successor count");
+
+        ASSERT(q2.try_get(dont_care) && int(dont_care) == i, "item not forwarded");
+        typename NType<ItemType>::successor_vector_type sv;
+        typename NType<ItemType>::predecessor_vector_type pv;
+        std::vector<tbb::flow::receiver<ItemType>*> sv1;
+        std::vector<tbb::flow::sender<ItemType>*> pv1;
+    
+        pv1.push_back(&q0);
+        pv1.push_back(&q1);
+        sv1.push_back(&q2);
+        node0.copy_predecessors(pv);
+        node0.copy_successors(sv);
+        ASSERT(lists_match(pv,pv1), "predecessor vector incorrect");
+        ASSERT(lists_match(sv,sv1), "successor vector incorrect");
+    
+        if(i == 0) {
+            node0.extract();
+        }
+        else {
+            q0.extract();
+            q1.extract();
+            q2.extract();
+        }
+
+        q0.try_put(ItemType(2));
+        g.wait_for_all();
+        ASSERT(!q2.try_get(dont_care), "node0 not disconnected");
+        ASSERT(q0.try_get(dont_care), "q0 empty (should have one item)");
+
+        node0.copy_predecessors(pv);
+        node0.copy_successors(sv);
+        ASSERT(node0.predecessor_count() == 0 && q0.successor_count() == 0 && q1.successor_count() == 0, "error in pred count after extract");
+        ASSERT(pv.size() == 0, "error in pred array count after extract");
+        ASSERT(node0.successor_count() == 0 && q2.predecessor_count() == 0, "error in succ count after extract");
+        ASSERT(sv.size() == 0, "error in succ array count after extract");
+    }
+}
+
+#endif  // TBB_PREVIEW_FLOW_GRAPH_FEATURES
 #endif
 
 

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness_graph.h"
@@ -430,6 +422,17 @@ void run_multiport_test(int num_threads) {
     tbb::flow::make_edge(tbb::flow::output_port<0>(mo_node), q0);
     tbb::flow::make_edge(tbb::flow::output_port<1>(mo_node), q1);
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT(mo_node.predecessor_count() == 0, NULL);
+    ASSERT(tbb::flow::output_port<0>(mo_node).successor_count() == 1, NULL);
+    std::vector< tbb::flow::receiver<EvenType> *> my_0succs;
+    tbb::flow::output_port<0>(mo_node).copy_successors(my_0succs);
+    ASSERT(my_0succs.size() == 1, NULL);
+    typename mo_node_type::predecessor_vector_type my_preds;
+    mo_node.copy_predecessors(my_preds);
+    ASSERT(my_preds.size() == 0, NULL);
+#endif
+
     for(InputType i = 0; i < N; ++i) {
         mo_node.try_put(i);
     }
@@ -459,6 +462,195 @@ void test_concurrency(int num_threads) {
     run_multiport_test<float, tbb::flow::tuple<int, double> >(num_threads);
 }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+// the integer received indicates which output ports should succeed and which should fail
+// on try_put().
+typedef tbb::flow::multifunction_node<int, tbb::flow::tuple<int, int> > mf_node;
+
+struct add_to_counter {
+    int my_invocations;
+    int *counter;
+    add_to_counter(int& var):counter(&var){ my_invocations = 0;}
+    void operator()(const int &i, mf_node::output_ports_type &outports) {
+        *counter+=1;
+        ++my_invocations;
+        if(i & 0x1) {
+            ASSERT(tbb::flow::get<0>(outports).try_put(i), "port 0 expected to succeed");
+        }
+        else {
+            ASSERT(!tbb::flow::get<0>(outports).try_put(i), "port 0 expected to fail");
+        }
+        if(i & 0x2) {
+            ASSERT(tbb::flow::get<1>(outports).try_put(i), "port 1 expected to succeed");
+        }
+        else {
+            ASSERT(!tbb::flow::get<1>(outports).try_put(i), "port 1 expected to fail");
+        }
+    }
+    int my_inner() { return my_invocations; }
+};
+
+template<tbb::flow::graph_buffer_policy FTYPE>
+void test_extract() {
+    int my_count = 0;
+    int cm;
+    tbb::flow::graph g;
+    tbb::flow::broadcast_node<int> b0(g);
+    tbb::flow::broadcast_node<int> b1(g);
+    tbb::flow::multifunction_node<int, tbb::flow::tuple<int,int>, FTYPE> mf0(g, tbb::flow::unlimited, add_to_counter(my_count));
+    tbb::flow::queue_node<int> q0(g);
+    tbb::flow::queue_node<int> q1(g);
+
+    tbb::flow::make_edge(b0, mf0);
+    tbb::flow::make_edge(b1, mf0);
+    tbb::flow::make_edge(tbb::flow::output_port<0>(mf0), q0);
+    tbb::flow::make_edge(tbb::flow::output_port<1>(mf0), q1);
+    for( int i = 0; i < 2; ++i ) {
+    
+        /* b0          */
+        /*   \   |--q0 */
+        /*    mf0+     */
+        /*   /   |--q1 */
+        /* b1          */
+
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 1, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
+        ASSERT(mf0.predecessor_count() == 2
+                && tbb::flow::output_port<0>(mf0).successor_count() == 1
+                && tbb::flow::output_port<1>(mf0).successor_count() == 1
+                , "mf0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 1 && q0.successor_count() == 0, "q0 has incorrect counts");
+        ASSERT(q1.predecessor_count() == 1 && q1.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(3);
+        g.wait_for_all();
+        ASSERT(my_count == 1, "multifunction_node didn't fire");
+        ASSERT(q0.try_get(cm), "multifunction_node didn't forward to 0");
+        ASSERT(q1.try_get(cm), "multifunction_node didn't forward to 1");
+        b1.try_put(3);
+        g.wait_for_all();
+        ASSERT(my_count == 2, "multifunction_node didn't fire");
+        ASSERT(q0.try_get(cm), "multifunction_node didn't forward to 0");
+        ASSERT(q1.try_get(cm), "multifunction_node didn't forward to 1");
+    
+        b0.extract();
+    
+    
+        /* b0          */
+        /*       |--q0 */
+        /*    mf0+     */
+        /*   /   |--q1 */
+        /* b1          */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
+        ASSERT(mf0.predecessor_count() == 1
+                && tbb::flow::output_port<0>(mf0).successor_count() == 1
+                && tbb::flow::output_port<1>(mf0).successor_count() == 1
+                , "mf0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 1 && q0.successor_count() == 0, "q0 has incorrect counts");
+        ASSERT(q1.predecessor_count() == 1 && q1.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(1);
+        b0.try_put(1);
+        g.wait_for_all();
+        ASSERT(my_count == 2, "b0 messages being forwarded to multifunction_node even though it is disconnected");
+        b1.try_put(3);
+        g.wait_for_all();
+        ASSERT(my_count == 3, "multifunction_node didn't fire though it has only one predecessor");
+        ASSERT(q0.try_get(cm), "multifunction_node didn't forward second time");
+        ASSERT(q1.try_get(cm), "multifunction_node didn't forward second time");
+
+        q0.extract();
+    
+        /* b0          */
+        /*       |  q0 */
+        /*    mf0+     */
+        /*   /   |--q1 */
+        /* b1          */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
+        ASSERT(mf0.predecessor_count() == 1
+                && tbb::flow::output_port<0>(mf0).successor_count() == 0
+                && tbb::flow::output_port<1>(mf0).successor_count() == 1
+                , "mf0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 0 && q0.successor_count() == 0, "q0 has incorrect counts");
+        ASSERT(q1.predecessor_count() == 1 && q1.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(1);
+        b0.try_put(1);
+        g.wait_for_all();
+        ASSERT(my_count == 3, "b0 messages being forwarded to multifunction_node even though it is disconnected");
+        b1.try_put(2);
+        g.wait_for_all();
+        ASSERT(my_count == 4, "multifunction_node didn't fire though it has one predecessor");
+        ASSERT(!q0.try_get(cm), "multifunction_node forwarded");
+        ASSERT(q1.try_get(cm), "multifunction_node forwarded");
+    
+        if(i == 0) {
+            mf0.extract();
+        }
+        else {
+            mf0.extract(tbb::flow::rf_reset_bodies);
+        }
+    
+    
+        /* b0          */
+        /*       |  q0 */
+        /*    mf0+     */
+        /*       |  q1 */
+        /* b1          */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 0, "b1 has incorrect counts");
+        ASSERT(mf0.predecessor_count() == 0
+                && tbb::flow::output_port<0>(mf0).successor_count() == 0
+                && tbb::flow::output_port<1>(mf0).successor_count() == 0
+                , "mf0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 0 && q0.successor_count() == 0, "q0 has incorrect counts");
+        ASSERT(q1.predecessor_count() == 0 && q1.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(1);
+        b0.try_put(1);
+        g.wait_for_all();
+        ASSERT(my_count == 4, "b0 messages being forwarded to multifunction_node even though it is disconnected");
+        b1.try_put(2);
+        g.wait_for_all();
+        ASSERT(my_count == 4, "b1 messages being forwarded to multifunction_node even though it is disconnected");
+        ASSERT(!q0.try_get(cm), "multifunction_node forwarded");
+        ASSERT(!q1.try_get(cm), "multifunction_node forwarded");
+        make_edge(b0, mf0);
+    
+        /* b0          */
+        /*   \   |  q0 */
+        /*    mf0+     */
+        /*       |  q1 */
+        /* b1          */
+    
+        ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 1, "b0 has incorrect counts");
+        ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 0, "b1 has incorrect counts");
+        ASSERT(mf0.predecessor_count() == 1
+                && tbb::flow::output_port<0>(mf0).successor_count() == 0
+                && tbb::flow::output_port<1>(mf0).successor_count() == 0
+                , "mf0 has incorrect counts");
+        ASSERT(q0.predecessor_count() == 0 && q0.successor_count() == 0, "q0 has incorrect counts");
+        ASSERT(q1.predecessor_count() == 0 && q1.successor_count() == 0, "q0 has incorrect counts");
+        b0.try_put(0);
+        g.wait_for_all();
+        ASSERT(my_count == 5, "multifunction_node didn't fire though it has one predecessor");
+        b1.try_put(2);
+        g.wait_for_all();
+        ASSERT(my_count == 5, "multifunction_node fired though it has only one predecessor");
+        ASSERT(!q0.try_get(cm), "multifunction_node forwarded");
+        ASSERT(!q1.try_get(cm), "multifunction_node forwarded");
+    
+        tbb::flow::make_edge(b1, mf0);
+        tbb::flow::make_edge(tbb::flow::output_port<0>(mf0), q0);
+        tbb::flow::make_edge(tbb::flow::output_port<1>(mf0), q1);
+        ASSERT( ( i == 0 && tbb::flow::copy_body<add_to_counter>(mf0).my_inner() == 5 ) ||
+               ( i == 1 && tbb::flow::copy_body<add_to_counter>(mf0).my_inner() == 1 ) , "reset_bodies failed");
+        my_count = 0;
+    }
+}
+#endif
+
 int TestMain() { 
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
@@ -467,5 +659,10 @@ int TestMain() {
     for( int p=MinThread; p<=MaxThread; ++p ) {
        test_concurrency(p);
    }
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    test_extract<tbb::flow::rejecting>();
+    test_extract<tbb::flow::queueing>();
+#endif
    return Harness::Done;
 }

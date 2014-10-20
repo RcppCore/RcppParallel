@@ -1,32 +1,27 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/atomic.h"
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+#include <utility> // std::move
+#endif
 
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #include "harness_report.h"
@@ -172,13 +167,7 @@ void CheckExceptionSafety() {
                     ASSERT( !exception_caught||(i&((1<<(j+1))-1))!=0, NULL );
                 }
             }
-// Intel Compiler sometimes fails to destroy all implicitly generated copies 
-// of an object when a copy constructor throws an exception.
-// Problem was reported as Quad issue 482935.
-// This #if should be removed or tightened when the bug is fixed.
-#if !((_WIN32 || _WIN64) && defined(__INTEL_COMPILER))
             ASSERT( BaseCount==original_count, "object leak detected" );
-#endif
         }
     }
 }
@@ -186,11 +175,18 @@ void CheckExceptionSafety() {
 
 #include <cstdio>
 
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+
+tbb::tbb_thread returnThread() {
+    return tbb::tbb_thread();
+}
+#endif
+
 void RunTests() {
 
     ThreadFunc t;
     Data<0> d100(100), d1(1), d0(0);
-    THREAD::id id;
+    const THREAD::id id_zero;
     THREAD::id id0, uniq_ids[THRDS];
     
     THREAD thrs[THRDS];
@@ -199,10 +195,10 @@ void RunTests() {
     THREAD thr1(t, 2);
     THREAD thr2(t, 1, d100);
     
-    ASSERT( thr0.get_id() != id, NULL );
+    ASSERT( thr0.get_id() != id_zero, NULL );
     id0 = thr0.get_id();
     tbb::move(thrs[0], thr0);
-    ASSERT( thr0.get_id() == id, NULL );
+    ASSERT( thr0.get_id() == id_zero, NULL );
     ASSERT( thrs[0].get_id() == id0, NULL );
 
     THREAD::native_handle_type h1 = thr1.native_handle();
@@ -214,6 +210,15 @@ void RunTests() {
     ASSERT( thr2.native_handle() == h1, NULL );
     ASSERT( thr1.get_id() == id2, NULL );
     ASSERT( thr2.get_id() == id1, NULL );
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    {
+        THREAD tmp_thr(std::move(thr1));
+        ASSERT( tmp_thr.native_handle() == h2 && tmp_thr.get_id() == id2, NULL );
+        thr1 = std::move(tmp_thr);
+        ASSERT( thr1.native_handle() == h2 && thr1.get_id() == id2, NULL );
+    }
+#endif
+
     thr1.swap(thr2);
     ASSERT( thr1.native_handle() == h1, NULL );
     ASSERT( thr2.native_handle() == h2, NULL );
@@ -222,10 +227,14 @@ void RunTests() {
     thr1.swap(thr2);
 
     tbb::move(thrs[1], thr1);
-    ASSERT( thr1.get_id() == id, NULL );
+    ASSERT( thr1.get_id() == id_zero, NULL );
 
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    thrs[2] = returnThread();
+    ASSERT( thrs[2].get_id() == id_zero, NULL );
+#endif
     tbb::move(thrs[2], thr2);
-    ASSERT( thr2.get_id() == id, NULL );
+    ASSERT( thr2.get_id() == id_zero, NULL );
 
     for (int i=0; i<THRDS; i++)
         uniq_ids[i] = thrs[i].get_id();
@@ -260,12 +269,12 @@ void RunTests() {
     THREAD thr_detach_0(t, d0);
     real_ids[THRDS] = thr_detach_0.get_id();
     thr_detach_0.detach();
-    ASSERT( thr_detach_0.get_id() == id, NULL );
+    ASSERT( thr_detach_0.get_id() == id_zero, NULL );
 
     THREAD thr_detach_1(t, d1);
     real_ids[THRDS+1] = thr_detach_1.get_id();
     thr_detach_1.detach();
-    ASSERT( thr_detach_1.get_id() == id, NULL );
+    ASSERT( thr_detach_1.get_id() == id_zero, NULL );
 
     CheckRelations(real_ids, THRDS+THRDS_DETACH, true);
 
@@ -275,8 +284,12 @@ void RunTests() {
         AnotherThreadFunc empty_func;
         THREAD thr_to(empty_func), thr_from(empty_func);
         THREAD::id from_id = thr_from.get_id();
-        if (i) thr_to.join(); 
+        if (i) thr_to.join();
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+        thr_to = std::move(thr_from);
+#else
         thr_to = thr_from;
+#endif
         ASSERT( thr_from.get_id() == THREAD::id(), NULL );
         ASSERT( thr_to.get_id() == from_id, NULL );
     }

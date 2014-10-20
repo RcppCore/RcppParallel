@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #if _USRDLL
@@ -55,7 +47,7 @@ extern "C" {
 }
 #endif
 
-// Those functions must not be called instead of presented in dynamic library. 
+// Those functions must not be called instead of presented in dynamic library.
 extern "C" void *scalable_malloc(size_t)
 {
     ASSERT(0, globalCallMsg);
@@ -65,7 +57,7 @@ extern "C" void scalable_free (void *)
 {
     ASSERT(0, globalCallMsg);
 }
-extern "C" void safer_scalable_free (void *, void (*)(void*)) 
+extern "C" void safer_scalable_free (void *, void (*)(void*))
 {
     ASSERT(0, globalCallMsg);
 }
@@ -74,7 +66,7 @@ extern "C" void *scalable_realloc(void *, size_t)
     ASSERT(0, globalCallMsg);
     return NULL;
 }
-extern "C" void *safer_scalable_realloc(void *, size_t, void *) 
+extern "C" void *safer_scalable_realloc(void *, size_t, void *)
 {
     ASSERT(0, globalCallMsg);
     return NULL;
@@ -113,7 +105,7 @@ extern "C" size_t scalable_msize(void *)
     ASSERT(0, globalCallMsg);
     return 0;
 }
-extern "C" size_t safer_scalable_msize (void *, size_t (*)(void*)) 
+extern "C" size_t safer_scalable_msize (void *, size_t (*)(void*))
 {
     ASSERT(0, globalCallMsg);
     return 0;
@@ -121,18 +113,20 @@ extern "C" size_t safer_scalable_msize (void *, size_t (*)(void*))
 
 #else  // _USRDLL
 
-#include <cstdlib>
+// harness_defs.h must be included before tbb_stddef.h to overcome exception-dependent
+// system headers that come from tbb_stddef.h
+#include "harness_defs.h"
 #include "tbb/tbb_stddef.h"
 #if __TBB_WIN8UI_SUPPORT || __TBB_SOURCE_DIRECTLY_INCLUDED
 #define HARNESS_SKIP_TEST 1
 #endif
 #define HARNESS_NO_PARSE_COMMAND_LINE 1
 #define HARNESS_TBBMALLOC_THREAD_SHUTDOWN 1
-#include "harness_dynamic_libs.h"
 #include "harness.h"
 
 #if !HARNESS_SKIP_TEST
 
+#include "harness_dynamic_libs.h"
 #include "harness_memory.h"
 
 extern "C" {
@@ -176,10 +170,10 @@ struct Run {
 
         CloseLibrary(lib);
 #if _WIN32 || _WIN64
-        ASSERT(GetModuleHandle(actual_name),  
+        ASSERT(GetModuleHandle(actual_name),
                "allocator library must not be unloaded");
 #else
-        ASSERT(dlsym(RTLD_DEFAULT, "scalable_malloc"),  
+        ASSERT(dlsym(RTLD_DEFAULT, "scalable_malloc"),
                "allocator library must not be unloaded");
 #endif
     }
@@ -196,7 +190,7 @@ int TestMain () {
      */
     GetMemoryUsage();
     std::size_t memory_in_use = GetMemoryUsage();
-    ASSERT(memory_in_use == GetMemoryUsage(), 
+    ASSERT(memory_in_use == GetMemoryUsage(),
            "Memory consumption should not increase after 1st GetMemoryUsage() call");
 
     // expect that memory consumption stabilized after several runs

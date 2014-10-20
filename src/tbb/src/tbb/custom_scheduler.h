@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef _TBB_custom_scheduler_H
@@ -409,7 +401,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
 
     cpu_ctl_env_helper cpu_ctl_helper;
     if ( t )
-        cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(*t->prefix().context) );
+        cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(t->prefix().context) );
 
 #if TBB_USE_EXCEPTIONS
     // Infinite safeguard EH loop
@@ -563,7 +555,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
 
             if ( !t ) break;
 
-            cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(*t->prefix().context) );
+            cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(t->prefix().context) );
         }; // end of local task pool retrieval loop
 
 #if __TBB_TASK_PRIORITY
@@ -602,13 +594,10 @@ stealing_ground:
             goto done;
         __TBB_ASSERT(!is_proxy(*t),"unexpected proxy");
 
-#if __TBB_TASK_GROUP_CONTEXT
         // The user can capture another the FPU settings to the context so the
         // cached data in the helper can be out-of-date and we cannot do fast
         // check.
-        assert_context_valid(t->prefix().context);
-        cpu_ctl_helper.set_env( *t->prefix().context );
-#endif /*__TBB_TASK_GROUP_CONTEXT*/
+        cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(t->prefix().context) );
     } // end of infinite stealing loop
 #if TBB_USE_EXCEPTIONS
     __TBB_ASSERT( false, "Must never get here" );

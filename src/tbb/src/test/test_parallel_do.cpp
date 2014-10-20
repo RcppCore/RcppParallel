@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/parallel_do.h"
@@ -31,6 +23,7 @@
 #include "tbb/atomic.h"
 #include "harness.h"
 #include "harness_cpu.h"
+#include <deque>
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
@@ -218,6 +211,59 @@ void Run( int nthread ) {
     }
 }
 
+const size_t elements = 10000;
+const size_t init_sum = 0;
+tbb::atomic<size_t> element_counter;
+
+template<size_t K>
+struct set_to {
+    void operator()(size_t& x) const {
+        x = K;
+        ++element_counter;
+    }
+};
+
+#include "test_range_based_for.h"
+#include <functional>
+
+void range_do_test() {
+    using namespace range_based_for_support_tests;
+    std::deque<size_t> v(elements, 0);
+
+    // iterator, const and non-const range check
+    element_counter = 0;
+    tbb::parallel_do(v.begin(), v.end(), set_to<1>());
+    ASSERT(element_counter == v.size() && element_counter == elements, "not all elements were set");
+    ASSERT(range_based_for_accumulate(v, std::plus<size_t>(), init_sum) == v.size(), "elements of v not all ones");
+
+    element_counter = 0;
+    tbb::parallel_do(v, set_to<0>());
+    ASSERT(element_counter == v.size() && element_counter == elements, "not all elements were set");
+    ASSERT(range_based_for_accumulate(v, std::plus<size_t>(), init_sum) == init_sum, "elements of v not all zeros");
+
+    element_counter = 0;
+    tbb::parallel_do(tbb::blocked_range<std::deque<size_t>::iterator>(v.begin(), v.end()), set_to<1>());
+    ASSERT(element_counter == v.size() && element_counter == elements, "not all elements were set");
+    ASSERT(range_based_for_accumulate(v, std::plus<size_t>(), init_sum) == v.size(), "elements of v not all ones");
+
+    // same as above with context group
+    element_counter = 0;
+    tbb::task_group_context context;
+    tbb::parallel_do(v.begin(), v.end(), set_to<0>(), context);
+    ASSERT(element_counter == v.size() && element_counter == elements, "not all elements were set");
+    ASSERT(range_based_for_accumulate(v, std::plus<size_t>(), init_sum) == init_sum, "elements of v not all ones");
+
+    element_counter = 0;
+    tbb::parallel_do(v, set_to<1>(), context);
+    ASSERT(element_counter == v.size() && element_counter == elements, "not all elements were set");
+    ASSERT(range_based_for_accumulate(v, std::plus<size_t>(), init_sum) == v.size(), "elements of v not all ones");
+
+    element_counter = 0;
+    tbb::parallel_do(tbb::blocked_range<std::deque<size_t>::iterator>(v.begin(), v.end()), set_to<0>(), context);
+    ASSERT(element_counter == v.size() && element_counter == elements, "not all elements were set");
+    ASSERT(range_based_for_accumulate(v, std::plus<size_t>(), init_sum) == init_sum, "elements of v not all zeros");
+}
+
 int TestMain () {
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
@@ -227,6 +273,7 @@ int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
         tbb::task_scheduler_init init( p );
         Run(p);
+        range_do_test();
         // Test that all workers sleep when no work
         TestCPUUserTime(p);
     }

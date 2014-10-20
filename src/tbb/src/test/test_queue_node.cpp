@@ -1,37 +1,33 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 // TO DO: Add overlapping put / receive tests
 
+#include "harness.h"
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
-#include "harness.h"
+#include "harness_checktype.h"
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#include "harness_graph.h"
+#endif
 
 #include <cstdio>
 
@@ -245,89 +241,92 @@ int test_parallel(int num_threads) {
     tbb::flow::queue_node<T> q(g);
     tbb::flow::queue_node<T> q2(g);
     tbb::flow::queue_node<T> q3(g);
-    T bogus_value(-1);
-    T j = bogus_value;
+    {
+        Check< T > my_check;
+        T bogus_value(-1);
+        T j = bogus_value;
+        NativeParallelFor( num_threads, parallel_puts<T>(q) );
 
-    NativeParallelFor( num_threads, parallel_puts<T>(q) );
+        T *next_value = new T[num_threads];
+        for (int tid = 0; tid < num_threads; ++tid) next_value[tid] = T(0);
 
-    T *next_value = new T[num_threads];
-    for (int tid = 0; tid < num_threads; ++tid) next_value[tid] = T(0);
+        for (int i = 0; i < num_threads * N; ++i ) {
+            spin_try_get( q, j );
+            check_item( next_value, j );
+            j = bogus_value;
+        }
+        for (int tid = 0; tid < num_threads; ++tid)  {
+            ASSERT( next_value[tid] == T(N), NULL );
+        }
+        delete[] next_value;
 
-    for (int i = 0; i < num_threads * N; ++i ) {
-        spin_try_get( q, j );
-        check_item( next_value, j );
         j = bogus_value;
-    }
-    for (int tid = 0; tid < num_threads; ++tid)  {
-        ASSERT( next_value[tid] == T(N), NULL );
-    }
-
-    j = bogus_value;
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
-
-    NativeParallelFor( num_threads, parallel_puts<T>(q) );
-
-    {
-        touches< T > t( num_threads );
-        NativeParallelFor( num_threads, parallel_gets<T>(q, t) );
         g.wait_for_all();
-        ASSERT( t.validate_touches(), NULL );
-    }
-    j = bogus_value;
-    ASSERT( q.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
+        ASSERT( q.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
 
-    g.wait_for_all();
-    {
-        touches< T > t2( num_threads );
-        NativeParallelFor( num_threads, parallel_put_get<T>(q, t2) );
+        NativeParallelFor( num_threads, parallel_puts<T>(q) );
+
+        {
+            touches< T > t( num_threads );
+            NativeParallelFor( num_threads, parallel_gets<T>(q, t) );
+            g.wait_for_all();
+            ASSERT( t.validate_touches(), NULL );
+        }
+        j = bogus_value;
+        ASSERT( q.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
+
         g.wait_for_all();
-        ASSERT( t2.validate_touches(), NULL );
-    }
-    j = bogus_value;
-    ASSERT( q.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
+        {
+            touches< T > t2( num_threads );
+            NativeParallelFor( num_threads, parallel_put_get<T>(q, t2) );
+            g.wait_for_all();
+            ASSERT( t2.validate_touches(), NULL );
+        }
+        j = bogus_value;
+        ASSERT( q.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
 
-    tbb::flow::make_edge( q, q2 );
-    tbb::flow::make_edge( q2, q3 );
+        tbb::flow::make_edge( q, q2 );
+        tbb::flow::make_edge( q2, q3 );
 
-    NativeParallelFor( num_threads, parallel_puts<T>(q) );
-    {
-        touches< T > t3( num_threads );
-        NativeParallelFor( num_threads, parallel_gets<T>(q3, t3) );
+        NativeParallelFor( num_threads, parallel_puts<T>(q) );
+        {
+            touches< T > t3( num_threads );
+            NativeParallelFor( num_threads, parallel_gets<T>(q3, t3) );
+            g.wait_for_all();
+            ASSERT( t3.validate_touches(), NULL );
+        }
+        j = bogus_value;
         g.wait_for_all();
-        ASSERT( t3.validate_touches(), NULL );
-    }
-    j = bogus_value;
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == false, NULL );
-    g.wait_for_all();
-    ASSERT( q2.try_get( j ) == false, NULL );
-    g.wait_for_all();
-    ASSERT( q3.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
-
-    // test copy constructor
-    ASSERT( q.remove_successor( q2 ), NULL );
-    NativeParallelFor( num_threads, parallel_puts<T>(q) );
-    tbb::flow::queue_node<T> q_copy(q);
-    j = bogus_value;
-    g.wait_for_all();
-    ASSERT( q_copy.try_get( j ) == false, NULL );
-    ASSERT( q.register_successor( q_copy ) == true, NULL );
-    {
-        touches< T > t( num_threads );
-        NativeParallelFor( num_threads, parallel_gets<T>(q_copy, t) );
+        ASSERT( q.try_get( j ) == false, NULL );
         g.wait_for_all();
-        ASSERT( t.validate_touches(), NULL );
+        ASSERT( q2.try_get( j ) == false, NULL );
+        g.wait_for_all();
+        ASSERT( q3.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
+
+        // test copy constructor
+        ASSERT( q.remove_successor( q2 ), NULL );
+        NativeParallelFor( num_threads, parallel_puts<T>(q) );
+        tbb::flow::queue_node<T> q_copy(q);
+        j = bogus_value;
+        g.wait_for_all();
+        ASSERT( q_copy.try_get( j ) == false, NULL );
+        ASSERT( q.register_successor( q_copy ) == true, NULL );
+        {
+            touches< T > t( num_threads );
+            NativeParallelFor( num_threads, parallel_gets<T>(q_copy, t) );
+            g.wait_for_all();
+            ASSERT( t.validate_touches(), NULL );
+        }
+        j = bogus_value;
+        ASSERT( q.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
+        ASSERT( q_copy.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
     }
-    j = bogus_value;
-    ASSERT( q.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
-    ASSERT( q_copy.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
 
     return 0;
 }
@@ -344,104 +343,107 @@ int test_parallel(int num_threads) {
 template< typename T >
 int test_serial() {
     tbb::flow::graph g;
-    T bogus_value(-1);
-
     tbb::flow::queue_node<T> q(g);
     tbb::flow::queue_node<T> q2(g);
-    T j = bogus_value;
+    {   // destroy the graph after manipulating it, and see if all the items in the buffers
+        // have been destroyed before the graph
+        Check<T> my_check;  // if check_type< U > count constructions and destructions
+        T bogus_value(-1);
+        T j = bogus_value;
 
-    //
-    // Rejects attempts to add / remove predecessor
-    // Rejects request from empty Q
-    //
-    ASSERT( q.register_predecessor( q2 ) == false, NULL );
-    ASSERT( q.remove_predecessor( q2 ) == false, NULL );
-    ASSERT( q.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
+        //
+        // Rejects attempts to add / remove predecessor
+        // Rejects request from empty Q
+        //
+        ASSERT( q.register_predecessor( q2 ) == false, NULL );
+        ASSERT( q.remove_predecessor( q2 ) == false, NULL );
+        ASSERT( q.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
 
-    //
-    // Simple puts and gets
-    //
+        //
+        // Simple puts and gets
+        //
 
-    for (int i = 0; i < N; ++i) {
-        bool msg = q.try_put( T(i) );
-        ASSERT( msg == true, NULL );
-    }
+        for (int i = 0; i < N; ++i) {
+            bool msg = q.try_put( T(i) );
+            ASSERT( msg == true, NULL );
+        }
 
 
-    for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < N; ++i) {
+            j = bogus_value;
+            spin_try_get( q, j );
+            ASSERT( i == j, NULL );
+        }
         j = bogus_value;
-        spin_try_get( q, j );
-        ASSERT( i == j, NULL );
-    }
-    j = bogus_value;
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
+        g.wait_for_all();
+        ASSERT( q.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
 
-    tbb::flow::make_edge( q, q2 );
+        tbb::flow::make_edge( q, q2 );
 
-    for (int i = 0; i < N; ++i) {
-        bool msg = q.try_put( T(i) );
-        ASSERT( msg == true, NULL );
-    }
+        for (int i = 0; i < N; ++i) {
+            bool msg = q.try_put( T(i) );
+            ASSERT( msg == true, NULL );
+        }
 
 
-    for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < N; ++i) {
+            j = bogus_value;
+            spin_try_get( q2, j );
+            ASSERT( i == j, NULL );
+        }
         j = bogus_value;
-        spin_try_get( q2, j );
-        ASSERT( i == j, NULL );
-    }
-    j = bogus_value;
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == false, NULL );
-    g.wait_for_all();
-    ASSERT( q2.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
+        g.wait_for_all();
+        ASSERT( q.try_get( j ) == false, NULL );
+        g.wait_for_all();
+        ASSERT( q2.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
 
-    tbb::flow::remove_edge( q, q2 );
-    ASSERT( q.try_put( 1 ) == true, NULL );
-    g.wait_for_all();
-    ASSERT( q2.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == true, NULL );
-    ASSERT( j == 1, NULL );
+        tbb::flow::remove_edge( q, q2 );
+        ASSERT( q.try_put( 1 ) == true, NULL );
+        g.wait_for_all();
+        ASSERT( q2.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
+        g.wait_for_all();
+        ASSERT( q.try_get( j ) == true, NULL );
+        ASSERT( j == 1, NULL );
 
-    tbb::flow::queue_node<T> q3(g);
-    tbb::flow::make_edge( q, q2 );
-    tbb::flow::make_edge( q2, q3 );
+        tbb::flow::queue_node<T> q3(g);
+        tbb::flow::make_edge( q, q2 );
+        tbb::flow::make_edge( q2, q3 );
 
-    for (int i = 0; i < N; ++i) {
-        bool msg = q.try_put( T(i) );
-        ASSERT( msg == true, NULL );
-    }
+        for (int i = 0; i < N; ++i) {
+            bool msg = q.try_put( T(i) );
+            ASSERT( msg == true, NULL );
+        }
 
-    for (int i = 0; i < N; ++i) {
+        for (int i = 0; i < N; ++i) {
+            j = bogus_value;
+            spin_try_get( q3, j );
+            ASSERT( i == j, NULL );
+        }
         j = bogus_value;
-        spin_try_get( q3, j );
-        ASSERT( i == j, NULL );
-    }
-    j = bogus_value;
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == false, NULL );
-    g.wait_for_all();
-    ASSERT( q2.try_get( j ) == false, NULL );
-    g.wait_for_all();
-    ASSERT( q3.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
+        g.wait_for_all();
+        ASSERT( q.try_get( j ) == false, NULL );
+        g.wait_for_all();
+        ASSERT( q2.try_get( j ) == false, NULL );
+        g.wait_for_all();
+        ASSERT( q3.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
 
-    tbb::flow::remove_edge( q,  q2 );
-    ASSERT( q.try_put( 1 ) == true, NULL );
-    g.wait_for_all();
-    ASSERT( q2.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
-    g.wait_for_all();
-    ASSERT( q3.try_get( j ) == false, NULL );
-    ASSERT( j == bogus_value, NULL );
-    g.wait_for_all();
-    ASSERT( q.try_get( j ) == true, NULL );
-    ASSERT( j == 1, NULL );
+        tbb::flow::remove_edge( q,  q2 );
+        ASSERT( q.try_put( 1 ) == true, NULL );
+        g.wait_for_all();
+        ASSERT( q2.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
+        g.wait_for_all();
+        ASSERT( q3.try_get( j ) == false, NULL );
+        ASSERT( j == bogus_value, NULL );
+        g.wait_for_all();
+        ASSERT( q.try_get( j ) == true, NULL );
+        ASSERT( j == 1, NULL );
+    }
 
     return 0;
 }
@@ -451,9 +453,17 @@ int TestMain() {
     for (int p = 2; p <= 4; ++p) {
         tbb::task_scheduler_init init(p);
         test_serial<int>();
+        test_serial<check_type<int> >();
         test_parallel<int>(p);
+        test_parallel<check_type<int> >(p);
     } 
     stop = tbb::tick_count::now();
     REMARK("Queue_Node Time=%6.6f\n", (stop-start).seconds());
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    REMARK("Testing resets\n");
+    test_resets<int, tbb::flow::queue_node<int> >();
+    test_resets<float, tbb::flow::queue_node<float> >();
+    test_buffer_extract<tbb::flow::queue_node<int> >().run_tests();
+#endif
     return Harness::Done;
 }

@@ -1,28 +1,20 @@
 ; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 ;
-; This file is part of Threading Building Blocks.
+; This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+; you can redistribute it and/or modify it under the terms of the GNU General Public License
+; version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+; distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+; See  the GNU General Public License for more details.   You should have received a copy of
+; the  GNU General Public License along with Threading Building Blocks; if not, write to the
+; Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 ;
-; Threading Building Blocks is free software; you can redistribute it
-; and/or modify it under the terms of the GNU General Public License
-; version 2 as published by the Free Software Foundation.
-;
-; Threading Building Blocks is distributed in the hope that it will be
-; useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-; of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-; GNU General Public License for more details.
-;
-; You should have received a copy of the GNU General Public License
-; along with Threading Building Blocks; if not, write to the Free Software
-; Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-;
-; As a special exception, you may use this file as part of a free software
-; library without restriction.  Specifically, if other files instantiate
-; templates or use macros or inline functions from this file, or you compile
-; this file and link it with other files to produce an executable, this
-; file does not by itself cause the resulting executable to be covered by
-; the GNU General Public License.  This exception does not however
-; invalidate any other reasons why the executable file might be covered by
-; the GNU General Public License.
+; As a special exception,  you may use this file  as part of a free software library without
+; restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+; functions from this file, or you compile this file and link it with other files to produce
+; an executable,  this file does not by itself cause the resulting executable to be covered
+; by the GNU General Public License. This exception does not however invalidate any other
+; reasons why the executable file might be covered by the GNU General Public License.
 
 // This file is organized with a section for each .cpp file.
 // Each of these sections is in alphabetical order.
@@ -207,16 +199,14 @@ __TBB_SYMBOL( ?internal_release_writer@spin_rw_mutex_v3@tbb@@AEAAXXZ )
 __TBB_SYMBOL( ?internal_try_acquire_reader@spin_rw_mutex_v3@tbb@@AEAA_NXZ )
 __TBB_SYMBOL( ?internal_try_acquire_writer@spin_rw_mutex_v3@tbb@@AEAA_NXZ )
 
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 // x86_rtm_rw_mutex.cpp
-__TBB_SYMBOL( ?internal_acquire_writer@x86_rtm_rw_mutex@internal@interface7@tbb@@AEAAXAEAVscoped_lock@1234@_N@Z )
-__TBB_SYMBOL( ?internal_acquire_reader@x86_rtm_rw_mutex@internal@interface7@tbb@@AEAAXAEAVscoped_lock@1234@_N@Z )
-__TBB_SYMBOL( ?internal_upgrade@x86_rtm_rw_mutex@internal@interface7@tbb@@AEAA_NAEAVscoped_lock@1234@@Z )
-__TBB_SYMBOL( ?internal_downgrade@x86_rtm_rw_mutex@internal@interface7@tbb@@AEAAXAEAVscoped_lock@1234@@Z )
-__TBB_SYMBOL( ?internal_try_acquire_writer@x86_rtm_rw_mutex@internal@interface7@tbb@@AEAA_NAEAVscoped_lock@1234@@Z )
-__TBB_SYMBOL( ?release@scoped_lock@x86_rtm_rw_mutex@internal@interface7@tbb@@QEAAXXZ )
-__TBB_SYMBOL( ?internal_construct@x86_rtm_rw_mutex@internal@interface7@tbb@@AEAAXXZ )
-#endif
+__TBB_SYMBOL( ?internal_acquire_writer@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAAXAEAVscoped_lock@1234@_N@Z )
+__TBB_SYMBOL( ?internal_acquire_reader@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAAXAEAVscoped_lock@1234@_N@Z )
+__TBB_SYMBOL( ?internal_upgrade@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAA_NAEAVscoped_lock@1234@@Z )
+__TBB_SYMBOL( ?internal_downgrade@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAA_NAEAVscoped_lock@1234@@Z )
+__TBB_SYMBOL( ?internal_try_acquire_writer@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAA_NAEAVscoped_lock@1234@@Z )
+__TBB_SYMBOL( ?internal_release@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAAXAEAVscoped_lock@1234@@Z )
+__TBB_SYMBOL( ?internal_construct@x86_rtm_rw_mutex@internal@interface8@tbb@@AEAAXXZ )
 
 // spin_mutex.cpp
 __TBB_SYMBOL( ?internal_construct@spin_mutex@tbb@@QEAAXXZ )
@@ -275,7 +265,9 @@ __TBB_SYMBOL( ?advance@concurrent_queue_iterator_base_v3@internal@tbb@@IEAAXXZ )
 __TBB_SYMBOL( ??0concurrent_queue_base_v3@internal@tbb@@IEAA@_K@Z )
 __TBB_SYMBOL( ??1concurrent_queue_base_v3@internal@tbb@@MEAA@XZ )
 __TBB_SYMBOL( ?internal_push@concurrent_queue_base_v3@internal@tbb@@IEAAXPEBX@Z )
+__TBB_SYMBOL( ?internal_push_move@concurrent_queue_base_v8@internal@tbb@@IEAAXPEBX@Z )
 __TBB_SYMBOL( ?internal_push_if_not_full@concurrent_queue_base_v3@internal@tbb@@IEAA_NPEBX@Z )
+__TBB_SYMBOL( ?internal_push_move_if_not_full@concurrent_queue_base_v8@internal@tbb@@IEAA_NPEBX@Z )
 __TBB_SYMBOL( ?internal_pop@concurrent_queue_base_v3@internal@tbb@@IEAAXPEAX@Z )
 __TBB_SYMBOL( ?internal_pop_if_present@concurrent_queue_base_v3@internal@tbb@@IEAA_NPEAX@Z )
 __TBB_SYMBOL( ?internal_abort@concurrent_queue_base_v3@internal@tbb@@IEAAXXZ )
@@ -285,6 +277,7 @@ __TBB_SYMBOL( ?internal_finish_clear@concurrent_queue_base_v3@internal@tbb@@IEAA
 __TBB_SYMBOL( ?internal_set_capacity@concurrent_queue_base_v3@internal@tbb@@IEAAX_J_K@Z )
 __TBB_SYMBOL( ?internal_throw_exception@concurrent_queue_base_v3@internal@tbb@@IEBAXXZ )
 __TBB_SYMBOL( ?assign@concurrent_queue_base_v3@internal@tbb@@IEAAXAEBV123@@Z )
+__TBB_SYMBOL( ?move_content@concurrent_queue_base_v8@internal@tbb@@IEAAXAEAV123@@Z )
 
 #if !TBB_NO_LEGACY
 // concurrent_vector.cpp v2

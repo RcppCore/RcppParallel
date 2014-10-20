@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB__flow_graph_types_impl_H
@@ -32,6 +24,8 @@
 #ifndef __TBB_flow_graph_H
 #error Do not #include this internal file directly; use public TBB headers instead.
 #endif
+
+// included in namespace tbb::flow::interface7
 
 namespace internal {
 // wrap each element of a tuple in a template, and make a tuple of the result.
@@ -164,7 +158,41 @@ namespace internal {
     };
 #endif
 
-#if TBB_PREVIEW_GRAPH_NODES
+//! type mimicking std::pair but with trailing fill to ensure each element of an array
+//* will have the correct alignment
+    template<typename T1, typename T2, size_t REM>
+    struct type_plus_align {
+        char first[sizeof(T1)];
+        T2 second;
+        char fill1[REM];
+    };
+
+    template<typename T1, typename T2>
+    struct type_plus_align<T1,T2,0> {
+        char first[sizeof(T1)];
+        T2 second;
+    };
+
+    template<class U> struct alignment_of {
+        typedef struct { char t; U    padded; } test_alignment;
+        static const size_t value = sizeof(test_alignment) - sizeof(U);
+    };
+
+    // T1, T2 are actual types stored.  The space defined for T1 in the type returned
+    // is a char array of the correct size.  Type T2 should be trivially-constructible,
+    // T1 must be explicitly managed.
+    template<typename T1, typename T2>
+    struct aligned_pair {
+        static const size_t t1_align = alignment_of<T1>::value;
+        static const size_t t2_align = alignment_of<T2>::value;
+        typedef type_plus_align<T1, T2, 0 > just_pair;
+        static const size_t max_align = t1_align < t2_align ? t2_align : t1_align;
+        static const size_t extra_bytes = sizeof(just_pair) % max_align;
+        static const size_t remainder = extra_bytes ? max_align - extra_bytes : 0;
+    public:
+        typedef type_plus_align<T1,T2,remainder> type;
+    };  // aligned_pair
+
 // support for variant type
 // type we use when we're not storing a value
 struct default_constructed { };
@@ -299,10 +327,6 @@ struct pick_max {
 };
 
 template<typename T> struct size_of { static const int value = sizeof(T); };
-template<class T> struct alignment_of {
-    typedef struct { char t; T    padded; } test_alignment;
-    static const size_t value = sizeof(test_alignment) - sizeof(T);
-};
 
 template< size_t N, class Tuple, template<class> class Selector > struct pick_tuple_max {
     typedef typename pick_tuple_max<N-1, Tuple, Selector>::type LeftMaxType;
@@ -468,7 +492,6 @@ const T& cast_to(V const &v) { return v.template cast_to<T>(); }
 template<typename T, typename V>
 bool is_a(V const &v) { return v.template is_a<T>(); }
 
-#endif  // TBB_PREVIEW_GRAPH_NODES
 }  // namespace internal
 
 #endif  /* __TBB__flow_graph_types_impl_H */

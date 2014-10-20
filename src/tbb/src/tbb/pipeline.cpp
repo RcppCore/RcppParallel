@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/pipeline.h"
@@ -367,8 +359,6 @@ task* stage_task::execute() {
     my_filter = my_filter->next_filter_in_pipeline;
     if( my_filter ) {
         // There is another filter to execute.
-        // Crank up priority a notch.
-        add_to_depth(1);
         if( my_filter->is_serial() ) {
             // The next filter must execute tokens in order
             if( my_filter->my_input_buffer->put_token(*this) ){
@@ -512,7 +502,7 @@ public:
 } // namespace internal
 
 void pipeline::inject_token( task& ) {
-    __TBB_ASSERT(0,"illegal call to inject_token");
+    __TBB_ASSERT(false,"illegal call to inject_token");
 }
 
 #if __TBB_TASK_GROUP_CONTEXT
@@ -732,13 +722,13 @@ thread_bound_filter::result_type thread_bound_filter::internal_process_item(bool
     internal::task_info info;
     info.reset();
 
-    if(my_pipeline && my_pipeline->end_of_input && !has_more_work())
+    if( my_pipeline->end_of_input && !has_more_work() )
         return end_of_stream;
 
     if( !prev_filter_in_pipeline ) {
         if( my_pipeline->end_of_input )
             return end_of_stream;
-        while(my_pipeline->input_tokens == 0) {
+        while( my_pipeline->input_tokens == 0 ) {
             if( !is_blocking )
                 return item_not_available;
             my_input_buffer->sema_P();
@@ -757,28 +747,28 @@ thread_bound_filter::result_type thread_bound_filter::internal_process_item(bool
             return end_of_stream;
         }
     } else { /* this is not an input filter */
-        while(!my_input_buffer->has_item()) {
-            if(!is_blocking) {
+        while( !my_input_buffer->has_item() ) {
+            if( !is_blocking ) {
                 return item_not_available;
             }
             my_input_buffer->sema_P();
-            if( my_pipeline->end_of_input && !has_more_work()) {
+            if( my_pipeline->end_of_input && !has_more_work() ) {
                 return end_of_stream;
             }
         }
-        if(!my_input_buffer->return_item(info, /*advance*/true)) {
-            __TBB_ASSERT(0,"return_item failed");
+        if( !my_input_buffer->return_item(info, /*advance*/true) ) {
+            __TBB_ASSERT(false,"return_item failed");
         }
         info.my_object = (*this)(info.my_object);
     }
     if( next_filter_in_pipeline ) {
-        if (!next_filter_in_pipeline->my_input_buffer->put_token(info,/*force_put=*/true) ) {
-            __TBB_ASSERT(0, "Couldn't put token after thread-bound buffer");
+        if ( !next_filter_in_pipeline->my_input_buffer->put_token(info,/*force_put=*/true) ) {
+            __TBB_ASSERT(false, "Couldn't put token after thread-bound buffer");
         }
     } else {
         size_t ntokens_avail = ++(my_pipeline->input_tokens);
-        if(my_pipeline->filter_list->is_bound()) {
-            if(ntokens_avail == 1) {
+        if( my_pipeline->filter_list->is_bound() ) {
+            if( ntokens_avail == 1 ) {
                 my_pipeline->filter_list->my_input_buffer->sema_V();
             }
         }

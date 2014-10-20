@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_concurrent_vector_H
@@ -66,10 +58,13 @@
     #include <initializer_list>
 #endif
 
-#if defined(_MSC_VER) && !defined(__INTEL_COMPILER) && defined(_Wp64)
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings in /Wp64 mode
     #pragma warning (push)
+#if defined(_Wp64)
     #pragma warning (disable: 4267)
+#endif
+    #pragma warning (disable: 4127) //warning C4127: conditional expression is constant
 #endif
 
 namespace tbb {
@@ -86,6 +81,12 @@ namespace internal {
     //! Bad allocation marker
     static void *const vector_allocation_error_flag = reinterpret_cast<void*>(size_t(63));
 
+    //! Exception helper function
+    template<typename T>
+    void handle_unconstructed_elements(T* array, size_t n_of_elements){
+        std::memset(array, 0, n_of_elements * sizeof(T));
+    }
+
     //! Base class of concurrent vector implementation.
     /** @ingroup containers */
     class concurrent_vector_base_v3 {
@@ -99,7 +100,7 @@ namespace internal {
         enum {
             // Size constants
             default_initial_segments = 1, // 2 initial items
-            //! Number of slots for segment's pointers inside the class
+            //! Number of slots for segment pointers inside the class
             pointers_per_short_table = 3, // to fit into 8 words of entire structure
             pointers_per_long_table = sizeof(segment_index_t) * 8 // one segment per bit
         };
@@ -114,7 +115,7 @@ namespace internal {
         private:
             //TODO: More elegant way to grant access to selected functions _only_?
             friend class segment_t;
-            segment_value_t(void* an_array):array(an_array) {}
+            explicit segment_value_t(void* an_array):array(an_array) {}
         public:
             friend bool operator==(segment_value_t const& lhs, segment_not_used ) { return lhs.array == 0;}
             friend bool operator==(segment_value_t const& lhs, segment_allocated) { return lhs.array > internal::vector_allocation_error_flag;}
@@ -206,6 +207,7 @@ namespace internal {
             my_first_block.store<relaxed>(0); // here is not default_initial_segments
             my_segment.store<relaxed>(my_storage);
         }
+
         __TBB_EXPORTED_METHOD ~concurrent_vector_base_v3();
 
         //these helpers methods use the fact that segments are allocated so
@@ -474,6 +476,7 @@ public: // workaround for MSVC
         allocator_type my_allocator;
 
         allocator_base(const allocator_type &a = allocator_type() ) : my_allocator(a) {}
+
     };
 
 } // namespace internal
@@ -561,6 +564,7 @@ private:
 
     template<typename C, typename U>
     friend class internal::vector_iterator;
+
 public:
     //------------------------------------------------------------------------
     // STL compatible types
@@ -638,6 +642,37 @@ public:
         }
     }
 
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    //! Move constructor
+    //TODO add __TBB_NOEXCEPT(true) and static_assert(std::has_nothrow_move_constructor<A>::value)
+    concurrent_vector( concurrent_vector&& source)
+        : internal::allocator_base<T, A>(std::move(source)), internal::concurrent_vector_base()
+    {
+        vector_allocator_ptr = &internal_allocator;
+        concurrent_vector_base_v3::internal_swap(source);
+    }
+
+    concurrent_vector( concurrent_vector&& source, const allocator_type& a)
+        : internal::allocator_base<T, A>(a), internal::concurrent_vector_base()
+    {
+        vector_allocator_ptr = &internal_allocator;
+        //C++ standard requires instances of an allocator being compared for equality,
+        //which means that memory allocated by one instance is possible to deallocate with the other one.
+        if (a == source.my_allocator) {
+            concurrent_vector_base_v3::internal_swap(source);
+        } else {
+            __TBB_TRY {
+                internal_copy(source, sizeof(T), &move_array);
+            } __TBB_CATCH(...) {
+                segment_t *table = my_segment.load<relaxed>();
+                internal_free_segments( table, internal_clear(&destroy_array), my_first_block.load<relaxed>());
+                __TBB_RETHROW();
+            }
+        }
+    }
+
+#endif
+
     //! Copying constructor for vector with different allocator type
     template<class M>
     concurrent_vector( const concurrent_vector<T, M>& vector, const allocator_type& a = allocator_type() )
@@ -702,6 +737,24 @@ public:
         return *this;
     }
 
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    //TODO: add __TBB_NOEXCEPT()
+    //! Move assignment
+    concurrent_vector& operator=( concurrent_vector&& other ) {
+        __TBB_ASSERT(this != &other, "Move assignment to itself is prohibited ");
+        typedef typename tbb::internal::allocator_traits<A>::propagate_on_container_move_assignment pocma_t;
+        if(pocma_t::value || this->my_allocator == other.my_allocator) {
+            concurrent_vector trash (std::move(*this));
+            internal_swap(other);
+            if (pocma_t::value) {
+                this->my_allocator = std::move(other.my_allocator);
+            }
+        } else {
+            internal_assign(other, sizeof(T), &destroy_array, &move_assign_array, &move_array);
+        }
+        return *this;
+    }
+#endif
     //TODO: add an template assignment operator? (i.e. with different element type)
 
     //! Assignment for vector with different allocator type
@@ -715,7 +768,7 @@ public:
 
 #if __TBB_INITIALIZER_LISTS_PRESENT
     //! Assignment for initializer_list
-    concurrent_vector& operator=( const std::initializer_list<T> & init_list) {
+    concurrent_vector& operator=( std::initializer_list<T> init_list ) {
         internal_clear(&destroy_array);
         internal_assign_iterators(init_list.begin(), init_list.end());
         return *this;
@@ -725,27 +778,13 @@ public:
     //------------------------------------------------------------------------
     // Concurrent operations
     //------------------------------------------------------------------------
-    //TODO: consider adding overload of grow_by accepting initializer_list:  grow_by(std::initializer_list<T>), as a analogy to std::vector::insert(initializer_list)
     //! Grow by "delta" elements.
-#if TBB_DEPRECATED
-    /** Returns old size. */
-    size_type grow_by( size_type delta ) {
-        return delta ? internal_grow_by( delta, sizeof(T), &initialize_array, NULL ) : my_early_size.load();
-    }
-#else
     /** Returns iterator pointing to the first new element. */
     iterator grow_by( size_type delta ) {
         return iterator(*this, delta ? internal_grow_by( delta, sizeof(T), &initialize_array, NULL ) : my_early_size.load());
     }
-#endif
 
     //! Grow by "delta" elements using copying constructor.
-#if TBB_DEPRECATED
-    /** Returns old size. */
-    size_type grow_by( size_type delta, const_reference t ) {
-        return delta ? internal_grow_by( delta, sizeof(T), &initialize_array_by, static_cast<const void*>(&t) ) : my_early_size.load();
-    }
-#else
     /** Returns iterator pointing to the first new element. */
     iterator grow_by( size_type delta, const_reference t ) {
         return iterator(*this, delta ? internal_grow_by( delta, sizeof(T), &initialize_array_by, static_cast<const void*>(&t) ) : my_early_size.load());
@@ -754,22 +793,20 @@ public:
     /** Returns iterator pointing to the first new element. */
     template<typename I>
     iterator grow_by( I first, I last ) {
-        typename std::iterator_traits<I>::difference_type
-        delta = std::distance(first, last);
-        __TBB_ASSERT( delta > 0, NULL);
+        typename std::iterator_traits<I>::difference_type delta = std::distance(first, last);
+        __TBB_ASSERT( delta >= 0, NULL);
 
-        return iterator(*this,  internal_grow_by( delta, sizeof(T), &copy_range<I>, static_cast<const void*>(&first) ));
+        return iterator(*this, delta ? internal_grow_by(delta, sizeof(T), &copy_range<I>, static_cast<const void*>(&first)) : my_early_size.load());
     }
-#endif
+
+#if __TBB_INITIALIZER_LISTS_PRESENT
+    /** Returns iterator pointing to the first new element. */
+    iterator grow_by( std::initializer_list<T> init_list ) {
+        return grow_by( init_list.begin(), init_list.end() );
+    }
+#endif //#if __TBB_INITIALIZER_LISTS_PRESENT
 
     //! Append minimal sequence of elements such that size()>=n.
-#if TBB_DEPRECATED
-    /** The new elements are default constructed.  Blocks until all elements in range [0..n) are allocated.
-        May return while other elements are being constructed by other threads. */
-    void grow_to_at_least( size_type n ) {
-        if( n ) internal_grow_to_at_least_with_result( n, sizeof(T), &initialize_array, NULL );
-    };
-#else
     /** The new elements are default constructed.  Blocks until all elements in range [0..n) are allocated.
         May return while other elements are being constructed by other threads.
         Returns iterator that points to beginning of appended sequence.
@@ -782,7 +819,7 @@ public:
         }
         return iterator(*this, m);
     };
-    
+
     /** Analogous to grow_to_at_least( size_type n ) with exception that the new
         elements are initialized by copying of t instead of default construction. */
     iterator grow_to_at_least( size_type n, const_reference t ) {
@@ -793,31 +830,49 @@ public:
         }
         return iterator(*this, m);
     };
-    
-#endif
 
     //! Push item
-#if TBB_DEPRECATED
-    size_type push_back( const_reference item )
-#else
     /** Returns iterator pointing to the new element. */
     iterator push_back( const_reference item )
-#endif
     {
         size_type k;
-        void *ptr = internal_push_back(sizeof(T),k);
-        internal_loop_guide loop(1, ptr);
-        loop.init(&item);
-#if TBB_DEPRECATED
-        return k;
-#else
+        T* ptr = static_cast<T*>(internal_push_back(sizeof(T),k));
+        element_construction_guard g(ptr);
+        new(ptr) T(item);
+        g.dismiss();
         return iterator(*this, k, ptr);
-#endif
     }
 
+#if    __TBB_CPP11_RVALUE_REF_PRESENT
+    //! Push item, move-aware
+    /** Returns iterator pointing to the new element. */
+    iterator push_back(  T&& item )
+    {
+        size_type k;
+        T* ptr = static_cast<T*>(internal_push_back(sizeof(T),k));
+        element_construction_guard g(ptr);
+        new(ptr) T(std::move(item));
+        g.dismiss();
+        return iterator(*this, k, ptr);
+    }
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    //! Push item, create item "in place" with provided arguments
+    /** Returns iterator pointing to the new element. */
+    template<typename... Args>
+    iterator emplace_back(  Args&&... args)
+    {
+        size_type k;
+        T* ptr = static_cast<T*>(internal_push_back(sizeof(T),k));
+        element_construction_guard g(ptr);
+        new(ptr) T( std::forward<Args>(args)...);
+        g.dismiss();
+        return iterator(*this, k, ptr);
+    }
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
     //! Get reference to element at given index.
     /** This method is thread-safe for concurrent reads, and also while growing the vector,
-        as long as the calling thread has checked that index&lt;size(). */
+        as long as the calling thread has checked that index < size(). */
     reference operator[]( size_type index ) {
         return internal_subscript(index);
     }
@@ -879,11 +934,6 @@ public:
     void resize( size_type n, const_reference t ) {
         internal_resize( n, sizeof(T), max_size(), static_cast<const void*>(&t), &destroy_array, &initialize_array_by );
     }
-
-#if TBB_DEPRECATED
-    //! An alias for shrink_to_fit()
-    void compact() {shrink_to_fit();}
-#endif /* TBB_DEPRECATED */
 
     //! Optimize memory usage and fragmentation.
     void shrink_to_fit();
@@ -1025,17 +1075,23 @@ private:
     //! Construct n instances of T, starting at "begin".
     static void __TBB_EXPORTED_FUNC initialize_array( void* begin, const void*, size_type n );
 
-    //! Construct n instances of T, starting at "begin".
+    //! Copy-construct n instances of T, starting at "begin".
     static void __TBB_EXPORTED_FUNC initialize_array_by( void* begin, const void* src, size_type n );
 
-    //! Construct n instances of T, starting at "begin".
+    //! Copy-construct n instances of T by copying single element pointed to by src, starting at "dst".
     static void __TBB_EXPORTED_FUNC copy_array( void* dst, const void* src, size_type n );
 
-    //! Construct n instances of T, starting at "begin".
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    //! Move-construct n instances of T, starting at "dst" by copying according element of src array.
+    static void __TBB_EXPORTED_FUNC move_array( void* dst, const void* src, size_type n );
+    //! Move-assign (using operator=) n instances of T, starting at "dst" by assigning according element of src array.
+    static void __TBB_EXPORTED_FUNC move_assign_array( void* dst, const void* src, size_type n );
+#endif
+    //! Copy-construct n instances of T, starting at "dst" by iterator range of [p_type_erased_iterator, p_type_erased_iterator+n).
     template<typename Iterator>
     static void __TBB_EXPORTED_FUNC copy_range( void* dst, const void* p_type_erased_iterator, size_type n );
 
-    //! Assign n instances of T, starting at "begin".
+    //! Assign (using operator=) n instances of T, starting at "dst" by assigning according element of src array.
     static void __TBB_EXPORTED_FUNC assign_array( void* dst, const void* src, size_type n );
 
     //! Destroy n instances of T, starting at "begin".
@@ -1047,17 +1103,38 @@ private:
         const pointer array;
         const size_type n;
         size_type i;
+
+        static const T* as_const_pointer(const void *ptr) { return static_cast<const T *>(ptr); }
+        static T* as_pointer(const void *src) { return static_cast<T*>(const_cast<void *>(src)); }
+
         internal_loop_guide(size_type ntrials, void *ptr)
-            : array(static_cast<pointer>(ptr)), n(ntrials), i(0) {}
+            : array(as_pointer(ptr)), n(ntrials), i(0) {}
         void init() {   for(; i < n; ++i) new( &array[i] ) T(); }
-        void init(const void *src) { for(; i < n; ++i) new( &array[i] ) T(*static_cast<const T*>(src)); }
-        void copy(const void *src) { for(; i < n; ++i) new( &array[i] ) T(static_cast<const T*>(src)[i]); }
-        void assign(const void *src) { for(; i < n; ++i) array[i] = static_cast<const T*>(src)[i]; }
+        void init(const void *src) { for(; i < n; ++i) new( &array[i] ) T(*as_const_pointer(src)); }
+        void copy(const void *src) { for(; i < n; ++i) new( &array[i] ) T(as_const_pointer(src)[i]); }
+        void assign(const void *src) { for(; i < n; ++i) array[i] = as_const_pointer(src)[i]; }
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+        void move_assign(const void *src)       { for(; i < n; ++i) array[i]         =  std::move(as_pointer(src)[i]);   }
+        void move_construct(const void *src)    { for(; i < n; ++i) new( &array[i] ) T( std::move(as_pointer(src)[i]) ); }
+#endif
         //TODO: rename to construct_range
         template<class I> void iterate(I &src) { for(; i < n; ++i, ++src) new( &array[i] ) T( *src ); }
         ~internal_loop_guide() {
-            if(i < n) // if exception raised, do zeroing on the rest of items
-                std::memset(array+i, 0, (n-i)*sizeof(value_type));
+            if(i < n) {// if an exception was raised, fill the rest of items with zeros
+                internal::handle_unconstructed_elements(array+i, n-i);
+            }
+        }
+    };
+
+    class element_construction_guard : internal::no_copy{
+        pointer element;
+    public:
+        element_construction_guard(pointer an_element) : element (an_element){}
+        void dismiss(){ element = NULL; }
+        ~element_construction_guard(){
+            if (element){
+                internal::handle_unconstructed_elements(element, 1);
+            }
         }
     };
 };
@@ -1108,7 +1185,7 @@ T& concurrent_vector<T, A>::internal_subscript( size_type index ) const {
     segment_index_t k = segment_base_index_of( j );
     __TBB_ASSERT( my_segment.load<acquire>() != my_storage || k < pointers_per_short_table, "index is being allocated" );
     //no need in load with acquire (load<acquire>) since thread works in own space or gets
-    //the information about added elements via some form of external synchronization 
+    //the information about added elements via some form of external synchronization
     //TODO: why not make a load of my_segment relaxed as well ?
     //TODO: add an assertion that my_segment[k] is properly aligned to please ITT
     segment_value_t segment_value =  my_segment[k].template load<relaxed>();
@@ -1144,6 +1221,7 @@ void concurrent_vector<T, A>::internal_assign_iterators(I first, I last) {
     internal_reserve(n, sizeof(T), max_size());
     my_early_size = n;
     segment_index_t k = 0;
+    //TODO: unify segment iteration code with concurrent_base_v3::helper
     size_type sz = segment_size( my_first_block );
     while( sz < n ) {
         internal_loop_guide loop(sz, my_segment[k].template load<relaxed>().template pointer<void>());
@@ -1170,6 +1248,18 @@ template<typename T, class A>
 void concurrent_vector<T, A>::copy_array( void* dst, const void* src, size_type n ) {
     internal_loop_guide loop(n, dst); loop.copy(src);
 }
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+template<typename T, class A>
+void concurrent_vector<T, A>::move_array( void* dst, const void* src, size_type n ) {
+    internal_loop_guide loop(n, dst); loop.move_construct(src);
+}
+
+template<typename T, class A>
+void concurrent_vector<T, A>::move_assign_array( void* dst, const void* src, size_type n ) {
+    internal_loop_guide loop(n, dst); loop.move_assign(src);
+}
+#endif
 
 template<typename T, class A>
 template<typename I>
@@ -1201,6 +1291,7 @@ void concurrent_vector<T, A>::destroy_array( void* begin, size_type n ) {
 // concurrent_vector's template functions
 template<typename T, class A1, class A2>
 inline bool operator==(const concurrent_vector<T, A1> &a, const concurrent_vector<T, A2> &b) {
+    //TODO: call size() only once per vector (in operator==)
     // Simply:    return a.size() == b.size() && std::equal(a.begin(), a.end(), b.begin());
     if(a.size() != b.size()) return false;
     typename concurrent_vector<T, A1>::const_iterator i(a.begin());
@@ -1236,8 +1327,8 @@ inline void swap(concurrent_vector<T, A> &a, concurrent_vector<T, A> &b)
 
 } // namespace tbb
 
-#if defined(_MSC_VER) && !defined(__INTEL_COMPILER) && defined(_Wp64)
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     #pragma warning (pop)
-#endif // warning 4267 is back
+#endif // warning 4267,4127 are back
 
 #endif /* __TBB_concurrent_vector_H */

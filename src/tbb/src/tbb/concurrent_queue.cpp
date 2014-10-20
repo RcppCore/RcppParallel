@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/tbb_stddef.h"
@@ -82,14 +74,18 @@ struct micro_queue {
 
     spin_mutex page_mutex;
 
-    void push( const void* item, ticket k, concurrent_queue_base& base );
+    void push( const void* item, ticket k, concurrent_queue_base& base,
+               concurrent_queue_base::copy_specifics op_type );
+
     void abort_push( ticket k, concurrent_queue_base& base );
 
     bool pop( void* dst, ticket k, concurrent_queue_base& base );
 
-    micro_queue& assign( const micro_queue& src, concurrent_queue_base& base );
+    micro_queue& assign( const micro_queue& src, concurrent_queue_base& base,
+                         concurrent_queue_base::copy_specifics op_type );
 
-    page* make_copy ( concurrent_queue_base& base, const page* src_page, size_t begin_in_page, size_t end_in_page, ticket& g_index ) ;
+    page* make_copy ( concurrent_queue_base& base, const page* src_page, size_t begin_in_page,
+                      size_t end_in_page, ticket& g_index, concurrent_queue_base::copy_specifics op_type ) ;
 
     void make_invalid( ticket k );
 };
@@ -177,7 +173,8 @@ static void* invalid_page;
 //------------------------------------------------------------------------
 // micro_queue
 //------------------------------------------------------------------------
-void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base ) {
+void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base,
+                        concurrent_queue_base::copy_specifics op_type ) {
     k &= -concurrent_queue_rep::n_queue;
     page* p = NULL;
     // find index on page where we would put the data
@@ -218,10 +215,15 @@ void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base 
         p = tail_page;
         ITT_NOTIFY( sync_acquired, p );
         __TBB_TRY {
-            base.copy_item( *p, index, item );
+            if( concurrent_queue_base::copy == op_type ) {
+                base.copy_item( *p, index, item );
+            } else {
+                __TBB_ASSERT( concurrent_queue_base::move == op_type, NULL );
+                static_cast<concurrent_queue_base_v8&>(base).move_item( *p, index, item );
+            }
         }  __TBB_CATCH(...) {
             ++base.my_rep->n_invalid_entries;
-            tail_counter += concurrent_queue_rep::n_queue; 
+            tail_counter += concurrent_queue_rep::n_queue;
             __TBB_RETHROW();
         }
         ITT_NOTIFY( sync_releasing, p );
@@ -231,13 +233,13 @@ void micro_queue::push( const void* item, ticket k, concurrent_queue_base& base 
     else // no item; this was called from abort_push
         ++base.my_rep->n_invalid_entries;
 
-    tail_counter += concurrent_queue_rep::n_queue; 
+    tail_counter += concurrent_queue_rep::n_queue;
 }
 
 
 void micro_queue::abort_push( ticket k, concurrent_queue_base& base ) {
-    push(NULL, k, base);
-} 
+    push(NULL, k, base, concurrent_queue_base::copy);
+}
 
 bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
     k &= -concurrent_queue_rep::n_queue;
@@ -262,11 +264,11 @@ bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
     return success;
 }
 
-micro_queue& micro_queue::assign( const micro_queue& src, concurrent_queue_base& base )
+micro_queue& micro_queue::assign( const micro_queue& src, concurrent_queue_base& base,
+                                  concurrent_queue_base::copy_specifics op_type )
 {
     head_counter = src.head_counter;
     tail_counter = src.tail_counter;
-    page_mutex   = src.page_mutex;
 
     const page* srcp = src.head_page;
     if( srcp ) {
@@ -276,12 +278,12 @@ micro_queue& micro_queue::assign( const micro_queue& src, concurrent_queue_base&
             size_t index = modulo_power_of_two( head_counter/concurrent_queue_rep::n_queue, base.items_per_page );
             size_t end_in_first_page = (index+n_items<base.items_per_page)?(index+n_items):base.items_per_page;
 
-            head_page = make_copy( base, srcp, index, end_in_first_page, g_index );
+            head_page = make_copy( base, srcp, index, end_in_first_page, g_index, op_type );
             page* cur_page = head_page;
 
             if( srcp != src.tail_page ) {
                 for( srcp = srcp->next; srcp!=src.tail_page; srcp=srcp->next ) {
-                    cur_page->next = make_copy( base, srcp, 0, base.items_per_page, g_index );
+                    cur_page->next = make_copy( base, srcp, 0, base.items_per_page, g_index, op_type );
                     cur_page = cur_page->next;
                 }
 
@@ -290,7 +292,7 @@ micro_queue& micro_queue::assign( const micro_queue& src, concurrent_queue_base&
                 size_t last_index = modulo_power_of_two( tail_counter/concurrent_queue_rep::n_queue, base.items_per_page );
                 if( last_index==0 ) last_index = base.items_per_page;
 
-                cur_page->next = make_copy( base, srcp, 0, last_index, g_index );
+                cur_page->next = make_copy( base, srcp, 0, last_index, g_index, op_type );
                 cur_page = cur_page->next;
             }
             tail_page = cur_page;
@@ -303,14 +305,21 @@ micro_queue& micro_queue::assign( const micro_queue& src, concurrent_queue_base&
     return *this;
 }
 
-concurrent_queue_base::page* micro_queue::make_copy( concurrent_queue_base& base, const concurrent_queue_base::page* src_page, size_t begin_in_page, size_t end_in_page, ticket& g_index )
+concurrent_queue_base::page* micro_queue::make_copy( concurrent_queue_base& base,
+    const concurrent_queue_base::page* src_page, size_t begin_in_page, size_t end_in_page,
+    ticket& g_index, concurrent_queue_base::copy_specifics op_type )
 {
     page* new_page = base.allocate_page();
     new_page->next = NULL;
     new_page->mask = src_page->mask;
     for( ; begin_in_page!=end_in_page; ++begin_in_page, ++g_index )
         if( new_page->mask & uintptr_t(1)<<begin_in_page )
-            base.copy_page_item( *new_page, begin_in_page, *src_page, begin_in_page );
+            if( concurrent_queue_base::copy == op_type ) {
+                base.copy_page_item( *new_page, begin_in_page, *src_page, begin_in_page );
+            } else {
+                __TBB_ASSERT( concurrent_queue_base::move == op_type, NULL );
+                static_cast<concurrent_queue_base_v8&>(base).move_page_item( *new_page, begin_in_page, *src_page, begin_in_page );
+            }
     return new_page;
 }
 
@@ -365,6 +374,14 @@ concurrent_queue_base_v3::~concurrent_queue_base_v3() {
 }
 
 void concurrent_queue_base_v3::internal_push( const void* src ) {
+    internal_insert_item( src, copy );
+}
+
+void concurrent_queue_base_v8::internal_push_move( const void* src ) {
+   internal_insert_item( src, move );
+}
+
+void concurrent_queue_base_v3::internal_insert_item( const void* src, copy_specifics op_type ) {
     concurrent_queue_rep& r = *my_rep;
     ticket k = r.tail_counter++;
     ptrdiff_t e = my_capacity;
@@ -398,7 +415,7 @@ void concurrent_queue_base_v3::internal_push( const void* src ) {
     }
     ITT_NOTIFY( sync_acquired, &sync_prepare_done );
     __TBB_ASSERT( (ptrdiff_t)(k-r.head_counter)<my_capacity, NULL);
-    r.choose( k ).push( src, k, *this );
+    r.choose( k ).push( src, k, *this, op_type );
     r.items_avail.notify( predicate_leq(k) );
 }
 
@@ -473,6 +490,14 @@ bool concurrent_queue_base_v3::internal_pop_if_present( void* dst ) {
 }
 
 bool concurrent_queue_base_v3::internal_push_if_not_full( const void* src ) {
+    return internal_insert_if_not_full( src, copy );
+}
+
+bool concurrent_queue_base_v8::internal_push_move_if_not_full( const void* src ) {
+    return internal_insert_if_not_full( src, move );
+}
+
+bool concurrent_queue_base_v3::internal_insert_if_not_full( const void* src, copy_specifics op_type ) {
     concurrent_queue_rep& r = *my_rep;
     ticket k = r.tail_counter;
     for(;;) {
@@ -487,8 +512,7 @@ bool concurrent_queue_base_v3::internal_push_if_not_full( const void* src ) {
             break;
         // Another thread claimed the slot, so retry.
     }
-    r.choose(k).push(src,k,*this);
-
+    r.choose(k).push(src, k, *this, op_type);
     r.items_avail.notify( predicate_leq(k) );
     return true;
 }
@@ -525,7 +549,7 @@ void concurrent_queue_base_v3::internal_throw_exception() const {
     throw_exception( eid_bad_alloc );
 }
 
-void concurrent_queue_base_v3::assign( const concurrent_queue_base& src ) {
+void concurrent_queue_base_v3::internal_assign( const concurrent_queue_base& src, copy_specifics op_type ) {
     items_per_page = src.items_per_page;
     my_capacity = src.my_capacity;
 
@@ -536,10 +560,18 @@ void concurrent_queue_base_v3::assign( const concurrent_queue_base& src ) {
 
     // copy micro_queues
     for( size_t i = 0; i<my_rep->n_queue; ++i )
-        my_rep->array[i].assign( src.my_rep->array[i], *this);
+        my_rep->array[i].assign( src.my_rep->array[i], *this, op_type );
 
     __TBB_ASSERT( my_rep->head_counter==src.my_rep->head_counter && my_rep->tail_counter==src.my_rep->tail_counter,
             "the source concurrent queue should not be concurrently modified." );
+}
+
+void concurrent_queue_base_v3::assign( const concurrent_queue_base& src ) {
+    internal_assign( src, copy );
+}
+
+void concurrent_queue_base_v8::move_content( concurrent_queue_base_v8& src ) {
+    internal_assign( src, move );
 }
 
 //------------------------------------------------------------------------

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef _TBB_scheduler_common_H
@@ -121,7 +113,7 @@ static const priority_t priority_from_normalized_rep[num_priority_levels] = {
     priority_low, priority_normal, priority_high
 };
 
-inline void assert_priority_valid ( intptr_t& p ) {
+inline void assert_priority_valid ( intptr_t p ) {
     __TBB_ASSERT_EX( p >= 0 && p < num_priority_levels, NULL );
 }
 
@@ -371,11 +363,15 @@ public:
     //   dispatch loop may become invalid.
     // But do we really want to improve the fenv implementation? It seems to be better to replace the fenv implementation
     // with a platform specific implementation.
-    void operator=( const cpu_ctl_env &src ) {
+    cpu_ctl_env( const cpu_ctl_env &src ) : my_fenv_ptr(NULL) {
+        *this = src;
+    }
+    cpu_ctl_env& operator=( const cpu_ctl_env &src ) {
         __TBB_ASSERT( src.my_fenv_ptr, NULL );
         if ( !my_fenv_ptr )
             my_fenv_ptr = (fenv_t*)tbb::internal::NFS_Allocate(1, sizeof(fenv_t), NULL);
         *my_fenv_ptr = *src.my_fenv_ptr;
+        return *this;
     }
     bool operator!=( const cpu_ctl_env &ctl ) const {
         __TBB_ASSERT( my_fenv_ptr, "cpu_ctl_env is not initialized." );
@@ -394,44 +390,6 @@ public:
     }
 };
 #endif /* !__TBB_CPU_CTL_ENV_PRESENT */
-
-#if __TBB_FP_CONTEXT
-struct task_group_context_accessor : tbb::internal::no_copy {
-    cpu_ctl_env &my_cpu_ctl_env;
-    task_group_context_accessor( tbb::task_group_context &ctx ) :
-        my_cpu_ctl_env( *punned_cast<cpu_ctl_env*>(&ctx.my_cpu_ctl_env) ) {}
-};
-class cpu_ctl_env_helper {
-    cpu_ctl_env guard_cpu_ctl_env;
-    cpu_ctl_env curr_cpu_ctl_env;
-public:
-    cpu_ctl_env_helper() {
-        guard_cpu_ctl_env.get_env();
-        curr_cpu_ctl_env = guard_cpu_ctl_env;
-    }
-    ~cpu_ctl_env_helper() {
-        if ( curr_cpu_ctl_env != guard_cpu_ctl_env )
-            guard_cpu_ctl_env.set_env();
-    }
-    void set_env( task_group_context &ctx ) {
-        if ( task_group_context_accessor(ctx).my_cpu_ctl_env != curr_cpu_ctl_env ) {
-            curr_cpu_ctl_env = task_group_context_accessor(ctx).my_cpu_ctl_env;
-            curr_cpu_ctl_env.set_env();
-        }
-    }
-    void restore_default() {
-        if ( curr_cpu_ctl_env != guard_cpu_ctl_env ) {
-            guard_cpu_ctl_env.set_env();
-            curr_cpu_ctl_env = guard_cpu_ctl_env;
-        }
-    }
-};
-#else
-struct cpu_ctl_env_helper {
-    void set_env( __TBB_CONTEXT_ARG1(task_group_context &) ) {}
-    void restore_default() {}
-};
-#endif /* __TBB_FP_CONTEXT */
 
 } // namespace internal
 } // namespace tbb

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 
@@ -109,7 +101,7 @@ const int blockHeaderAlignment = estimatedCacheLineSize;
 /*
  * The malloc routines themselves need to be able to occasionally malloc some space,
  * in order to set up the structures used by the thread local structures. This
- * routine preforms that fuctions.
+ * routine performs that functions.
  */
 class BootStrapBlocks {
     MallocMutex bootStrapLock;
@@ -403,7 +395,7 @@ public:
     unsigned int getSize() const {
         MALLOC_ASSERT(isStartupAllocObject() || objectSize<minLargeObjectSize,
                       "Invalid object size");
-        return objectSize;
+        return isStartupAllocObject()? 0 : objectSize;
     }
     const BackRefIdx *getBackRefIdx() const { return &backRefIdx; }
     inline TLSData *ownBlock() const;
@@ -421,6 +413,7 @@ public:
     }
     const BackRefIdx *getBackRef() const { return &backRefIdx; }
     void initEmptyBlock(TLSData *tls, size_t size);
+    size_t findObjectSize(void *object) const;
 
 protected:
     void cleanBlockHeader();
@@ -726,7 +719,7 @@ bool        RecursiveMallocCallProtector::canUsePthread;
 static void *internalMalloc(size_t size);
 static void internalFree(void *object);
 static void *internalPoolMalloc(MemoryPool* mPool, size_t size);
-static bool internalPoolFree(MemoryPool *mPool, void *object);
+static bool internalPoolFree(MemoryPool *mPool, void *object, size_t size);
 
 #if !MALLOC_DEBUG
 #if __INTEL_COMPILER || _MSC_VER
@@ -1119,7 +1112,7 @@ void MemoryPool::destroy()
     }
     bootStrapBlocks.reset();
     orphanedBlocks.reset();
-    // slab blocks in non-default pool do not have backreferencies,
+    // slab blocks in non-default pool do not have backreferences,
     // only large objects do
     if (extMemPool.userPool())
         extMemPool.lmbList.releaseAll</*poolDestroy=*/true>(&extMemPool.backend);
@@ -1233,7 +1226,7 @@ Block* Bin::getPublicFreeListBlock()
 {
     Block* block;
     MALLOC_ASSERT( this, ASSERT_TEXT );
-    // if this method is called, active block usage must be unsuccesful
+    // if this method is called, active block usage must be unsuccessful
     MALLOC_ASSERT( !activeBlk && !mailbox || activeBlk && activeBlk->isFull, ASSERT_TEXT );
 
 // the counter should be changed    STAT_increment(getThreadId(), ThreadCommonCounters, lockPublicFreeList);
@@ -1694,7 +1687,7 @@ void TLSData::release(MemoryPool *mPool)
 
 
 #if MALLOC_CHECK_RECURSION
-// TODO: Use deducated heap for this
+// TODO: Use dedicated heap for this
 
 /*
  * It's a special kind of allocation that can be used when malloc is
@@ -2061,6 +2054,23 @@ inline FreeObject* Block::allocate()
     return NULL;
 }
 
+size_t Block::findObjectSize(void *object) const
+{
+    size_t blSize = getSize();
+#if MALLOC_CHECK_RECURSION
+    // Currently, there is no aligned allocations from startup blocks,
+    // so we can return just StartupBlock::msize().
+    // TODO: This must be extended if we add aligned allocation from startup blocks.
+    if (!blSize)
+        return StartupBlock::msize(object);
+#endif
+    // object can be aligned, so real size can be less than block's
+    size_t size =
+        blSize - ((uintptr_t)object - (uintptr_t)findObjectToFree(object));
+    MALLOC_ASSERT(size>0 && size<minLargeObjectSize, ASSERT_TEXT);
+    return size;
+}
+
 void Bin::moveBlockToBinFront(Block *block)
 {
     /* move the block to the front of the bin */
@@ -2297,7 +2307,7 @@ static void *reallocAligned(MemoryPool *memPool, void *ptr,
         }
     } else {
         Block* block = (Block *)alignDown(ptr, slabSize);
-        copySize = block->getSize();
+        copySize = block->findObjectSize(ptr);
         if (size <= copySize && (0==alignment || isAligned(ptr, alignment))) {
             return ptr;
         } else {
@@ -2307,7 +2317,7 @@ static void *reallocAligned(MemoryPool *memPool, void *ptr,
     }
     if (result) {
         memcpy(result, ptr, copySize<size? copySize: size);
-        internalPoolFree(memPool, ptr);
+        internalPoolFree(memPool, ptr, 0);
     }
     return result;
 }
@@ -2478,7 +2488,8 @@ static void *internalPoolMalloc(MemoryPool* memPool, size_t size)
     return NULL;
 }
 
-static bool internalPoolFree(MemoryPool *memPool, void *object)
+// When size==0 (i.e. unknown), detect here whether the object is large.
+static bool internalPoolFree(MemoryPool *memPool, void *object, size_t size)
 {
     if (!memPool || !object) return false;
 
@@ -2486,9 +2497,9 @@ static bool internalPoolFree(MemoryPool *memPool, void *object)
     // not initialized means foreign object is releasing.
     MALLOC_ASSERT(isMallocInitialized(), ASSERT_TEXT);
     MALLOC_ASSERT(memPool->extMemPool.userPool() || isRecognized(object),
-                  "Invalid pointer in pool_free detected.");
+                  "Invalid pointer during object releasing is detected.");
 
-    if (isLargeObject(object))
+    if (size >= minLargeObjectSize || (!size && isLargeObject(object)))
         memPool->putToLLOCache(memPool->getTLS(/*create=*/false), object);
     else
         freeSmallObject(memPool, object);
@@ -2514,7 +2525,7 @@ static void *internalMalloc(size_t size)
 
 static void internalFree(void *object)
 {
-    internalPoolFree(defaultMemPool, object);
+    internalPoolFree(defaultMemPool, object, 0);
 }
 
 static size_t internalMsize(void* ptr)
@@ -2524,16 +2535,8 @@ static size_t internalMsize(void* ptr)
         if (isLargeObject(ptr)) {
             LargeMemoryBlock* lmb = ((LargeObjectHdr*)ptr - 1)->memoryBlock;
             return lmb->objectSize;
-        } else {
-            Block* block = (Block *)alignDown(ptr, slabSize);
-#if MALLOC_CHECK_RECURSION
-            size_t size = block->getSize()? block->getSize() : StartupBlock::msize(ptr);
-#else
-            size_t size = block->getSize();
-#endif
-            MALLOC_ASSERT(size>0 && size<minLargeObjectSize, ASSERT_TEXT);
-            return size;
-        }
+        } else
+            return ((Block*)alignDown(ptr, slabSize))->findObjectSize(ptr);
     }
     errno = EINVAL;
     // Unlike _msize, return 0 in case of parameter error.
@@ -2619,7 +2622,7 @@ void *pool_realloc(rml::MemoryPool* mPool, void *object, size_t size)
     if (!object)
         return internalPoolMalloc((rml::internal::MemoryPool*)mPool, size);
     if (!size) {
-        internalPoolFree((rml::internal::MemoryPool*)mPool, object);
+        internalPoolFree((rml::internal::MemoryPool*)mPool, object, 0);
         return NULL;
     }
     return reallocAligned((rml::internal::MemoryPool*)mPool, object, size, 0);
@@ -2643,7 +2646,7 @@ void *pool_aligned_realloc(rml::MemoryPool* memPool, void *ptr, size_t size, siz
     if (!ptr)
         tmp = allocateAligned(mPool, size, alignment);
     else if (!size) {
-        internalPoolFree(mPool, ptr);
+        internalPoolFree(mPool, ptr, 0);
         return NULL;
     } else
         tmp = reallocAligned(mPool, ptr, size, alignment);
@@ -2653,7 +2656,7 @@ void *pool_aligned_realloc(rml::MemoryPool* memPool, void *ptr, size_t size, siz
 
 bool pool_free(rml::MemoryPool *mPool, void *object)
 {
-    return internalPoolFree((rml::internal::MemoryPool*)mPool, object);
+    return internalPoolFree((rml::internal::MemoryPool*)mPool, object, 0);
 }
 
 } // namespace rml
@@ -2758,17 +2761,23 @@ extern "C" void scalable_free (void *object) {
     internalFree(object);
 }
 
+#if MALLOC_ZONE_OVERLOAD_ENABLED
+extern "C" void __TBB_malloc_free_definite_size(void *object, size_t size) {
+    internalPoolFree(defaultMemPool, object, size);
+}
+#endif
+
 /*
  * A variant that provides additional memory safety, by checking whether the given address
  * was obtained with this allocator, and if not redirecting to the provided alternative call.
  */
-extern "C" void safer_scalable_free (void *object, void (*original_free)(void*))
+extern "C" void __TBB_malloc_safer_free(void *object, void (*original_free)(void*))
 {
     if (!object)
         return;
 
     // must check 1st for large object, because small object check touches 4 pages on left,
-    // and it can be unaccessable
+    // and it can be inaccessible
     if (isLargeObject(object)) {
         TLSData *tls = defaultMemPool->getTLS(/*create=*/false);
 
@@ -2811,7 +2820,7 @@ extern "C" void* scalable_realloc(void* ptr, size_t size)
  * A variant that provides additional memory safety, by checking whether the given address
  * was obtained with this allocator, and if not redirecting to the provided alternative call.
  */
-extern "C" void* safer_scalable_realloc (void* ptr, size_t sz, void* original_realloc)
+extern "C" void* __TBB_malloc_safer_realloc(void* ptr, size_t sz, void* original_realloc)
 {
     void *tmp; // TODO: fix warnings about uninitialized use of tmp
 
@@ -2923,7 +2932,7 @@ extern "C" void * scalable_aligned_realloc(void *ptr, size_t size, size_t alignm
     return tmp;
 }
 
-extern "C" void * safer_scalable_aligned_realloc(void *ptr, size_t size, size_t alignment, void* orig_function)
+extern "C" void * __TBB_malloc_safer_aligned_realloc(void *ptr, size_t size, size_t alignment, void* orig_function)
 {
     /* corner cases left out of reallocAligned to not deal with errno there */
     if (!isPowerOfTwo(alignment)) {
@@ -2995,7 +3004,7 @@ extern "C" size_t scalable_msize(void* ptr)
  * A variant that provides additional memory safety, by checking whether the given address
  * was obtained with this allocator, and if not redirecting to the provided alternative call.
  */
-extern "C" size_t safer_scalable_msize (void *object, size_t (*original_msize)(void*))
+extern "C" size_t __TBB_malloc_safer_msize(void *object, size_t (*original_msize)(void*))
 {
     if (object) {
         // Check if the memory was allocated by scalable_malloc
@@ -3014,7 +3023,7 @@ extern "C" size_t safer_scalable_msize (void *object, size_t (*original_msize)(v
 /*
  * The same as above but for _aligned_msize case
  */
-extern "C" size_t safer_scalable_aligned_msize (void *object, size_t alignment, size_t offset, size_t (*orig_aligned_msize)(void*,size_t,size_t))
+extern "C" size_t __TBB_malloc_safer_aligned_msize(void *object, size_t alignment, size_t offset, size_t (*orig_aligned_msize)(void*,size_t,size_t))
 {
     if (object) {
         // Check if the memory was allocated by scalable_malloc

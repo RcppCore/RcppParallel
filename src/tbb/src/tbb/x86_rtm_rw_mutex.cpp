@@ -1,33 +1,24 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/tbb_config.h"
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 #if __TBB_TSX_AVAILABLE
 #include "tbb/spin_rw_mutex.h"
 #include "tbb/tbb_machine.h"
@@ -49,7 +40,7 @@
 
 namespace tbb {
 
-namespace interface7 {
+namespace interface8 {
 namespace internal {
 
 // abort code for mutexes that detect a conflict with another thread.
@@ -73,42 +64,38 @@ static const int retry_threshold_read = 10;
 static const int retry_threshold_write = 10;
 
 //! Release speculative mutex
-void x86_rtm_rw_mutex::scoped_lock::release() {
-    x86_rtm_rw_mutex* mutex = static_cast<x86_rtm_rw_mutex*>(my_scoped_lock.__internal_get_mutex());
-    switch(transaction_state) {
+void x86_rtm_rw_mutex::internal_release(x86_rtm_rw_mutex::scoped_lock& s) {
+    switch(s.transaction_state) {
     case RTM_transacting_writer:
     case RTM_transacting_reader:
         {
             __TBB_ASSERT(__TBB_machine_is_in_transaction(), "transaction_state && not speculating");
 #if __TBB_RW_MUTEX_DELAY_TEST
-            if(transaction_state == RTM_transacting_reader) {
-                if(mutex->w_flag) __TBB_machine_transaction_conflict_abort();
-            }
-            else {
-                if(mutex->state) __TBB_machine_transaction_conflict_abort();
+            if(s.transaction_state == RTM_transacting_reader) {
+                if(this->w_flag) __TBB_machine_transaction_conflict_abort();
+            } else {
+                if(this->state) __TBB_machine_transaction_conflict_abort();
             }
 #endif
             __TBB_machine_end_transaction();
-            my_scoped_lock.__internal_set_mutex(NULL);
+            s.my_scoped_lock.internal_set_mutex(NULL);
         }
         break;
     case RTM_real_reader:
-        __TBB_ASSERT(mutex, "mutex is unset");
-        __TBB_ASSERT(!mutex->w_flag, "w_flag set but read lock acquired");
-        my_scoped_lock.release();
+        __TBB_ASSERT(!this->w_flag, "w_flag set but read lock acquired");
+        s.my_scoped_lock.release();
         break;
     case RTM_real_writer:
-        __TBB_ASSERT(mutex, "mutex is unset");
-        __TBB_ASSERT(mutex->w_flag, "w_flag unset but write lock acquired");
-        mutex->w_flag = false;
-        my_scoped_lock.release();
+        __TBB_ASSERT(this->w_flag, "w_flag unset but write lock acquired");
+        this->w_flag = false;
+        s.my_scoped_lock.release();
         break;
     case RTM_not_in_mutex:
         __TBB_ASSERT(false, "RTM_not_in_mutex, but in release");
     default:
         __TBB_ASSERT(false, "invalid transaction_state");
     }
-    transaction_state = RTM_not_in_mutex;
+    s.transaction_state = RTM_not_in_mutex;
 }
 
 //! Acquire write lock on the given mutex.
@@ -137,7 +124,7 @@ void x86_rtm_rw_mutex::internal_acquire_writer(x86_rtm_rw_mutex::scoped_lock& s,
                 }
 #endif
                 s.transaction_state = RTM_transacting_writer;
-                s.my_scoped_lock.__internal_set_mutex(this);  // need mutex for release()
+                s.my_scoped_lock.internal_set_mutex(this);  // need mutex for release()
                 return;  // successfully started speculation
             }
             ++num_retries;
@@ -180,7 +167,7 @@ void x86_rtm_rw_mutex::internal_acquire_reader(x86_rtm_rw_mutex::scoped_lock& s,
                 }
 #endif
                 s.transaction_state = RTM_transacting_reader;
-                s.my_scoped_lock.__internal_set_mutex(this);  // need mutex for release()
+                s.my_scoped_lock.internal_set_mutex(this);  // need mutex for release()
                 return;  // successfully started speculation
             }
             // fallback path
@@ -218,22 +205,20 @@ bool x86_rtm_rw_mutex::internal_upgrade(x86_rtm_rw_mutex::scoped_lock& s)
         // don't need to add w_flag to read_set even if __TBB_RW_MUTEX_DELAY_TEST
         // because the this pointer (the spin_rw_mutex) will be sufficient on release.
         return true;
-        break;
     default:
-        __TBB_ASSERT(false, "Invalid state on upgrade");
+        __TBB_ASSERT(false, "Invalid state for upgrade");
+        return false;
     }
-    return false;
 }
 
 //! Downgrade writer to a reader.
-void x86_rtm_rw_mutex::internal_downgrade(x86_rtm_rw_mutex::scoped_lock& s) {
+bool x86_rtm_rw_mutex::internal_downgrade(x86_rtm_rw_mutex::scoped_lock& s) {
     switch(s.transaction_state) {
     case RTM_real_writer:
         s.transaction_state = RTM_real_reader;
         __TBB_ASSERT(w_flag, "Before downgrade_to_reader w_flag not true");
         w_flag = false;
-        s.my_scoped_lock.downgrade_to_reader();
-        break;
+        return s.my_scoped_lock.downgrade_to_reader();
     case RTM_transacting_writer:
 #if __TBB_RW_MUTEX_DELAY_TEST
         if(this->state) {  // a reader or writer has acquired mutex for real.
@@ -241,9 +226,10 @@ void x86_rtm_rw_mutex::internal_downgrade(x86_rtm_rw_mutex::scoped_lock& s) {
         }
 #endif
         s.transaction_state = RTM_transacting_reader;
-        break;
+        return true;
     default:
         __TBB_ASSERT(false, "Invalid state for downgrade");
+        return false;
     }
 }
 
@@ -275,8 +261,7 @@ void x86_rtm_rw_mutex::internal_construct() {
 }
 
 } // namespace internal
-} // namespace interface7
+} // namespace interface8
 } // namespace tbb
 
 #endif /* __TBB_TSX_AVAILABLE */
-#endif // TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX

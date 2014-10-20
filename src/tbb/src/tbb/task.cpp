@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 // Do not include task.h directly. Use scheduler_common.h instead
@@ -89,8 +81,7 @@ task& allocate_root_with_context_proxy::allocate( size_t size ) const {
 #if __TBB_FP_CONTEXT
     if ( __TBB_load_relaxed(my_context.my_kind) == task_group_context::isolated &&
             !(my_context.my_version_and_traits & task_group_context::fp_settings) )
-        // When inheriting FPU settings we just copy the FPU settings (do not create them). So we do not inherit fp_settings traits.
-        task_group_context_accessor(my_context).my_cpu_ctl_env = task_group_context_accessor(*s->my_arena->my_default_ctx).my_cpu_ctl_env;
+        my_context.copy_fp_settings( *s->my_arena->my_default_ctx );
 #endif
     ITT_STACK_CREATE(my_context.itt_caller);
     return t;
@@ -275,8 +266,7 @@ void task::change_group ( task_group_context& ctx ) {
 #if __TBB_FP_CONTEXT
     if ( __TBB_load_relaxed(ctx.my_kind) == task_group_context::isolated &&
             !(ctx.my_version_and_traits & task_group_context::fp_settings) )
-        // When inheriting FPU settings we just copy the FPU settings (do not create them). So we do not inherit fp_settings traits.
-        task_group_context_accessor(ctx).my_cpu_ctl_env = task_group_context_accessor(*s->my_arena->my_default_ctx).my_cpu_ctl_env;
+        ctx.copy_fp_settings( *s->my_arena->my_default_ctx );
 #endif
     ITT_STACK_CREATE(ctx.itt_caller);
 }

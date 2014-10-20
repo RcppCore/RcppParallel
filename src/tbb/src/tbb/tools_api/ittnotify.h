@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef _ITTNOTIFY_H_
@@ -127,12 +119,18 @@ The same ID may not be reused for different instances, unless a previous
 #  define ITT_PLATFORM_POSIX 2
 #endif /* ITT_PLATFORM_POSIX */
 
+#ifndef ITT_PLATFORM_MAC
+#  define ITT_PLATFORM_MAC 3
+#endif /* ITT_PLATFORM_MAC */
+
 #ifndef ITT_PLATFORM
 #  if ITT_OS==ITT_OS_WIN
 #    define ITT_PLATFORM ITT_PLATFORM_WIN
+#  elif ITT_OS==ITT_OS_MAC
+#    define ITT_PLATFORM ITT_PLATFORM_MAC
 #  else
 #    define ITT_PLATFORM ITT_PLATFORM_POSIX
-#  endif /* _WIN32 */
+#  endif
 #endif /* ITT_PLATFORM */
 
 #if defined(_UNICODE) && !defined(UNICODE)
@@ -153,11 +151,11 @@ The same ID may not be reused for different instances, unless a previous
 #  if ITT_PLATFORM==ITT_PLATFORM_WIN
 #    define CDECL __cdecl
 #  else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-#    if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
-#      define CDECL /* not actual on x86_64 platform */
-#    else  /* _M_X64 || _M_AMD64 || __x86_64__ */
+#    if defined _M_IX86 || defined __i386__ 
 #      define CDECL __attribute__ ((cdecl))
-#    endif /* _M_X64 || _M_AMD64 || __x86_64__ */
+#    else  /* _M_IX86 || __i386__ */
+#      define CDECL /* actual only on x86 platform */
+#    endif /* _M_IX86 || __i386__ */
 #  endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #endif /* CDECL */
 
@@ -165,11 +163,11 @@ The same ID may not be reused for different instances, unless a previous
 #  if ITT_PLATFORM==ITT_PLATFORM_WIN
 #    define STDCALL __stdcall
 #  else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
-#    if defined _M_X64 || defined _M_AMD64 || defined __x86_64__
-#      define STDCALL /* not supported on x86_64 platform */
-#    else  /* _M_X64 || _M_AMD64 || __x86_64__ */
-#      define STDCALL __attribute__ ((stdcall))
-#    endif /* _M_X64 || _M_AMD64 || __x86_64__ */
+#    if defined _M_IX86 || defined __i386__
+#      define STDCALL __attribute__ ((stdcall)) 
+#    else  /* _M_IX86 || __i386__ */
+#      define STDCALL /* supported only on x86 platform */
+#    endif /* _M_IX86 || __i386__ */
 #  endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #endif /* STDCALL */
 
@@ -182,8 +180,8 @@ The same ID may not be reused for different instances, unless a previous
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 /* use __forceinline (VC++ specific) */
-#define INLINE           __forceinline
-#define INLINE_ATTRIBUTE /* nothing */
+#define ITT_INLINE           __forceinline
+#define ITT_INLINE_ATTRIBUTE /* nothing */
 #else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 /*
  * Generally, functions are not inlined unless optimization is specified.
@@ -191,11 +189,11 @@ The same ID may not be reused for different instances, unless a previous
  * if no optimization level was specified.
  */
 #ifdef __STRICT_ANSI__
-#define INLINE           static
+#define ITT_INLINE           static inline
 #else  /* __STRICT_ANSI__ */
-#define INLINE           static inline
+#define ITT_INLINE           static inline
 #endif /* __STRICT_ANSI__ */
-#define INLINE_ATTRIBUTE __attribute__ ((always_inline))
+#define ITT_INLINE_ATTRIBUTE __attribute__ ((always_inline, unused))
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 /** @endcond */
 
@@ -415,6 +413,128 @@ ITT_STUBV(ITTAPI, void, thread_ignore, (void))
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 /** @} threads group */
+
+/**
+ * @defgroup suppress Error suppression
+ * @ingroup public
+ * General behavior: application continues to run, but errors are suppressed
+ *
+ * @{
+ */
+
+/*****************************************************************//**
+ * @name group of functions used for error suppression in correctness tools
+ *********************************************************************/
+/** @{ */
+/**
+ * @hideinitializer 
+ * @brief possible value for suppression mask
+ */
+#define __itt_suppress_all_errors 0x7fffffff
+
+/**
+ * @hideinitializer 
+ * @brief possible value for suppression mask (suppresses errors from threading analysis)
+ */
+#define __itt_suppress_threading_errors 0x000000ff
+
+/**
+ * @hideinitializer 
+ * @brief possible value for suppression mask (suppresses errors from memory analysis)
+ */
+#define __itt_suppress_memory_errors 0x0000ff00
+
+/**
+ * @brief Start suppressing errors identified in mask on this thread
+ */
+void ITTAPI __itt_suppress_push(unsigned int mask);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, suppress_push, (unsigned int mask))
+#define __itt_suppress_push     ITTNOTIFY_VOID(suppress_push)
+#define __itt_suppress_push_ptr ITTNOTIFY_NAME(suppress_push)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_suppress_push(mask)
+#define __itt_suppress_push_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_suppress_push_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/**
+ * @brief Undo the effects of the matching call to __itt_suppress_push  
+ */
+void ITTAPI __itt_suppress_pop(void);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, suppress_pop, (void))
+#define __itt_suppress_pop     ITTNOTIFY_VOID(suppress_pop)
+#define __itt_suppress_pop_ptr ITTNOTIFY_NAME(suppress_pop)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_suppress_pop()
+#define __itt_suppress_pop_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_suppress_pop_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/**
+ * @enum __itt_model_disable
+ * @brief Enumerator for the disable methods
+ */
+typedef enum __itt_suppress_mode {
+    __itt_unsuppress_range,
+    __itt_suppress_range
+} __itt_suppress_mode_t;
+
+/**
+ * @brief Mark a range of memory for error suppression or unsuppression for error types included in mask
+ */
+void ITTAPI __itt_suppress_mark_range(__itt_suppress_mode_t mode, unsigned int mask, void * address, size_t size);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, suppress_mark_range, (__itt_suppress_mode_t mode, unsigned int mask, void * address, size_t size))
+#define __itt_suppress_mark_range     ITTNOTIFY_VOID(suppress_mark_range)
+#define __itt_suppress_mark_range_ptr ITTNOTIFY_NAME(suppress_mark_range)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_suppress_mark_range(mask)
+#define __itt_suppress_mark_range_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_suppress_mark_range_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/**
+ * @brief Undo the effect of a matching call to __itt_suppress_mark_range.   If not matching
+ *        call is found, nothing is changed.
+ */
+void ITTAPI __itt_suppress_clear_range(__itt_suppress_mode_t mode, unsigned int mask, void * address, size_t size);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, suppress_clear_range, (__itt_suppress_mode_t mode, unsigned int mask, void * address, size_t size))
+#define __itt_suppress_clear_range     ITTNOTIFY_VOID(suppress_clear_range)
+#define __itt_suppress_clear_range_ptr ITTNOTIFY_NAME(suppress_clear_range)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_suppress_clear_range(mask)
+#define __itt_suppress_clear_range_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_suppress_clear_range_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+/** @} */
+/** @} suppress group */
 
 /**
  * @defgroup sync Synchronization
@@ -839,8 +959,10 @@ void ITTAPI __itt_model_site_begin(__itt_model_site *site, __itt_model_site_inst
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 void ITTAPI __itt_model_site_beginW(const wchar_t *name);
 #endif
+void ITTAPI __itt_model_site_beginA(const char *name);
 void ITTAPI __itt_model_site_beginAL(const char *name, size_t siteNameLen);
 void ITTAPI __itt_model_site_end  (__itt_model_site *site, __itt_model_site_instance *instance);
+void ITTAPI __itt_model_site_end_2(void);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
@@ -849,18 +971,24 @@ ITT_STUBV(ITTAPI, void, model_site_begin,  (__itt_model_site *site, __itt_model_
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 ITT_STUBV(ITTAPI, void, model_site_beginW,  (const wchar_t *name))
 #endif
+ITT_STUBV(ITTAPI, void, model_site_beginA,  (const char *name))
 ITT_STUBV(ITTAPI, void, model_site_beginAL,  (const char *name, size_t siteNameLen))
 ITT_STUBV(ITTAPI, void, model_site_end,    (__itt_model_site *site, __itt_model_site_instance *instance))
+ITT_STUBV(ITTAPI, void, model_site_end_2,  (void))
 #define __itt_model_site_begin      ITTNOTIFY_VOID(model_site_begin)
 #define __itt_model_site_begin_ptr  ITTNOTIFY_NAME(model_site_begin)
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #define __itt_model_site_beginW      ITTNOTIFY_VOID(model_site_beginW)
 #define __itt_model_site_beginW_ptr  ITTNOTIFY_NAME(model_site_beginW)
 #endif
+#define __itt_model_site_beginA      ITTNOTIFY_VOID(model_site_beginA)
+#define __itt_model_site_beginA_ptr  ITTNOTIFY_NAME(model_site_beginA)
 #define __itt_model_site_beginAL      ITTNOTIFY_VOID(model_site_beginAL)
 #define __itt_model_site_beginAL_ptr  ITTNOTIFY_NAME(model_site_beginAL)
 #define __itt_model_site_end        ITTNOTIFY_VOID(model_site_end)
 #define __itt_model_site_end_ptr    ITTNOTIFY_NAME(model_site_end)
+#define __itt_model_site_end_2        ITTNOTIFY_VOID(model_site_end_2)
+#define __itt_model_site_end_2_ptr    ITTNOTIFY_NAME(model_site_end_2)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_model_site_begin(site, instance, name)
 #define __itt_model_site_begin_ptr  0
@@ -868,18 +996,24 @@ ITT_STUBV(ITTAPI, void, model_site_end,    (__itt_model_site *site, __itt_model_
 #define __itt_model_site_beginW(name)
 #define __itt_model_site_beginW_ptr  0
 #endif
+#define __itt_model_site_beginA(name)
+#define __itt_model_site_beginA_ptr  0
 #define __itt_model_site_beginAL(name, siteNameLen)
 #define __itt_model_site_beginAL_ptr  0
 #define __itt_model_site_end(site, instance)
 #define __itt_model_site_end_ptr    0
+#define __itt_model_site_end_2()
+#define __itt_model_site_end_2_ptr    0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_model_site_begin_ptr  0
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #define __itt_model_site_beginW_ptr  0
 #endif
+#define __itt_model_site_beginA_ptr  0
 #define __itt_model_site_beginAL_ptr  0
 #define __itt_model_site_end_ptr    0
+#define __itt_model_site_end_2_ptr    0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 
@@ -897,9 +1031,14 @@ ITT_STUBV(ITTAPI, void, model_site_end,    (__itt_model_site *site, __itt_model_
 void ITTAPI __itt_model_task_begin(__itt_model_task *task, __itt_model_task_instance *instance, const char *name);
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 void ITTAPI __itt_model_task_beginW(const wchar_t *name);
+void ITTAPI __itt_model_iteration_taskW(const wchar_t *name);
 #endif
+void ITTAPI __itt_model_task_beginA(const char *name);
 void ITTAPI __itt_model_task_beginAL(const char *name, size_t taskNameLen);
+void ITTAPI __itt_model_iteration_taskA(const char *name);
+void ITTAPI __itt_model_iteration_taskAL(const char *name, size_t taskNameLen);
 void ITTAPI __itt_model_task_end  (__itt_model_task *task, __itt_model_task_instance *instance);
+void ITTAPI __itt_model_task_end_2(void);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
@@ -907,19 +1046,34 @@ void ITTAPI __itt_model_task_end  (__itt_model_task *task, __itt_model_task_inst
 ITT_STUBV(ITTAPI, void, model_task_begin,  (__itt_model_task *task, __itt_model_task_instance *instance, const char *name))
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 ITT_STUBV(ITTAPI, void, model_task_beginW,  (const wchar_t *name))
+ITT_STUBV(ITTAPI, void, model_iteration_taskW, (const wchar_t *name))
 #endif
+ITT_STUBV(ITTAPI, void, model_task_beginA,  (const char *name))
 ITT_STUBV(ITTAPI, void, model_task_beginAL,  (const char *name, size_t taskNameLen))
+ITT_STUBV(ITTAPI, void, model_iteration_taskA,  (const char *name))
+ITT_STUBV(ITTAPI, void, model_iteration_taskAL,  (const char *name, size_t taskNameLen))
 ITT_STUBV(ITTAPI, void, model_task_end,    (__itt_model_task *task, __itt_model_task_instance *instance))
+ITT_STUBV(ITTAPI, void, model_task_end_2,  (void))
 #define __itt_model_task_begin      ITTNOTIFY_VOID(model_task_begin)
 #define __itt_model_task_begin_ptr  ITTNOTIFY_NAME(model_task_begin)
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #define __itt_model_task_beginW     ITTNOTIFY_VOID(model_task_beginW)
 #define __itt_model_task_beginW_ptr ITTNOTIFY_NAME(model_task_beginW)
+#define __itt_model_iteration_taskW     ITTNOTIFY_VOID(model_iteration_taskW)
+#define __itt_model_iteration_taskW_ptr ITTNOTIFY_NAME(model_iteration_taskW)
 #endif
+#define __itt_model_task_beginA    ITTNOTIFY_VOID(model_task_beginA)
+#define __itt_model_task_beginA_ptr ITTNOTIFY_NAME(model_task_beginA)
 #define __itt_model_task_beginAL    ITTNOTIFY_VOID(model_task_beginAL)
 #define __itt_model_task_beginAL_ptr ITTNOTIFY_NAME(model_task_beginAL)
+#define __itt_model_iteration_taskA    ITTNOTIFY_VOID(model_iteration_taskA)
+#define __itt_model_iteration_taskA_ptr ITTNOTIFY_NAME(model_iteration_taskA)
+#define __itt_model_iteration_taskAL    ITTNOTIFY_VOID(model_iteration_taskAL)
+#define __itt_model_iteration_taskAL_ptr ITTNOTIFY_NAME(model_iteration_taskAL)
 #define __itt_model_task_end        ITTNOTIFY_VOID(model_task_end)
 #define __itt_model_task_end_ptr    ITTNOTIFY_NAME(model_task_end)
+#define __itt_model_task_end_2        ITTNOTIFY_VOID(model_task_end_2)
+#define __itt_model_task_end_2_ptr    ITTNOTIFY_NAME(model_task_end_2)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_model_task_begin(task, instance, name)
 #define __itt_model_task_begin_ptr  0
@@ -927,18 +1081,30 @@ ITT_STUBV(ITTAPI, void, model_task_end,    (__itt_model_task *task, __itt_model_
 #define __itt_model_task_beginW(name)
 #define __itt_model_task_beginW_ptr  0
 #endif
+#define __itt_model_task_beginA(name)
+#define __itt_model_task_beginA_ptr  0
 #define __itt_model_task_beginAL(name, siteNameLen)
 #define __itt_model_task_beginAL_ptr  0
+#define __itt_model_iteration_taskA(name)
+#define __itt_model_iteration_taskA_ptr  0
+#define __itt_model_iteration_taskAL(name, siteNameLen)
+#define __itt_model_iteration_taskAL_ptr  0
 #define __itt_model_task_end(task, instance)
 #define __itt_model_task_end_ptr    0
+#define __itt_model_task_end_2()
+#define __itt_model_task_end_2_ptr    0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_model_task_begin_ptr  0
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #define __itt_model_task_beginW_ptr 0
 #endif
+#define __itt_model_task_beginA_ptr  0
 #define __itt_model_task_beginAL_ptr  0
+#define __itt_model_iteration_taskA_ptr    0
+#define __itt_model_iteration_taskAL_ptr    0
 #define __itt_model_task_end_ptr    0
+#define __itt_model_task_end_2_ptr    0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 
@@ -955,26 +1121,40 @@ ITT_STUBV(ITTAPI, void, model_task_end,    (__itt_model_task *task, __itt_model_
  * but may not have identical semantics.)
  */
 void ITTAPI __itt_model_lock_acquire(void *lock);
+void ITTAPI __itt_model_lock_acquire_2(void *lock);
 void ITTAPI __itt_model_lock_release(void *lock);
+void ITTAPI __itt_model_lock_release_2(void *lock);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
 ITT_STUBV(ITTAPI, void, model_lock_acquire, (void *lock))
+ITT_STUBV(ITTAPI, void, model_lock_acquire_2, (void *lock))
 ITT_STUBV(ITTAPI, void, model_lock_release, (void *lock))
+ITT_STUBV(ITTAPI, void, model_lock_release_2, (void *lock))
 #define __itt_model_lock_acquire     ITTNOTIFY_VOID(model_lock_acquire)
 #define __itt_model_lock_acquire_ptr ITTNOTIFY_NAME(model_lock_acquire)
+#define __itt_model_lock_acquire_2     ITTNOTIFY_VOID(model_lock_acquire_2)
+#define __itt_model_lock_acquire_2_ptr ITTNOTIFY_NAME(model_lock_acquire_2)
 #define __itt_model_lock_release     ITTNOTIFY_VOID(model_lock_release)
 #define __itt_model_lock_release_ptr ITTNOTIFY_NAME(model_lock_release)
+#define __itt_model_lock_release_2     ITTNOTIFY_VOID(model_lock_release_2)
+#define __itt_model_lock_release_2_ptr ITTNOTIFY_NAME(model_lock_release_2)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_model_lock_acquire(lock)
 #define __itt_model_lock_acquire_ptr 0
+#define __itt_model_lock_acquire_2(lock)
+#define __itt_model_lock_acquire_2_ptr 0
 #define __itt_model_lock_release(lock)
 #define __itt_model_lock_release_ptr 0
+#define __itt_model_lock_release_2(lock)
+#define __itt_model_lock_release_2_ptr 0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_model_lock_acquire_ptr 0
+#define __itt_model_lock_acquire_2_ptr 0
 #define __itt_model_lock_release_ptr 0
+#define __itt_model_lock_release_2_ptr 0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 
@@ -1123,25 +1303,32 @@ ITT_STUBV(ITTAPI, void, model_clear_uses, (void *addr))
  */
 void ITTAPI __itt_model_disable_push(__itt_model_disable x);
 void ITTAPI __itt_model_disable_pop(void);
+void ITTAPI __itt_model_aggregate_task(size_t x);
 
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
 ITT_STUBV(ITTAPI, void, model_disable_push, (__itt_model_disable x))
 ITT_STUBV(ITTAPI, void, model_disable_pop,  (void))
+ITT_STUBV(ITTAPI, void, model_aggregate_task, (size_t x))
 #define __itt_model_disable_push     ITTNOTIFY_VOID(model_disable_push)
 #define __itt_model_disable_push_ptr ITTNOTIFY_NAME(model_disable_push)
 #define __itt_model_disable_pop      ITTNOTIFY_VOID(model_disable_pop)
 #define __itt_model_disable_pop_ptr  ITTNOTIFY_NAME(model_disable_pop)
+#define __itt_model_aggregate_task      ITTNOTIFY_VOID(model_aggregate_task)
+#define __itt_model_aggregate_task_ptr  ITTNOTIFY_NAME(model_aggregate_task)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_model_disable_push(x)
 #define __itt_model_disable_push_ptr 0
 #define __itt_model_disable_pop()
 #define __itt_model_disable_pop_ptr 0
+#define __itt_model_aggregate_task(x)
+#define __itt_model_aggregate_task_ptr 0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_model_disable_push_ptr 0
 #define __itt_model_disable_pop_ptr 0
+#define __itt_model_aggregate_task_ptr 0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 /** @} model group */
@@ -1367,9 +1554,97 @@ ITT_STUBV(ITTAPI, void, heap_internal_access_end, (void))
 #define __itt_heap_internal_access_end_ptr 0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
-/** @} heap group */
+
+/** @brief record memory growth begin */
+void ITTAPI __itt_heap_record_memory_growth_begin(void);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, heap_record_memory_growth_begin,  (void))
+#define __itt_heap_record_memory_growth_begin      ITTNOTIFY_VOID(heap_record_memory_growth_begin)
+#define __itt_heap_record_memory_growth_begin_ptr  ITTNOTIFY_NAME(heap_record_memory_growth_begin)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_heap_record_memory_growth_begin()
+#define __itt_heap_record_memory_growth_begin_ptr  0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_heap_record_memory_growth_begin_ptr  0
+#endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 
+/** @brief record memory growth end */
+void ITTAPI __itt_heap_record_memory_growth_end(void);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, heap_record_memory_growth_end, (void))
+#define __itt_heap_record_memory_growth_end     ITTNOTIFY_VOID(heap_record_memory_growth_end)
+#define __itt_heap_record_memory_growth_end_ptr ITTNOTIFY_NAME(heap_record_memory_growth_end)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_heap_record_memory_growth_end()
+#define __itt_heap_record_memory_growth_end_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_heap_record_memory_growth_end_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/**
+ * @brief Specify the type of heap detection/reporting to modify.
+ */
+/**
+ * @hideinitializer 
+ * @brief Report on memory leaks.
+ */
+#define __itt_heap_leaks 0x00000001
+
+/**
+ * @hideinitializer 
+ * @brief Report on memory growth.
+ */
+#define __itt_heap_growth 0x00000002
+
+
+/** @brief heap reset detection */
+void ITTAPI __itt_heap_reset_detection(unsigned int reset_mask);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, heap_reset_detection,  (unsigned int reset_mask))
+#define __itt_heap_reset_detection      ITTNOTIFY_VOID(heap_reset_detection)
+#define __itt_heap_reset_detection_ptr  ITTNOTIFY_NAME(heap_reset_detection)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_heap_reset_detection()
+#define __itt_heap_reset_detection_ptr  0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_heap_reset_detection_ptr  0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/** @brief report */
+void ITTAPI __itt_heap_record(unsigned int record_mask);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, heap_record, (unsigned int record_mask))
+#define __itt_heap_record     ITTNOTIFY_VOID(heap_record)
+#define __itt_heap_record_ptr ITTNOTIFY_NAME(heap_record)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_heap_record()
+#define __itt_heap_record_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_heap_record_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/** @} heap group */
+/** @endcond */
 /* ========================================================================== */
 
 /**
@@ -1403,7 +1678,7 @@ typedef struct ___itt_domain
  * @ingroup domains
  * @brief Create a domain.
  * Create domain using some domain name: the URI naming style is recommended.
- * Because the set of domains is expected to be static over the application's
+ * Because the set of domains is expected to be static over the application's 
  * execution time, there is no mechanism to destroy a domain.
  * Any domain can be accessed by any thread in the process, regardless of
  * which thread created the domain. This call is thread-safe.
@@ -1494,8 +1769,8 @@ static const __itt_id __itt_null = { 0, 0, 0 };
  * @param[in] extra The extra data to unique identify object; low QWORD of the ID value.
  */
 
-INLINE __itt_id ITTAPI __itt_id_make(void* addr, unsigned long long extra) INLINE_ATTRIBUTE;
-INLINE __itt_id ITTAPI __itt_id_make(void* addr, unsigned long long extra)
+ITT_INLINE __itt_id ITTAPI __itt_id_make(void* addr, unsigned long long extra) ITT_INLINE_ATTRIBUTE;
+ITT_INLINE __itt_id ITTAPI __itt_id_make(void* addr, unsigned long long extra)
 {
     __itt_id id = __itt_null;
     id.d1 = (unsigned long long)((uintptr_t)addr);
@@ -1538,7 +1813,7 @@ ITT_STUBV(ITTAPI, void, id_create, (const __itt_domain *domain, __itt_id id))
  * @brief Destroy an instance of identifier.
  * This ends the lifetime of the current instance of the given ID value in the trace.
  * Any relationships that are established after this lifetime ends are invalid.
- * This call must be performed before the given ID value can be reused for a different
+ * This call must be performed before the given ID value can be reused for a different 
  * named entity instance.
  * @param[in] domain The domain controlling the execution of this call.
  * @param[in] id The ID to destroy.
@@ -1652,6 +1927,40 @@ ITT_STUB(ITTAPI, __itt_string_handle*, string_handle_create,  (const char    *na
 /** @endcond */
 /** @} handles group */
 
+/** @cond exclude_from_documentation */
+typedef unsigned long long __itt_timestamp;
+/** @endcond */
+
+static const __itt_timestamp __itt_timestamp_none = (__itt_timestamp)-1LL;
+
+/** @cond exclude_from_gpa_documentation */
+
+/**
+ * @ingroup timestamps
+ * @brief Return timestamp corresponding to the current moment.
+ * This returns the timestamp in the format that is the most relevant for the current
+ * host or platform (RDTSC, QPC, and others). You can use the "<" operator to
+ * compare __itt_timestamp values.
+ */
+__itt_timestamp ITTAPI __itt_get_timestamp(void);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUB(ITTAPI, __itt_timestamp, get_timestamp, (void))
+#define __itt_get_timestamp      ITTNOTIFY_DATA(get_timestamp)
+#define __itt_get_timestamp_ptr  ITTNOTIFY_NAME(get_timestamp)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_get_timestamp()
+#define __itt_get_timestamp_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_get_timestamp_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+/** @} timestamps */
+/** @endcond */
+
 /** @cond exclude_from_gpa_documentation */
 
 /**
@@ -1736,24 +2045,46 @@ void ITTAPI __itt_frame_begin_v3(const __itt_domain *domain, __itt_id *id);
  */
 void ITTAPI __itt_frame_end_v3(const __itt_domain *domain, __itt_id *id);
 
+/**
+ * @ingroup frames
+ * @brief Submits a frame instance.
+ * Successive calls to __itt_frame_begin or __itt_frame_submit with the
+ * same ID are ignored until a call to __itt_frame_end or __itt_frame_submit
+ * with the same ID.
+ * Passing special __itt_timestamp_none value as "end" argument means
+ * take the current timestamp as the end timestamp.
+ * @param[in] domain The domain for this frame instance
+ * @param[in] id The instance ID for this frame instance or NULL
+ * @param[in] begin Timestamp of the beggining of the frame
+ * @param[in] end Timestamp of the end of the frame
+ */
+void ITTAPI __itt_frame_submit_v3(const __itt_domain *domain, __itt_id *id,
+    __itt_timestamp begin, __itt_timestamp end);
+
 /** @cond exclude_from_documentation */
 #ifndef INTEL_NO_MACRO_BODY
 #ifndef INTEL_NO_ITTNOTIFY_API
-ITT_STUBV(ITTAPI, void, frame_begin_v3, (const __itt_domain *domain, __itt_id *id))
-ITT_STUBV(ITTAPI, void, frame_end_v3,   (const __itt_domain *domain, __itt_id *id))
-#define __itt_frame_begin_v3(d,x)   ITTNOTIFY_VOID_D1(frame_begin_v3,d,x)
-#define __itt_frame_begin_v3_ptr    ITTNOTIFY_NAME(frame_begin_v3)
-#define __itt_frame_end_v3(d,x)     ITTNOTIFY_VOID_D1(frame_end_v3,d,x)
-#define __itt_frame_end_v3_ptr      ITTNOTIFY_NAME(frame_end_v3)
+ITT_STUBV(ITTAPI, void, frame_begin_v3,  (const __itt_domain *domain, __itt_id *id))
+ITT_STUBV(ITTAPI, void, frame_end_v3,    (const __itt_domain *domain, __itt_id *id))
+ITT_STUBV(ITTAPI, void, frame_submit_v3, (const __itt_domain *domain, __itt_id *id, __itt_timestamp begin, __itt_timestamp end))
+#define __itt_frame_begin_v3(d,x)      ITTNOTIFY_VOID_D1(frame_begin_v3,d,x)
+#define __itt_frame_begin_v3_ptr       ITTNOTIFY_NAME(frame_begin_v3)
+#define __itt_frame_end_v3(d,x)        ITTNOTIFY_VOID_D1(frame_end_v3,d,x)
+#define __itt_frame_end_v3_ptr         ITTNOTIFY_NAME(frame_end_v3)
+#define __itt_frame_submit_v3(d,x,b,e) ITTNOTIFY_VOID_D3(frame_submit_v3,d,x,b,e)
+#define __itt_frame_submit_v3_ptr      ITTNOTIFY_NAME(frame_submit_v3)
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #define __itt_frame_begin_v3(domain,id)
 #define __itt_frame_begin_v3_ptr 0
 #define __itt_frame_end_v3(domain,id)
 #define __itt_frame_end_v3_ptr   0
+#define __itt_frame_submit_v3(domain,id,begin,end)
+#define __itt_frame_submit_v3_ptr   0
 #endif /* INTEL_NO_ITTNOTIFY_API */
 #else  /* INTEL_NO_MACRO_BODY */
 #define __itt_frame_begin_v3_ptr 0
 #define __itt_frame_end_v3_ptr   0
+#define __itt_frame_submit_v3_ptr   0
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 /** @} frames group */
@@ -2041,7 +2372,7 @@ ITT_STUBV(ITTAPI, void, metadata_add, (const __itt_domain *domain, __itt_id id, 
  * @param[in] id The identifier of the instance to which the metadata is to be added, or __itt_null to add to the current task
  * @param[in] key The name of the metadata
  * @param[in] data The metadata itself
- * @param[in] length The number of characters in the string, or -1 if the length is unknown but the string is null-terminated
+ * @param[in] length The number of characters in the string, or -1 if the length is unknown but the string is null-terminated 
 */
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 void ITTAPI __itt_metadata_str_addA(const __itt_domain *domain, __itt_id id, __itt_string_handle *key, const char *data, size_t length);
@@ -2077,9 +2408,9 @@ ITT_STUBV(ITTAPI, void, metadata_str_add, (const __itt_domain *domain, __itt_id 
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
-#define __itt_metadata_str_addA(d,x,y,z,a)
+#define __itt_metadata_str_addA(d,x,y,z,a) 
 #define __itt_metadata_str_addA_ptr 0
-#define __itt_metadata_str_addW(d,x,y,z,a)
+#define __itt_metadata_str_addW(d,x,y,z,a) 
 #define __itt_metadata_str_addW_ptr 0
 #else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #define __itt_metadata_str_add(d,x,y,z,a)
@@ -2103,7 +2434,7 @@ ITT_STUBV(ITTAPI, void, metadata_str_add, (const __itt_domain *domain, __itt_id 
  * @param[in] scope The scope of the instance to which the metadata is to be added
 
  * @param[in] id The identifier of the instance to which the metadata is to be added, or __itt_null to add to the current task
-
+ 
  * @param[in] key The name of the metadata
  * @param[in] type The type of the metadata
  * @param[in] count The number of elements of the given type. If count == 0, no metadata will be added.
@@ -2136,7 +2467,7 @@ ITT_STUBV(ITTAPI, void, metadata_add_with_scope, (const __itt_domain *domain, __
 
  * @param[in] key The name of the metadata
  * @param[in] data The metadata itself
- * @param[in] length The number of characters in the string, or -1 if the length is unknown but the string is null-terminated
+ * @param[in] length The number of characters in the string, or -1 if the length is unknown but the string is null-terminated 
 */
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 void ITTAPI __itt_metadata_str_add_with_scopeA(const __itt_domain *domain, __itt_scope scope, __itt_string_handle *key, const char *data, size_t length);
@@ -2172,9 +2503,9 @@ ITT_STUBV(ITTAPI, void, metadata_str_add_with_scope, (const __itt_domain *domain
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #else  /* INTEL_NO_ITTNOTIFY_API */
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
-#define __itt_metadata_str_add_with_scopeA(d,x,y,z,a)
+#define __itt_metadata_str_add_with_scopeA(d,x,y,z,a) 
 #define __itt_metadata_str_add_with_scopeA_ptr  0
-#define __itt_metadata_str_add_with_scopeW(d,x,y,z,a)
+#define __itt_metadata_str_add_with_scopeW(d,x,y,z,a) 
 #define __itt_metadata_str_add_with_scopeW_ptr  0
 #else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 #define __itt_metadata_str_add_with_scope(d,x,y,z,a)
@@ -2749,7 +3080,124 @@ ITT_STUB(LIBITTAPI, int, event_end, (__itt_event event))
 #endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
 /** @} events group */
+
+
+/**
+ * @defgroup arrays Arrays Visualizer
+ * @ingroup public
+ * Visualize arrays
+ * @{
+ */
+
+/**
+ * @enum __itt_av_data_type
+ * @brief Defines types of arrays data (for C/C++ intrinsic types) 
+ */
+typedef enum 
+{
+    __itt_e_first = 0,
+    __itt_e_char = 0,  /* 1-byte integer */
+    __itt_e_uchar,     /* 1-byte unsigned integer */
+    __itt_e_int16,     /* 2-byte integer */
+    __itt_e_uint16,    /* 2-byte unsigned integer  */
+    __itt_e_int32,     /* 4-byte integer */
+    __itt_e_uint32,    /* 4-byte unsigned integer */
+    __itt_e_int64,     /* 8-byte integer */
+    __itt_e_uint64,    /* 8-byte unsigned integer */
+    __itt_e_float,     /* 4-byte floating */
+    __itt_e_double,    /* 8-byte floating */
+    __itt_e_last = __itt_e_double
+} __itt_av_data_type;
+
+/**
+ * @brief Save an array data to a file.
+ * Output format is defined by the file extension. The csv and bmp formats are supported (bmp - for 2-dimensional array only).
+ * @param[in] data - pointer to the array data
+ * @param[in] rank - the rank of the array 
+ * @param[in] dimensions - pointer to an array of integers, which specifies the array dimensions. 
+ * The size of dimensions must be equal to the rank
+ * @param[in] type - the type of the array, specified as one of the __itt_av_data_type values (for intrinsic types)
+ * @param[in] filePath - the file path; the output format is defined by the file extension
+ * @param[in] columnOrder - defines how the array is stored in the linear memory.
+ * It should be 1 for column-major order (e.g. in FORTRAN) or 0 - for row-major order (e.g. in C).
+ */
+
+#if ITT_PLATFORM==ITT_PLATFORM_WIN
+int ITTAPI __itt_av_saveA(void *data, int rank, const int *dimensions, int type, const char *filePath, int columnOrder);
+int ITTAPI __itt_av_saveW(void *data, int rank, const int *dimensions, int type, const wchar_t *filePath, int columnOrder);
+#if defined(UNICODE) || defined(_UNICODE)
+#  define __itt_av_save     __itt_av_saveW
+#  define __itt_av_save_ptr __itt_av_saveW_ptr
+#else /* UNICODE */
+#  define __itt_av_save     __itt_av_saveA
+#  define __itt_av_save_ptr __itt_av_saveA_ptr
+#endif /* UNICODE */
+#else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+int ITTAPI __itt_av_save(void *data, int rank, const int *dimensions, int type, const char *filePath, int columnOrder);
+#endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+#if ITT_PLATFORM==ITT_PLATFORM_WIN
+ITT_STUB(ITTAPI, int, av_saveA, (void *data, int rank, const int *dimensions, int type, const char *filePath, int columnOrder))
+ITT_STUB(ITTAPI, int, av_saveW, (void *data, int rank, const int *dimensions, int type, const wchar_t *filePath, int columnOrder))
+#else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+ITT_STUB(ITTAPI, int, av_save,  (void *data, int rank, const int *dimensions, int type, const char *filePath, int columnOrder))
+#endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#if ITT_PLATFORM==ITT_PLATFORM_WIN
+#define __itt_av_saveA     ITTNOTIFY_DATA(av_saveA)
+#define __itt_av_saveA_ptr ITTNOTIFY_NAME(av_saveA)
+#define __itt_av_saveW     ITTNOTIFY_DATA(av_saveW)
+#define __itt_av_saveW_ptr ITTNOTIFY_NAME(av_saveW)
+#else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#define __itt_av_save     ITTNOTIFY_DATA(av_save)
+#define __itt_av_save_ptr ITTNOTIFY_NAME(av_save)
+#endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#if ITT_PLATFORM==ITT_PLATFORM_WIN
+#define __itt_av_saveA(name)
+#define __itt_av_saveA_ptr 0
+#define __itt_av_saveW(name)
+#define __itt_av_saveW_ptr 0
+#else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#define __itt_av_save(name)
+#define __itt_av_save_ptr 0
+#endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#if ITT_PLATFORM==ITT_PLATFORM_WIN
+#define __itt_av_saveA_ptr 0
+#define __itt_av_saveW_ptr 0
+#else /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#define __itt_av_save_ptr 0
+#endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+#endif /* INTEL_NO_MACRO_BODY */
 /** @endcond */
+
+void ITTAPI __itt_enable_attach(void);
+
+/** @cond exclude_from_documentation */
+#ifndef INTEL_NO_MACRO_BODY
+#ifndef INTEL_NO_ITTNOTIFY_API
+ITT_STUBV(ITTAPI, void, enable_attach, (void))
+#define __itt_enable_attach     ITTNOTIFY_VOID(enable_attach)
+#define __itt_enable_attach_ptr ITTNOTIFY_NAME(enable_attach)
+#else  /* INTEL_NO_ITTNOTIFY_API */
+#define __itt_enable_attach()
+#define __itt_enable_attach_ptr 0
+#endif /* INTEL_NO_ITTNOTIFY_API */
+#else  /* INTEL_NO_MACRO_BODY */
+#define __itt_enable_attach_ptr 0
+#endif /* INTEL_NO_MACRO_BODY */
+/** @endcond */
+
+/** @cond exclude_from_gpa_documentation */
+
+/** @} arrays group */
+
+/** @endcond */
+
 
 #ifdef __cplusplus
 }

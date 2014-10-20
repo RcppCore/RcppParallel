@@ -3,6 +3,84 @@ The list of most significant changes made over time in
 Intel(R) Threading Building Blocks (Intel(R) TBB).
 ------------------------------------------------------------------------
 
+Intel TBB 4.3
+TBB_INTERFACE_VERSION == 8000
+
+Changes (w.r.t. Intel TBB 4.2 Update 5):
+
+- The following features are now fully supported: flow::indexer_node,
+    task_arena, speculative_spin_rw_mutex.
+- Compatibility with C++11 standard improved for tbb/compat/thread
+    and tbb::mutex.
+- C++11 move constructors have been added to concurrent_queue and
+    concurrent_bounded_queue.
+- C++11 move constructors and assignment operators have been added to
+    concurrent_vector, concurrent_hash_map, concurrent_priority_queue,
+    concurrent_unordered_{set,multiset,map,multimap}.
+- C++11 move aware emplace/push/pop methods have been added to
+    concurrent_vector, concurrent_queue, concurrent_bounded_queue,
+    concurrent_priority_queue.
+- Methods to insert a C++11 initializer list have been added:
+    concurrent_vector::grow_by(), concurrent_hash_map::insert(),
+    concurrent_unordered_{set,multiset,map,multimap}::insert().
+- Testing for compatibility of containers with some C++11 standard
+    library types has been added.
+- Dynamic replacement of standard memory allocation routines has been
+    added for OS X*.
+- Microsoft* Visual Studio* projects for Intel TBB examples updated
+    to VS 2010.
+- For open-source packages, debugging information (line numbers) in
+    precompiled binaries now matches the source code.
+- Debug information was added to release builds for OS X*, Solaris*,
+    FreeBSD* operating systems and MinGW*.
+- Various improvements in documentation, debug diagnostics and examples.
+
+Preview Features:
+
+- Additional actions on reset of graphs, and extraction of individual
+    nodes from a graph (TBB_PREVIEW_FLOW_GRAPH_FEATURES).
+- Support for an arbitrary number of arguments in parallel_invoke
+   (TBB_PREVIEW_VARIADIC_PARALLEL_INVOKE).
+
+Changes affecting backward compatibility:
+
+- For compatibility with C++11 standard, copy and move constructors and
+    assignment operators are disabled for all mutex classes. To allow
+    the old behavior, use TBB_DEPRECATED_MUTEX_COPYING macro.
+- flow::sequencer_node rejects messages with repeating sequence numbers.
+- Changed internal interface between tbbmalloc and tbbmalloc_proxy.
+- Following deprecated functionality has been removed:
+    old debugging macros TBB_DO_ASSERT & TBB_DO_THREADING_TOOLS;
+    no-op depth-related methods in class task;
+    tbb::deprecated::concurrent_queue;
+    deprecated variants of concurrent_vector methods.
+- register_successor() and remove_successor() are deprecated as methods
+    to add and remove edges in flow::graph; use make_edge() and
+    remove_edge() instead.
+
+Bugs fixed:
+
+- Fixed incorrect scalable_msize() implementation for aligned objects.
+- Flow graph buffering nodes now destroy their copy of forwarded items.
+- Multiple fixes in task_arena implementation, including for:
+    inconsistent task scheduler state inside executed functions;
+    incorrect floating-point settings and exception propagation;
+    possible stalls in concurrent invocations of execute().
+- Fixed floating-point settings propagation when the same instance of
+    task_group_context is used in different arenas.
+- Fixed compilation error in pipeline.h with Intel Compiler on OS X*.
+- Added missed headers for individual components to tbb.h.
+
+Open-source contributions integrated:
+
+- Range interface addition to parallel_do, parallel_for_each and
+    parallel_sort by Stephan Dollberg.
+- Variadic template implementation of parallel_invoke
+    by Kizza George Mbidde (see Preview Features).
+- Improvement in Seismic example for MacBook Pro* with Retina* display
+    by Raf Schietekat.
+
+------------------------------------------------------------------------
 Intel TBB 4.2 Update 5
 TBB_INTERFACE_VERSION == 7005
 
@@ -185,7 +263,7 @@ Changes (w.r.t. Intel TBB 4.1 Update 4):
     were added on OS X*.
 - For OS X* exact exception propagation is supported with Clang;
     it requires use of libc++ and corresponding Intel TBB binaries.
-- Support for C++11 initilizer lists in constructor and assigment
+- Support for C++11 initializer lists in constructor and assigment
     has been added to concurrent_hash_map, concurrent_unordered_set,
     concurrent_unordered_multiset, concurrent_unordered_map,
     concurrent_unordered_multimap.

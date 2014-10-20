@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 /**
@@ -32,6 +24,12 @@
 
     Most of the checks happen at the compilation or link phases.
 **/
+#if __TBB_CPF_BUILD
+// Add testing of preview features
+#define TBB_PREVIEW_AGGREGATOR 1
+#define TBB_PREVIEW_CONCURRENT_LRU_CACHE 1
+#endif
+
 #include "harness_defs.h"
 #if !(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN)
 
@@ -45,7 +43,6 @@
 #endif
 
 #include "tbb/tbb.h"
-#include "tbb/flow_graph.h"
 
 static volatile size_t g_sink;
 
@@ -87,7 +84,6 @@ struct Body3 {
 
 // Test if all the necessary symbols are exported for the exceptions thrown by TBB.
 // Missing exports result either in link error or in runtime assertion failure.
-#include "tbb/tbb_exception.h"
 #include <stdexcept>
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
@@ -131,8 +127,30 @@ void TestExceptionClassesExports () {
     TestExceptionClassExports( tbb::missing_wait(), tbb::internal::eid_missing_wait );
     TestExceptionClassExports( tbb::invalid_multiple_scheduling(), tbb::internal::eid_invalid_multiple_scheduling );
     TestExceptionClassExports( tbb::improper_lock(), tbb::internal::eid_improper_lock );
+    TestExceptionClassExports( std::runtime_error("test"), tbb::internal::eid_possible_deadlock );
+    TestExceptionClassExports( std::runtime_error("test"), tbb::internal::eid_operation_not_permitted );
+    TestExceptionClassExports( std::runtime_error("test"), tbb::internal::eid_condvar_wait_failed );
+    TestExceptionClassExports( std::out_of_range("test"), tbb::internal::eid_invalid_load_factor );
+    TestExceptionClassExports( std::invalid_argument("test"), tbb::internal::eid_invalid_swap );
+    TestExceptionClassExports( std::length_error("test"), tbb::internal::eid_reservation_length_error );
+    TestExceptionClassExports( std::out_of_range("test"), tbb::internal::eid_invalid_key );
+    TestExceptionClassExports( tbb::user_abort(), tbb::internal::eid_user_abort );
+    TestExceptionClassExports( std::runtime_error("test"), tbb::internal::eid_bad_tagged_msg_cast );
 }
 #endif /* !__TBB_TEST_SECONDARY */
+
+#if __TBB_CPF_BUILD
+// These names are only tested in "preview" configuration
+// When a feature becomes fully supported, its names should be moved to the main test
+struct Handler {
+    void operator()( tbb::aggregator_operation* ) {}
+};
+static void TestPreviewNames() {
+    TestTypeDefinitionPresence( aggregator );
+    TestTypeDefinitionPresence( aggregator_ext<Handler> );
+    TestTypeDefinitionPresence2(concurrent_lru_cache<int, int> );
+}
+#endif
 
 #if __TBB_TEST_SECONDARY
 /* This mode is used to produce a secondary object file that is linked with 
@@ -152,17 +170,23 @@ int TestMain ()
     TestTypeDefinitionPresence( tbb_hash_compare<int> );
     TestTypeDefinitionPresence2(concurrent_hash_map<int, int> );
     TestTypeDefinitionPresence2(concurrent_unordered_map<int, int> );
+    TestTypeDefinitionPresence2(concurrent_unordered_multimap<int, int> );
+    TestTypeDefinitionPresence( concurrent_unordered_set<int> );
+    TestTypeDefinitionPresence( concurrent_unordered_multiset<int> );
     TestTypeDefinitionPresence( concurrent_bounded_queue<int> );
-    TestTypeDefinitionPresence( deprecated::concurrent_queue<int> );
+    TestTypeDefinitionPresence( concurrent_queue<int> );
     TestTypeDefinitionPresence( strict_ppl::concurrent_queue<int> );
+    TestTypeDefinitionPresence( concurrent_priority_queue<int> );
     TestTypeDefinitionPresence( combinable<int> );
     TestTypeDefinitionPresence( concurrent_vector<int> );
     TestTypeDefinitionPresence( enumerable_thread_specific<int> );
+    /* Flow graph names */
     TestTypeDefinitionPresence( flow::graph );
+    // TODO: add a check for make_edge and maybe other functions in tbb::flow
     TestTypeDefinitionPresence( flow::source_node<int> );
-    TestTypeDefinitionPresence2( flow::function_node<int, int> );
+    TestTypeDefinitionPresence2(flow::function_node<int, int> );
     typedef tbb::flow::tuple<int, int> intpair;
-    TestTypeDefinitionPresence2( flow::multifunction_node<int, intpair> );
+    TestTypeDefinitionPresence2(flow::multifunction_node<int, intpair> );
     TestTypeDefinitionPresence( flow::split_node<intpair> );
     TestTypeDefinitionPresence( flow::continue_node<int> );
     TestTypeDefinitionPresence( flow::overwrite_node<int> );
@@ -173,8 +197,10 @@ int TestMain ()
     TestTypeDefinitionPresence( flow::sequencer_node<int> );
     TestTypeDefinitionPresence( flow::priority_queue_node<int> );
     TestTypeDefinitionPresence( flow::limiter_node<int> );
+    TestTypeDefinitionPresence2(flow::indexer_node<int, int> );
     using tbb::flow::queueing;
     TestTypeDefinitionPresence2( flow::join_node< intpair, queueing > );
+    /* Mutex names */
     TestTypeDefinitionPresence( mutex );
     TestTypeDefinitionPresence( null_mutex );
     TestTypeDefinitionPresence( null_rw_mutex );
@@ -183,6 +209,8 @@ int TestMain ()
     TestTypeDefinitionPresence( recursive_mutex );
     TestTypeDefinitionPresence( spin_mutex );
     TestTypeDefinitionPresence( spin_rw_mutex );
+    TestTypeDefinitionPresence( speculative_spin_mutex );
+    TestTypeDefinitionPresence( speculative_spin_rw_mutex );
     TestTypeDefinitionPresence( critical_section );
     TestTypeDefinitionPresence( reader_writer_lock );
 #if __TBB_TASK_GROUP_CONTEXT
@@ -194,6 +222,7 @@ int TestMain ()
 #endif /* !TBB_USE_CAPTURED_EXCEPTION */
     TestTypeDefinitionPresence( task_group_context );
     TestTypeDefinitionPresence( task_group );
+    TestTypeDefinitionPresence( structured_task_group );
     TestTypeDefinitionPresence( task_handle<Body> );
 #endif /* __TBB_TASK_GROUP_CONTEXT */
     TestTypeDefinitionPresence( blocked_range3d<int> );
@@ -204,6 +233,8 @@ int TestMain ()
     TestFuncDefinitionPresence( parallel_for, (const tbb::blocked_range<int>&, const Body2&, const tbb::simple_partitioner&), void );
     TestFuncDefinitionPresence( parallel_reduce, (const tbb::blocked_range<int>&, const int&, const Body1a&, const Body1b&, const tbb::auto_partitioner&), int );
     TestFuncDefinitionPresence( parallel_reduce, (const tbb::blocked_range<int>&, Body2&, tbb::affinity_partitioner&), void );
+    TestFuncDefinitionPresence( parallel_deterministic_reduce, (const tbb::blocked_range<int>&, const int&, const Body1a&, const Body1b&), int );
+    TestFuncDefinitionPresence( parallel_deterministic_reduce, (const tbb::blocked_range<int>&, Body2&), void );
     TestFuncDefinitionPresence( parallel_scan, (const tbb::blocked_range2d<int>&, Body3&, const tbb::auto_partitioner&), void );
     TestFuncDefinitionPresence( parallel_sort, (int*, int*), void );
     TestTypeDefinitionPresence( pipeline );
@@ -211,12 +242,17 @@ int TestMain ()
     TestTypeDefinitionPresence( task );
     TestTypeDefinitionPresence( empty_task );
     TestTypeDefinitionPresence( task_list );
+    TestTypeDefinitionPresence( task_arena );
     TestTypeDefinitionPresence( task_scheduler_init );
     TestTypeDefinitionPresence( task_scheduler_observer );
     TestTypeDefinitionPresence( tbb_thread );
     TestTypeDefinitionPresence( tbb_allocator<int> );
     TestTypeDefinitionPresence( zero_allocator<int> );
     TestTypeDefinitionPresence( tick_count );
+
+#if __TBB_CPF_BUILD
+    TestPreviewNames();
+#endif
 #if !__TBB_TEST_SECONDARY
     TestExceptionClassesExports();
     return Harness::Done;

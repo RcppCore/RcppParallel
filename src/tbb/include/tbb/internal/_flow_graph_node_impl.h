@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB__flow_graph_node_impl_H
@@ -59,16 +51,25 @@ namespace internal {
     //  call and any handling of the result.
     template< typename Input, typename A, typename ImplType >
     class function_input_base : public receiver<Input>, tbb::internal::no_assign {
-        typedef sender<Input> predecessor_type;
         enum op_stat {WAIT=0, SUCCEEDED, FAILED};
-        enum op_type {reg_pred, rem_pred, app_body, try_fwd, tryput_bypass, app_body_bypass };
+        enum op_type {reg_pred, rem_pred, app_body, try_fwd, tryput_bypass, app_body_bypass
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            , add_blt_pred, del_blt_pred,
+            blt_pred_cnt, blt_pred_cpy   // create vector copies of preds and succs
+#endif 
+        };
         typedef function_input_base<Input, A, ImplType> my_class;
         
     public:
 
         //! The input type of this receiver
         typedef Input input_type;
-        
+        typedef sender<Input> predecessor_type;
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        typedef std::vector<predecessor_type *> predecessor_vector_type;
+#endif
+
         //! Constructor for function_input_base
         function_input_base( graph &g, size_t max_concurrency, function_input_queue<input_type,A> *q = NULL )
             : my_graph(g), my_max_concurrency(max_concurrency), my_concurrency(0),
@@ -122,14 +123,42 @@ namespace internal {
             return true;
         }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        //! Adds to list of predecessors added by make_edge
+        /*override*/ void internal_add_built_predecessor( predecessor_type &src) {
+            my_operation op_data(add_blt_pred);
+            op_data.r = &src;
+            my_aggregator.execute(&op_data);
+        }
+
+        //! removes from to list of predecessors (used by remove_edge)
+        /*override*/ void internal_delete_built_predecessor( predecessor_type &src) {
+            my_operation op_data(del_blt_pred);
+            op_data.r = &src;
+            my_aggregator.execute(&op_data);
+        }
+
+        /*override*/ size_t predecessor_count() {
+            my_operation op_data(blt_pred_cnt);
+            my_aggregator.execute(&op_data);
+            return op_data.cnt_val;
+        }
+
+        /*override*/ void copy_predecessors(predecessor_vector_type &v) {
+            my_operation op_data(blt_pred_cpy);
+            op_data.predv = &v;
+            my_aggregator.execute(&op_data);
+        }
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
+
     protected:
 
-        void reset_function_input_base() {
+        void reset_function_input_base( __TBB_PFG_RESET_ARG(reset_flags f)) {
             my_concurrency = 0;
             if(my_queue) {
                 my_queue->reset();
             }
-            my_predecessors.reset();
+            reset_receiver(__TBB_PFG_RESET_ARG(f));
             forwarder_busy = false;
         }
 
@@ -139,8 +168,11 @@ namespace internal {
         function_input_queue<input_type, A> *my_queue;
         predecessor_cache<input_type, null_mutex > my_predecessors;
         
-        /*override*/void reset_receiver() {
-            my_predecessors.reset();
+        /*override*/void reset_receiver( __TBB_PFG_RESET_ARG(reset_flags f)) {
+            my_predecessors.reset(__TBB_PFG_RESET_ARG(f));
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            __TBB_ASSERT(!(f & rf_extract) || my_predecessors.empty(), "function_input_base reset failed");
+#endif
         }
 
     private:
@@ -154,6 +186,10 @@ namespace internal {
             union {
                 input_type *elem;
                 predecessor_type *r;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+                size_t cnt_val;
+                predecessor_vector_type *predv;
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
             };
             tbb::task *bypass_t;
             my_operation(const input_type& e, op_type t) :
@@ -223,7 +259,26 @@ namespace internal {
                     break;
                 case tryput_bypass: internal_try_put_task(tmp);  break;
                 case try_fwd: internal_forward(tmp);  break;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+                case add_blt_pred: {
+                         my_predecessors.internal_add_built_predecessor(*(tmp->r));
+                        __TBB_store_with_release(tmp->status, SUCCEEDED);
                     }
+                    break;
+                case del_blt_pred:
+                    my_predecessors.internal_delete_built_predecessor(*(tmp->r));
+                    __TBB_store_with_release(tmp->status, SUCCEEDED);
+                    break;
+                case blt_pred_cnt:
+                    tmp->cnt_val = my_predecessors.predecessor_count();
+                    __TBB_store_with_release(tmp->status, SUCCEEDED);
+                    break;
+                case blt_pred_cpy:
+                    my_predecessors.copy_predecessors( *(tmp->predv) );
+                    __TBB_store_with_release(tmp->status, SUCCEEDED);
+                    break;
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
+                }
             }
         }
         
@@ -389,8 +444,11 @@ namespace internal {
 
     protected:
 
-        void reset_function_input() { 
-            base_type::reset_function_input_base();
+        void reset_function_input(__TBB_PFG_RESET_ARG(reset_flags f)) {
+            base_type::reset_function_input_base(__TBB_PFG_RESET_ARG(f));
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            if(f & rf_reset_bodies) my_body->reset_body();
+#endif
         }
 
         function_body<input_type, output_type> *my_body;
@@ -398,11 +456,43 @@ namespace internal {
 
     };  // function_input
 
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    // helper templates to reset the successor edges of the output ports of an multifunction_node
+    template<int N>
+    struct reset_element {
+        template<typename P>
+        static void reset_this(P &p, reset_flags f) {
+            (void)tbb::flow::get<N-1>(p).successors().reset(f);
+            reset_element<N-1>::reset_this(p, f);
+        }
+        template<typename P>
+        static bool this_empty(P &p) {
+            if(tbb::flow::get<N-1>(p).successors().empty()) 
+                return reset_element<N-1>::this_empty(p);
+            return false;
+        }
+    };
+
+    template<>
+    struct reset_element<1> {
+        template<typename P>
+        static void reset_this(P &p, reset_flags f) {
+            (void)tbb::flow::get<0>(p).successors().reset(f);
+        }
+        template<typename P>
+        static bool this_empty(P &p) {
+            return tbb::flow::get<0>(p).successors().empty();
+        }
+    };
+#endif
+
     //! Implements methods for a function node that takes a type Input as input
     //  and has a tuple of output ports specified.  
     template< typename Input, typename OutputPortSet, typename A>
     class multifunction_input : public function_input_base<Input, A, multifunction_input<Input,OutputPortSet,A> > {
     public:
+        static const int N = tbb::flow::tuple_size<OutputPortSet>::value;
         typedef Input input_type;
         typedef OutputPortSet output_ports_type;
         typedef multifunction_input<Input,OutputPortSet,A> my_class;
@@ -451,8 +541,13 @@ namespace internal {
 
     protected:
 
-        void reset() {
-            base_type::reset_function_input_base();
+        /*override*/void reset(__TBB_PFG_RESET_ARG(reset_flags f)) { 
+            base_type::reset_function_input_base(__TBB_PFG_RESET_ARG(f));
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            reset_element<N>::reset_this(my_output_ports, f);
+            if(f & rf_reset_bodies) my_body->reset_body();
+            __TBB_ASSERT(!(f & rf_extract) || reset_element<N>::this_empty(my_output_ports), "multifunction_node reset failed");
+#endif
         }
 
         multifunction_body<input_type, output_ports_type> *my_body;
@@ -518,6 +613,13 @@ namespace internal {
             return dynamic_cast< internal::function_body_leaf<input_type, output_type, Body> & >(body_ref).get_body(); 
         } 
 
+        /*override*/void reset_receiver( __TBB_PFG_RESET_ARG(reset_flags f)) {
+            continue_receiver::reset_receiver(__TBB_PFG_RESET_ARG(f));
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+            if(f & rf_reset_bodies) my_body->reset_body();
+#endif
+        }
+
     protected:
         
         graph* my_graph_ptr;
@@ -557,7 +659,15 @@ namespace internal {
     class function_output : public sender<Output> {
     public:
         
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        template<int N> friend struct reset_element;
+#endif
         typedef Output output_type;
+        typedef receiver<output_type> successor_type;
+        typedef broadcast_cache<output_type> broadcast_cache_type;
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        typedef std::vector<successor_type *> successor_vector_type;
+#endif
         
         function_output() { my_successors.set_owner(this); }
         function_output(const function_output & /*other*/) : sender<output_type>() {
@@ -576,6 +686,24 @@ namespace internal {
             return true;
         }
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        /*override*/ void internal_add_built_successor( receiver<output_type> &r) {
+            successors().internal_add_built_successor( r );
+        }
+
+        /*override*/ void internal_delete_built_successor( receiver<output_type> &r) {
+            successors().internal_delete_built_successor( r );
+        }
+
+        /*override*/ size_t successor_count() {
+            return successors().successor_count();
+        }
+
+        /*override*/ void  copy_successors( successor_vector_type &v) {
+            successors().copy_successors(v);
+        }
+#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
+
         // for multifunction_node.  The function_body that implements
         // the node will have an input and an output tuple of ports.  To put
         // an item to a successor, the body should
@@ -586,8 +714,8 @@ namespace internal {
         task *try_put_task(const output_type &i) { return my_successors.try_put_task(i); }
           
     protected:
-        broadcast_cache<output_type> my_successors;
-        broadcast_cache<output_type > &successors() { return my_successors; } 
+        broadcast_cache_type my_successors;
+        broadcast_cache_type &successors() { return my_successors; } 
         
     };  // function_output
 

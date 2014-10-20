@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 /* to prevent loading dynamic TBBmalloc at startup, that is not needed
@@ -462,7 +454,7 @@ void TestPools() {
     ptr = pool_malloc(fixedPool, minLargeObjectSize);
     ASSERT(ptr, "Memory was not allocated");
     memset(ptr, minLargeObjectSize, minLargeObjectSize);
-    pool_malloc(fixedPool, 10*minLargeObjectSize); // no leak for unsuccesful allocations
+    pool_malloc(fixedPool, 10*minLargeObjectSize); // no leak for unsuccessful allocations
     pool_free(fixedPool, smallObj);
     pool_free(fixedPool, largeObj);
 
@@ -572,9 +564,9 @@ void TestObjectRecognition() {
                     falseBlock->backRefIdx.largeObj = largeObj;
                     headerLO->backRefIdx.largeObj = largeObj;
 
-                    obtainedSize = safer_scalable_msize(falseSO, NULL);
+                    obtainedSize = __TBB_malloc_safer_msize(falseSO, NULL);
                     ASSERT(obtainedSize==0, "Incorrect pointer accepted");
-                    obtainedSize = safer_scalable_msize(falseLO, NULL);
+                    obtainedSize = __TBB_malloc_safer_msize(falseLO, NULL);
                     ASSERT(obtainedSize==0, "Incorrect pointer accepted");
                 }
             }
@@ -590,11 +582,11 @@ void TestObjectRecognition() {
         }
     }
     char *smallPtr = (char*)scalable_malloc(falseObjectSize);
-    obtainedSize = safer_scalable_msize(smallPtr, NULL);
+    obtainedSize = __TBB_malloc_safer_msize(smallPtr, NULL);
     ASSERT(obtainedSize==getObjectSize(falseObjectSize), "Correct pointer not accepted?");
     scalable_free(smallPtr);
 
-    obtainedSize = safer_scalable_msize(mem, NULL);
+    obtainedSize = __TBB_malloc_safer_msize(mem, NULL);
     ASSERT(obtainedSize>=2*slabSize, "Correct pointer not accepted?");
     scalable_free(mem);
     scalable_free(bufferLOH);

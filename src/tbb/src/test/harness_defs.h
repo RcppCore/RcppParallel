@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_harness_defs_H
@@ -66,23 +58,33 @@
 
 #if __INTEL_COMPILER
   #define __TBB_LAMBDAS_PRESENT ( _TBB_CPP0X && __INTEL_COMPILER > 1100 )
+  #define __TBB_CPP11_SMART_POINTERS_PRESENT ( _TBB_CPP0X && __INTEL_COMPILER >= 1200 && \
+    ( _MSC_VER >= 1600 || __TBB_GCC_VERSION >= 40400 || ( __clang__ && __cplusplus >= 201103L ) ) )
+  #define __TBB_CPP11_REFERENCE_WRAPPER_PRESENT ( _TBB_CPP0X && __INTEL_COMPILER >= 1200 && \
+    ( _MSC_VER >= 1600 || __TBB_GCC_VERSION >= 40400 || ( __clang__ && __cplusplus >= 201103L ) ) )
+  #define __TBB_RANGE_BASED_FOR_PRESENT ( _TBB_CPP0X && __INTEL_COMPILER >= 1300 )
+  #define __TBB_SCOPED_ENUM_PRESENT ( _TBB_CPP0X && __INTEL_COMPILER > 1100 )
 #elif __clang__
-  #define __TBB_LAMBDAS_PRESENT ( _TBB_CPP0X && __has_feature(cxx_lambdas))
+  #define __TBB_LAMBDAS_PRESENT ( _TBB_CPP0X && __has_feature(cxx_lambdas) )
+  #define __TBB_CPP11_SMART_POINTERS_PRESENT ( _TBB_CPP0X && __cplusplus >= 201103L && (__TBB_GCC_VERSION >= 40400 || _LIBCPP_VERSION) )
+  #define __TBB_CPP11_REFERENCE_WRAPPER_PRESENT ( _TBB_CPP0X && __cplusplus >= 201103L && (__TBB_GCC_VERSION >= 40400 || _LIBCPP_VERSION) )
+  #define __TBB_RANGE_BASED_FOR_PRESENT ( _TBB_CPP0X && __has_feature(__cxx_range_for) )
+  #define __TBB_SCOPED_ENUM_PRESENT ( _TBB_CPP0X && __has_feature(cxx_strong_enums) )
 #elif __GNUC__
   #define __TBB_LAMBDAS_PRESENT ( _TBB_CPP0X && __TBB_GCC_VERSION >= 40500 )
+  #define __TBB_CPP11_SMART_POINTERS_PRESENT ( _TBB_CPP0X && __TBB_GCC_VERSION >= 40400 )
+  #define __TBB_CPP11_REFERENCE_WRAPPER_PRESENT ( _TBB_CPP0X && __TBB_GCC_VERSION >= 40400 )
+  #define __TBB_RANGE_BASED_FOR_PRESENT ( _TBB_CPP0X && __TBB_GCC_VERSION >= 40500 )
+  #define __TBB_SCOPED_ENUM_PRESENT ( _TBB_CPP0X && __TBB_GCC_VERSION >= 40400 )
 #elif _MSC_VER
   #define __TBB_LAMBDAS_PRESENT ( _MSC_VER >= 1600 )
+  #define __TBB_CPP11_SMART_POINTERS_PRESENT ( _MSC_VER >= 1600 )
+  #define __TBB_CPP11_REFERENCE_WRAPPER_PRESENT ( _MSC_VER >= 1600 )
+  #define __TBB_RANGE_BASED_FOR_PRESENT ( _MSC_VER >= 1700 )
+  #define __TBB_SCOPED_ENUM_PRESENT ( _MSC_VER >= 1700 )
 #endif
 
-#if __INTEL_COMPILER
-  #define __TBB_RANGE_BASED_FOR_PRESENT ( _TBB_CPP0X && __INTEL_COMPILER >= 1300 )
-#elif __clang__
-  #define __TBB_RANGE_BASED_FOR_PRESENT ( __has_feature(__cxx_range_for))
-#elif __GNUC__
-  #define __TBB_RANGE_BASED_FOR_PRESENT ( _TBB_CPP0X && __TBB_GCC_VERSION >= 40500 )
-#elif _MSC_VER
-  #define __TBB_RANGE_BASED_FOR_PRESENT ( _MSC_VER >= 1700 )
-#endif
+#define __TBB_TEST_SKIP_LAMBDA (__TBB_ICC_13_0_CPP11_STDLIB_SUPPORT_BROKEN || !__TBB_LAMBDAS_PRESENT)
 
 #if __GNUC__ && __ANDROID__
   /** Android GCC does not support _thread keyword **/
@@ -101,8 +103,10 @@
   #define __TBB_PVALLOC_PRESENT 1
 #endif
 
-//MSVC 2013 is unable to properly resolve call to overloaded operator= with std::initilizer_list argument for std::pair list elements
-#define __TBB_CPP11_INIT_LIST_ASSIGN_OP_RESOLUTION_BROKEN     _MSC_FULL_VER <= 180021005 && _MSC_VER && !__INTEL_COMPILER
+//MSVC 2013 is unable to properly resolve call to overloaded operator= with std::initializer_list argument for std::pair list elements
+#define __TBB_CPP11_INIT_LIST_ASSIGN_OP_RESOLUTION_BROKEN (_MSC_FULL_VER <= 180030501 && _MSC_VER && !__INTEL_COMPILER)
+//MSVC 2013 is unable to manage lifetime of temporary objects passed to a std::initializer_list constructor properly
+#define __TBB_CPP11_INIT_LIST_TEMP_OBJS_LIFETIME_BROKEN (_MSC_FULL_VER < 180030501 && _MSC_VER && !__INTEL_COMPILER)
 //Implementation of C++11 std::placeholders in libstdc++ coming with gcc prior to 4.5 reveals bug in Intel Compiler 13 causing "multiple definition" link errors.
 #define __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN ((__INTEL_COMPILER == 1300 || __INTEL_COMPILER == 1310 )&& __GXX_EXPERIMENTAL_CXX0X__ && __TBB_GCC_VERSION < 40500)
 
@@ -149,6 +153,12 @@
     #if MAX_TUPLE_TEST_SIZE > __TBB_VARIADIC_MAX
         #undef MAX_TUPLE_TEST_SIZE
         #define MAX_TUPLE_TEST_SIZE __TBB_VARIADIC_MAX
+    #endif
+#endif
+
+#ifndef TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    #if __TBB_CPF_BUILD
+        #define TBB_PREVIEW_FLOW_GRAPH_FEATURES 1
     #endif
 #endif
 

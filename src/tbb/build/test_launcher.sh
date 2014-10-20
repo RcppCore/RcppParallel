@@ -2,29 +2,21 @@
 #
 # Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
-# This file is part of Threading Building Blocks.
+# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+# you can redistribute it and/or modify it under the terms of the GNU General Public License
+# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See  the GNU General Public License for more details.   You should have received a copy of
+# the  GNU General Public License along with Threading Building Blocks; if not, write to the
+# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 #
-# Threading Building Blocks is free software; you can redistribute it
-# and/or modify it under the terms of the GNU General Public License
-# version 2 as published by the Free Software Foundation.
-#
-# Threading Building Blocks is distributed in the hope that it will be
-# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Threading Building Blocks; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-#
-# As a special exception, you may use this file as part of a free software
-# library without restriction.  Specifically, if other files instantiate
-# templates or use macros or inline functions from this file, or you compile
-# this file and link it with other files to produce an executable, this
-# file does not by itself cause the resulting executable to be covered by
-# the GNU General Public License.  This exception does not however
-# invalidate any other reasons why the executable file might be covered by
-# the GNU General Public License.
+# As a special exception,  you may use this file  as part of a free software library without
+# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+# functions from this file, or you compile this file and link it with other files to produce
+# an executable,  this file does not by itself cause the resulting executable to be covered
+# by the GNU General Public License. This exception does not however invalidate any other
+# reasons why the executable file might be covered by the GNU General Public License.
 
 # Usage:
 # test_launcher.sh [-v] [-q] [-s] [-r <repeats>] [-u] [-l <library>] <executable> <arg1> <arg2> <argN>
@@ -42,13 +34,16 @@ do case $flag in #
     r )  # Repeats test n times
          repeat=$OPTARG #
          run_prefix="repeated $run_prefix" ;; #
-    l )  if [ `uname` != 'Linux' ] ; then #
+    l )  if [ `uname` = 'Linux' ] ; then #
+             LD_PRELOAD=$OPTARG #
+         elif [ `uname` = 'Darwin' ] ; then #
+             DYLD_INSERT_LIBRARIES=$OPTARG #
+         else #
              echo 'skip' #
              exit #
-         fi #
-         LD_PRELOAD=$OPTARG ;; #
+         fi ;; #
     u )  # Set stack limit
-         ulimit -s 10240 ;; # 
+         ulimit -s 10240 ;; #
     q )  # Quiet mode, removes 'done' but prepends any other output by test name
          OUTPUT='2>&1 | sed -e "s/done//;/^[[:space:]]*$/d;s!^!$1: !"' ;; #
     v )  # Verbose mode
@@ -78,7 +73,11 @@ repeated() { #
 } #
 # Run the command line passed via parameters
 [ $verbose ] && echo Running $run_prefix $* #
-export LD_PRELOAD #
+if [ -n "$LD_PRELOAD" ] ; then #
+    export LD_PRELOAD #
+elif [ -n "$DYLD_INSERT_LIBRARIES" ] ; then #
+    export DYLD_INSERT_LIBRARIES #
+fi
 exec 4>&1 # extracting exit code of the first command in pipeline needs duplicated stdout
 # custom redirection needs eval, otherwise shell cannot parse it
 err=`eval '( $run_prefix $* || echo \$? >&3; )' ${OUTPUT} 3>&1 >&4` #

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "tbb/tick_count.h"
@@ -59,7 +51,7 @@ void TestArithmetic( const tbb::tick_count& t0, const tbb::tick_count& t1, const
 }
 
 //------------------------------------------------------------------------
-// Test for overhead in calls to tick_count 
+// Test for overhead in calls to tick_count
 //------------------------------------------------------------------------
 
 //! Wait for given duration.
@@ -80,7 +72,7 @@ void TestSimpleDelay( int ntrial, double duration, double tolerance ) {
         if( duration ) WaitForDuration(duration);
         tbb::tick_count t1 = tbb::tick_count::now();
         if( trial>=0 ) {
-            total_worktime += (t1-t0).seconds(); 
+            total_worktime += (t1-t0).seconds();
         }
     }
     // Compute average worktime and average delta
@@ -89,8 +81,8 @@ void TestSimpleDelay( int ntrial, double duration, double tolerance ) {
     REMARK("worktime=%g delta=%g tolerance=%g\n", worktime, delta, tolerance);
 
     // Check that delta is acceptable
-    if( delta<0 ) 
-        REPORT("ERROR: delta=%g < 0\n",delta); 
+    if( delta<0 )
+        REPORT("ERROR: delta=%g < 0\n",delta);
     if( delta>tolerance )
         REPORT("%s: delta=%g > %g=tolerance where duration=%g\n",delta>3*tolerance?"ERROR":"Warning",delta,tolerance,duration);
 }
@@ -100,10 +92,9 @@ void TestSimpleDelay( int ntrial, double duration, double tolerance ) {
 //------------------------------------------------------------------------
 
 #include "tbb/atomic.h"
-const int MAX_NTHREAD = 1000;
 static tbb::atomic<int> Counter;
 static volatile bool Flag;
-static tbb::tick_count tick_count_array[MAX_NTHREAD];
+static tbb::tick_count *tick_count_array;
 
 struct TickCountDifferenceBody {
     void operator()( int id ) const {
@@ -116,11 +107,12 @@ struct TickCountDifferenceBody {
 //! Test that two tick_count values recorded on different threads can be meaningfully subtracted.
 void TestTickCountDifference( int n ) {
     double tolerance = 3E-4;
+    tick_count_array = new tbb::tick_count[n];
     for( int trial=0; trial<10; ++trial ) {
         Counter = n;
         Flag = false;
-        NativeParallelFor( n, TickCountDifferenceBody() ); 
-        ASSERT( Counter==0, NULL ); 
+        NativeParallelFor( n, TickCountDifferenceBody() );
+        ASSERT( Counter==0, NULL );
         for( int i=0; i<n; ++i )
             for( int j=0; j<i; ++j ) {
                 double diff = (tick_count_array[i]-tick_count_array[j]).seconds();
@@ -131,6 +123,7 @@ void TestTickCountDifference( int n ) {
                 }
             }
     }
+    delete[] tick_count_array;
 }
 
 void TestResolution() {
@@ -153,6 +146,8 @@ void TestResolution() {
     REMARK("avg_diff = %g ticks, max_diff = %g ticks\n", avg_diff, max_diff);
 }
 
+#include <tbb/compat/thread>
+
 int TestMain () {
     tbb::tick_count t0 = tbb::tick_count::now();
     TestSimpleDelay(/*ntrial=*/1000000,/*duration=*/0,    /*tolerance=*/2E-6);
@@ -163,8 +158,14 @@ int TestMain () {
 
     TestResolution();
 
-    for( int n=MinThread; n<=MaxThread; ++n ) {
-        TestTickCountDifference(n);
+    int num_threads = tbb::tbb_thread::hardware_concurrency();
+    ASSERT( num_threads > 0, "tbb::thread::hardware_concurrency() has returned an incorrect value" );
+    if ( num_threads > 1 ) {
+        REMARK( "num_threads = %d\n", num_threads );
+        TestTickCountDifference( num_threads );
+    } else {
+        REPORT( "Warning: concurrency is too low for TestTickCountDifference ( num_threads = %d )\n", num_threads );
     }
+
     return Harness::Done;
 }

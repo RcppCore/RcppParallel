@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_tbb_stddef_H
@@ -31,10 +23,10 @@
 
 // Marketing-driven product version
 #define TBB_VERSION_MAJOR 4
-#define TBB_VERSION_MINOR 2
+#define TBB_VERSION_MINOR 3
 
 // Engineering-focused interface version
-#define TBB_INTERFACE_VERSION 7005
+#define TBB_INTERFACE_VERSION 8000
 #define TBB_INTERFACE_VERSION_MAJOR TBB_INTERFACE_VERSION/1000
 
 // The oldest major interface version still supported
@@ -368,27 +360,13 @@ public:
     no_copy() {}
 };
 
-//! Class for determining type of std::allocator<T>::value_type.
-template<typename T>
-struct allocator_type {
-    typedef T value_type;
-};
-
-#if _MSC_VER
-//! Microsoft std::allocator has non-standard extension that strips const from a type.
-template<typename T>
-struct allocator_type<const T> {
-    typedef T value_type;
-};
+#if TBB_DEPRECATED_MUTEX_COPYING
+class mutex_copy_deprecated_and_disabled {};
+#else
+// By default various implementations of mutexes are not copy constructible
+// and not copy assignable.
+class mutex_copy_deprecated_and_disabled : no_copy {};
 #endif
-
-//! A template to select either 32-bit or 64-bit constant as compile time, depending on machine word size.
-template <unsigned u, unsigned long long ull >
-struct select_size_t_constant {
-    //Explicit cast is needed to avoid compiler warnings about possible truncation.
-    //The value of the right size,   which is selected by ?:, is anyway not truncated or promoted.
-    static const size_t value = (size_t)((sizeof(size_t)==sizeof(u)) ? u : ull);
-};
 
 //! A function to check if passed in pointer is aligned on a specific border
 template<typename T>
@@ -433,11 +411,72 @@ struct version_tag_v3 {};
 typedef version_tag_v3 version_tag;
 
 } // internal
-//! @endcond
-
 } // tbb
 
-namespace tbb { namespace internal {
+// Following is a set of classes and functions typically used in compile-time "metaprogramming".
+// TODO: move all that to a separate header
+
+#if __TBB_ALLOCATOR_TRAITS_PRESENT
+#include <memory> //for allocator_traits
+#endif
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT || _LIBCPP_VERSION
+#include <utility> // for std::move
+#endif
+
+namespace tbb {
+namespace internal {
+
+//! Class for determining type of std::allocator<T>::value_type.
+template<typename T>
+struct allocator_type {
+    typedef T value_type;
+};
+
+#if _MSC_VER
+//! Microsoft std::allocator has non-standard extension that strips const from a type.
+template<typename T>
+struct allocator_type<const T> {
+    typedef T value_type;
+};
+#endif
+
+// Ad-hoc implementation of true_type & false_type
+// Intended strictly for internal use! For public APIs (traits etc), use C++11 analogues.
+template <bool v>
+struct bool_constant {
+    static /*constexpr*/ const bool value = v;
+};
+typedef bool_constant<true> true_type;
+typedef bool_constant<false> false_type;
+
+#if __TBB_ALLOCATOR_TRAITS_PRESENT
+using std::allocator_traits;
+#else
+template<typename allocator>
+struct allocator_traits{
+    typedef tbb::internal::false_type propagate_on_container_move_assignment;
+};
+#endif
+
+//! A template to select either 32-bit or 64-bit constant as compile time, depending on machine word size.
+template <unsigned u, unsigned long long ull >
+struct select_size_t_constant {
+    //Explicit cast is needed to avoid compiler warnings about possible truncation.
+    //The value of the right size,   which is selected by ?:, is anyway not truncated or promoted.
+    static const size_t value = (size_t)((sizeof(size_t)==sizeof(u)) ? u : ull);
+};
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+using std::move;
+#elif defined(_LIBCPP_NAMESPACE)
+// libc++ defines "pre-C++11 move" similarly to our; use it to avoid name conflicts in some cases.
+using std::_LIBCPP_NAMESPACE::move;
+#else
+template <typename T>
+T& move( T& x ) { return x; }
+#endif
+
 template <bool condition>
 struct STATIC_ASSERTION_FAILED;
 
@@ -446,7 +485,9 @@ struct STATIC_ASSERTION_FAILED<false> { enum {value=1};};
 
 template<>
 struct STATIC_ASSERTION_FAILED<true>; //intentionally left undefined to cause compile time error
-}} // namespace tbb { namespace internal {
+
+//! @endcond
+}} // namespace tbb::internal
 
 #if    __TBB_STATIC_ASSERT_PRESENT
 #define __TBB_STATIC_ASSERT(condition,msg) static_assert(condition,msg)

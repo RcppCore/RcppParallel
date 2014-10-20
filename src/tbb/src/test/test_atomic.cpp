@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness_defs.h"
@@ -57,6 +49,11 @@ using std::memcmp;
 #if __TBB_GCC_STRICT_ALIASING_BROKEN
     #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
+
+// Intel(R) Compiler have an issue when a scoped enum with a specified underlying type has negative values.
+#define __TBB_ICC_SCOPED_ENUM_WITH_UNDERLYING_TYPE_NEGATIVE_VALUE_BROKEN ( _MSC_VER && !__TBB_DEBUG && __INTEL_COMPILER && __INTEL_COMPILER <= 1500 )
+// Intel(R) Compiler have an issue with __atomic_load_explicit from a scoped enum with a specified underlying type.
+#define __TBB_ICC_SCOPED_ENUM_WITH_UNDERLYING_TYPE_ATOMIC_LOAD_BROKEN ( TBB_USE_ICC_BUILTINS && !__TBB_DEBUG && __INTEL_COMPILER && __INTEL_COMPILER <= 1500 )
 
 enum LoadStoreExpression {
     UseOperators,
@@ -694,13 +691,64 @@ void TestAtomicBool() {
     TestParallel<bool>( "bool" );
 }
 
+template<typename EnumType>
+struct HasImplicitConversionToInt {
+    typedef bool yes;
+    typedef int no;
+    __TBB_STATIC_ASSERT( sizeof(yes) != sizeof(no), "The helper needs two types of different sizes to work." );
+
+    static yes detect( int );
+    static no detect( ... );
+
+    enum { value = (sizeof(yes) == sizeof(detect( EnumType() ))) };
+};
+
 enum Color {Red=0,Green=1,Blue=-1};
 
 void TestAtomicEnum() {
     REMARK("testing atomic<Color>\n");
     TestOperations<Color>(Red,Green,Blue);
     TestParallel<Color>( "Color" );
+    __TBB_STATIC_ASSERT( HasImplicitConversionToInt< tbb::atomic<Color> >::value, "The implicit conversion is expected." );
 }
+
+#if __TBB_SCOPED_ENUM_PRESENT
+enum class ScopedColor1 {ScopedRed,ScopedGreen,ScopedBlue=-1};
+// TODO: extend the test to cover 2 byte scoped enum as well
+#if __TBB_ICC_SCOPED_ENUM_WITH_UNDERLYING_TYPE_NEGATIVE_VALUE_BROKEN
+enum class ScopedColor2 : char {ScopedZero, ScopedOne,ScopedRed=42,ScopedGreen=-1,ScopedBlue=127};
+#else
+enum class ScopedColor2 : char {ScopedZero, ScopedOne,ScopedRed=-128,ScopedGreen=-1,ScopedBlue=127};
+#endif
+
+// TODO: replace the hack of getting symbolic enum name with a better implementation
+std::string enum_strings[] = {"ScopedZero","ScopedOne","ScopedRed","ScopedGreen","ScopedBlue"};
+template<>
+std::string to_string<ScopedColor1>(const ScopedColor1& a){
+    return enum_strings[a==ScopedColor1::ScopedBlue? 4 : (int)a+2];
+}
+template<>
+std::string to_string<ScopedColor2>(const ScopedColor2& a){
+    return enum_strings[a==ScopedColor2::ScopedRed? 2 : 
+        a==ScopedColor2::ScopedGreen? 3 : a==ScopedColor2::ScopedBlue? 4 : (int)a ];
+}
+
+void TestAtomicScopedEnum() {
+    REMARK("testing atomic<ScopedColor>\n");
+    TestOperations<ScopedColor1>(ScopedColor1::ScopedRed,ScopedColor1::ScopedGreen,ScopedColor1::ScopedBlue);
+    TestParallel<ScopedColor1>( "ScopedColor1" );
+#if __TBB_ICC_SCOPED_ENUM_WITH_UNDERLYING_TYPE_ATOMIC_LOAD_BROKEN
+    REPORT("Known issue: the operation tests for a scoped enum with a specified underlying type are skipped.\n");
+#else
+    TestOperations<ScopedColor2>(ScopedColor2::ScopedRed,ScopedColor2::ScopedGreen,ScopedColor2::ScopedBlue);
+    TestParallel<ScopedColor2>( "ScopedColor2" );
+#endif
+    __TBB_STATIC_ASSERT( !HasImplicitConversionToInt< tbb::atomic<ScopedColor1> >::value, "The implicit conversion is not expected." );
+    __TBB_STATIC_ASSERT( !HasImplicitConversionToInt< tbb::atomic<ScopedColor1> >::value, "The implicit conversion is not expected." );
+    __TBB_STATIC_ASSERT( sizeof(tbb::atomic<ScopedColor1>) == sizeof(ScopedColor1), "tbb::atomic instantiated with scoped enum should have the same size as scoped enum." );
+    __TBB_STATIC_ASSERT( sizeof(tbb::atomic<ScopedColor2>) == sizeof(ScopedColor2), "tbb::atomic instantiated with scoped enum should have the same size as scoped enum." );
+}
+#endif /* __TBB_SCOPED_ENUM_PRESENT */
 
 template<typename T>
 void TestAtomicFloat( const char* name ) {
@@ -1031,6 +1079,9 @@ int TestMain () {
     TestAtomicPointerToTypeOfUnknownSize<void*>( "void*" );
     TestAtomicBool();
     TestAtomicEnum();
+#   if __TBB_SCOPED_ENUM_PRESENT
+    TestAtomicScopedEnum();
+#   endif
     TestAtomicFloat<float>("float");
 #   if __TBB_64BIT_ATOMICS && !__TBB_CAS_8_CODEGEN_BROKEN
         TestAtomicFloat<double>("double");
@@ -1123,6 +1174,19 @@ template<>
 bool special_sum<bool>(intptr_t arg1, intptr_t arg2) {
     return ((arg1!=0) + arg2)!=0;
 }
+
+#if __TBB_SCOPED_ENUM_PRESENT
+// The specialization for scoped enumerators is required
+// because scoped enumerators prohibit implicit conversion to int
+template<>
+ScopedColor1 special_sum<ScopedColor1>(intptr_t arg1, intptr_t arg2) {
+    return (ScopedColor1)(arg1 + arg2);
+}
+template<>
+ScopedColor2 special_sum<ScopedColor2>(intptr_t arg1, intptr_t arg2) {
+    return (ScopedColor2)(arg1 + arg2);
+}
+#endif
 
 volatile int One = 1;
 
@@ -1217,7 +1281,7 @@ public:
                     trait::load( flag, s->flag );
                     message = s->message;
                 }
-                if( flag ) {
+                if ( flag != T(0) ) {
                     if( flag!=(T)-1 ) {
                         REPORT("ERROR: flag!=(T)-1 k=%d i=%d trial=%x type=%s (atomicity problem?)\n", k, i, trial, name );
                         ParallelError = true;
@@ -1232,11 +1296,11 @@ public:
                     // to the first thread's flag being reordered after the last
                     // thread's store(-1) into it.
                     if ( IsRelaxed(E) ) {
-                        while( s_next->flag.template load<tbb::relaxed>() != 0 )
+                        while( s_next->flag.template load<tbb::relaxed>() != T(0) )
                             __TBB_Yield();
                     }
                     else
-                        ASSERT( s_next->flag == 0, NULL );
+                        ASSERT( s_next->flag == T(0), NULL );
                     // Set message and then the flag
                     if( trial&2 ) {
                         // COMPLICATED_ZERO here tempts compiler to sink store below setting of flag
@@ -1273,8 +1337,8 @@ void TestLoadAndStoreFences( const char* name ) {
             NativeParallelFor( p, hammer_load_store_type( fam, 100, p, name, trial ) );
             if ( !IsRelaxed(E) ) {
                 for( int k=0; k<p; ++k ) {
-                    ASSERT( fam[k].message==(k==0 ? (T)-1 : 0), "incomplete round-robin?" );
-                    ASSERT( fam[k].flag==(k==0 ? (T)-1 : 0), "incomplete round-robin?" );
+                    ASSERT( fam[k].message==(k==0 ? (T)-1 : T(0)), "incomplete round-robin?" );
+                    ASSERT( fam[k].flag==(k==0 ? (T)-1 : T(0)), "incomplete round-robin?" );
                 }
             }
         }
@@ -1375,13 +1439,29 @@ class SparseValueSet<float>: public SparseFloatSet<float> {};
 template<>
 class SparseValueSet<double>: public SparseFloatSet<double> {};
 
+#if __TBB_SCOPED_ENUM_PRESENT
+//! Commonality inherited by specializations for scoped enumerator types.
+template<typename EnumType>
+class SparseEnumValueSet {
+public:
+    EnumType get( int i ) const {return i%3==0 ? EnumType::ScopedRed : i%3==1 ? EnumType::ScopedGreen : EnumType::ScopedBlue;}
+    bool contains( EnumType e ) const {return e==EnumType::ScopedRed || e==EnumType::ScopedGreen || e==EnumType::ScopedBlue;}
+};
+template<>
+class SparseValueSet<ScopedColor1> : public SparseEnumValueSet<ScopedColor1> {};
+template<>
+class SparseValueSet<ScopedColor2> : public SparseEnumValueSet<ScopedColor2> {};
+#endif
+
 template<typename T, bool aligned>
 class HammerAssignment: AlignedAtomic<T,aligned> {
     tbb::atomic<T>& x;
     const char* name;
     SparseValueSet<T> set;
 public:
-    HammerAssignment(const char* name_ ) : x(HammerAssignment::construct_atomic()), name(name_) {}
+    HammerAssignment(const char* name_ ) : x(HammerAssignment::construct_atomic()), name(name_) {
+        x = set.get(0);
+    }
     void operator()( int k ) const {
         const int n = 1000000;
         if( k ) {
@@ -1422,36 +1502,11 @@ void TestAssignment( const char* name ) {
     NativeParallelFor( 2, HammerAssignment<T,aligned>(name ) );
 }
 
-static const unsigned Primes[] = {
-    0x9e3779b1, 0xffe6cc59, 0x2109f6dd, 0x43977ab5, 0xba5703f5, 0xb495a877, 0xe1626741, 0x79695e6b,
-    0xbc98c09f, 0xd5bee2b3, 0x287488f9, 0x3af18231, 0x9677cd4d, 0xbe3a6929, 0xadc6a877, 0xdcf0674b,
-    0xbe4d6fe9, 0x5f15e201, 0x99afc3fd, 0xf3f16801, 0xe222cfff, 0x24ba5fdb, 0x0620452d, 0x79f149e3,
-    0xc8b93f49, 0x972702cd, 0xb07dd827, 0x6c97d5ed, 0x085a3d61, 0x46eb5ea7, 0x3d9910ed, 0x2e687b5b,
-    0x29609227, 0x6eb081f1, 0x0954c4e1, 0x9d114db9, 0x542acfa9, 0xb3e6bd7b, 0x0742d917, 0xe9f3ffa7,
-    0x54581edb, 0xf2480f45, 0x0bb9288f, 0xef1affc7, 0x85fa0ca7, 0x3ccc14db, 0xe6baf34b, 0x343377f7,
-    0x5ca19031, 0xe6d9293b, 0xf0a9f391, 0x5d2e980b, 0xfc411073, 0xc3749363, 0xb892d829, 0x3549366b,
-    0x629750ad, 0xb98294e5, 0x892d9483, 0xc235baf3, 0x3d2402a3, 0x6bdef3c9, 0xbec333cd, 0x40c9520f
-};
-
-class FastRandom {
-    unsigned x, a;
-public:
-    unsigned short get() {
-        unsigned short r = (unsigned short)(x>>16);
-        x = x*a+1;
-        return r;
-    }
-    FastRandom( unsigned seed ) {
-        x = seed;
-        a = Primes[seed % (sizeof(Primes)/sizeof(Primes[0]))];
-    }
-};
-
 template <typename T, bool aligned, LoadStoreExpression E>
 class DekkerArbitrationBody : NoAssign, Harness::NoAfterlife {
     typedef LoadStoreTraits<T, E> trait;
 
-    mutable FastRandom my_rand;
+    mutable Harness::FastRandom my_rand;
     static const unsigned short c_rand_ceil = 10;
     mutable AlignedAtomic<T,aligned> s_ready_storage[2];
     mutable AlignedAtomic<T,aligned> s_turn_storage;

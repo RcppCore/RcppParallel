@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_test_initializer_list_H
@@ -37,49 +29,62 @@
 
 namespace initializer_list_support_tests{
     template<typename container_type, typename element_type>
-    void test_constructor(std::initializer_list<element_type> const& il, container_type const& expected){
+    void test_constructor(std::initializer_list<element_type> il, container_type const& expected){
         container_type vd (il);
         ASSERT(vd == expected,"initialization via explicit constructor call with init list failed");
     }
 
 
     template<typename container_type, typename element_type>
-    void test_assignment_operator(std::initializer_list<element_type> const& il, container_type const& expected){
+    void test_assignment_operator(std::initializer_list<element_type> il, container_type const& expected){
         container_type va;
         va = il;
         ASSERT(va == expected,"init list operator= failed");
     }
 
-    template<typename container_type, typename element_type>
-    void test_assign(Harness::int_to_type<true>, std::initializer_list<element_type> const& il, container_type const& expected){
-        container_type vae;
-        vae.assign(il);
-        ASSERT(vae == expected,"init list assign(begin,end) failed");
-    }
-    template<typename container_type, typename element_type>
-    void test_assign(Harness::int_to_type<false>, std::initializer_list<element_type> const& , container_type const&){
-        //skip the test as container has no assign method
-    }
+    struct skip_test {
+        template<typename container_type, typename element_type>
+        static void do_test(std::initializer_list<element_type>, container_type const&) { /* do nothing */ }
+    };
 
-    template <typename container_type, typename do_test_assign_t>
-    void TestInitListSupport(std::initializer_list<typename container_type::value_type> const& il, do_test_assign_t do_test_assign_p){
+    struct test_assign {
+        template<typename container_type, typename element_type>
+        static void do_test( std::initializer_list<element_type> il, container_type const& expected ) {
+            container_type vae;
+            vae.assign( il );
+            ASSERT( vae == expected, "init list assign(begin,end) failed" );
+        }
+    };
+
+    struct test_special_insert {
+        template<typename container_type, typename element_type>
+        static void do_test( std::initializer_list<element_type> il, container_type const& expected ) {
+            container_type vd;
+            vd.insert( il );
+            ASSERT( vd == expected, "inserting with an initializer list failed" );
+        }
+    };
+
+    template <typename container_type, typename test_assign, typename test_special>
+    void TestInitListSupport(std::initializer_list<typename container_type::value_type> il){
         typedef typename container_type::value_type element_type;
         std::vector<element_type> test_seq(il.begin(),il.end());
         container_type expected(test_seq.begin(), test_seq.end());
 
         test_constructor<container_type,element_type>(il, expected);
         test_assignment_operator<container_type,element_type>(il, expected);
-        test_assign<container_type,element_type>(do_test_assign_p, il, expected);
+        test_assign::do_test(il, expected);
+        test_special::do_test(il, expected);
     }
 
-    template <typename container_type>
-    void TestInitListSupport(std::initializer_list<typename container_type::value_type> const& il ){
-        TestInitListSupport<container_type>(il, Harness::int_to_type<true>());
+    template <typename container_type, typename test_special = skip_test>
+    void TestInitListSupport(std::initializer_list<typename container_type::value_type> il) {
+        TestInitListSupport<container_type, test_assign, test_special>(il);
     }
 
-    template <typename container_type>
-    void TestInitListSupportWithoutAssign(std::initializer_list<typename container_type::value_type> const& il ){
-        TestInitListSupport<container_type>(il, Harness::int_to_type<false>());
+    template <typename container_type, typename test_special = skip_test>
+    void TestInitListSupportWithoutAssign(std::initializer_list<typename container_type::value_type> il){
+        TestInitListSupport<container_type, skip_test, test_special>(il);
     }
 
     //TODO: add test for no leaks, and correct element lifetime
@@ -89,10 +94,10 @@ namespace initializer_list_support_tests{
         typedef ELEMENT_TYPE element_type;                                                                                                            \
         typedef CONTAINER<element_type> container_type;                                                                                               \
         element_type test_seq[] = INIT_SEQ;                                                                                                           \
-        container_type expected(test_seq,test_seq + Harness::array_length(test_seq));                                                                          \
+        container_type expected(test_seq,test_seq + Harness::array_length(test_seq));                                                                 \
                                                                                                                                                       \
         /*test for explicit contructor call*/                                                                                                         \
-        container_type vd INIT_SEQ;                                                                                                                 \
+        container_type vd INIT_SEQ;                                                                                                                   \
         ASSERT(vd == expected,"initialization via explicit constructor call with init list failed");                                                  \
         /*test for explicit contructor call with std::initializer_list*/                                                                              \
                                                                                                                                                       \
@@ -123,13 +128,13 @@ namespace initializer_list_support_tests{
             ad_hoc_container(){}
             template<typename InputIterator>
             ad_hoc_container(InputIterator begin, InputIterator end) : vec(begin,end) {}
-            ad_hoc_container(std::initializer_list<T> const& il) : vec(il.begin(),il.end()) {}
+            ad_hoc_container(std::initializer_list<T> il) : vec(il.begin(),il.end()) {}
             ad_hoc_container(ad_hoc_container const& other) : vec(other.vec) {}
             ad_hoc_container& operator=(ad_hoc_container const& rhs){ vec=rhs.vec; return *this;}
-            ad_hoc_container& operator=(std::initializer_list<T> const& il){ vec.assign(il.begin(),il.end()); return *this;}
+            ad_hoc_container& operator=(std::initializer_list<T> il){ vec.assign(il.begin(),il.end()); return *this;}
             template<typename InputIterator>
             void assign(InputIterator begin, InputIterator end){ vec.assign(begin,end);}
-            void assign(std::initializer_list<T> const& il){ vec.assign(il.begin(),il.end());}
+            void assign(std::initializer_list<T> il){ vec.assign(il.begin(),il.end());}
             friend bool operator==(ad_hoc_container<T> const& lhs, ad_hoc_container<T> const& rhs){ return lhs.vec==rhs.vec;}
         };
     }
@@ -140,7 +145,7 @@ namespace initializer_list_support_tests{
 
     #if __TBB_CPP11_INIT_LIST_ASSIGN_OP_RESOLUTION_BROKEN
         void TestCompilerSupportIntPair(){
-            REPORT("Known issue: skip initilizer_list compiler test for std::pair list elements.\n");
+            REPORT("Known issue: skip initializer_list compiler test for std::pair list elements.\n");
         }
     #else
         #define AD_HOC_PAIR_INIT_SEQ {{1,1}, {2,2},{3,3}, {4,4}}

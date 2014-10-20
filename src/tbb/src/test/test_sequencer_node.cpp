@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness.h"
@@ -31,6 +23,9 @@
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
 #include "tbb/atomic.h"
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#include "harness_graph.h"
+#endif
 
 #include <cstdio>
 
@@ -284,6 +279,7 @@ int test_serial() {
     for (int i = 0; i < N; ++i) {
         bool msg = s.try_put( T(i) );
         ASSERT( msg == true, NULL );
+        ASSERT(!s.try_put( T(i) ), NULL);  // second attempt to put should reject
     }
 
 
@@ -291,6 +287,7 @@ int test_serial() {
         j = bogus_value;
         ASSERT(wait_try_get( g, s, j ) == true, NULL);
         ASSERT( i == j, NULL );
+        ASSERT(!s.try_put( T(i) ),NULL );  // after retrieving value, subsequent put should fail
     }
     j = bogus_value;
     g.wait_for_all();
@@ -398,6 +395,9 @@ int TestMain() {
         test_serial<int>();
         test_parallel<int>(p);
     } 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    test_buffer_extract<tbb::flow::sequencer_node<int> >().run_tests();
+#endif
     stop = tbb::tick_count::now();
     REMARK("Sequencer_Node Time=%6.6f\n", (stop-start).seconds());
     return Harness::Done;

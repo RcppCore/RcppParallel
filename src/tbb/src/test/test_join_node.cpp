@@ -1,32 +1,26 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness.h"
+#include "tbb/atomic.h"
+#include "harness_checktype.h"
 
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
@@ -38,6 +32,351 @@
 //
 // Tests
 //
+
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+template< typename T, typename NODE_TYPE >
+class test_join_base_extract : NoAssign {
+protected:
+    typedef typename NODE_TYPE::output_type tuple_t;
+    typedef tbb::flow::queue_node<T> in_queue_t;
+    typedef tbb::flow::queue_node<tuple_t> out_queue_t;
+
+    tbb::flow::graph &g;
+    in_queue_t &in0;
+    in_queue_t &in1;
+    in_queue_t &in2;
+    NODE_TYPE &middle;
+    out_queue_t &out0;
+    out_queue_t &out1;
+    in_queue_t *ins[3];
+    out_queue_t *outs[2];
+    typename in_queue_t::successor_type *ms_p0_ptr;
+    typename in_queue_t::successor_type *ms_p1_ptr;
+    typename out_queue_t::predecessor_type *mp_ptr;
+    typename in_queue_t::predecessor_vector_type in0_p_vec;
+    typename in_queue_t::successor_vector_type in0_s_vec;
+    typename in_queue_t::predecessor_vector_type in1_p_vec;
+    typename in_queue_t::successor_vector_type in1_s_vec;
+    typename in_queue_t::predecessor_vector_type in2_p_vec;
+    typename in_queue_t::successor_vector_type in2_s_vec;
+    typename out_queue_t::predecessor_vector_type out0_p_vec;
+    typename out_queue_t::successor_vector_type out0_s_vec;
+    typename out_queue_t::predecessor_vector_type out1_p_vec;
+    typename out_queue_t::successor_vector_type out1_s_vec;
+    typename in_queue_t::predecessor_vector_type mp0_vec;
+    typename in_queue_t::predecessor_vector_type mp1_vec;
+    typename out_queue_t::successor_vector_type ms_vec;
+
+    virtual void set_up_vectors() {
+        in0_p_vec.clear();
+        in0_s_vec.clear();
+        in1_p_vec.clear();
+        in1_s_vec.clear();
+        in2_p_vec.clear();
+        in2_s_vec.clear();
+        out0_p_vec.clear();
+        out0_s_vec.clear();
+        out1_p_vec.clear();
+        out1_s_vec.clear();
+        mp0_vec.clear();
+        mp1_vec.clear();
+        ms_vec.clear();
+
+        in0.copy_predecessors(in0_p_vec);
+        in0.copy_successors(in0_s_vec);
+        in1.copy_predecessors(in1_p_vec);
+        in1.copy_successors(in1_s_vec);
+        in2.copy_predecessors(in2_p_vec);
+        in2.copy_successors(in2_s_vec);
+        tbb::flow::input_port<0>(middle).copy_predecessors(mp0_vec);
+        tbb::flow::input_port<1>(middle).copy_predecessors(mp1_vec);
+        middle.copy_successors(ms_vec);
+        out0.copy_predecessors(out0_p_vec);
+        out0.copy_successors(out0_s_vec);
+        out1.copy_predecessors(out1_p_vec);
+        out1.copy_successors(out1_s_vec);
+    }
+
+    void check_tuple( T &r, tuple_t &v ) {
+        T t0 = tbb::flow::get<0>(v); 
+        T t1 = tbb::flow::get<1>(v);
+        ASSERT( (t0 == 1 || t0 == 2) && (t0&r) == 0, "duplicate value" );
+        r |= t0;
+        ASSERT( (t1 == 4 || t1 == 8) && (t1&r) == 0, "duplicate value" );
+        r |= t1;
+    }
+
+    void make_and_validate_full_graph() {
+        /*     in0                         */ 
+        /*         \                       */ 
+        /*           port0          out0   */
+        /*         /       |      /        */
+        /*     in1         middle          */
+        /*                 |      \        */
+        /*     in2 - port1          out1   */
+        tbb::flow::make_edge( in0, tbb::flow::input_port<0>(middle) );
+        tbb::flow::make_edge( in1, tbb::flow::input_port<0>(middle) );
+        tbb::flow::make_edge( in2, tbb::flow::input_port<1>(middle) );
+        tbb::flow::make_edge( middle, out0 );
+        tbb::flow::make_edge( middle, out1 );
+
+        set_up_vectors();
+
+        ASSERT( in0.predecessor_count() == 0 && in0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in0.successor_count() == 1 && in0_s_vec.size() == 1 && in0_s_vec[0] == ms_p0_ptr, "expected 1 successor" );
+        ASSERT( in1.predecessor_count() == 0 && in1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in1.successor_count() == 1 && in1_s_vec.size() == 1 && in1_s_vec[0] == ms_p0_ptr, "expected 1 successor" );
+        ASSERT( in2.predecessor_count() == 0 && in2_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in2.successor_count() == 1 && in2_s_vec.size() == 1 && in2_s_vec[0] == ms_p1_ptr, "expected 1 successor" );
+        ASSERT( tbb::flow::input_port<0>(middle).predecessor_count() == 2 && mp0_vec.size() == 2, "expected 2 predecessors" );
+        ASSERT( tbb::flow::input_port<1>(middle).predecessor_count() == 1 && mp1_vec.size() == 1, "expected 1 predecessors" );
+        ASSERT( middle.successor_count() == 2 && ms_vec.size() == 2, "expected 2 successors" );
+        ASSERT( out0.predecessor_count() == 1 && out0_p_vec.size() == 1 && out0_p_vec[0] == mp_ptr, "expected 1 predecessor" );
+        ASSERT( out0.successor_count() == 0 && out0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out1.predecessor_count() == 1 && out1_p_vec.size() == 1 && out1_p_vec[0] == mp_ptr, "expected 1 predecessor" );
+        ASSERT( out1.successor_count() == 0 && out1_s_vec.size() == 0, "expected 0 successors" );
+
+        int first_pred = mp0_vec[0] == ins[0] ? 0 : ( mp0_vec[0] == ins[1] ? 1 : -1 );
+        int second_pred = mp0_vec[1] == ins[0] ? 0 : ( mp0_vec[1] == ins[1] ? 1 : -1 );
+        ASSERT( first_pred != -1 && second_pred != -1 && first_pred != second_pred, "bad predecessor(s) for middle port 0" ); 
+
+        ASSERT( mp1_vec[0] == ins[2], "bad predecessor for middle port 1" );
+
+        int first_succ = ms_vec[0] == outs[0] ? 0 : ( ms_vec[0] == outs[1] ? 1 : -1 );
+        int second_succ = ms_vec[1] == outs[0] ? 0 : ( ms_vec[1] == outs[1] ? 1 : -1 );
+        ASSERT( first_succ != -1 && second_succ != -1 && first_succ != second_succ, "bad successor(s) for middle" ); 
+ 
+        in0.try_put(1);
+        in1.try_put(2);
+        in2.try_put(8);
+        in2.try_put(4);
+        g.wait_for_all();
+
+        T v_in;
+        tuple_t v;
+    
+        ASSERT( in0.try_get(v_in) == false, "buffer should not have a value" );
+        ASSERT( in1.try_get(v_in) == false, "buffer should not have a value" );
+        ASSERT( in1.try_get(v_in) == false, "buffer should not have a value" );
+        ASSERT( in2.try_get(v_in) == false, "buffer should not have a value" );
+        ASSERT( in2.try_get(v_in) == false, "buffer should not have a value" );
+
+        T r = 0;
+        while ( out0.try_get(v) ) {
+            check_tuple(r,v);
+            g.wait_for_all();
+        }
+        ASSERT( r == 15, "not all values received" );
+
+        r = 0;
+        while ( out1.try_get(v) ) {
+            check_tuple(r,v);
+            g.wait_for_all();
+        }
+        ASSERT( r == 15, "not all values received" );
+        g.wait_for_all();
+    }
+
+    void validate_partial_graph() {
+        /*     in0                         */ 
+        /*                                 */ 
+        /*           port0          out0   */
+        /*         /       |               */
+        /*     in1         middle          */
+        /*                 |      \        */
+        /*     in2 - port1          out1   */
+        set_up_vectors();
+
+        ASSERT( in0.predecessor_count() == 0 && in0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in0.successor_count() == 0 && in0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( in1.predecessor_count() == 0 && in1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in1.successor_count() == 1 && in1_s_vec.size() == 1 && in1_s_vec[0] == ms_p0_ptr, "expected 1 successor" );
+        ASSERT( in2.predecessor_count() == 0 && in2_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in2.successor_count() == 1 && in2_s_vec.size() == 1 && in2_s_vec[0] == ms_p1_ptr, "expected 1 successor" );
+        ASSERT( tbb::flow::input_port<0>(middle).predecessor_count() == 1 && mp0_vec.size() == 1 && mp0_vec[0] == ins[1], "expected 1 predecessor" );
+        ASSERT( tbb::flow::input_port<1>(middle).predecessor_count() == 1 && mp1_vec.size() == 1 && mp1_vec[0] == ins[2], "expected 1 predecessor" );
+        ASSERT( middle.successor_count() == 1 && ms_vec.size() == 1 && ms_vec[0] == outs[1], "expected 1 successor" );
+        ASSERT( out0.predecessor_count() == 0 && out0_p_vec.size() == 0, "expected 1 predecessor" );
+        ASSERT( out0.successor_count() == 0 && out0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out1.predecessor_count() == 1 && out1_p_vec.size() == 1 && out1_p_vec[0] == mp_ptr, "expected 1 predecessor" );
+        ASSERT( out1.successor_count() == 0 && out1_s_vec.size() == 0, "expected 0 successors" );
+
+        in0.try_put(1);
+        in1.try_put(2);
+        in2.try_put(8);
+        in2.try_put(4);
+        g.wait_for_all();
+    
+        T v_in;
+        tuple_t v;
+
+        ASSERT( in0.try_get(v_in) == true && v_in == 1, "buffer should have a value of 1" );
+        ASSERT( in1.try_get(v_in) == false, "buffer should not have a value" );
+        ASSERT( out0.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( out1.try_get(v) == true && tbb::flow::get<0>(v) == 2 && tbb::flow::get<1>(v) == 8, "buffer should have a value of < 2, 8 >" );
+        ASSERT( in0.try_get(v_in) == false, "buffer should not have a value" );
+        g.wait_for_all();
+        g.reset();  // for queueing and tag_matching the 4 is now in the join
+    }
+
+    void validate_empty_graph() {
+        /*     in0                         */ 
+        /*                                 */ 
+        /*            port0         out0   */
+        /*                |                */
+        /*     in1         middle          */
+        /*                 |               */
+        /*     in2   port1          out1   */
+        set_up_vectors();
+
+        ASSERT( in0.predecessor_count() == 0 && in0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in0.successor_count() == 0 && in0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( in1.predecessor_count() == 0 && in1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in1.successor_count() == 0 && in1_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( in2.predecessor_count() == 0 && in2_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( in2.successor_count() == 0 && in2_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( tbb::flow::input_port<0>(middle).predecessor_count() == 0 && mp0_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( tbb::flow::input_port<1>(middle).predecessor_count() == 0 && mp1_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( middle.successor_count() == 0 && ms_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out0.predecessor_count() == 0 && out0_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( out0.successor_count() == 0 && out0_s_vec.size() == 0, "expected 0 successors" );
+        ASSERT( out1.predecessor_count() == 0 && out1_p_vec.size() == 0, "expected 0 predecessors" );
+        ASSERT( out1.successor_count() == 0 && out1_s_vec.size() == 0, "expected 0 successors" );
+
+        in0.try_put(1);
+        in1.try_put(2);
+        in2.try_put(8);
+        in2.try_put(4);
+        g.wait_for_all();
+    
+        T v_in;
+        tuple_t v;
+
+        ASSERT( in0.try_get(v_in) == true && v_in == 1, "buffer should have a value of 1" );
+        ASSERT( in1.try_get(v_in) == true && v_in == 2, "buffer should have a value of 2" );
+        ASSERT( in2.try_get(v_in) == true && v_in == 8, "buffer should have a value of 8" );
+        ASSERT( in2.try_get(v_in) == true && v_in == 4, "buffer should have a value of 4" );
+        ASSERT( out0.try_get(v) == false, "buffer should not have a value" );
+        ASSERT( out1.try_get(v) == false, "buffer should not have a value" );
+        g.wait_for_all();
+        g.reset(); // NOTE: this should not be necessary!!!!!  But it is!!!!
+    }
+
+public:
+
+    test_join_base_extract(tbb::flow::graph &_g, in_queue_t &_in0, in_queue_t &_in1, in_queue_t &_in2, NODE_TYPE &m, out_queue_t &_out0, out_queue_t &_out1) : 
+        g(_g), in0(_in0), in1(_in1), in2(_in2), middle(m), out0(_out0), out1(_out1) {
+        ins[0] = &in0;
+        ins[1] = &in1;
+        ins[2] = &in2;
+        outs[0] = &out0;
+        outs[1] = &out1;
+        ms_p0_ptr = static_cast< typename in_queue_t::successor_type * >(&tbb::flow::input_port<0>(middle));
+        ms_p1_ptr = static_cast< typename in_queue_t::successor_type * >(&tbb::flow::input_port<1>(middle));
+        mp_ptr = static_cast< typename out_queue_t::predecessor_type *>(&middle);
+    }
+ 
+    virtual ~test_join_base_extract() {}
+
+    void run_tests() {
+        REMARK("full graph\n");
+        make_and_validate_full_graph();
+
+        in0.extract();
+        out0.extract();
+        REMARK("partial graph\n");
+        validate_partial_graph();
+
+        in1.extract();
+        in2.extract();
+        out1.extract();
+        REMARK("empty graph\n");
+        validate_empty_graph();
+
+        REMARK("full graph\n");
+        make_and_validate_full_graph();
+
+        middle.extract();
+        REMARK("empty graph\n");
+        validate_empty_graph();
+
+        REMARK("full graph\n");
+        make_and_validate_full_graph();
+
+        in0.extract();
+        in1.extract();
+        in2.extract();
+        middle.extract();
+        REMARK("empty graph\n");
+        validate_empty_graph();
+
+        REMARK("full graph\n");
+        make_and_validate_full_graph();
+
+        out0.extract();
+        out1.extract();
+        middle.extract();
+        REMARK("empty graph\n");
+        validate_empty_graph();
+
+        REMARK("full graph\n");
+        make_and_validate_full_graph();
+    }
+};
+
+template< typename T, typename NODE_TYPE >
+class test_join_extract : public test_join_base_extract< T, NODE_TYPE > {
+protected:
+    typedef typename NODE_TYPE::output_type tuple_t;
+    typedef tbb::flow::queue_node<T> in_queue_t;
+    typedef tbb::flow::queue_node<tuple_t> out_queue_t;
+
+    tbb::flow::graph my_g;
+    in_queue_t my_in0;
+    in_queue_t my_in1;
+    in_queue_t my_in2;
+    NODE_TYPE my_middle;
+    out_queue_t my_out0;
+    out_queue_t my_out1;
+
+public:
+    test_join_extract() : test_join_base_extract<T, NODE_TYPE>( my_g, my_in0, my_in1, my_in2, my_middle, my_out0, my_out1 ), 
+                          my_in0(my_g), my_in1(my_g), my_in2(my_g), my_middle(my_g), my_out0(my_g), my_out1(my_g) { }
+};
+
+template< typename T >
+class test_join_extract<T, tbb::flow::join_node< tbb::flow::tuple<T,T>, tbb::flow::tag_matching> > : 
+    public test_join_base_extract< T, tbb::flow::join_node< tbb::flow::tuple<T,T>, tbb::flow::tag_matching> > {
+protected:
+    typedef tbb::flow::join_node< tbb::flow::tuple<T,T>, tbb::flow::tag_matching> my_node_t;
+
+    typedef typename my_node_t::output_type tuple_t;
+    typedef tbb::flow::queue_node<T> in_queue_t;
+    typedef tbb::flow::queue_node<tuple_t> out_queue_t;
+
+    tbb::flow::graph my_g;
+    in_queue_t my_in0;
+    in_queue_t my_in1;
+    in_queue_t my_in2;
+    my_node_t my_middle;
+    out_queue_t my_out0;
+    out_queue_t my_out1;
+    struct tag_match_0 { size_t operator()(T v) { return v; } };
+    struct tag_match_1 { size_t operator()(T v) { return v/4; } };
+public:
+    test_join_extract() : test_join_base_extract<T, my_node_t>( my_g, my_in0, my_in1, my_in2, my_middle, my_out0, my_out1 ), 
+                          my_in0(my_g), my_in1(my_g), my_in2(my_g), my_middle(my_g, tag_match_0(), tag_match_1()), my_out0(my_g), my_out1(my_g) { }
+};
+#endif
+
+struct threebyte {
+    unsigned char b1;
+    unsigned char b2;
+    unsigned char b3;
+    threebyte(int i=0) { b1 = (unsigned char)i; }
+    threebyte(const threebyte &other) : b1(other.b1), b2(other.b2), b3(other.b3) { }
+    operator int() { return (int)b1; }
+};
 
 const int Count = 150;
 const int Recirc_count = 1000;  // number of tuples to be generated
@@ -70,6 +409,11 @@ class name_of {
 public:
     static const char* name() { return  "Unknown"; }
 };
+template<typename T>
+class name_of<check_type<T> > {
+public:
+    static const char* name() { return "checktype"; }
+};
 template<>
 class name_of<int> {
 public:
@@ -94,6 +438,11 @@ template<>
 class name_of<short> {
 public:
     static const char* name() { return  "short"; }
+};
+template<>
+class name_of<threebyte> {
+public:
+    static const char* name() {return "threebyte"; }
 };
 
 // for recirculating tags, input is tuple<index,continue_msg>
@@ -132,12 +481,12 @@ public:
 // this is not guaranteed.
 template<typename TT>
 class source_body {
-    const TT my_mult;
+    TT my_mult;
     int my_count;
-    const int addend;
-    source_body& operator=( const source_body& other);
+    int addend;
 public:
     source_body(TT multiplier, int init_val, int addto) : my_mult(multiplier), my_count(init_val), addend(addto) { }
+    void operator=( const source_body& other) {my_mult=other.my_mult; my_count=other.my_count; addend=other.addend;}
     bool operator()( TT &v) {
         int lc = my_count;
         v = my_mult * (TT)my_count;
@@ -148,10 +497,10 @@ public:
 
 template<typename TT>
 class tag_func {
-    const TT my_mult;
-    tag_func& operator=( const tag_func& other);
+    TT my_mult;
 public:
     tag_func(TT multiplier) : my_mult(multiplier) { }
+    void operator=( const tag_func& other){my_mult = other.my_mult;}
     // operator() will return [0 .. Count) 
     tbb::flow::tag_value operator()( TT v) {
         tbb::flow::tag_value t = tbb::flow::tag_value(v / my_mult);
@@ -905,9 +1254,21 @@ void test_input_port_policies<tbb::flow::reserving>() {
     // attach jn to oq0, oq1
     tbb::flow::make_edge( jn, oq0 );
     tbb::flow::make_edge( jn, oq1 );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT(jn.successor_count() == 2, NULL);
+    JType::successor_vector_type my_succs;
+    jn.copy_successors(my_succs);
+    ASSERT(my_succs.size() == 2, NULL);
+#endif
     // attach iq0, iq1 to jn
     tbb::flow::make_edge( iq0, tbb::flow::get<0>(jn.input_ports()) );
     tbb::flow::make_edge( iq1, tbb::flow::get<1>(jn.input_ports()) );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT(tbb::flow::get<0>(jn.input_ports()).predecessor_count() == 1, NULL);
+    std::vector<tbb::flow::sender<int> *> my_0preds;
+    tbb::flow::input_port<0>(jn).copy_predecessors(my_0preds);
+    ASSERT(my_0preds.size() == 1, NULL);
+#endif
     for(int loop = 0; loop < 3; ++loop) {
         // place one item in iq0
         ASSERT(iq0.try_put(1), "Error putting to iq1");
@@ -988,9 +1349,21 @@ void test_input_port_policies<tbb::flow::queueing>() {
     // attach jn to oq0, oq1
     tbb::flow::make_edge( jn, oq0 );
     tbb::flow::make_edge( jn, oq1 );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT(jn.successor_count() == 2, NULL);
+    JType::successor_vector_type my_succs;
+    jn.copy_successors(my_succs);
+    ASSERT(my_succs.size() == 2, NULL);
+#endif
     // attach iq0, iq1 to jn
     tbb::flow::make_edge( iq0, tbb::flow::get<0>(jn.input_ports()) );
     tbb::flow::make_edge( iq1, tbb::flow::get<1>(jn.input_ports()) );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+    ASSERT(tbb::flow::get<0>(jn.input_ports()).predecessor_count() == 1, NULL);
+    std::vector<tbb::flow::sender<int> *> my_0preds;
+    tbb::flow::input_port<0>(jn).copy_predecessors(my_0preds);
+    ASSERT(my_0preds.size() == 1, NULL);
+#endif
     for(int loop = 0; loop < 3; ++loop) {
         // place one item in iq0
         ASSERT(iq0.try_put(1), "Error putting to iq1");
@@ -1026,7 +1399,15 @@ void test_input_port_policies<tbb::flow::queueing>() {
     } // for ( int loop ...
 }
 
-tbb::flow::tag_value myTagValue(int i) { return tbb::flow::tag_value(i); }
+template<typename T>
+struct myTagValue {
+    tbb::flow::tag_value operator()(T i) { return tbb::flow::tag_value(i); }
+};
+
+template<>
+struct myTagValue<check_type<int> > {
+    tbb::flow::tag_value operator()(check_type<int> i) { return tbb::flow::tag_value((int)i); }
+};
 
 // join_node (tag_matching) consumes inputs as soon as they are available at
 // any input.  When it builds a tuple it broadcasts to all its successors and
@@ -1052,99 +1433,116 @@ tbb::flow::tag_value myTagValue(int i) { return tbb::flow::tag_value(i); }
 template<>
 void test_input_port_policies<tbb::flow::tag_matching>() {
     tbb::flow::graph g;
-    typedef tbb::flow::join_node<tbb::flow::tuple<int, int>, tbb::flow::tag_matching > JType;
-    JType jn(g, myTagValue, myTagValue);
-    // create output_queue oq0, oq1
-    typedef JType::output_type OQType;
-    tbb::flow::queue_node<OQType> oq0(g);
-    tbb::flow::queue_node<OQType> oq1(g);
-    // create iq0, iq1
-    typedef tbb::flow::queue_node<int> IQType;
-    IQType iq0(g);
-    IQType iq1(g);
-    // create qnp, qnq
-    IQType qnp(g);
-    IQType qnq(g);
+    typedef tbb::flow::join_node<tbb::flow::tuple<int, check_type<int> >, tbb::flow::tag_matching > JoinNodeType;
+    typedef JoinNodeType::output_type CheckTupleType;
+    JoinNodeType testJoinNode(g, myTagValue<int>(), myTagValue<check_type<int> >());
+    tbb::flow::queue_node<CheckTupleType> checkTupleQueue0(g);
+    tbb::flow::queue_node<CheckTupleType> checkTupleQueue1(g);
+    { 
+        Check<check_type<int> > my_check;
 
-    REMARK("Testing policies of join_node<tag_matching> input ports\n");
-    // attach jn to oq0, oq1
-    tbb::flow::make_edge( jn, oq0 );
-    tbb::flow::make_edge( jn, oq1 );
-    // attach iq0, iq1 to jn
-    tbb::flow::make_edge( iq0, tbb::flow::input_port<0>(jn) );
-    tbb::flow::make_edge( iq1, tbb::flow::input_port<1>(jn) );
-    // we'll put four discrete values in the inputs to the join_node.  Each
-    // set of inputs should result in one output.  (NO_TAG is currently defined
-    // to be tag_value(-1), so zero is an allowed tag_value.)
-    for(int loop = 0; loop < 4; ++loop) {
-        // place one item in iq0
-        ASSERT(iq0.try_put(loop), "Error putting to iq1"); 
-        // attach iq0 to qnp
-        tbb::flow::make_edge( iq0, qnp );
-        // qnp should not have an item in it.  (the join consumed it.)
-        g.wait_for_all();
-        {
-            int i;
-            ASSERT(!qnp.try_get(i), "Item was received by qnp");
-        }
-        // place item in iq1
-        ASSERT(iq1.try_put(loop), "Error putting to iq1");
-        // oq0, oq1 should have items
-        g.wait_for_all();
-        {
-            OQType t0;
-            OQType t1;
-            ASSERT(oq0.try_get(t0) && tbb::flow::get<0>(t0) == loop && tbb::flow::get<1>(t0) == loop, "Error in oq0 output");
-            ASSERT(oq1.try_get(t1) && tbb::flow::get<0>(t1) == loop && tbb::flow::get<1>(t1) == loop, "Error in oq1 output");
-            ASSERT(!oq0.try_get(t0), "extra object in output queue oq0");
-            ASSERT(!oq1.try_get(t0), "extra object in output queue oq1");
-        }
-        // attach qnq to iq1
-        // qnp and qnq should be empty
-        tbb::flow::make_edge( iq1, qnq );
-        g.wait_for_all();
-        {
-            int i;
-            ASSERT(!qnp.try_get(i), "iq0 still had value in it");
-            ASSERT(!qnq.try_get(i), "iq1 still had value in it");
-        }
-        tbb::flow::remove_edge( iq0, qnp );
-        tbb::flow::remove_edge( iq1, qnq );
-    } // for ( int loop ...
 
-    // Now we'll put [4 .. nValues - 1] in iq0, and then put [4 .. nValues - 1] in iq1 in
-    // a different order.  We should see tuples in the output queues in the order we inserted
-    // the integers into iq1.
+        typedef tbb::flow::queue_node<int> IntQueueType;
+        typedef tbb::flow::queue_node<check_type<int> > CheckQueueType;
+        IntQueueType intInputQueue(g);
+        CheckQueueType checkInputQueue(g);
+        IntQueueType intEmptyTestQueue(g);
+        CheckQueueType checkEmptyTestQueue(g);
+        REMARK("Testing policies of join_node<tag_matching> input ports\n");
+        // attach testJoinNode to checkTupleQueue0, checkTupleQueue1
+        tbb::flow::make_edge( testJoinNode, checkTupleQueue0 );
+        tbb::flow::make_edge( testJoinNode, checkTupleQueue1 );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        ASSERT(testJoinNode.successor_count() == 2, NULL);
+        JoinNodeType::successor_vector_type my_succs;
+        testJoinNode.copy_successors(my_succs);
+        ASSERT(my_succs.size() == 2, NULL);
+#endif
+        // attach intInputQueue, checkInputQueue to testJoinNode
+        tbb::flow::make_edge( intInputQueue, tbb::flow::input_port<0>(testJoinNode) );
+        tbb::flow::make_edge( checkInputQueue, tbb::flow::input_port<1>(testJoinNode) );
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        ASSERT(tbb::flow::input_port<0>(testJoinNode).predecessor_count() == 1, NULL);
+        std::vector<tbb::flow::sender<int> *> my_0preds;
+        tbb::flow::input_port<0>(testJoinNode).copy_predecessors(my_0preds);
+        ASSERT(my_0preds.size() == 1, NULL);
+#endif
 
-    const int nValues = 100;
-    const int nIncr = 31;  // relatively prime to nValues
+        // we'll put four discrete values in the inputs to the join_node.  Each
+        // set of inputs should result in one output.  (NO_TAG is currently defined
+        // to be tag_value(-1), so zero is an allowed tag_value.)
+        for(int loop = 0; loop < 4; ++loop) {
+            // place one item in intInputQueue
+            ASSERT(intInputQueue.try_put(loop), "Error putting to intInputQueue"); 
+            // attach intInputQueue to intEmptyTestQueue
+            tbb::flow::make_edge( intInputQueue, intEmptyTestQueue );
+            // intEmptyTestQueue should not have an item in it.  (the join consumed it.)
+            g.wait_for_all();
+            {
+                int intVal0;
+                ASSERT(!intEmptyTestQueue.try_get(intVal0), "Item was received by intEmptyTestQueue");
+            }
+            // place item in checkInputQueue
+            check_type<int> checkVal0(loop);
+            ASSERT(checkInputQueue.try_put(checkVal0), "Error putting to checkInputQueue");
+            // checkTupleQueue0, checkTupleQueue1 should have items
+            g.wait_for_all();
+            {
+                CheckTupleType t0;
+                CheckTupleType t1;
+                ASSERT(checkTupleQueue0.try_get(t0) && tbb::flow::get<0>(t0) == loop && (int)tbb::flow::get<1>(t0) == loop, "Error in checkTupleQueue0 output");
+                ASSERT(checkTupleQueue1.try_get(t1) && tbb::flow::get<0>(t1) == loop && (int)tbb::flow::get<1>(t1) == loop, "Error in checkTupleQueue1 output");
+                ASSERT(!checkTupleQueue0.try_get(t0), "extra object in output queue checkTupleQueue0");
+                ASSERT(!checkTupleQueue1.try_get(t0), "extra object in output queue checkTupleQueue1");
+            }
+            // attach checkEmptyTestQueue to checkInputQueue
+            // intEmptyTestQueue and checkEmptyTestQueue should be empty
+            tbb::flow::make_edge( checkInputQueue, checkEmptyTestQueue );
+            g.wait_for_all();
+            {
+                int intVal1;
+                check_type<int> checkVal1;
+                //REMARK("loop == %d point 4.7 count is %d %d\n", loop, my_check(), my_check(1) );  // +1
+                ASSERT(!intEmptyTestQueue.try_get(intVal1), "intInputQueue still had value in it");
+                ASSERT(!checkEmptyTestQueue.try_get(checkVal1), "checkInputQueue still had value in it");
+            }
+            tbb::flow::remove_edge( intInputQueue, intEmptyTestQueue );
+            tbb::flow::remove_edge( checkInputQueue, checkEmptyTestQueue );
+        } // for ( int loop ...
 
-    for(int loop = 4; loop < 4+nValues; ++loop) {
-        // place one item in iq0
-        ASSERT(iq0.try_put(loop), "Error putting to iq1"); 
-        g.wait_for_all();
-        {
-            OQType t3;
-            ASSERT(!oq0.try_get(t3), "Object in output queue");
-            ASSERT(!oq1.try_get(t3), "Object in output queue");
-        }
-    } // for ( int loop ...
+        // Now we'll put [4 .. nValues - 1] in intInputQueue, and then put [4 .. nValues - 1] in checkInputQueue in
+        // a different order.  We should see tuples in the output queues in the order we inserted
+        // the integers into checkInputQueue.
+        const int nValues = 100;
+        const int nIncr = 31;  // relatively prime to nValues
 
-    for(int loop = 1; loop <= nValues; ++loop) {
-        int lp1 = 4 + (loop * nIncr)%nValues;
-        // place item in iq1
-        ASSERT(iq1.try_put(lp1), "Error putting to iq1");
-        // oq0, oq1 should have items
-        g.wait_for_all();
-        {
-            OQType t0;
-            OQType t1;
-            ASSERT(oq0.try_get(t0) && tbb::flow::get<0>(t0) == lp1 && tbb::flow::get<1>(t0) == lp1, "Error in oq0 output");
-            ASSERT(oq1.try_get(t1) && tbb::flow::get<0>(t1) == lp1 && tbb::flow::get<1>(t1) == lp1, "Error in oq1 output");
-            ASSERT(!oq0.try_get(t0), "extra object in output queue oq0");
-            ASSERT(!oq1.try_get(t0), "extra object in output queue oq1");
-        }
-    } // for ( int loop ...
+        for(int loop = 4; loop < 4+nValues; ++loop) {
+            // place one item in intInputQueue
+            ASSERT(intInputQueue.try_put(loop), "Error putting to intInputQueue"); 
+            g.wait_for_all();
+            {
+                CheckTupleType t3;
+                ASSERT(!checkTupleQueue0.try_get(t3), "Object in output queue");
+                ASSERT(!checkTupleQueue1.try_get(t3), "Object in output queue");
+            }
+        } // for ( int loop ...
+
+        for(int loop = 1; loop <= nValues; ++loop) {
+            int lp1 = 4 + (loop * nIncr)%nValues;
+            // place item in checkInputQueue
+            ASSERT(checkInputQueue.try_put(lp1), "Error putting to checkInputQueue");
+            // checkTupleQueue0, checkTupleQueue1 should have items
+            g.wait_for_all();
+            {
+                CheckTupleType t0;
+                CheckTupleType t1;
+                ASSERT(checkTupleQueue0.try_get(t0) && tbb::flow::get<0>(t0) == lp1 && tbb::flow::get<1>(t0) == lp1, "Error in checkTupleQueue0 output");
+                ASSERT(checkTupleQueue1.try_get(t1) && tbb::flow::get<0>(t1) == lp1 && tbb::flow::get<1>(t1) == lp1, "Error in checkTupleQueue1 output");
+                ASSERT(!checkTupleQueue0.try_get(t0), "extra object in output queue checkTupleQueue0");
+                ASSERT(!checkTupleQueue1.try_get(t0), "extra object in output queue checkTupleQueue1");
+            }
+        } // for ( int loop ...
+    } // Check
 }
 
 int TestMain() {
@@ -1153,15 +1551,19 @@ int TestMain() {
 #else
     REMARK("  Using platform tuple\n");
 #endif
+
+
     test_input_port_policies<tbb::flow::reserving>();
     test_input_port_policies<tbb::flow::queueing>();
     test_input_port_policies<tbb::flow::tag_matching>();
-
    for (int p = 0; p < 2; ++p) {
        REMARK("reserving\n");
-       generate_test<serial_test, tbb::flow::tuple<float, double>, tbb::flow::reserving >::do_test();
+       generate_test<serial_test, tbb::flow::tuple<threebyte, double>, tbb::flow::reserving >::do_test();
 #if MAX_TUPLE_TEST_SIZE >= 4
-       generate_test<serial_test, tbb::flow::tuple<float, double, int, long>, tbb::flow::reserving >::do_test();
+       {
+           Check<check_type<int> > my_check;
+           generate_test<serial_test, tbb::flow::tuple<float, double, check_type<int>, long>, tbb::flow::reserving >::do_test();
+       }
 #endif
 #if MAX_TUPLE_TEST_SIZE >= 6
        generate_test<serial_test, tbb::flow::tuple<double, double, int, long, int, short>, tbb::flow::reserving >::do_test();
@@ -1172,7 +1574,10 @@ int TestMain() {
 #if MAX_TUPLE_TEST_SIZE >= 10
        generate_test<serial_test, tbb::flow::tuple<float, double, int, double, double, float, long, int, float, long>, tbb::flow::reserving >::do_test();
 #endif
-       generate_test<parallel_test, tbb::flow::tuple<float, double>, tbb::flow::reserving >::do_test();
+       {
+           Check<check_type<int> > my_check1;
+           generate_test<parallel_test, tbb::flow::tuple<float, check_type<int> >, tbb::flow::reserving >::do_test();
+       }
 #if MAX_TUPLE_TEST_SIZE >= 3
        generate_test<parallel_test, tbb::flow::tuple<float, int, long>, tbb::flow::reserving >::do_test();
 #endif
@@ -1244,5 +1649,13 @@ int TestMain() {
        generate_recirc_test<tbb::flow::tuple<double, double, int, int, short> >::do_test();
 #endif
    }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+   REMARK("test queueing extract\n");
+   test_join_extract<int, tbb::flow::join_node< tbb::flow::tuple<int,int>, tbb::flow::queueing> >().run_tests(); 
+   REMARK("test tag_matching extract\n");
+   test_join_extract<int, tbb::flow::join_node< tbb::flow::tuple<int,int>, tbb::flow::tag_matching> >().run_tests(); 
+   REMARK("test reserving extract\n");
+   test_join_extract<int, tbb::flow::join_node< tbb::flow::tuple<int,int>, tbb::flow::reserving> >().run_tests(); 
+#endif
    return Harness::Done;
 }

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness_defs.h"
@@ -32,6 +24,7 @@
 #include "tbb/concurrent_vector.h"
 #include "harness.h"
 #include <math.h>
+#include <vector>
 #include <exception>
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
@@ -509,6 +502,58 @@ void Flog() {
     delete [] string_array_2;
 }
 
+const int elements = 10000;
+
+void rand_vec(std::vector<int> &v) {
+    for (int i=0; i<elements; ++i) {
+        (v.push_back(rand()%elements*10));
+    }
+}
+
+void range_sort_test() {
+    std::vector<int> v;
+
+    typedef std::vector<int>::iterator itor;
+    // iterator checks
+    rand_vec(v);
+    tbb::parallel_sort(v.begin(), v.end());
+    for(itor a=v.begin(); a<v.end()-1; ++a) ASSERT(*a <= *(a+1), "v not sorted");
+    v.clear();
+
+    rand_vec(v);
+    tbb::parallel_sort(v.begin(), v.end(), std::greater<int>());
+    for(itor a=v.begin(); a<v.end()-1; ++a) ASSERT(*a >= *(a+1), "v not sorted");
+    v.clear();
+
+    // range checks
+    rand_vec(v);
+    tbb::parallel_sort(v);
+    for(itor a=v.begin(); a<v.end()-1; ++a) ASSERT(*a <= *(a+1), "v not sorted");
+    v.clear();
+
+    rand_vec(v);
+    tbb::parallel_sort(v, std::greater<int>());
+    for(itor a=v.begin(); a<v.end()-1; ++a) ASSERT(*a >= *(a+1), "v not sorted");
+    v.clear();
+
+    // const range checks
+    rand_vec(v);
+    tbb::parallel_sort(tbb::blocked_range<std::vector<int>::iterator>(v.begin(), v.end()));
+    for(itor a=v.begin(); a<v.end()-1; ++a) ASSERT(*a <= *(a+1), "v not sorted");
+    v.clear();
+
+    rand_vec(v);
+    tbb::parallel_sort(tbb::blocked_range<std::vector<int>::iterator>(v.begin(), v.end()), std::greater<int>());
+    for(itor a=v.begin(); a<v.end()-1; ++a) ASSERT(*a >= *(a+1), "v not sorted");
+    v.clear();
+
+    // array tests
+    int arr[elements];
+    for(int i=0; i<elements; ++i) arr[i] = rand()%(elements*10);
+    tbb::parallel_sort(arr);
+    for(int i=0; i<elements-1; ++i) ASSERT(arr[i] <= arr[i+1], "arr not sorted");
+}
+
 #include <cstdio>
 #include "harness_cpu.h"
 
@@ -522,6 +567,7 @@ int TestMain () {
             tbb::task_scheduler_init init( p );
             current_p = p;
             Flog();
+            range_sort_test();
 
             // Test that all workers sleep when no work
             TestCPUUserTime(p);

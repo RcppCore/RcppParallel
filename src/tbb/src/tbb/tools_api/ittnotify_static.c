@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "ittnotify_config.h"
@@ -40,14 +32,14 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define INTEL_NO_MACRO_BODY
+#define INTEL_NO_MACRO_BODY 
 #define INTEL_ITTNOTIFY_API_PRIVATE
 #include "ittnotify.h"
 #include "legacy/ittnotify.h"
 
 #include "disable_warnings.h"
 
-static const char api_version[] = API_VERSION "\0\n@(#) 201495 2011-12-01 14:14:56Z\n";
+static const char api_version[] = API_VERSION "\0\n@(#) $Revision: 336044 $\n";
 
 #define _N_(n) ITT_JOIN(INTEL_ITTNOTIFY_PREFIX,n)
 
@@ -61,8 +53,35 @@ static const char* ittnotify_lib_name = "libittnotify.dylib";
 #error Unsupported or unknown OS.
 #endif
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <linux/limits.h>
+
+#ifdef ITT_ANDROID_LOG
+    #define ITT_ANDROID_LOG_TAG   "INTEL_VTUNE_USERAPI"
+    #define ITT_ANDROID_LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, ITT_ANDROID_LOG_TAG, __VA_ARGS__))
+    #define ITT_ANDROID_LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, ITT_ANDROID_LOG_TAG, __VA_ARGS__))
+    #define ITT_ANDROID_LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR,ITT_ANDROID_LOG_TAG, __VA_ARGS__))
+    #define ITT_ANDROID_LOGD(...) ((void)__android_log_print(ANDROID_LOG_DEBUG,ITT_ANDROID_LOG_TAG, __VA_ARGS__))
+#else
+    #define ITT_ANDROID_LOGI(...)
+    #define ITT_ANDROID_LOGW(...)
+    #define ITT_ANDROID_LOGE(...)
+    #define ITT_ANDROID_LOGD(...)
+#endif
+
+/* default location of userapi collector on Android */
+#define ANDROID_ITTNOTIFY_DEFAULT_PATH  "/data/data/com.intel.vtune/intel/libittnotify.so"
+#endif
+
+
 #ifndef LIB_VAR_NAME
-#if ITT_ARCH==ITT_ARCH_IA32
+#if ITT_ARCH==ITT_ARCH_IA32 || ITT_ARCH==ITT_ARCH_ARM
 #define LIB_VAR_NAME INTEL_LIBITTNOTIFY32
 #else
 #define LIB_VAR_NAME INTEL_LIBITTNOTIFY64
@@ -110,7 +129,7 @@ static __itt_fini_ittlib_t* __itt_fini_ittlib_ptr = _N_(fini_ittlib);
 #define ITT_STUB(api,type,name,args,params,ptr,group,format)   \
 static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args;\
 typedef type api ITT_JOIN(_N_(name),_t) args;                  \
-ITT_EXTERN_C { ITT_JOIN(_N_(name),_t)* ITTNOTIFY_NAME(name) = ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)); } \
+ITT_EXTERN_C { ITT_JOIN(_N_(name),_t)* ITTNOTIFY_NAME(name) = ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)); }  \
 static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args \
 {                                                              \
     __itt_init_ittlib_name(NULL, __itt_group_all);             \
@@ -123,8 +142,7 @@ static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args \
 #define ITT_STUBV(api,type,name,args,params,ptr,group,format)  \
 static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args;\
 typedef type api ITT_JOIN(_N_(name),_t) args;                  \
-ITT_EXTERN_C {                                                 \
-ITT_JOIN(_N_(name),_t)* ITTNOTIFY_NAME(name) = ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)); } \
+ITT_EXTERN_C { ITT_JOIN(_N_(name),_t)* ITTNOTIFY_NAME(name) = ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)); }  \
 static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args \
 {                                                              \
     __itt_init_ittlib_name(NULL, __itt_group_all);             \
@@ -142,8 +160,7 @@ static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args \
 #define ITT_STUB(api,type,name,args,params,ptr,group,format)   \
 static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args;\
 typedef type api ITT_JOIN(_N_(name),_t) args;                  \
-ITT_EXTERN_C {                                                 \
-ITT_JOIN(_N_(name),_t)* ITTNOTIFY_NAME(name) = ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)); }
+ITT_EXTERN_C { ITT_JOIN(_N_(name),_t)* ITTNOTIFY_NAME(name) = ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)); }
 
 #define ITT_STUBV(api,type,name,args,params,ptr,group,format)  \
 static type api ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)) args;\
@@ -166,7 +183,7 @@ typedef struct ___itt_group_alias
 
 static __itt_group_alias group_alias[] = {
     { "KMP_FOR_TPROFILE", (__itt_group_id)(__itt_group_control | __itt_group_thread | __itt_group_sync  | __itt_group_mark) },
-    { "KMP_FOR_TCHECK",   (__itt_group_id)(__itt_group_control | __itt_group_thread | __itt_group_sync  | __itt_group_fsync | __itt_group_mark) },
+    { "KMP_FOR_TCHECK",   (__itt_group_id)(__itt_group_control | __itt_group_thread | __itt_group_sync  | __itt_group_fsync | __itt_group_mark | __itt_group_suppress) },
     { NULL,               (__itt_group_none) },
     { api_version,        (__itt_group_none) } /* !!! Just to avoid unused code elimination !!! */
 };
@@ -182,7 +199,7 @@ static __itt_api_info api_list[] = {
 /* Define functions with static implementation */
 #undef ITT_STUB
 #undef ITT_STUBV
-#define ITT_STUB(api,type,name,args,params,nameindll,group,format) {ITT_TO_STR(ITT_JOIN(__itt_,nameindll)), (void**)(void*)&ITTNOTIFY_NAME(name), (void*)&ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)), (void*)&ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)), (__itt_group_id)(group)},
+#define ITT_STUB(api,type,name,args,params,nameindll,group,format) { ITT_TO_STR(ITT_JOIN(__itt_,nameindll)), (void**)(void*)&ITTNOTIFY_NAME(name), (void*)(size_t)&ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)), (void*)(size_t)&ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)), (__itt_group_id)(group)},
 #define ITT_STUBV ITT_STUB
 #define __ITT_INTERNAL_INIT
 #include "ittnotify_static.h"
@@ -190,7 +207,7 @@ static __itt_api_info api_list[] = {
 /* Define functions without static implementation */
 #undef ITT_STUB
 #undef ITT_STUBV
-#define ITT_STUB(api,type,name,args,params,nameindll,group,format) {ITT_TO_STR(ITT_JOIN(__itt_,nameindll)), (void**)(void*)&ITTNOTIFY_NAME(name), (void*)&ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)), NULL, (__itt_group_id)(group)},
+#define ITT_STUB(api,type,name,args,params,nameindll,group,format) {ITT_TO_STR(ITT_JOIN(__itt_,nameindll)), (void**)(void*)&ITTNOTIFY_NAME(name), (void*)(size_t)&ITT_VERSIONIZE(ITT_JOIN(_N_(name),_init)), NULL, (__itt_group_id)(group)},
 #define ITT_STUBV ITT_STUB
 #include "ittnotify_static.h"
     {NULL, NULL, NULL, NULL, __itt_group_none}
@@ -245,7 +262,7 @@ static __itt_string_handle null_string_handle = {
 static const char dll_path[PATH_MAX] = { 0 };
 
 /* static part descriptor which handles. all notification api attributes. */
-__itt_global __itt_ittapi_global = {
+__itt_global _N_(_ittapi_global) = {
     ITT_MAGIC,                                     /* identification info */
     ITT_MAJOR, ITT_MINOR, API_VERSION_BUILD,       /* version info */
     0,                                             /* api_initialized */
@@ -281,9 +298,9 @@ static void __itt_report_error(__itt_error_code code, ...)
 {
     va_list args;
     va_start(args, code);
-    if (__itt_ittapi_global.error_handler != NULL)
+    if (_N_(_ittapi_global).error_handler != NULL)
     {
-        __itt_error_handler_t* handler = (__itt_error_handler_t*)__itt_ittapi_global.error_handler;
+        __itt_error_handler_t* handler = (__itt_error_handler_t*)(size_t)_N_(_ittapi_global).error_handler;
         handler(code, args);
     }
 #ifdef ITT_NOTIFY_EXT_REPORT
@@ -301,7 +318,7 @@ static __itt_domain* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(domain_createW),_init))(
 {
     __itt_domain *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
         if (ITTNOTIFY_NAME(domain_createW) && ITTNOTIFY_NAME(domain_createW) != ITT_VERSIONIZE(ITT_JOIN(_N_(domain_createW),_init)))
@@ -309,16 +326,16 @@ static __itt_domain* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(domain_createW),_init))(
     }
 
     if (name == NULL)
-        return __itt_ittapi_global.domain_list;
+        return _N_(_ittapi_global).domain_list;
 
-    ITT_MUTEX_INIT_AND_LOCK(__itt_ittapi_global);
-    for (h_tail = NULL, h = __itt_ittapi_global.domain_list; h != NULL; h_tail = h, h = h->next)
+    ITT_MUTEX_INIT_AND_LOCK(_N_(_ittapi_global));
+    for (h_tail = NULL, h = _N_(_ittapi_global).domain_list; h != NULL; h_tail = h, h = h->next)
         if (h->nameW != NULL && !wcscmp(h->nameW, name))
             break;
     if (h == NULL) {
-        NEW_DOMAIN_W(&__itt_ittapi_global,h,h_tail,name);
+        NEW_DOMAIN_W(&_N_(_ittapi_global),h,h_tail,name);
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
     return h;
 }
 
@@ -329,7 +346,7 @@ static __itt_domain* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(domain_create),_init))(c
 {
     __itt_domain *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
@@ -342,16 +359,16 @@ static __itt_domain* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(domain_create),_init))(c
     }
 
     if (name == NULL)
-        return __itt_ittapi_global.domain_list;
+        return _N_(_ittapi_global).domain_list;
 
-    ITT_MUTEX_INIT_AND_LOCK(__itt_ittapi_global);
-    for (h_tail = NULL, h = __itt_ittapi_global.domain_list; h != NULL; h_tail = h, h = h->next)
+    ITT_MUTEX_INIT_AND_LOCK(_N_(_ittapi_global));
+    for (h_tail = NULL, h = _N_(_ittapi_global).domain_list; h != NULL; h_tail = h, h = h->next)
         if (h->nameA != NULL && !__itt_fstrcmp(h->nameA, name))
             break;
     if (h == NULL) {
-        NEW_DOMAIN_A(&__itt_ittapi_global,h,h_tail,name);
+        NEW_DOMAIN_A(&_N_(_ittapi_global),h,h_tail,name);
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
     return h;
 }
 
@@ -360,7 +377,7 @@ static __itt_string_handle* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_cre
 {
     __itt_string_handle *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
         if (ITTNOTIFY_NAME(string_handle_createW) && ITTNOTIFY_NAME(string_handle_createW) != ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_createW),_init)))
@@ -368,16 +385,16 @@ static __itt_string_handle* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_cre
     }
 
     if (name == NULL)
-        return __itt_ittapi_global.string_list;
+        return _N_(_ittapi_global).string_list;
 
-    ITT_MUTEX_INIT_AND_LOCK(__itt_ittapi_global);
-    for (h_tail = NULL, h = __itt_ittapi_global.string_list; h != NULL; h_tail = h, h = h->next)
+    ITT_MUTEX_INIT_AND_LOCK(_N_(_ittapi_global));
+    for (h_tail = NULL, h = _N_(_ittapi_global).string_list; h != NULL; h_tail = h, h = h->next)
         if (h->strW != NULL && !wcscmp(h->strW, name))
             break;
     if (h == NULL) {
-        NEW_STRING_HANDLE_W(&__itt_ittapi_global,h,h_tail,name);
+        NEW_STRING_HANDLE_W(&_N_(_ittapi_global),h,h_tail,name);
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
     return h;
 }
 
@@ -388,7 +405,7 @@ static __itt_string_handle* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_cre
 {
     __itt_string_handle *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
@@ -401,16 +418,16 @@ static __itt_string_handle* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_cre
     }
 
     if (name == NULL)
-        return __itt_ittapi_global.string_list;
+        return _N_(_ittapi_global).string_list;
 
-    ITT_MUTEX_INIT_AND_LOCK(__itt_ittapi_global);
-    for (h_tail = NULL, h = __itt_ittapi_global.string_list; h != NULL; h_tail = h, h = h->next)
+    ITT_MUTEX_INIT_AND_LOCK(_N_(_ittapi_global));
+    for (h_tail = NULL, h = _N_(_ittapi_global).string_list; h != NULL; h_tail = h, h = h->next)
         if (h->strA != NULL && !__itt_fstrcmp(h->strA, name))
             break;
     if (h == NULL) {
-        NEW_STRING_HANDLE_A(&__itt_ittapi_global,h,h_tail,name);
+        NEW_STRING_HANDLE_A(&_N_(_ittapi_global),h,h_tail,name);
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
     return h;
 }
 
@@ -418,7 +435,7 @@ static __itt_string_handle* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_cre
 
 static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(pause),_init))(void)
 {
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
         if (ITTNOTIFY_NAME(pause) && ITTNOTIFY_NAME(pause) != ITT_VERSIONIZE(ITT_JOIN(_N_(pause),_init)))
@@ -427,12 +444,12 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(pause),_init))(void)
             return;
         }
     }
-    __itt_ittapi_global.state = __itt_collection_paused;
+    _N_(_ittapi_global).state = __itt_collection_paused;
 }
 
 static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(resume),_init))(void)
 {
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
         if (ITTNOTIFY_NAME(resume) && ITTNOTIFY_NAME(resume) != ITT_VERSIONIZE(ITT_JOIN(_N_(resume),_init)))
@@ -441,7 +458,7 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(resume),_init))(void)
             return;
         }
     }
-    __itt_ittapi_global.state = __itt_collection_normal;
+    _N_(_ittapi_global).state = __itt_collection_normal;
 }
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
@@ -450,7 +467,7 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thread_set_nameW),_init))(const w
     TIDT tid = __itt_thread_id();
     __itt_thread_info *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
         if (ITTNOTIFY_NAME(thread_set_nameW) && ITTNOTIFY_NAME(thread_set_nameW) != ITT_VERSIONIZE(ITT_JOIN(_N_(thread_set_nameW),_init)))
@@ -460,18 +477,18 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thread_set_nameW),_init))(const w
         }
     }
 
-    __itt_mutex_lock(&__itt_ittapi_global.mutex);
-    for (h_tail = NULL, h = __itt_ittapi_global.thread_list; h != NULL; h_tail = h, h = h->next)
+    __itt_mutex_lock(&_N_(_ittapi_global).mutex);
+    for (h_tail = NULL, h = _N_(_ittapi_global).thread_list; h != NULL; h_tail = h, h = h->next)
         if (h->tid == tid)
             break;
     if (h == NULL) {
-        NEW_THREAD_INFO_W(&__itt_ittapi_global, h, h_tail, tid, __itt_thread_normal, name);
+        NEW_THREAD_INFO_W(&_N_(_ittapi_global), h, h_tail, tid, __itt_thread_normal, name);
     }
     else
     {
         h->nameW = name ? _wcsdup(name) : NULL;
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
 }
 
 static int ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thr_name_setW),_init))(const wchar_t* name, int namelen)
@@ -489,7 +506,7 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thread_set_name),_init))(const ch
     TIDT tid = __itt_thread_id();
     __itt_thread_info *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
@@ -507,18 +524,18 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thread_set_name),_init))(const ch
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
     }
 
-    __itt_mutex_lock(&__itt_ittapi_global.mutex);
-    for (h_tail = NULL, h = __itt_ittapi_global.thread_list; h != NULL; h_tail = h, h = h->next)
+    __itt_mutex_lock(&_N_(_ittapi_global).mutex);
+    for (h_tail = NULL, h = _N_(_ittapi_global).thread_list; h != NULL; h_tail = h, h = h->next)
         if (h->tid == tid)
             break;
     if (h == NULL) {
-        NEW_THREAD_INFO_A(&__itt_ittapi_global, h, h_tail, tid, __itt_thread_normal, name);
+        NEW_THREAD_INFO_A(&_N_(_ittapi_global), h, h_tail, tid, __itt_thread_normal, name);
     }
     else
     {
         h->nameA = name ? __itt_fstrdup(name) : NULL;
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
 }
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
@@ -531,7 +548,6 @@ static int ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thr_name_setA),_init))(const char*
 #else  /* ITT_PLATFORM==ITT_PLATFORM_WIN */
 static int ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thr_name_set),_init))(const char* name, int namelen)
 {
-    namelen = namelen;
     ITT_VERSIONIZE(ITT_JOIN(_N_(thread_set_name),_init))(name);
     return 0;
 }
@@ -542,7 +558,7 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thread_ignore),_init))(void)
     TIDT tid = __itt_thread_id();
     __itt_thread_info *h_tail, *h;
 
-    if (!__itt_ittapi_global.api_initialized && __itt_ittapi_global.thread_list->tid == 0)
+    if (!_N_(_ittapi_global).api_initialized && _N_(_ittapi_global).thread_list->tid == 0)
     {
         __itt_init_ittlib_name(NULL, __itt_group_all);
         if (ITTNOTIFY_NAME(thread_ignore) && ITTNOTIFY_NAME(thread_ignore) != ITT_VERSIONIZE(ITT_JOIN(_N_(thread_ignore),_init)))
@@ -552,24 +568,35 @@ static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thread_ignore),_init))(void)
         }
     }
 
-    __itt_mutex_lock(&__itt_ittapi_global.mutex);
-    for (h_tail = NULL, h = __itt_ittapi_global.thread_list; h != NULL; h_tail = h, h = h->next)
+    __itt_mutex_lock(&_N_(_ittapi_global).mutex);
+    for (h_tail = NULL, h = _N_(_ittapi_global).thread_list; h != NULL; h_tail = h, h = h->next)
         if (h->tid == tid)
             break;
     if (h == NULL) {
         static const char* name = "unknown";
-        NEW_THREAD_INFO_A(&__itt_ittapi_global, h, h_tail, tid, __itt_thread_ignored, name);
+        NEW_THREAD_INFO_A(&_N_(_ittapi_global), h, h_tail, tid, __itt_thread_ignored, name);
     }
     else
     {
         h->state = __itt_thread_ignored;
     }
-    __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+    __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
 }
 
 static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(thr_ignore),_init))(void)
 {
     ITT_VERSIONIZE(ITT_JOIN(_N_(thread_ignore),_init))();
+}
+
+static void ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(enable_attach),_init))(void)
+{
+#ifdef __ANDROID__
+    /*
+     * if LIB_VAR_NAME env variable were set before then stay previous value
+     * else set default path
+    */
+    setenv(ITT_TO_STR(LIB_VAR_NAME), ANDROID_ITTNOTIFY_DEFAULT_PATH, 0);
+#endif
 }
 
 /* -------------------------------------------------------------------------- */
@@ -689,6 +716,93 @@ static const char* __itt_get_env_var(const char* name)
 static const char* __itt_get_lib_name(void)
 {
     const char* lib_name = __itt_get_env_var(ITT_TO_STR(LIB_VAR_NAME));
+
+#ifdef __ANDROID__
+    if (lib_name == NULL)
+    {
+        const char* const system_wide_marker_filename = "/data/local/tmp/com.intel.itt.collector_lib";
+        int itt_marker_file_fd = open(system_wide_marker_filename, O_RDONLY);
+        ssize_t res = 0;
+
+        if (itt_marker_file_fd == -1)
+        {
+            const pid_t my_pid = getpid();
+            char cmdline_path[PATH_MAX] = {0};
+            char package_name[PATH_MAX] = {0};
+            char app_sandbox_file[PATH_MAX] = {0};
+            int cmdline_fd = 0;
+
+            ITT_ANDROID_LOGI("Unable to open system-wide marker file.");
+            snprintf(cmdline_path, PATH_MAX - 1, "/proc/%d/cmdline", my_pid);
+            ITT_ANDROID_LOGI("CMD file: %s\n", cmdline_path);
+            cmdline_fd = open(cmdline_path, O_RDONLY);
+            if (cmdline_fd == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to open %s file!", cmdline_path);
+                return lib_name;
+            }
+            res = read(cmdline_fd, package_name, PATH_MAX - 1);
+            if (res == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to read %s file!", cmdline_path);
+                res = close(cmdline_fd);
+                if (res == -1)
+                {
+                    ITT_ANDROID_LOGE("Unable to close %s file!", cmdline_path);
+                }
+                return lib_name;
+            }
+            res = close(cmdline_fd);
+            if (res == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to close %s file!", cmdline_path);
+                return lib_name;
+            }
+            ITT_ANDROID_LOGI("Package name: %s\n", package_name);
+            snprintf(app_sandbox_file, PATH_MAX - 1, "/data/data/%s/com.intel.itt.collector_lib", package_name);
+            ITT_ANDROID_LOGI("Lib marker file name: %s\n", app_sandbox_file);
+            itt_marker_file_fd = open(app_sandbox_file, O_RDONLY);
+            if (itt_marker_file_fd == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to open app marker file!");
+                return lib_name;
+            }
+        }
+
+        {
+            char itt_lib_name[PATH_MAX] = {0};
+
+            res = read(itt_marker_file_fd, itt_lib_name, PATH_MAX - 1);
+            if (res == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to read %s file!", itt_marker_file_fd);
+                res = close(itt_marker_file_fd);
+                if (res == -1)
+                {
+                    ITT_ANDROID_LOGE("Unable to close %s file!", itt_marker_file_fd);
+                }
+                return lib_name;
+            }
+            ITT_ANDROID_LOGI("ITT Lib path: %s", itt_lib_name);
+            res = close(itt_marker_file_fd);
+            if (res == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to close %s file!", itt_marker_file_fd);
+                return lib_name;
+            }
+            ITT_ANDROID_LOGI("Set env");
+            res = setenv(ITT_TO_STR(LIB_VAR_NAME), itt_lib_name, 0);
+            if (res == -1)
+            {
+                ITT_ANDROID_LOGE("Unable to set env var!");
+                return lib_name;
+            }
+            lib_name = __itt_get_env_var(ITT_TO_STR(LIB_VAR_NAME));
+            ITT_ANDROID_LOGI("ITT Lib path from env: %s", itt_lib_name);
+        }
+    }
+#endif
+
     return lib_name;
 }
 
@@ -698,7 +812,7 @@ static const char* __itt_get_lib_name(void)
 
 static __itt_group_id __itt_get_groups(void)
 {
-    register int i;
+    int i;
     __itt_group_id res = __itt_group_none;
     const char* var_name  = "INTEL_ITTNOTIFY_GROUPS";
     const char* group_str = __itt_get_env_var(var_name);
@@ -710,9 +824,8 @@ static __itt_group_id __itt_get_groups(void)
         const char* chunk;
         while ((group_str = __itt_fsplit(group_str, ",; ", &chunk, &len)) != NULL)
         {
-            __itt_fstrcpyn(gr, chunk, sizeof(gr));
-
-            gr[min((unsigned)len, sizeof(gr) - 1)] = 0;
+            __itt_fstrcpyn(gr, chunk, sizeof(gr) - 1);
+            gr[min(len, (int)(sizeof(gr) - 1))] = 0;
 
             for (i = 0; group_list[i].name != NULL; i++)
             {
@@ -759,17 +872,17 @@ static void __itt_reinit_all_pointers(void)
 {
     register int i;
     // Fill all pointers with initial stubs
-    for (i = 0; __itt_ittapi_global.api_list_ptr[i].name != NULL; i++)
-        *__itt_ittapi_global.api_list_ptr[i].func_ptr = __itt_ittapi_global.api_list_ptr[i].init_func;
+    for (i = 0; _N_(_ittapi_global).api_list_ptr[i].name != NULL; i++)
+        *_N_(_ittapi_global).api_list_ptr[i].func_ptr = _N_(_ittapi_global).api_list_ptr[i].init_func;
 }
 */
 
 static void __itt_nullify_all_pointers(void)
 {
-    register int i;
+    int i;
     /* Nulify all pointers except domain_create and string_handle_create */
-    for (i = 0; __itt_ittapi_global.api_list_ptr[i].name != NULL; i++)
-        *__itt_ittapi_global.api_list_ptr[i].func_ptr = __itt_ittapi_global.api_list_ptr[i].null_func;
+    for (i = 0; _N_(_ittapi_global).api_list_ptr[i].name != NULL; i++)
+        *_N_(_ittapi_global).api_list_ptr[i].func_ptr = _N_(_ittapi_global).api_list_ptr[i].null_func;
 }
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
@@ -783,87 +896,88 @@ ITT_EXTERN_C void _N_(fini_ittlib)(void)
     __itt_api_fini_t* __itt_api_fini_ptr;
     static volatile TIDT current_thread = 0;
 
-    if (__itt_ittapi_global.api_initialized)
+    if (_N_(_ittapi_global).api_initialized)
     {
-        __itt_mutex_lock(&__itt_ittapi_global.mutex);
-        if (__itt_ittapi_global.api_initialized)
+        __itt_mutex_lock(&_N_(_ittapi_global).mutex);
+        if (_N_(_ittapi_global).api_initialized)
         {
             if (current_thread == 0)
             {
                 current_thread = __itt_thread_id();
-                __itt_api_fini_ptr = (__itt_api_fini_t*)__itt_get_proc(__itt_ittapi_global.lib, "__itt_api_fini");
+                __itt_api_fini_ptr = (__itt_api_fini_t*)(size_t)__itt_get_proc(_N_(_ittapi_global).lib, "__itt_api_fini");
                 if (__itt_api_fini_ptr)
-                    __itt_api_fini_ptr(&__itt_ittapi_global);
+                    __itt_api_fini_ptr(&_N_(_ittapi_global));
 
                 __itt_nullify_all_pointers();
 
  /* TODO: !!! not safe !!! don't support unload so far.
-  *             if (__itt_ittapi_global.lib != NULL)
-  *                 __itt_unload_lib(__itt_ittapi_global.lib);
-  *             __itt_ittapi_global.lib = NULL;
+  *             if (_N_(_ittapi_global).lib != NULL)
+  *                 __itt_unload_lib(_N_(_ittapi_global).lib);
+  *             _N_(_ittapi_global).lib = NULL;
   */
-                __itt_ittapi_global.api_initialized = 0;
+                _N_(_ittapi_global).api_initialized = 0;
                 current_thread = 0;
             }
         }
-        __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+        __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
     }
 }
 
 ITT_EXTERN_C int _N_(init_ittlib)(const char* lib_name, __itt_group_id init_groups)
 {
-    register int i;
+    int i;
     __itt_group_id groups;
 #ifdef ITT_COMPLETE_GROUP
     __itt_group_id zero_group = __itt_group_none;
 #endif /* ITT_COMPLETE_GROUP */
     static volatile TIDT current_thread = 0;
 
-    if (!__itt_ittapi_global.api_initialized)
+    if (!_N_(_ittapi_global).api_initialized)
     {
 #ifndef ITT_SIMPLE_INIT
-        ITT_MUTEX_INIT_AND_LOCK(__itt_ittapi_global);
+        ITT_MUTEX_INIT_AND_LOCK(_N_(_ittapi_global));
 #endif /* ITT_SIMPLE_INIT */
 
-        if (!__itt_ittapi_global.api_initialized)
+        if (!_N_(_ittapi_global).api_initialized)
         {
             if (current_thread == 0)
             {
                 current_thread = __itt_thread_id();
-                __itt_ittapi_global.thread_list->tid = current_thread;
+                _N_(_ittapi_global).thread_list->tid = current_thread;
                 if (lib_name == NULL)
                     lib_name = __itt_get_lib_name();
                 groups = __itt_get_groups();
                 if (groups != __itt_group_none || lib_name != NULL)
                 {
-                    __itt_ittapi_global.lib = __itt_load_lib((lib_name == NULL) ? ittnotify_lib_name : lib_name);
-                    if (__itt_ittapi_global.lib != NULL)
+                    _N_(_ittapi_global).lib = __itt_load_lib((lib_name == NULL) ? ittnotify_lib_name : lib_name);
+
+                    if (_N_(_ittapi_global).lib != NULL)
                     {
                         __itt_api_init_t* __itt_api_init_ptr;
-                        int lib_version = __itt_lib_version(__itt_ittapi_global.lib);
+                        int lib_version = __itt_lib_version(_N_(_ittapi_global).lib);
 
                         switch (lib_version) {
                         case 0:
                             groups = __itt_group_legacy;
                         case 1:
                             /* Fill all pointers from dynamic library */
-                            for (i = 0; __itt_ittapi_global.api_list_ptr[i].name != NULL; i++)
+                            for (i = 0; _N_(_ittapi_global).api_list_ptr[i].name != NULL; i++)
                             {
-                                if (__itt_ittapi_global.api_list_ptr[i].group & groups & init_groups)
+                                if (_N_(_ittapi_global).api_list_ptr[i].group & groups & init_groups)
                                 {
-                                    *__itt_ittapi_global.api_list_ptr[i].func_ptr = (void*)__itt_get_proc(__itt_ittapi_global.lib, __itt_ittapi_global.api_list_ptr[i].name);
-                                    if (*__itt_ittapi_global.api_list_ptr[i].func_ptr == NULL)
+                                    *_N_(_ittapi_global).api_list_ptr[i].func_ptr = (void*)__itt_get_proc(_N_(_ittapi_global).lib, _N_(_ittapi_global).api_list_ptr[i].name);
+                                    if (*_N_(_ittapi_global).api_list_ptr[i].func_ptr == NULL)
                                     {
                                         /* Restore pointers for function with static implementation */
-                                        *__itt_ittapi_global.api_list_ptr[i].func_ptr = __itt_ittapi_global.api_list_ptr[i].null_func;
-                                        __itt_report_error(__itt_error_no_symbol, lib_name, __itt_ittapi_global.api_list_ptr[i].name);
+                                        *_N_(_ittapi_global).api_list_ptr[i].func_ptr = _N_(_ittapi_global).api_list_ptr[i].null_func;
+                                        __itt_report_error(__itt_error_no_symbol, lib_name, _N_(_ittapi_global).api_list_ptr[i].name);
 #ifdef ITT_COMPLETE_GROUP
-                                        zero_group = (__itt_group_id)(zero_group | __itt_ittapi_global.api_list_ptr[i].group);
+                                        zero_group = (__itt_group_id)(zero_group | _N_(_ittapi_global).api_list_ptr[i].group);
 #endif /* ITT_COMPLETE_GROUP */
                                     }
                                 }
                                 else
-                                    *__itt_ittapi_global.api_list_ptr[i].func_ptr = __itt_ittapi_global.api_list_ptr[i].null_func;
+                                    *_N_(_ittapi_global).api_list_ptr[i].func_ptr = _N_(_ittapi_global).api_list_ptr[i].null_func;
                             }
 
                             if (groups == __itt_group_legacy)
@@ -883,15 +997,15 @@ ITT_EXTERN_C int _N_(init_ittlib)(const char* lib_name, __itt_group_id init_grou
                             }
 
 #ifdef ITT_COMPLETE_GROUP
-                            for (i = 0; __itt_ittapi_global.api_list_ptr[i].name != NULL; i++)
-                                if (__itt_ittapi_global.api_list_ptr[i].group & zero_group)
-                                    *__itt_ittapi_global.api_list_ptr[i].func_ptr = __itt_ittapi_global.api_list_ptr[i].null_func;
+                            for (i = 0; _N_(_ittapi_global).api_list_ptr[i].name != NULL; i++)
+                                if (_N_(_ittapi_global).api_list_ptr[i].group & zero_group)
+                                    *_N_(_ittapi_global).api_list_ptr[i].func_ptr = _N_(_ittapi_global).api_list_ptr[i].null_func;
 #endif /* ITT_COMPLETE_GROUP */
                             break;
                         case 2:
-                            __itt_api_init_ptr = (__itt_api_init_t*)__itt_get_proc(__itt_ittapi_global.lib, "__itt_api_init");
+                            __itt_api_init_ptr = (__itt_api_init_t*)(size_t)__itt_get_proc(_N_(_ittapi_global).lib, "__itt_api_init");
                             if (__itt_api_init_ptr)
-                                __itt_api_init_ptr(&__itt_ittapi_global, init_groups);
+                                __itt_api_init_ptr(&_N_(_ittapi_global), init_groups);
                             break;
                         }
                     }
@@ -912,7 +1026,7 @@ ITT_EXTERN_C int _N_(init_ittlib)(const char* lib_name, __itt_group_id init_grou
                 {
                     __itt_nullify_all_pointers();
                 }
-                __itt_ittapi_global.api_initialized = 1;
+                _N_(_ittapi_global).api_initialized = 1;
                 current_thread = 0;
                 /* !!! Just to avoid unused code elimination !!! */
                 if (__itt_fini_ittlib_ptr == _N_(fini_ittlib)) current_thread = 0;
@@ -920,25 +1034,26 @@ ITT_EXTERN_C int _N_(init_ittlib)(const char* lib_name, __itt_group_id init_grou
         }
 
 #ifndef ITT_SIMPLE_INIT
-        __itt_mutex_unlock(&__itt_ittapi_global.mutex);
+        __itt_mutex_unlock(&_N_(_ittapi_global).mutex);
 #endif /* ITT_SIMPLE_INIT */
     }
 
     /* Evaluating if any function ptr is non empty and it's in init_groups */
-    for (i = 0; __itt_ittapi_global.api_list_ptr[i].name != NULL; i++)
-        if (*__itt_ittapi_global.api_list_ptr[i].func_ptr != __itt_ittapi_global.api_list_ptr[i].null_func &&
-            __itt_ittapi_global.api_list_ptr[i].group & init_groups)
+    for (i = 0; _N_(_ittapi_global).api_list_ptr[i].name != NULL; i++)
+        if (*_N_(_ittapi_global).api_list_ptr[i].func_ptr != _N_(_ittapi_global).api_list_ptr[i].null_func &&
+            _N_(_ittapi_global).api_list_ptr[i].group & init_groups)
             return 1;
     return 0;
 }
 
 ITT_EXTERN_C __itt_error_handler_t* _N_(set_error_handler)(__itt_error_handler_t* handler)
 {
-    __itt_error_handler_t* prev = (__itt_error_handler_t*)__itt_ittapi_global.error_handler;
-    __itt_ittapi_global.error_handler = (void*)handler;
+    __itt_error_handler_t* prev = (__itt_error_handler_t*)(size_t)_N_(_ittapi_global).error_handler;
+    _N_(_ittapi_global).error_handler = (void*)(size_t)handler;
     return prev;
 }
 
 #if ITT_PLATFORM==ITT_PLATFORM_WIN
 #pragma warning(pop)
 #endif /* ITT_PLATFORM==ITT_PLATFORM_WIN */
+

@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #include "harness_defs.h"
@@ -47,7 +39,6 @@
 // participating.  That was the hope, but it counts the entries into the marketplace,
 // not the arena.
 // #define USE_TASK_SCHEDULER_OBSERVER 1
-#define TBB_PREVIEW_GRAPH_NODES 1
 
 #if _MSC_VER && defined(__INTEL_COMPILER) && !TBB_USE_DEBUG
     #define TBB_RUN_BUFFERING_TEST __INTEL_COMPILER > 1210
@@ -311,10 +302,10 @@ struct less_body : public std::binary_function<ItemType,ItemType,bool> {
 // --------- tag methods for tag_matching join_node
 template<typename TT>
 class tag_func {
-    const TT my_mult;
-    tag_func& operator=( const tag_func& other);
+    TT my_mult;
 public:
     tag_func(TT multiplier) : my_mult(multiplier) { }
+    void operator=( const tag_func& other){my_mult = other.my_mult;}
     // operator() will return [0 .. Count) 
     tbb::flow::tag_value operator()( TT v) {
         tbb::flow::tag_value t = tbb::flow::tag_value(v / my_mult);
@@ -1792,7 +1783,6 @@ void test_split_node() {
     g_Wakeup_Msg = g_Orig_Wakeup_Msg;
 }
 
-#if TBB_PREVIEW_GRAPH_NODES
 // --------- indexer_node ----------------------
 
 template < class InputTuple,
@@ -1925,7 +1915,6 @@ void test_indexer_node() {
     run_indexer_node_test<tbb::flow::tuple<int,int>, isThrowing,  isThrowing>();
     g_Wakeup_Msg = g_Orig_Wakeup_Msg;;
 }
-#endif
 
 ///////////////////////////////////////////////
 // whole-graph exception test
@@ -2025,11 +2014,7 @@ void TestOneThreadNum(int nThread) {
         // not do try_puts after it has been set.  To get parallelism of N we have
         // to attach N successor nodes to the write_once (or play some similar game).
         // test_write_once_node();
-#if TBB_PREVIEW_GRAPH_NODES
         test_indexer_node();
-#else
-        REMARK("indexer_node test skipped\n");
-#endif
     }
 }
 #endif // TBB_USE_EXCEPTIONS

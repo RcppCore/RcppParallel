@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_task_H
@@ -39,10 +31,7 @@ namespace tbb {
 
 class task;
 class task_list;
-
-#if __TBB_TASK_GROUP_CONTEXT
 class task_group_context;
-#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 // MSVC does not allow taking the address of a member that was defined
 // privately in task_base and made public in class task via a using declaration.
@@ -349,7 +338,9 @@ public:
 
 private:
     enum state {
-        may_have_children = 1
+        may_have_children = 1,
+        // the following enumerations must be the last, new 2^x values must go above
+        next_state_value, low_unused_state_bit = (next_state_value-1)*2
     };
 
     union {
@@ -531,15 +522,17 @@ private:
     template <typename T>
     void propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state );
 
-    //! Makes sure that the context is registered with a scheduler instance.
-    inline void finish_initialization ( internal::generic_scheduler *local_sched );
-
     //! Registers this context with the local scheduler and binds it to its parent context
     void bind_to ( internal::generic_scheduler *local_sched );
 
     //! Registers this context with the local scheduler
     void register_with ( internal::generic_scheduler *local_sched );
 
+#if __TBB_FP_CONTEXT
+    //! Copies FPU control setting from another context
+    // TODO: Consider adding #else stub in order to omit #if sections in other code
+    void copy_fp_settings( const task_group_context &src );
+#endif /* __TBB_FP_CONTEXT */
 }; // class task_group_context
 
 #endif /* __TBB_TASK_GROUP_CONTEXT */
@@ -682,13 +675,6 @@ public:
         prefix().state = to_enqueue;
     }
 #endif /* __TBB_RECYCLE_TO_ENQUEUE */
-
-    // All depth-related methods are obsolete, and are retained for the sake
-    // of backward source compatibility only
-    intptr_t depth() const {return 0;}
-    void set_depth( intptr_t ) {}
-    void add_to_depth( int ) {}
-
 
     //------------------------------------------------------------------------
     // Spawning and blocking

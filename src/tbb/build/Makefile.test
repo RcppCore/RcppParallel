@@ -1,28 +1,20 @@
 # Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 #
-# This file is part of Threading Building Blocks.
+# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+# you can redistribute it and/or modify it under the terms of the GNU General Public License
+# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See  the GNU General Public License for more details.   You should have received a copy of
+# the  GNU General Public License along with Threading Building Blocks; if not, write to the
+# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 #
-# Threading Building Blocks is free software; you can redistribute it
-# and/or modify it under the terms of the GNU General Public License
-# version 2 as published by the Free Software Foundation.
-#
-# Threading Building Blocks is distributed in the hope that it will be
-# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with Threading Building Blocks; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-#
-# As a special exception, you may use this file as part of a free software
-# library without restriction.  Specifically, if other files instantiate
-# templates or use macros or inline functions from this file, or you compile
-# this file and link it with other files to produce an executable, this
-# file does not by itself cause the resulting executable to be covered by
-# the GNU General Public License.  This exception does not however
-# invalidate any other reasons why the executable file might be covered by
-# the GNU General Public License.
+# As a special exception,  you may use this file  as part of a free software library without
+# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+# functions from this file, or you compile this file and link it with other files to produce
+# an executable,  this file does not by itself cause the resulting executable to be covered
+# by the GNU General Public License. This exception does not however invalidate any other
+# reasons why the executable file might be covered by the GNU General Public License.
 
 #------------------------------------------------------------------------------
 # Define rules for making the TBB tests.
@@ -55,7 +47,7 @@ ifdef use_proxy
     LIBS += $(LIBDL)
 endif
 
-TEST_SUFFIXES=secondary compiler_builtins pic deprecated
+TEST_SUFFIXES=secondary compiler_builtins pic
 include $(tbb_root)/build/common_rules.inc
 
 # Rules for the tests, which use TBB in a dynamically loadable library
@@ -93,7 +85,7 @@ endif
 
 # test_tbb_header detects "multiple definition" linker error using the test that covers the whole library
 TWICE_LINKED_TESTS = test_tbb_header.$(TEST_EXT) \
-                     test_concurrent_unordered.$(TEST_EXT)
+                     test_concurrent_unordered_set.$(TEST_EXT)
 
 %_secondary.$(OBJ): CPLUS_FLAGS+=$(DEFINE_KEY)__TBB_TEST_SECONDARY=1
 
@@ -107,7 +99,7 @@ $(TWICE_LINKED_TESTS): LINK_FILES+=$(@:.$(TEST_EXT)=_secondary.$(OBJ))
 
 # Test of generic gcc port and icc intrinsics port
 %_compiler_builtins.$(TEST_EXT): LINK_TBB.LIB =
-%_compiler_builtins.$(OBJ): CPLUS_FLAGS+=$(DEFINE_KEY)__TBB_TEST_BUILTINS=1
+%_compiler_builtins.$(OBJ): CPLUS_FLAGS+=$(DEFINE_KEY)__TBB_TEST_BUILTINS=1 $(DEFINE_KEY)TBB_USE_ASSERT=0
 
 # The test_dynamic_link test doesn't depend on the TBB library
 test_dynamic_link.$(TEST_EXT): LINK_TBB.LIB =
@@ -125,8 +117,10 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_blocked_range2d.$(TEST_EXT)             \
 	test_blocked_range3d.$(TEST_EXT)             \
 	test_concurrent_queue.$(TEST_EXT)            \
+	test_concurrent_queue_whitebox.$(TEST_EXT)   \
 	test_concurrent_vector.$(TEST_EXT)           \
-	test_concurrent_unordered.$(TEST_EXT)        \
+	test_concurrent_unordered_set.$(TEST_EXT)    \
+	test_concurrent_unordered_map.$(TEST_EXT)    \
 	test_concurrent_hash_map.$(TEST_EXT)         \
 	test_enumerable_thread_specific.$(TEST_EXT)  \
 	test_handle_perror.$(TEST_EXT)               \
@@ -201,6 +195,7 @@ TEST_TBB_PLAIN.EXE = test_assembly.$(TEST_EXT)   \
 	test_parallel_for_vectorization.$(TEST_EXT)  \
 	test_tagged_msg.$(TEST_EXT)                  \
 	test_partitioner_whitebox.$(TEST_EXT)        \
+	test_flow_graph_whitebox.$(TEST_EXT)         \
 	test_tbb_version.$(TEST_EXT)                 # insert new files right above
 
 TEST_TBB_PLAIN.EXE += $(TEST_TBB_CPP11)
@@ -282,7 +277,9 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(SCHEDULER_DIRECTLY_INCLUDED) $(TEST_TBB_P
 	$(run_cmd) ./test_tick_count.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_concurrent_queue.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_concurrent_vector.$(TEST_EXT) $(args) 1:4
-	$(run_cmd) ./test_concurrent_unordered.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_concurrent_queue_whitebox.$(TEST_EXT) $(args) 1:4
+	$(run_cmd) ./test_concurrent_unordered_set.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_concurrent_unordered_map.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_hash_map.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_enumerable_thread_specific.$(TEST_EXT) $(args) 0:4
 	$(run_cmd) ./test_combinable.$(TEST_EXT) $(args) 0:4
@@ -333,23 +330,20 @@ test_tbb_plain: $(TEST_PREREQUISITE) $(SCHEDULER_DIRECTLY_INCLUDED) $(TEST_TBB_P
 	$(run_cmd) ./test_aggregator.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_concurrent_lru_cache.$(TEST_EXT) $(args)
 	$(run_cmd) ./test_tagged_msg.$(TEST_EXT) $(args)
+	$(run_cmd) ./test_flow_graph_whitebox.$(TEST_EXT) $(args)
 
 # For deprecated files, we don't mind warnings etc., thus compilation rules are most relaxed
 CPLUS_FLAGS_DEPRECATED = $(DEFINE_KEY)TBB_DEPRECATED=1 $(subst $(WARNING_KEY),,$(CPLUS_FLAGS)) $(WARNING_SUPPRESS) $(INCLUDE_KEY)$(tbb_root)/src/test
 TEST_TBB_OLD.OBJ = test_concurrent_vector_v2.$(OBJ) test_concurrent_queue_v2.$(OBJ) test_mutex_v2.$(OBJ) test_task_scheduler_observer_v3.$(OBJ) 
-TEST_TBB_DEPRECATED.OBJ = test_concurrent_queue_deprecated.$(OBJ) test_concurrent_vector_deprecated.$(OBJ)
 
 $(TEST_TBB_OLD.OBJ): CPLUS_FLAGS := $(CPLUS_FLAGS_DEPRECATED)
-%_deprecated.$(OBJ): CPLUS_FLAGS := $(CPLUS_FLAGS_DEPRECATED)
 
-TEST_TBB_OLD.EXE = $(subst .$(OBJ),.$(TEST_EXT),$(TEST_TBB_OLD.OBJ) $(TEST_TBB_DEPRECATED.OBJ))
+TEST_TBB_OLD.EXE = $(subst .$(OBJ),.$(TEST_EXT),$(TEST_TBB_OLD.OBJ))
 
 ifeq (,$(NO_LEGACY_TESTS))
 test_tbb_old: $(TEST_PREREQUISITE) $(TEST_TBB_OLD.EXE)
 	$(run_cmd) ./test_concurrent_vector_v2.$(TEST_EXT) $(args) 1:4
-	$(run_cmd) ./test_concurrent_vector_deprecated.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_concurrent_queue_v2.$(TEST_EXT) $(args) 1:4
-	$(run_cmd) ./test_concurrent_queue_deprecated.$(TEST_EXT) $(args) 1:4
 	$(run_cmd) ./test_mutex_v2.$(TEST_EXT) $(args) 1
 	$(run_cmd) ./test_mutex_v2.$(TEST_EXT) $(args) 2
 	$(run_cmd) ./test_mutex_v2.$(TEST_EXT) $(args) 4

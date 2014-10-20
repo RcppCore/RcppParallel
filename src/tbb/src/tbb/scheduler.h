@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef _TBB_scheduler_H
@@ -44,6 +36,7 @@ namespace tbb {
 namespace internal {
 
 template<typename SchedulerTraits> class custom_scheduler;
+struct nested_arena_context;
 
 //------------------------------------------------------------------------
 // generic_scheduler
@@ -292,8 +285,8 @@ public:
 #endif /* TBB_USE_ASSERT <= 1 */
 
 #if __TBB_TASK_ARENA
-    void nested_arena_entry(arena*, task*, scheduler_state*, bool);
-    void nested_arena_exit(scheduler_state*, bool);
+    void nested_arena_entry(arena*, nested_arena_context &, bool);
+    void nested_arena_exit(nested_arena_context &);
     void wait_until_empty();
 #endif
 
@@ -439,16 +432,17 @@ public:
     void propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state );
 
     // check consistency
-    void assert_context_valid(task_group_context *tgc) {
+    static void assert_context_valid(const task_group_context *tgc) {
         suppress_unused_warning(tgc);
 #if TBB_USE_ASSERT
+        __TBB_ASSERT(tgc, NULL);
         uintptr_t ctx = tgc->my_version_and_traits;
         __TBB_ASSERT(is_alive(ctx), "referenced task_group_context was destroyed");
         static const char *msg = "task_group_context is invalid";
         __TBB_ASSERT(!(ctx&~(3|(7<<task_group_context::traits_offset))), msg); // the value fits known values of versions and traits
         __TBB_ASSERT(tgc->my_kind < task_group_context::dying, msg);
         __TBB_ASSERT(tgc->my_cancellation_requested == 0 || tgc->my_cancellation_requested == 1, msg);
-        __TBB_ASSERT(tgc->my_state <= 1, msg);
+        __TBB_ASSERT(tgc->my_state < task_group_context::low_unused_state_bit, msg);
         if(tgc->my_kind != task_group_context::isolated) {
             __TBB_ASSERT(tgc->my_owner, msg);
             __TBB_ASSERT(tgc->my_node.my_next && tgc->my_node.my_prev, msg);
@@ -673,6 +667,41 @@ inline void generic_scheduler::offload_task ( task& t, intptr_t /*priority*/ ) {
     my_offloaded_tasks = &t;
 }
 #endif /* __TBB_TASK_PRIORITY */
+
+#if __TBB_FP_CONTEXT
+class cpu_ctl_env_helper {
+    cpu_ctl_env guard_cpu_ctl_env;
+    cpu_ctl_env curr_cpu_ctl_env;
+public:
+    cpu_ctl_env_helper() {
+        guard_cpu_ctl_env.get_env();
+        curr_cpu_ctl_env = guard_cpu_ctl_env;
+    }
+    ~cpu_ctl_env_helper() {
+        if ( curr_cpu_ctl_env != guard_cpu_ctl_env )
+            guard_cpu_ctl_env.set_env();
+    }
+    void set_env( const task_group_context *ctx ) {
+        generic_scheduler::assert_context_valid(ctx);
+        const cpu_ctl_env &ctl = *punned_cast<cpu_ctl_env*>(&ctx->my_cpu_ctl_env);
+        if ( ctl != curr_cpu_ctl_env ) {
+            curr_cpu_ctl_env = ctl;
+            curr_cpu_ctl_env.set_env();
+        }
+    }
+    void restore_default() {
+        if ( curr_cpu_ctl_env != guard_cpu_ctl_env ) {
+            guard_cpu_ctl_env.set_env();
+            curr_cpu_ctl_env = guard_cpu_ctl_env;
+        }
+    }
+};
+#else
+struct cpu_ctl_env_helper {
+    void set_env( __TBB_CONTEXT_ARG1(task_group_context *) ) {}
+    void restore_default() {}
+};
+#endif /* __TBB_FP_CONTEXT */
 
 } // namespace internal
 } // namespace tbb

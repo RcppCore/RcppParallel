@@ -1,29 +1,21 @@
 /*
     Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
 
-    This file is part of Threading Building Blocks.
+    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
+    you can redistribute it and/or modify it under the terms of the GNU General Public License
+    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
+    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
+    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+    See  the GNU General Public License for more details.   You should have received a copy of
+    the  GNU General Public License along with Threading Building Blocks; if not, write to the
+    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
 
-    Threading Building Blocks is free software; you can redistribute it
-    and/or modify it under the terms of the GNU General Public License
-    version 2 as published by the Free Software Foundation.
-
-    Threading Building Blocks is distributed in the hope that it will be
-    useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-    of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with Threading Building Blocks; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
-
-    As a special exception, you may use this file as part of a free software
-    library without restriction.  Specifically, if other files instantiate
-    templates or use macros or inline functions from this file, or you compile
-    this file and link it with other files to produce an executable, this
-    file does not by itself cause the resulting executable to be covered by
-    the GNU General Public License.  This exception does not however
-    invalidate any other reasons why the executable file might be covered by
-    the GNU General Public License.
+    As a special exception,  you may use this file  as part of a free software library without
+    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
+    functions from this file, or you compile this file and link it with other files to produce
+    an executable,  this file does not by itself cause the resulting executable to be covered
+    by the GNU General Public License. This exception does not however invalidate any other
+    reasons why the executable file might be covered by the GNU General Public License.
 */
 
 #ifndef __TBB_machine_msvc_ia32_common_H
@@ -205,29 +197,20 @@ extern "C" {
 #else
     inline static void __TBB_machine_try_lock_elided_cancel() { _asm pause; }
 #endif
-#if __TBB_TSX_INTRINSICS_PRESENT
-#define __TBB_machine_is_in_transaction _xtest
-#else
-    __int8  __TBB_EXPORTED_FUNC __TBB_machine_is_in_transaction();
-#endif /* __TBB_TSX_INTRINSICS_PRESENT */
 
-#if TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX
 #if __TBB_TSX_INTRINSICS_PRESENT
-
-#define __TBB_machine_begin_transaction _xbegin
-#define __TBB_machine_end_transaction   _xend
+    #define __TBB_machine_is_in_transaction _xtest
+    #define __TBB_machine_begin_transaction _xbegin
+    #define __TBB_machine_end_transaction   _xend
     // The value (0xFF) below comes from the
     // Intel(R) 64 and IA-32 Architectures Optimization Reference Manual 12.4.5 lock not free
-#define __TBB_machine_transaction_conflict_abort() _xabort(0xFF)
-
+    #define __TBB_machine_transaction_conflict_abort() _xabort(0xFF)
 #else
-
+    __int8           __TBB_EXPORTED_FUNC __TBB_machine_is_in_transaction();
     unsigned __int32 __TBB_EXPORTED_FUNC __TBB_machine_begin_transaction();
     void             __TBB_EXPORTED_FUNC __TBB_machine_end_transaction();
     void             __TBB_EXPORTED_FUNC __TBB_machine_transaction_conflict_abort();
-
 #endif /* __TBB_TSX_INTRINSICS_PRESENT */
-#endif  /* TBB_PREVIEW_SPECULATIVE_SPIN_RW_MUTEX */
 }
 
 #endif /* __TBB_machine_msvc_ia32_common_H */
