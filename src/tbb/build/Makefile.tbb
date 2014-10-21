@@ -79,7 +79,7 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		tbb_main.$(OBJ)
 
 # OLD/Legacy object files for backward binary compatibility
-ifeq (,$(findstring $(DEFINE_KEY)TBB_NO_LEGACY,$(CPLUS_FLAGS)))
+ifeq (,$(findstring $(DEFINE_KEY)TBB_NO_LEGACY,$(CXXFLAGS)))
 TBB_CPLUS_OLD.OBJ = \
 		concurrent_vector_v2.$(OBJ) \
 		concurrent_queue_v2.$(OBJ) \

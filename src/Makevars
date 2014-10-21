@@ -21,9 +21,9 @@ all: $(SHLIB) tbb
 tbb:
 	mkdir -p ../inst/lib
 	if [[ "$(CC)" == clang* ]]; then \
-		(cd tbb/src; make compiler=clang tbb_release tbb_build_prefix=lib) \
+		(cd tbb/src; make compiler=clang CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib) \
 	else \
-		(cd tbb/src; make tbb_release tbb_build_prefix=lib) \
+		(cd tbb/src; make CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib) \
 	fi
 	cp tbb/build/lib_release/libtbb.* ../inst/lib
 
