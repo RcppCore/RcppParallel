@@ -4,7 +4,7 @@ before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
-  - ./travis-tool.sh github_package testthat
+  - ./travis-tool.sh github_package hadley/testthat
   - if [ "$RCPP" = "Rcpp" ]; then ./travis-tool.sh github_package RcppCore/Rcpp; fi
   - if [ "$RCPP" = "Rcpp11" ]; then ./travis-tool.sh github_package Rcpp11/Rcpp11; ./travis-tool.sh github_package Rcpp11/attributes; fi
  
