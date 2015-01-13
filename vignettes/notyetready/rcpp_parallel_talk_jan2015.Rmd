@@ -1,0 +1,78 @@
+---
+title: 'R, Rcpp and Parallel Computing: Notes from our Rcpp Experience'
+author: "Dirk Eddelbuettel and JJ Allaire"
+date: "Jan 26-27, 2015"
+output:
+  beamer_presentation:
+    incremental: no
+    keep_tex: yes
+    theme: Warsaw
+fontsize: 12pt
+classoption: compress
+---
+
+### open questions:  
+   
+- linebreak in title?
+- multiline date: to give conference title and location?
+- equivalent of framesubtitle ?
+- highlight URLs (say in blue) as we can with latex?
+- format included chart more finely: centering, size, ...
+
+# Intro
+
+## One View on Parallel Computing
+
+> The whole "let's parallelize" thing is a huge waste of everybody's
+> time. There's this huge body of "knowledge" that parallel is somehow more
+> efficient, and that whole huge body is pure and utter garbage. Big caches
+> are efficient. Parallel stupid small cores without caches are horrible
+> unless you have a very specific load that is hugely regular (ie graphics). 
+>
+> [...]
+>
+> Give it up. The whole "parallel computing is the future" is a bunch of crock.
+\end{quote}
+
+[Linus Torvalds, Dec 2014](http://www.realworldtech.com/forum/?threadid=146066&curpostid=146227)
+
+
+## Another View on Big Data
+
+![Tweet](images/big-data-big-machine-tweet.png)
+ 
+ 
+# R
+
+## CRAN Task View on HPC
+
+- Package snow by Tierney et al a trailblazer
+- Package Rmpi equally important
+- Packages multicore nee parallel help Windows (l)users
+- Hundreds of applications
+- It just works for _data parallel_ tasks
+
+## Rcpp: Early Days
+
+In the fairly early days of Rcpp, we also put out RInside as a simple C++
+class wrapper around the R-embedding API.
+
+It got one clever patch taking this (ie: R wrapped in C++ with its own
+`main()` and sticking it into MPI. 
+
+## Rcpp: More recently
+
+Rcpp has gotten fairly easy to use.  
+
+OpenMP is easy to use and widely
+supported (on suitable OS / compiler combinations).
+
+So we added support.  Use not as wide-spread. Errors have commonality:
+calling back into R.
+
+
+## RcppParallel
+
+Easy-to-use-wrapper around Intel TBB (and TinyThreads where no TBB)
+
+Users still attempt to use R objects...
