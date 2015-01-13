@@ -1,23 +1,18 @@
 ---
-title: 'R, Rcpp and Parallel Computing: Notes from our Rcpp Experience'
+title: 'R, Rcpp and Parallel Computing'
+subtitle: 'Notes from our Rcpp Experience'
 author: "Dirk Eddelbuettel and JJ Allaire"
-date: "Jan 26-27, 2015"
+date: "Jan 26-27, 2015\\newline Workshop for Distributed Computing in R"
 output:
   beamer_presentation:
     incremental: no
     keep_tex: yes
     theme: Warsaw
+    includes:
+      in_header: header.tex
 fontsize: 12pt
 classoption: compress
 ---
-
-### open questions:  
-   
-- linebreak in title?
-- multiline date: to give conference title and location?
-- equivalent of framesubtitle ?
-- highlight URLs (say in blue) as we can with latex?
-- format included chart more finely: centering, size, ...
 
 # Intro
 
@@ -39,18 +34,25 @@ classoption: compress
 
 ## Another View on Big Data
 
-![Tweet](images/big-data-big-machine-tweet.png)
- 
- 
+\begin{figure}
+\begin{center}
+\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{images/big-data-big-machine-tweet.png}
+\end{center}
+\end{figure}
+
 # R
 
 ## CRAN Task View on HPC
+
+\framesubtitle{Lots of existing work to draw from}
 
 - Package snow by Tierney et al a trailblazer
 - Package Rmpi equally important
 - Packages multicore nee parallel help Windows (l)users
 - Hundreds of applications
 - It just works for _data parallel_ tasks
+
+<http://cran.r-project.org/web/views/HighPerformanceComputing.html>
 
 ## Rcpp: Early Days
 
