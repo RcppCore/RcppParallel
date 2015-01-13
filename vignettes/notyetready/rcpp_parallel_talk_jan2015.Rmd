@@ -23,11 +23,11 @@ classoption: compress
 > efficient, and that whole huge body is pure and utter garbage. Big caches
 > are efficient. Parallel stupid small cores without caches are horrible
 > unless you have a very specific load that is hugely regular (ie graphics). 
->
-> [...]
->
+>   
+> [...]  
+>   
 > Give it up. The whole "parallel computing is the future" is a bunch of crock.
-\end{quote}
+
 
 [Linus Torvalds, Dec 2014](http://www.realworldtech.com/forum/?threadid=146066&curpostid=146227)
 
