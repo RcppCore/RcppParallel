@@ -73,8 +73,35 @@ So we added support.  Use not as wide-spread. Errors have commonality:
 calling back into R.
 
 
-## RcppParallel
+## Parallel Programming for Rcpp Users
 
-Easy-to-use-wrapper around Intel TBB (and TinyThreads where no TBB)
+NOT like this...
 
-Users still attempt to use R objects...
+```cpp
+using namespace boost;
+
+void task()
+{
+   lock_guard<boost::mutex> lock(mutex);
+   // etc...
+}
+
+threadpool::pool tp(thread::hardware_concurrency());
+for (int i=0; i<slices; i++)
+   tp.schedule(&task); 
+```
+
+## Parallel Programming for Rcpp Users
+
+Goals:
+
+* Encapsulate threading and locking
+* Provide high level constructs for common parallel tasks
+* High performance: locality, work stealing, etc.
+* Safe access to R data structures on multiple threads
+
+## Intel Threading Building Blocks (TBB)
+
+What is TBB, etc.
+
+
