@@ -63,7 +63,7 @@ In the fairly early days of Rcpp, we also put out RInside as a simple C++
 class wrapper around the R-embedding API.
 
 It got one clever patch taking this (ie: R wrapped in C++ with its own
-`main()` and sticking it into MPI. 
+`main()` function) and encapsulating it within MPI. 
 
 ## Rcpp: More recently
 
@@ -76,13 +76,36 @@ So we added support.  Use not as wide-spread. Errors have commonality:
 calling back into R.
 
 
-## RcppParallel
+## Parallel Programming for Rcpp Users
 
-Easy-to-use-wrapper around Intel TBB 
+\framesubtitle{NOT like this...}
 
-TinyThreads used where TBB in unavailable
+```cpp
+using namespace boost;
 
-Users still attempt to use R objects...
+void task()
+{
+   lock_guard<boost::mutex> lock(mutex);
+   // etc...
+}
+
+threadpool::pool tp(thread::hardware_concurrency());
+for (int i=0; i<slices; i++)
+   tp.schedule(&task); 
+```
+
+## Parallel Programming for Rcpp Users
+
+Goals:
+
+* Encapsulate threading and locking
+* Provide high level constructs for common parallel tasks
+* High performance: locality, work stealing, etc.
+* Safe access to R data structures on multiple threads
+
+## Intel Threading Building Blocks (TBB)
+
+What is TBB, etc.
 
 
 ## Open Issues
