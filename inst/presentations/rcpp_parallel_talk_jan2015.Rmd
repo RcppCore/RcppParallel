@@ -1,16 +1,15 @@
 ---
-title: 'R, Rcpp and Parallel Computing'
-subtitle: 'Notes from our Rcpp Experience'
+title: "R, Rcpp and Parallel Computing"
 author: "Dirk Eddelbuettel and JJ Allaire"
-date: "Jan 26-27, 2015\\newline Workshop for Distributed Computing in R"
+date: "Jan 26-27, 2015\\newline Workshop for Distributed Computing in R\\newline HP Research, Palo Alto, CA"
 output:
   beamer_presentation:
-    incremental: no
-    keep_tex: yes
-    theme: Warsaw
     includes:
       in_header: header.tex
+    keep_tex: yes
+    theme: Warsaw
 fontsize: 12pt
+subtitle: Notes from our Rcpp Experience
 classoption: compress
 ---
 
@@ -44,15 +43,19 @@ classoption: compress
 
 ## CRAN Task View on HPC
 
-\framesubtitle{Lots of existing work to draw from}
+\framesubtitle{\texttt{http://cran.r-project.org/web/views/HighPerformanceComputing.html}}
+
+Things R does well:
+
+\medskip
 
 - Package snow by Tierney et al a trailblazer
-- Package Rmpi equally important
-- Packages multicore nee parallel help Windows (l)users
+- Package Rmpi by Yu equally important
+- Packages multicore / parallel help Windows (l)users
 - Hundreds of applications
-- It just works for _data parallel_ tasks
+- _It just works_ for data-parallel tasks
 
-<http://cran.r-project.org/web/views/HighPerformanceComputing.html>
+# Rcpp
 
 ## Rcpp: Early Days
 
@@ -75,6 +78,13 @@ calling back into R.
 
 ## RcppParallel
 
-Easy-to-use-wrapper around Intel TBB (and TinyThreads where no TBB)
+Easy-to-use-wrapper around Intel TBB 
+
+TinyThreads used where TBB in unavailable
 
 Users still attempt to use R objects...
+
+
+## Open Issues
+
+Education: Parallel Programming is _hard_
