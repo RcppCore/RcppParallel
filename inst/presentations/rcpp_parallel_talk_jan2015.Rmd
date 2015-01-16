@@ -100,8 +100,37 @@ Goals:
 * High performance: locality, work stealing, etc.
 * Safe access to R data structures on multiple threads
 
-## Intel Threading Building Blocks (TBB)
 
-What is TBB, etc.
+## Parallel Programming Alternatives
+   
+|   | TBB | OMP | RAW |
+|---|:----------:|:------:|:-------:|
+Task level parallelism | \textbullet | \textbullet |   |
+Data decomposition support | \textbullet | \textbullet |   |
+Non loop parallel patterns | \textbullet |   |   |
+Generic parallel patterns | \textbullet |   |   |
+Nested parallelism support | \textbullet |   |   |
+Built in load balancing | \textbullet | \textbullet |   |
+Affinity support |   | \textbullet | \textbullet |
+Static scheduling |   | \textbullet |   |
+Concurrent data structures | \textbullet |   |   |
+Scalable memory allocator | \textbullet |   |   |
+I/O dominated tasks |   |   | \textbullet |
+User synchronization primitives | \textbullet | \textbullet |   |
+
+## TBB vs. OpenMP vs. Threads
+
+* Raw threads shift too much burden for parallelization onto the developer (error prone and not performant)
+* OpenMP is excellent for parallelizing existing loops where the iterations are independent (R already has some support for OpenMP)
+* TBB fares better when there is more potential interaction between threads (e.g. more complex loops, simulations, or where concurrent containers are required).
+* RcppParallel: Enable use of TBB with R to compliment existing OpenMP stack.
+
+
+
+
+
+
+
+
 
 
