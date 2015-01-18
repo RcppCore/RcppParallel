@@ -128,13 +128,90 @@ User synchronization primitives | \textbullet | \textbullet |   |
 * TBB fares better when there is more potential interaction between threads (e.g. more complex loops, simulations, or where concurrent containers are required).
 * RcppParallel: Enable use of TBB with R to compliment existing OpenMP stack.
 
+## Win32 Platform Complications
 
+* TBB supports mingw on Win32 however we haven't (yet) sorted out how to build it with Rtools
+* As a result we use [TinyThread](http://tinythreadpp.bitsnbites.eu/) on Win32
+* This requires that we create a layer to abstract over TBB and TinyThead (thus limiting the expressiveness of code that wants to be portable to Windows).
+* Developers are still free to use all of TBB if they are content targeting only Linux and OSX
+* Would love to see TBB working on Win32 (pull requests welcome!)
 
+## R Concurrency Complications
 
+R is single-threaded and includes this warning in [Writing R Extensions](http://cran.r-project.org/doc/manuals/r-release/R-exts.html) when discussing the use of OpenMP:
 
+> Calling any of the R API from threaded code is ‘for experts only’: they will need to read the source code to determine if it is thread-safe. In particular, code which makes use of the stack-checking mechanism must not be called from threaded code.
 
+However we don't really want to force Rcpp users to resort to reading the Rcpp and R source code to assess thread safety issues.
 
+## RcppParallel Threadsafe Accessors
 
+Since R vectors and matrices are just raw contiguous arrays it's easy to create threadsafe C++ wrappers for them:
+
+* `RVector<T>` is a very thin wrapper over a C array.
+
+* `RMatrix<T>` is the same but also provides `Row<T>` and `Column<T>` accessors/iterators.
+
+The implementions of these classes are extremely lightweight and never call into Rcpp or the R API (so are always threadsafe).
+
+## RcppParallel Operations
+
+Two high-level operations are provided (with TBB and TinyThread implementations of each):
+
+* `parallelFor` -- Convert the work of a standard serial "for" loop into a parallel one
+
+* `parallelReduce` -- Used for accumulating aggregate or other values.
+
+Not surprisingly the TBB versions of these operations perform ~ 50% better than the "naive" parallel implementation provided by TinyThread.
+
+## Basic Mechanics: Create a Worker
+
+Create a `Worker` class with `operator()` that RcppParallel uses to operate on discrete slices of the input data on different threads:
+
+```cpp
+
+class MyWorker : public RcppParallel::Worker {
+
+   void operator()(size_t begin, size_t end) {
+      // do some work from begin to end 
+      // within the input data
+   }
+   
+}
+
+```
+
+## Basic Mechanics: Call the Worker
+
+Worker would typically take input and output data in it's constructor then save them as members (for reading/writing within `operator()`):
+
+```cpp
+NumericMatrix matrixSqrt(NumericMatrix x) {
+  
+  NumericMatrix output(x.nrow(), x.ncol());
+
+  SquareRootWorker worker(x, output);
+  
+  parallelFor(0, x.length(), worker);
+  
+  return output;
+}
+```
+
+## Basic Mechanics: Join Function
+
+For `parallelReduce` you need to specify how data is to be combined. Typically you save data in a member within `operator()` then fuze it with another `Worker` instance in the `join` function.
+
+```cpp
+class SumWorker : public RcppParallel::Worker
+     
+   // join my value with that of another SumWorker
+   void join(const SumWorker& rhs) { 
+      value += rhs.value; 
+   }
+}
+
+```
 
 
 ## Open Issues
