@@ -220,7 +220,7 @@ class SumWorker : public RcppParallel::Worker
 * Developers just write pieces of code that are called at the correct time by an intelligent parallel supervisor
 * In most cases no locking or explicit thread management required!
 * Supervisor does some intelligent optimization around:
-    - Grain size (data/cache locality)
+    - Grain size (which affects locality of reference and therefore cache hit rates). Note that grain size can also be tuned directly per-application.
     - Work stealing (detecting idle threads and pushing work to them)
 * In the case of TBB, high performance concurrent containers are available if necessary
 
