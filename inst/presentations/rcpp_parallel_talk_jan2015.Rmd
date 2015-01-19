@@ -32,12 +32,9 @@ classoption: compress
 
 
 ## Another View on Big Data
+\framesubtitle{Imagine a \texttt{gsub("DBMs", "", tweet)} to complement further...}
 
-\begin{figure}
-\begin{center}
-\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{images/big-data-big-machine-tweet.png}
-\end{center}
-\end{figure}
+\centering{\includegraphics[width=\textwidth,height=0.8\textheight,keepaspectratio]{images/big-data-big-machine-tweet.png}}
 
 # R
 
@@ -65,9 +62,18 @@ class wrapper around the R-embedding API.
 It got one clever patch taking this (ie: R wrapped in C++ with its own
 `main()` function) and encapsulating it within MPI. 
 
+HP Vertica also uses Rcpp and RInside in 
+[DistributedR](https://github.com/vertica/DistributedR/tree/master/third_party).
+
 ## Rcpp: More recently
 
-Rcpp has gotten fairly easy to use.  
+Rcpp has gotten rather easy to deploy:
+```{r}
+Rcpp::cppFunction("
+NumericVector sqrtabs(NumericVector x) { 
+   return(sqrt(abs(x))); }")
+sqrtabs(-2:2)
+```
 
 OpenMP is easy to use and widely
 supported (on suitable OS / compiler combinations).
