@@ -138,8 +138,6 @@ Affinity support |   | \textbullet | \textbullet |
 Static scheduling |   | \textbullet |   |
 Concurrent data structures | \textbullet |   |   |
 Scalable memory allocator | \textbullet |   |   |
-I/O dominated tasks |   |   | \textbullet |
-User synchronization primitives | \textbullet | \textbullet |   |
 
 ## TBB vs. OpenMP vs. Threads
 
