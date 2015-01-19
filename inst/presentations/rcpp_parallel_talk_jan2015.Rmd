@@ -76,6 +76,8 @@ So we added support.  Use not as wide-spread. Errors have commonality:
 calling back into R.
 
 
+# RcppParallel
+
 ## Parallel Programming for Rcpp Users
 
 \framesubtitle{NOT like this...}
@@ -213,7 +215,94 @@ class SumWorker : public RcppParallel::Worker
 
 ```
 
+## What does all of this buy us?
+
+* Developers just write pieces of code that are called at the correct time by an intelligent parallel supervisor
+* In most cases no locking or explicit thread management required!
+* Supervisor does some intelligent optimization around:
+    - Grain size (data/cache locality)
+    - Work stealing (detecting idle threads and pushing work to them)
+* In the case of TBB, high performance concurrent containers are available if necessary
+
+## Examples
+
+* All available on the Rcpp Gallery <http://gallery.rcpp.org>
+
+* Tested with 4 cores on a 2.6GHz Haswell MacBook Pro
+
+* Note that benchmarks will be 30-50% slower on Windows because we aren't using the more sophisticated scheduling of TBB
+
+## Example: Transforming a Matrix in Parallel
+
+\framesubtitle{\texttt{http://gallery.rcpp.org/articles/parallel-matrix-transform}}
+
+```cpp
+ void operator()(size_t begin, size_t end) {
+      std::transform(input.begin() + begin, 
+                     input.begin() + end, 
+                     output.begin() + begin, 
+                     ::sqrt);
+   }
+```
+
+```
+                   test replications elapsed relative
+2 parallelMatrixSqrt(m)          100   0.294    1.000
+1         matrixSqrt(m)          100   0.755    2.568
+```
+
+## Example: Summing a Vector in Parallel
+
+\framesubtitle{\texttt{http://gallery.rcpp.org/articles/parallel-vector-sum}}
+
+
+```cpp
+void operator()(size_t begin, size_t end) {
+   value += std::accumulate(input.begin() + begin, 
+                            input.begin() + end, 
+                            0.0);
+}    
+void join(const Sum& rhs) { 
+   value += rhs.value; 
+}
+```
+```
+                  test replications elapsed relative
+2 parallelVectorSum(v)          100   0.182    1.000
+1         vectorSum(v)          100   0.857    4.709
+```
+
+## Example: Parallel Distance Matrix Calculation
+
+\framesubtitle{\texttt{http://gallery.rcpp.org/articles/parallel-distance-matrix}}
+
+```
+                       test reps elapsed relative
+3 rcpp_parallel_distance(m)    3   0.110    1.000
+2          rcpp_distance(m)    3   0.618    5.618
+1               distance(m)    3  35.560  323.273
+```
+
+* Rcpp + RcppParallel = 323x over R implementation!
+* Unbalanced workload benefits from work stealing
+
+## The Rest of TBB
+
+* Advanced algorithms: `parallel_scan`, `parallel_while`, `parallel_do`, `parallel_pipeline`, `parallel_sort`
+* Containers: `concurrent_queue`, `concurrent_priority_queue`, `concurrent_vector`, `concurrent_hash_map`
+* Mutual exclusion: `mutex`, `spin_mutex`, `queuing_mutex`, `spin_rw_mutex`, `queuing_rw_mutex`, `recursive_mutex`
+* Atomic operations: `fetch_and_add`, `fetch_and_increment`, `fetch_and_decrement`, `compare_and_swap`, `fetch_and_store`
+* Timing: portable fine grained global time stamp
+* Task Scheduler: direct access to control the creation and activation of tasks
 
 ## Open Issues
 
-Education: Parallel Programming is _hard_
+* Additional (portable to Win32 via TinyThread) wrappers for other TBB constructs?
+
+* Alternatively, sort out Rtools configuration issues required to get TBB working on Windows.
+
+* Education: Parallel Programming is _hard_. 
+    
+* Simple `parallelFor` and `parallelReduce` are reasonably easy to grasp, but more advanced idioms aren't trivial to learn and use (but for some applications have lots of upside so are worth the effort).
+
+    
