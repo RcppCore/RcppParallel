@@ -200,7 +200,7 @@ NumericMatrix matrixSqrt(NumericMatrix x) {
 
 ## Basic Mechanics: Join Function
 
-For `parallelReduce` you need to specify how data is to be combined. Typically you save data in a member within `operator()` then fuze it with another `Worker` instance in the `join` function.
+For `parallelReduce` you need to specify how data is to be combined. Typically you save data in a member within `operator()` then fuse it with another `Worker` instance in the `join` function.
 
 ```cpp
 class SumWorker : public RcppParallel::Worker
