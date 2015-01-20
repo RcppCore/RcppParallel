@@ -67,19 +67,31 @@ HP Vertica also uses Rcpp and RInside in
 
 ## Rcpp: More recently
 
-Rcpp has gotten rather easy to deploy:
-```{r}
-Rcpp::cppFunction("
-NumericVector sqrtabs(NumericVector x) { 
-   return(sqrt(abs(x))); }")
-sqrtabs(-2:2)
+Rcpp is now easy to deploy; Rcpp Attributes played a key role:
+
+```r
+#include <Rcpp.h>
+using namespace Rcpp;
+
+// [[Rcpp::export]]
+double piSugar(const int N) {
+    NumericVector x = runif(N);
+    NumericVector y = runif(N);
+    NumericVector d = sqrt(x*x + y*y);
+    return 4.0 * sum(d < 1.0) / N;
+}
 ```
+
+## Rcpp: Extensions
+
+Rcpp Attributes also support "plugins"
 
 OpenMP is easy to use and widely
 supported (on suitable OS / compiler combinations).
 
-So we added support.  Use not as wide-spread. Errors have commonality:
-calling back into R.
+So we added support via a plugin. Use is still not as wide-spread.
+
+Errors have commonality: calling back into R.
 
 
 # RcppParallel
