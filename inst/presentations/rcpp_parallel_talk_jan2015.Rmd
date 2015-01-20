@@ -126,6 +126,8 @@ Goals:
 
 ## Parallel Programming Alternatives
    
+   \footnotesize
+   
 |   | TBB | OMP | RAW |
 |---|:----------:|:------:|:-------:|
 Task level parallelism | \textbullet | \textbullet |   |
@@ -144,7 +146,7 @@ Scalable memory allocator | \textbullet |   |   |
 * Raw threads shift too much burden for parallelization onto the developer (error prone and not performant)
 * OpenMP is excellent for parallelizing existing loops where the iterations are independent (R already has some support for OpenMP)
 * TBB fares better when there is more potential interaction between threads (e.g. more complex loops, simulations, or where concurrent containers are required).
-* RcppParallel: Enable use of TBB with R to compliment existing OpenMP stack.
+* RcppParallel: Enable use of TBB with R to complement existing OpenMP stack.
 
 ## Win32 Platform Complications
 
