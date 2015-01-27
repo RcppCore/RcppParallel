@@ -48,7 +48,7 @@ Things R does well:
 
 - Package snow by Tierney et al a trailblazer
 - Package Rmpi by Yu equally important
-- Packages multicore / parallel help Windows (l)users
+- multicore / snow / parallel even work on Windows
 - Hundreds of applications
 - _It just works_ for data-parallel tasks
 
@@ -152,7 +152,7 @@ Scalable memory allocator | \textbullet |   |   |
 
 * TBB supports mingw on Win32 however we haven't (yet) sorted out how to build it with Rtools
 * As a result we use [TinyThread](http://tinythreadpp.bitsnbites.eu/) on Win32
-* This requires that we create a layer to abstract over TBB and TinyThead (thus limiting the expressiveness of code that wants to be portable to Windows).
+* This requires that we create a layer to abstract over TBB and TinyThread (thus limiting the expressiveness of code that wants to be portable to Windows).
 * Developers are still free to use all of TBB if they are content targeting only Linux and OSX
 * Would love to see TBB working on Win32 (pull requests welcome!)
 
