@@ -4,15 +4,18 @@ dllInfo <- NULL
 
 .onLoad <- function(libname, pkgname) {
 
-   # load tbb if we aren't on windows
+   # load tbb on supported platforms   
    sysname <- Sys.info()['sysname']
-   if (sysname %in% c("Linux", "Darwin")) {
-     if (sysname == "Darwin")
-        ext = ".dylib"
-     else if (sysname == "Linux")
-        ext = ".so.2"
-     dll <- system.file(paste("lib/libtbb", ext, sep = ""), package = "RcppParallel")
-     dllInfo <<- dyn.load(dll, local = FALSE, now = TRUE)
+   tbbSupported <- list(
+     "Darwin" = "libtbb.dylib", "Linux" = "libtbb.so.2", "Windows" = "tbb.dll"
+   )
+   if (sysname %in% names(tbbSupported)) {
+     dll <- system.file(paste("lib/", tbbSupported[[sysname]], sep = ""), package = "RcppParallel")
+     if (!file.exists(dll)) {
+       warning(paste("TBB library", dll, "not found."))
+     } else {
+       dllInfo <<- dyn.load(dll, local = FALSE, now = TRUE)
+     }
    }
    
    # load the package library
@@ -27,7 +30,7 @@ dllInfo <- NULL
    # unload the package library
    library.dynam.unload("RcppParallel", libpath)
    
-   # unload tbb if we loaded it (i.e. aren't on windows)
+   # unload tbb if we loaded it
    if (!is.null(dllInfo))
       dyn.unload(dllInfo[["path"]])
 }
@@ -50,7 +53,8 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    else
       stackSize <- as.integer(stackSize)
    
-   if (Sys.info()['sysname'] %in% c("Linux", "Darwin")) {
+   # Call setThreadOptions if using tbb
+   if (!is.null(dllInfo)) {
       invisible(.Call("setThreadOptions", numThreads, stackSize, 
                       PACKAGE = "RcppParallel"))
    } 

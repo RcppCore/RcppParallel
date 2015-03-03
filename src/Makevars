@@ -3,34 +3,59 @@ CXX_STD = CXX11
 
 PKG_CPPFLAGS += -I../inst/include/
 
+ifeq ($(OS), Windows_NT)
+  USE_TBB=Windows
+  TBB_COPY_PATTERN=tbb.dll
+else
+
 UNAME := $(shell uname)
+TBB_COPY_PATTERN=libtbb.*
 
 ifeq ($(UNAME), Darwin)
-  USE_TBB=yes
+  USE_TBB=Mac
 endif
 ifeq ($(UNAME), Linux)
-  USE_TBB=yes
+  USE_TBB=Linux
+endif
+# Note: regular MinGW not supported
+
 endif
 
 ifdef USE_TBB
 
+# Tell options.cpp that TBB support is turned on
+PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+
+MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib
+
+# What I really want is startswith but this doesn't appear to be available
+ifneq (,$(findstring clang,$(CC)))
+  MAKE_ARGS += compiler=clang
+endif
+
+ifeq ($(USE_TBB),  Windows)
+  # rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
+  # compiler: overwrite default (which is cl = MS compiler)
+  # arch: overwrite default (= ia32)
+  MAKE_ARGS += rtools=true compiler=gcc arch=intel64
+  # Linker needs access to the tbb dll; otherwise you get errors such as:
+  # "undefined reference to `tbb::task_scheduler_init::terminate()'"
+  PKG_LIBS += -L../inst/lib -ltbb
+endif
+
 .PHONY: all tbb
 
-all: $(SHLIB) tbb
+# Order is important in Windows' case. See PKG_LIBS above
+all: tbb $(SHLIB)
 
 tbb:
 	mkdir -p ../inst/lib
-	if [[ "$(CC)" == clang* ]]; then \
-		(cd tbb/src; make compiler=clang CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib) \
-	else \
-		(cd tbb/src; make CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib) \
-	fi
-	cp tbb/build/lib_release/libtbb.* ../inst/lib
+	( cd tbb/src; make $(MAKE_ARGS) )
+	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib
 
 clean:
 	(cd tbb/src; make clean)
 
 endif
-
 
 

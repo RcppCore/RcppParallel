@@ -16,12 +16,26 @@
 # by the GNU General Public License. This exception does not however invalidate any other
 # reasons why the executable file might be covered by the GNU General Public License.
 
-export SHELL = cmd
-
 ifdef tbb_build_dir
   test_dir:=$(tbb_build_dir)
 else
   test_dir:=.
+endif
+
+ifndef rtools
+  export SHELL = cmd
+  CMD:=cmd /C
+  SLASH=\\
+  RM=cmd /C del /Q /F
+  RD=cmd /C rmdir
+  MD=cmd /c mkdir
+else
+  CMD:=cmd /C
+  export SHELL = sh.exe
+  SLASH=/
+  RD=rmdir
+  MD=mkdir
+  RM=rm
 endif
 
 # A convenience wrapper for calls to detect.js.
@@ -43,10 +57,6 @@ debugger ?= devenv /debugexe
 
 CMD=cmd /C
 CWD=$(shell cmd /C echo %CD%)
-RM=cmd /C del /Q /F
-RD=cmd /C rmdir
-MD=cmd /c mkdir
-SLASH=\\
 NUL = nul
 
 AR=lib
