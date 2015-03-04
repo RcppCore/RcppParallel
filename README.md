@@ -35,17 +35,25 @@ You can use the RcppParallel library from within a standalone C++ source file as
 
 #### Packages
 
-If you want to use RcppParallel from within an R package you add the following to your DESCRIPTION file:
+If you want to use RcppParallel from within an R package you add the following to your **DESCRIPTION** file:
 
 ```yaml
 Imports: RcppParallel
 LinkingTo: RcppParallel
 ```
 
-And the following to your NAMESPACE file:
+And the following to your **NAMESPACE** file:
 
-```s
-import(RcppParallel)
+```R
+importFrom(RcppParallel, RcppParallelLibs)
+```
+
+Finally, for Windows builds you'll need the following in **src\\Makevars.win**
+to ensure that your package can link against the TBB DLL:
+
+```makefile
+PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
+              -e "RcppParallel::RcppParallelLibs()")
 ```
 
 ### License
