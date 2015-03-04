@@ -24,9 +24,6 @@ endif
 
 ifdef USE_TBB
 
-  # Tell options.cpp that TBB support is turned on
-  PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
-
   MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib
 
   # What I really want is startswith but this doesn't appear to be available

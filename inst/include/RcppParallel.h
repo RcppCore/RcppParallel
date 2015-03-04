@@ -5,9 +5,14 @@
 // TinyThread implementation
 #include "RcppParallel/TinyThread.h"
 
-// Makevars owns setting this to 1 if TBB supported
+// Use TBB only where it's known to compile and work correctly
 #ifndef RCPP_PARALLEL_USE_TBB
-  #define RCPP_PARALLEL_USE_TBB 0
+#if defined(_WIN32) || defined(__APPLE__) || defined(__gnu_linux__)
+#define RCPP_PARALLEL_USE_TBB 1
+#include "RcppParallel/TBB.h"
+#else
+#define RCPP_PARALLEL_USE_TBB 0
+#endif
 #endif
 
 #if RCPP_PARALLEL_USE_TBB
