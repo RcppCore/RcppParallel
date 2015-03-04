@@ -1,43 +1,5 @@
 
 
-dllInfo <- NULL
-
-.onLoad <- function(libname, pkgname) {
-
-   # load tbb on supported platforms   
-   sysname <- Sys.info()['sysname']
-   tbbSupported <- list(
-     "Darwin" = "libtbb.dylib", "Linux" = "libtbb.so.2", "Windows" = "tbb.dll"
-   )
-   if (sysname %in% names(tbbSupported)) {
-     libDir <- "lib/"
-     if (sysname == "Windows")
-        libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
-     dll <- system.file(paste(libDir, tbbSupported[[sysname]], sep = ""), package = "RcppParallel")
-     if (!file.exists(dll)) {
-       warning(paste("TBB library", dll, "not found."))
-     } else {
-       dllInfo <<- dyn.load(dll, local = FALSE, now = TRUE)
-     }
-   }
-   
-   # load the package library
-   library.dynam("RcppParallel", pkgname, libname)
-   
-   # set default thread options
-   setThreadOptions()
-}
-
-.onUnload <- function(libpath) {
-   
-   # unload the package library
-   library.dynam.unload("RcppParallel", libpath)
-   
-   # unload tbb if we loaded it
-   if (!is.null(dllInfo))
-      dyn.unload(dllInfo[["path"]])
-}
-
 setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    
    # validate and resolve numThreads

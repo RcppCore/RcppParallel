@@ -22,5 +22,7 @@ Suggests: Rcpp, testthat
 SystemRequirements: GNU make
 License: GPL-2
 Collate: 
+   'build.R'
+   'hooks.R'
    'options.R'
 
