@@ -40,9 +40,9 @@ ifeq ($(USE_TBB),  Windows)
   ifeq ("$(WIN)", "64")
     # TBB defaults to ia32
     MAKE_ARGS += arch=intel64
-    ARCH_DIR="x64/"
+    ARCH_DIR=x64/
   else
-    ARCH_DIR="i386/"
+    ARCH_DIR=i386/
   endif
 
   # Linker needs access to the tbb dll; otherwise you get errors such as:
