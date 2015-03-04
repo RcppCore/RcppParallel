@@ -40,11 +40,14 @@ ifeq ($(USE_TBB),  Windows)
   ifeq ("$(WIN)", "64")
     # TBB defaults to ia32
     MAKE_ARGS += arch=intel64
+    ARCH_DIR="x64/"
+  else
+    ARCH_DIR="i386/"
   endif
 
   # Linker needs access to the tbb dll; otherwise you get errors such as:
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
-  PKG_LIBS += -L../inst/lib -ltbb
+  PKG_LIBS += -L../inst/lib/$(ARCH_DIR) -ltbb
 
 endif
 
@@ -54,9 +57,9 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
-	mkdir -p ../inst/lib
+	mkdir -p ../inst/lib/$(ARCH_DIR)
 	( cd tbb/src; make $(MAKE_ARGS) )
-	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib
+	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
 
 clean:
 	(cd tbb/src; make clean)

@@ -10,7 +10,10 @@ dllInfo <- NULL
      "Darwin" = "libtbb.dylib", "Linux" = "libtbb.so.2", "Windows" = "tbb.dll"
    )
    if (sysname %in% names(tbbSupported)) {
-     dll <- system.file(paste("lib/", tbbSupported[[sysname]], sep = ""), package = "RcppParallel")
+     libDir <- "lib/"
+     if (sysname == "Windows")
+        libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
+     dll <- system.file(paste(libDir, tbbSupported[[sysname]], sep = ""), package = "RcppParallel")
      if (!file.exists(dll)) {
        warning(paste("TBB library", dll, "not found."))
      } else {
