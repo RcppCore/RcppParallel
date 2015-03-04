@@ -39,10 +39,10 @@ defaultNumThreads()
 }
 
 \examples{
-\dontrun{
+library(RcppParallel)
+
 setThreadOptions(numThreads = 4)
 
 defaultNumThreads()
-}
 }
 
