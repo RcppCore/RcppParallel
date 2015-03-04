@@ -36,8 +36,12 @@ endif
 ifeq ($(USE_TBB),  Windows)
   # rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
   # compiler: overwrite default (which is cl = MS compiler)
-  # arch: overwrite default (= ia32)
-  MAKE_ARGS += rtools=true compiler=gcc arch=intel64
+  MAKE_ARGS += rtools=true compiler=gcc
+  ifeq ("$(WIN)", "64")
+    # TBB defaults to ia32
+    MAKE_ARGS += arch=intel64
+  endif
+
   # Linker needs access to the tbb dll; otherwise you get errors such as:
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
   PKG_LIBS += -L../inst/lib -ltbb
