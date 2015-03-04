@@ -5,7 +5,7 @@ Version: 4.3.4
 Date: 2015-04-04
 Authors@R: c(
     person("JJ", "Allaire", role = c("aut", "cre"), email = "jj@rstudio.com"),
-    person("Romain", "Francios", role = c("aut", "cph")),
+    person("Romain", "Francois", role = c("aut", "cph")),
     person("Gregory", "Vandenbrouck", role = "aut"),
     person("Marcus", "Geelnard", role = c("aut", "cph"),
        comment = "TinyThread library, http://tinythreadpp.bitsnbites.eu/"),
