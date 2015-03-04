@@ -2,20 +2,24 @@
 
 
 inlineCxxPlugin <- function() {
-   tbb <- tbbLibPath()
-   if (!is.null(tbb)) {
+
+   # For sourceCpp on Windows we need to explicitly link against tbb.dll
+   if (Sys.info()['sysname'] == "Windows") {
+      tbb <- tbbLibPath()
       pkgLibs <- paste("-L", asBuildPath(dirname(tbb)), 
                        " -ltbb", sep="")
-      list(
-         env = list(PKG_LIBS = pkgLibs),
-         includes = "#include <RcppParallel.h>",
-         LinkingTo = "RcppParallel",
-         body = function( x ) x,
-         Depends = "RcppParallel"
-      )
+      env <- list(PKG_LIBS = pkgLibs)
    } else {
-      NULL
+      env <- list() 
    }
+   
+   list(
+      env = env,
+      includes = "#include <RcppParallel.h>",
+      LinkingTo = "RcppParallel",
+      body = function( x ) x,
+      Depends = "RcppParallel"
+   )
 }
 
 
