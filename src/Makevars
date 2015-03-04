@@ -58,12 +58,11 @@ all: tbb $(SHLIB)
 
 tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR)
-	( cd tbb/src; rm -f nul; make $(MAKE_ARGS) )
+	( cd tbb/src; make $(MAKE_ARGS) )
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
-	( cd tbb/src; rm -f nul )
 
 clean:
-	(cd tbb/src; rm -f nul; make clean)
+	(cd tbb/src; make clean)
 
 endif
 

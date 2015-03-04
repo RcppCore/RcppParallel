@@ -29,6 +29,7 @@ ifndef rtools
   RM=cmd /C del /Q /F
   RD=cmd /C rmdir
   MD=cmd /c mkdir
+  NUL= nul
 else
   CMD:=cmd /C
   export SHELL = sh.exe
@@ -36,6 +37,7 @@ else
   RD=rmdir
   MD=mkdir
   RM=rm
+  NUL= /dev/null
 endif
 
 # A convenience wrapper for calls to detect.js.
@@ -57,7 +59,6 @@ debugger ?= devenv /debugexe
 
 CMD=cmd /C
 CWD=$(shell cmd /C echo %CD%)
-NUL = nul
 
 AR=lib
 AR_OUTPUT_KEY=/out:
