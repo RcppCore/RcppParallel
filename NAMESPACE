@@ -1,3 +1,4 @@
 export(setThreadOptions)
 export(defaultNumThreads)
+export(RcppParallelLibs)
 

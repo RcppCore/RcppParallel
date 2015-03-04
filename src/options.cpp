@@ -3,7 +3,7 @@
 
 #include <Rinternals.h>
 
-#if RCPP_PARALLEL_USE_TBB
+#if RCPP_PARALLEL_USE_TBB // TBB support turned on
 
 #include <string>
 #include <exception>
@@ -45,7 +45,7 @@ extern "C" SEXP defaultNumThreads() {
    return threadsSEXP;
 }
 
-#else // Windows
+#else // TBB support not turned on
 
 #include <tthread/tinythread.h>
 

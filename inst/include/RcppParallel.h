@@ -7,12 +7,16 @@
 
 // Use TBB only where it's known to compile and work correctly
 #ifndef RCPP_PARALLEL_USE_TBB
-#if defined(__APPLE__) || defined(__gnu_linux__)
-  #define RCPP_PARALLEL_USE_TBB 1
-  #include "RcppParallel/TBB.h"
+#if defined(_WIN32) || defined(__APPLE__) || defined(__gnu_linux__)
+#define RCPP_PARALLEL_USE_TBB 1
+#include "RcppParallel/TBB.h"
 #else
-  #define RCPP_PARALLEL_USE_TBB 0
+#define RCPP_PARALLEL_USE_TBB 0
 #endif
+#endif
+
+#if RCPP_PARALLEL_USE_TBB
+  #include "RcppParallel/TBB.h"
 #endif
 
 #include "RcppParallel/RVector.h"
