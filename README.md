@@ -2,7 +2,7 @@
 
 High level functions for doing parallel programming with Rcpp. For example, the `parallelFor` function can be used to convert the work of a standard serial "for" loop into a parallel one and the `parallelReduce` function can be used for accumulating aggregate or other values.
 
-The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. The underlying implementation differs by platform: on Linux and Mac systems the [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks) are used while on Windows systems the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
+The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
 
 ### Examples
 
@@ -15,8 +15,6 @@ Here are links to some examples that illustrate using RcppParallel. Performance 
 [Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
 
 [Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
-
-Note that the benchmark times above are for the TBB back-end (Posix systems only). Performance on Windows will be about 30-50% slower as a result of less sophisticated thread scheduling.
 
 ### Usage
 

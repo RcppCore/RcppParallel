@@ -1,10 +1,19 @@
 Package: RcppParallel
 Type: Package
 Title: Parallel Programming Tools for Rcpp
-Version: 4.3.3
-Date: 2014-10-20
-Author: JJ Allaire; Romain Francois; Intel, Inc.; Marcus Geelnard
-Maintainer: JJ Allaire <jj@rstudio.com>
+Version: 4.3.4
+Date: 2015-04-04
+Authors@R: c(
+    person("JJ", "Allaire", role = c("aut", "cre"), email = "jj@rstudio.com"),
+    person("Romain", "Francios", role = c("aut", "cph")),
+    person("Gregory", "Vandenbrouck", role = "aut"),
+    person("Marcus", "Geelnard", role = c("aut", "cph"),
+       comment = "TinyThread library, http://tinythreadpp.bitsnbites.eu/"),
+    person(family = "RStudio", role = "cph"),
+    person(family = "Intel", role = c("aut", "cph"),
+       comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
+    person(family = "Microsoft", role = "cph")
+    )
 Description: High level functions for doing parallel programming with Rcpp.
   For example, the parallelFor function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce 

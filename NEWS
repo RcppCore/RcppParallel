@@ -1,4 +1,9 @@
-RcppParallel 4.3.1
+RcppParallel 4.3.4
+------------------------------------------------------------------------
+
+* Support for TBB on Windows
+
+RcppParallel 4.3.3
 ------------------------------------------------------------------------
 
 * Update to TBB 4.3 (fixes clang compilation error in platform.h)
