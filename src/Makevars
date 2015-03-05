@@ -1,7 +1,7 @@
 
 CXX_STD = CXX11
 
-PKG_CPPFLAGS += -I../inst/include/
+PKG_CPPFLAGS += -I../inst/include/ -DRCPP_PARALLEL_USE_TBB=1
 
 ifeq ($(OS), Windows_NT)
 
