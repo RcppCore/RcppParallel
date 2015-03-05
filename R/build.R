@@ -16,7 +16,10 @@ RcppParallelLibs <- function() {
 # Inline plugin used by sourceCpp to link to the TBB library
 inlineCxxPlugin <- function() {
    list(
-      env = list(PKG_LIBS = tbbLdFlags()),
+      env = list(
+         PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1",
+         PKG_LIBS = tbbLdFlags()
+      ),
       includes = "#include <RcppParallel.h>",
       LinkingTo = "RcppParallel",
       body = function( x ) x,

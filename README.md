@@ -49,9 +49,12 @@ importFrom(RcppParallel, RcppParallelLibs)
 ```
 
 Finally, for Windows builds you'll need the following in **src\\Makevars.win**
-to ensure that your package can link against the TBB DLL:
+to ensure that your package can use TBB (if you don't do
+this the TinyThread fallback implementation will be used):
 
-```makefile
+```make
+PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+
 PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
               -e "RcppParallel::RcppParallelLibs()")
 ```
