@@ -3,6 +3,7 @@
 ^src/tbb/build/lib_.*$
 ^inst/lib$
 ^.travis.yml
+^doc$
 
 
 
