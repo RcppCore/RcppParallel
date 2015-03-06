@@ -17,7 +17,7 @@ High level functions for doing parallel programming with Rcpp. For example, the 
 
 The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
 
-In addition to a robust concurrent programming model, parallelization using TBB can achieve significantly better performance than traditional use of threads or even [OpenMP](http://openmp.org/wp/). This is accomplished via dynamic optimization around grain size (which affects locality of reference and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).
+In addition to a robust concurrent programming model, parallelization using TBB can achieve significantly better performance than traditional use of threads or even [OpenMP](http://openmp.org/wp/). This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).
 
 This guide describes how to use `parallelFor` and `parallelReduce` in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.
 
@@ -73,13 +73,27 @@ Then in each source file that needs to use RcppParallel include the main package
 #include <RcppParallel.h>
 ```
 
+#### Examples
+
+You may want to get started by reviewing some examples (links to several are provided below). Even if you get the hang of things by looking at examples, it's still highly recommended that you review this guide as it has important content about thread safety, tuning, and more advanced uses of TBB.
+
+[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
+
+[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.
+
+[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
+
+[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
+
+Note that performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading). 
+
 ### Thread Safety
 
-A major goal of RcppParallel is to make it possible to write parallel code without traditional threading and locking primitives (which are notoriously complicated and difficult to get right). This is achieved for the most part by `parallelFor` and `parallelReduce` however the fact that the R API itself is single-threaded must also be navigated. 
+A major goal of RcppParallel is to make it possible to write parallel code without traditional threading and locking primitives (which are notoriously complicated and difficult to get right). This is achieved for the most part by `parallelFor` and `parallelReduce` however the fact that the R API itself is single-threaded must also be taken into consideration. 
 
 #### API Restrictions
 
-The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R itself is single-threaded and concurrent interaction with it's data structures will cause crashes and other undefined behavior. Here is the official guidance from [Writing R Extensions](http://cran.rstudio.com/doc/manuals/r-release/R-exts.html):
+The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R is single-threaded and concurrent interaction with it's data structures can  cause crashes and other undefined behavior. Here is the official guidance from [Writing R Extensions](http://cran.rstudio.com/doc/manuals/r-release/R-exts.html):
 
 > Calling any of the R API from threaded code is ‘for experts only’: they will need to read the source code to determine if it is thread-safe. In particular, code which makes use of the stack-checking mechanism must not be called from threaded code.
 
@@ -120,7 +134,7 @@ IntegerVector transformVector(IntegerVector x) {
 
 #### Locking
 
-When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of `parallelFor` and `parallelReduce` (explained below) take care of providing safe windows into input and output data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you an use the TinyThread locking classes (automatically available via `RcppParallel.h`). See the [TinyThread documentation](http://tinythreadpp.bitsnbites.eu/doc/) for additional details.
+When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of `parallelFor` and `parallelReduce` (explained below) take care of providing safe windows into input and output data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you can use the TinyThread locking classes (automatically available via `RcppParallel.h`). See the [TinyThread documentation](http://tinythreadpp.bitsnbites.eu/doc/) for additional details.
 
 ### Algorithms
 
@@ -184,9 +198,9 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
 
 To use `parallelReduce` you create a "Worker" object that:
 
-1. Implements a standard and "splitting" constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it's "accumulated" value back to it's baseline (e.g. zero).
+1. Implements a standard and "splitting" constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it's "accumulated" value to zero.
 
-2. Implements operator() to perform the work. This works just like the operator() in parallelFor, but instead of writing to another vector or matrix it typically will accumulate a value.
+2. Implements operator() to perform the work. This works just like the operator() in `parallelFor`, but instead of writing to another vector or matrix it typically will accumulate a value.
 
 3. Implements a join method which composes the operations of two worker instances that were previously split. Here we simply combine the accumulated value of the instance we are being joined with to our own.
 
@@ -227,7 +241,7 @@ Now that we've defined the Worker, implementing the parallel sum function is str
 // [[Rcpp::export]]
 double parallelVectorSum(NumericVector x) {
    
-   // declare the SumBody instance 
+   // declare the Sum instance 
    Sum sum(x);
    
    // call parallel_reduce to start the work
@@ -238,36 +252,111 @@ double parallelVectorSum(NumericVector x) {
 }
 ```
 
-#### Examples
-
-Here are links to some examples that illustrate using `parallelFor` and `parallelReduce` Performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading). 
-
-[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
-
-[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.
-
-[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
-
-[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
-
-
 ### Tuning
+
+There are several settings available for tuning the behavior of parallel algorithms. These settings as well as benchmarking techniques are covered below.
 
 #### Grain Size
 
+The grain size of a parallel algorithm sets a minimum chunk size for parallelization. In other words, at what point to stop processing input on separate threads (as sometimes creating more threads can degrade the performance of an algorithm by introducing excessive synchronization overhead). 
+
+By default the grain size for TBB (and thus for `parallelFor` and `parallelReduce`) is 1. You can change the grain size by passing an additional parameter to these functions. For example:
+
+```cpp
+parallelReduce(0, x.length(), sum, 100);
+```
+
+This will prevent the creation of threads that process less than 100 items. You should experiment with various chunk sizes and use the benchmarking tools described below to measure their effectiveness. The Intel TBB website includes a detailed [discussion of grain sizes and partitioning](https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Controlling_Chunking.htm) which has some useful guidelines for tweaking grain sizes.
+
 #### Threads Used
 
-#### Benchmarking
+By default all of the available cores on a machine are used for parallel algorithms. You may instead want to use a fixed number of threads or a fixed proportion of cores available on the machine. 
 
+R rather than C++ functions are provided to control these settings so that users of your algorithm can control the use of resources on their system. You can call the `setNumThreads` function to allocate threads. For example, the following sets a maximum of 4 threads:
+
+```r
+RcppParallel::setNumThreads(4)
+```
+
+To use a proportion of available cores you can use the `defaultNumThreads` function. For example, the following says to use half of the available cores on a system:
+
+```r
+library(RcppParallel)
+setNumThreads(defaultNumThreads() / 2)
+```
+
+#### Benchmarks
+
+As you experiment with various settings to tune your parallel algorithms you should always measure the results. The **rbenchmark** package has some useful tools for doing this. For example, here's a benchmark of the parallel matrix square root example from above (in this case it's a comparison against the serial version):
+
+```r
+# allocate a matrix
+m <- matrix(as.numeric(c(1:1000000)), nrow = 1000, ncol = 1000)
+
+# ensure that serial and parallel versions give the same result
+stopifnot(identical(matrixSqrt(m), parallelMatrixSqrt(m)))
+
+# compare performance of serial and parallel
+library(rbenchmark)
+res <- benchmark(matrixSqrt(m),
+                 parallelMatrixSqrt(m),
+                 order="relative")
+res[,1:4]
+```
+
+```
+                   test replications elapsed relative
+2 parallelMatrixSqrt(m)          100   0.294    1.000
+1         matrixSqrt(m)          100   0.755    2.568
+```
 
 
 ### Using TBB
 
+RcppParallel provides the `parallelFor` and `parallelReduce` functions however the TBB library includes a wealth of other tools for parallelization. The motivation for `parallelFor` and `parallelReduce` is compatibility. You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on threads on other platforms.
+
+If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass `parallelFor` and `parallelReduce`. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the *Compatibility* section below).
+
 #### TBB APIs
+
+TBB includes a wide variety of tools for parallel programming, including:
+
+* Advanced algorithms: `parallel_scan`, `parallel_while`, `parallel_do`, `parallel_pipeline`, `parallel_sort`
+* Containers: `concurrent_queue`, `concurrent_priority_queue`, `concurrent_vector`, `concurrent_hash_map`
+* Mutual exclusion: `mutex`, `spin_mutex`, `queuing_mutex`, `spin_rw_mutex`, `queuing_rw_mutex`, `recursive_mutex`
+* Atomic operations: `fetch_and_add`, `fetch_and_increment`, `fetch_and_decrement`, `compare_and_swap`, `fetch_and_store`
+* Timing: portable fine grained global time stamp
+* Task Scheduler: direct access to control the creation and activation of tasks
+
+See the [Intel TBB User Guide](https://software.intel.com/en-us/node/506045) for documentation on using these features.
 
 #### Compatibility
 
-#### Examples
+When using TBB directly in a CRAN package you should check the value of the `RCPP_PARALLEL_USE_TBB` macro and conditionally include a serial implementation of your algorithm if it's not `TRUE`. Note that this macro is defined in `RcppParallel.h` so you should include this in all cases (it will in turn automatically include `<tbb/tbb.h>` on platforms where it's supported). For example, your source file might look like this:
+
+```cpp
+#include <RcppParallel.h>
+
+#if RCPP_PARALLEL_USE_TBB
+
+IntegerVector transformData(IntegerVector x) {
+
+  // Implement by calling TBB APIs directly 
+
+}
+
+#else
+
+IntegerVector transformData(IntegerVector x) {
+
+  // Implement serially
+
+}
+
+#endif
+```
+
+Note that the two functions have the same name (only one will be compiled and linked based on whether the target platform supports TBB).
 
 
 
