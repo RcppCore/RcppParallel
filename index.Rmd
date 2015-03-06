@@ -17,19 +17,8 @@ High level functions for doing parallel programming with Rcpp. For example, the 
 
 The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
 
-See the examples below for a quick overview of the basic capabilities of the package. Review this guide to learn how to use `parallelFor` and `parallelReduce` in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.
+This guide describes how to use `parallelFor` and `parallelReduce` in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.
 
-### Examples
-
-Here are links to some examples that illustrate using RcppParallel. Performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading). 
-
-[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
-
-[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.
-
-[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
-
-[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
 
 ### Getting Started
 
@@ -76,19 +65,195 @@ PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
               -e "RcppParallel::RcppParallelLibs()")
 ```
 
+Then in each source file that needs to use RcppParallel include the main package header:
+
+```cpp
+#include <RcppParallel.h>
+```
+
 ### Thread Safety
+
+A major goal of RcppParallel is to make it possible to write parallel code without traditional threading and locking primitives (which are notoriously complicated and difficult to get right). This is achieved for the most part by `parallelFor` and `parallelReduce` however the fact that the R API itself is single-threaded must also be navigated. 
 
 #### API Restrictions
 
+The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R itself is single-threaded and concurrent interaction with it's data structures will cause crashes and other undefined behavior. Here is the official guidance from [Writing R Extensions](http://cran.rstudio.com/doc/manuals/r-release/R-exts.html):
+
+> Calling any of the R API from threaded code is ‘for experts only’: they will need to read the source code to determine if it is thread-safe. In particular, code which makes use of the stack-checking mechanism must not be called from threaded code.
+
+Not being able to call the R or Rcpp API creates an obvious challenge: how to read and write to R vectors and matrixes. Fortunately, R vectors and matrixes are just contiguous arrays of `int`, `double`, etc. so can be accessed using traditional array and pointer offsets. The next section describes a safe and high level way to do this.
+
 #### Safe Accessors  
+
+To provide safe and convinent access to the arrays underlying R vectors and matrixes RcppParallel introduces several accessor classes:
+
+* `RVector<T>` --- Wrap R vectors of various types
+
+* `RMatrix<T>` --- Wrap R matrixes of various types (also includes `Row` and `Column` classes)
+
+To create a threadsafe accessor for an Rcpp vector or matrix just construct an instance of `RVector` or `RMatrix` with it. For example:
+
+```cpp
+// [[Rcpp::export]]
+IntegerVector transformVector(IntegerVector x) {
+  RVector<int> input(x);
+  // etc...
+}
+```
+
+Similarly, if you need to return a vector as a result of a parallel transformation you should first create it using Rcpp then construct a wrapper for writing from multiple threads. For example:
+
+```cpp
+// [[Rcpp::export]]
+IntegerVector transformVector(IntegerVector x) {
+  RVector<int> input(x);        // create threadsafe wrapper to input
+  IntegerVector y(x.size());    // allocate output vector
+  RVector<int> output(y);       // create threadsafe wrapper to output
+  
+  // ...transform vector in parallel ...
+  
+  return y;
+}
+```
 
 #### Locking
 
+When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of `parallelFor` and `parallelReduce` (explained below) take care of providing safe windows into input and ouptut data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you an use the TinyThread locking classes (automatically available via `RcppParallel.h`). See the [TinyThread documentation](http://tinythreadpp.bitsnbites.eu/doc/) for additional details.
+
 ### Algorithms
+
+RcppParallel provides two high level parallel algorithms: `parallelFor` can be used to convert the work of a standard serial "for" loop into a parallel one and `parallelReduce` can be used for accumulating aggregate or other values.
 
 #### parallelFor
 
+To use `parallelFor`, you create a "Worker" object that defines an `operator()` which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here's a Worker object that takes the square root of it's input and writes it into it's output:
+
+```cpp
+// [[Rcpp::depends(RcppParallel)]]
+#include <RcppParallel.h>
+using namespace RcppParallel;
+
+struct SquareRoot : public Worker
+{
+   // source matrix
+   const RMatrix<double> input;
+   
+   // destination matrix
+   RMatrix<double> output;
+   
+   // initialize with source and destination
+   SquareRoot(const NumericMatrix input, NumericMatrix output) 
+      : input(input), output(output) {}
+   
+   // take the square root of the range of elements requested
+   void operator()(std::size_t begin, std::size_t end) {
+      std::transform(input.begin() + begin, 
+                     input.begin() + end, 
+                     output.begin() + begin, 
+                     ::sqrt);
+   }
+};
+
+```
+
+Note that `SquareRoot` derives from `RcppParallel::Worker`. This is required for function objects passed to `parallelFor`.
+
+Here's a function that calls the `SquareRoot` worker we defined:
+
+```cpp
+// [[Rcpp::export]]
+NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
+  
+  // allocate the output matrix
+  NumericMatrix output(x.nrow(), x.ncol());
+  
+  // SquareRoot functor (pass input and output matrixes)
+  SquareRoot squareRoot(x, output);
+  
+  // call parallelFor to do the work
+  parallelFor(0, x.length(), squareRoot);
+  
+  // return the output matrix
+  return output;
+}
+```
+
 #### parallelReduce
+
+To use `parallelReduce` you create a "Worker" object that:
+
+1. Implements a standard and "splitting" constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it's "accumulated" value back to it's baseline (e.g. zero).
+
+2. Implements operator() to perform the work. This works just like the operator() in parallelFor, but instead of writing to another vector or matrix it typically will accumulate a value.
+
+3. Implements a join method which composes the operations of two worker instances that were previously split. Here we simply combine the accumulated value of the instance we are being joined with to our own.
+
+For example, here's a Worker object that is used to sum a vector:
+
+```cpp
+// [[Rcpp::depends(RcppParallel)]]
+#include <RcppParallel.h>
+using namespace RcppParallel;
+
+struct Sum : public Worker
+{   
+   // source vector
+   const RVector<double> input;
+   
+   // accumulated value
+   double value;
+   
+   // constructors
+   Sum(const NumericVector input) : input(input), value(0) {}
+   Sum(const Sum& sum, Split) : input(sum.input), value(0) {}
+   
+   // accumulate just the element of the range I've been asked to
+   void operator()(std::size_t begin, std::size_t end) {
+      value += std::accumulate(input.begin() + begin, input.begin() + end, 0.0);
+   }
+     
+   // join my value with that of another Sum
+   void join(const Sum& rhs) { 
+      value += rhs.value; 
+   }
+};
+```
+
+Now that we’ve defined the Worker, implementing the parallel sum function is straightforward. Just initialize an instance of `Sum` with an input vector and call `parallelReduce`:
+
+```cpp
+// [[Rcpp::export]]
+double parallelVectorSum(NumericVector x) {
+   
+   // declare the SumBody instance 
+   Sum sum(x);
+   
+   // call parallel_reduce to start the work
+   parallelReduce(0, x.length(), sum);
+   
+   // return the computed sum
+   return sum.value;
+}
+```
+
+#### Examples
+
+Here are links to some examples that illustrate using `parallelFor` and `parallelReduce` Performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading). 
+
+[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
+
+[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.
+
+[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
+
+[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
+
+
+### Tuning
+
+#### Grain Size
+
+#### Threads Used
 
 ### Using TBB
 
@@ -96,7 +261,7 @@ PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
 
 #### Compatibility
 
-#### Example
+#### Examples
 
 
 
