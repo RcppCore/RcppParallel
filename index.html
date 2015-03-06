@@ -103,20 +103,29 @@ h4 {
 
 .tocify {
   border: none;
+  background-color: #ECF2F6;
 }
 
 .tocify .list-group-item {
-  padding: 1px;
+  border-radius: 0px;
+  background-color: #ECF2F6;
+  padding-top: 0px;
+  padding-bottom: 0px;
+  color: #337ab7;
 }
 
 .tocify .list-group-item.active {
-  color: black;
+  color: white;
+  background-color: #428DC8;
+}
+
+.tocify .list-group-item:hover {
   background-color: #caddec;
 }
 
 .tocify .list-group-item.active:hover {
-  color: black;
-  background-color: #caddec;
+  color: white;
+  background-color: #428DC8;
 }
 
 .tocify-subheader {
@@ -125,7 +134,7 @@ h4 {
 
 .tocify-subheader .tocify-item {
   font-size: 0.95em;
-  margin-left: 5px;
+  padding-left: 12px;
 }
 
 #overview h3 {
@@ -179,8 +188,8 @@ PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
 </div>
 <div id="thread-safety" class="section level3">
 <h3>Thread Safety</h3>
-<div id="r-api-restrictions" class="section level4">
-<h4>R API Restrictions</h4>
+<div id="api-restrictions" class="section level4">
+<h4>API Restrictions</h4>
 </div>
 <div id="safe-accessors" class="section level4">
 <h4>Safe Accessors</h4>

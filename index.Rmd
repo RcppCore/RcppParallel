@@ -78,7 +78,7 @@ PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
 
 ### Thread Safety
 
-#### R API Restrictions
+#### API Restrictions
 
 #### Safe Accessors  
 
