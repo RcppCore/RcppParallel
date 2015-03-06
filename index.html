@@ -105,6 +105,10 @@ h4 {
   border: none;
 }
 
+.tocify .list-group-item {
+  padding: 1px;
+}
+
 .tocify .list-group-item.active {
   color: black;
   background-color: #caddec;
@@ -120,7 +124,8 @@ h4 {
 }
 
 .tocify-subheader .tocify-item {
-  font-size: 14px;
+  font-size: 0.95em;
+  margin-left: 5px;
 }
 
 #overview h3 {
@@ -128,12 +133,6 @@ h4 {
   height: 0px;
 }
 
-#rcppparallel-header {
-  font-size: 90px;
-  margin-top: -40px;
-  font-family: monospace;
-  
-}
 </style>
 
 
@@ -143,6 +142,7 @@ h4 {
 <p><img src="images/RcppParallelLogo.png" alt="RcppParallel" /></p>
 <p>High level functions for doing parallel programming with Rcpp. For example, the <code>parallelFor</code> function can be used to convert the work of a standard serial “for” loop into a parallel one and the <code>parallelReduce</code> function can be used for accumulating aggregate or other values.</p>
 <p>The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on <a href="https://www.threadingbuildingblocks.org/">Intel TBB</a> (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the <a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a> library is used.</p>
+<p>See the examples below for a quick overview of the basic capabilities of the package. Review this guide to learn how to use <code>parallelFor</code> and <code>parallelReduce</code> in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.</p>
 </div>
 <div id="examples" class="section level3">
 <h3>Examples</h3>
@@ -152,18 +152,19 @@ h4 {
 <p><a href="http://gallery.rcpp.org/articles/parallel-distance-matrix/">Parallel Distance Matrix</a> — Demonstrates using <code>parallelFor</code> to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.</p>
 <p><a href="http://gallery.rcpp.org/articles/parallel-inner-product/">Parallel Inner Product</a> — Demonstrates using <code>parallelReduce</code> to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.</p>
 </div>
-<div id="usage" class="section level3">
-<h3>Usage</h3>
+<div id="getting-started" class="section level3">
+<h3>Getting Started</h3>
 <p>You can install the RcppParallel package from CRAN as follows:</p>
 <pre class="s"><code>install.packages(&quot;RcppParallel&quot;)</code></pre>
 <div id="sourcecpp" class="section level4">
 <h4>sourceCpp</h4>
-<p>You can use the RcppParallel library from within a standalone C++ source file as follows:</p>
+<p>Add the following to a standalone C++ source file to import RcppParallel:</p>
 <pre class="cpp"><code>// [[Rcpp::depends(RcppParallel)]]
 #include &lt;RcppParallel.h&gt;</code></pre>
+<p>When you compile the file using <code>Rcpp::sourceCpp</code> the required compiler and linker settings for RcppParallel will be automatically included in the compilation.</p>
 </div>
-<div id="packages" class="section level4">
-<h4>Packages</h4>
+<div id="r-packages" class="section level4">
+<h4>R Packages</h4>
 <p>If you want to use RcppParallel from within an R package you add the following to your <strong>DESCRIPTION</strong> file:</p>
 <pre class="yaml"><code>Imports: RcppParallel
 LinkingTo: RcppParallel</code></pre>
@@ -174,6 +175,39 @@ LinkingTo: RcppParallel</code></pre>
 
 PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
               -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
+</div>
+</div>
+<div id="thread-safety" class="section level3">
+<h3>Thread Safety</h3>
+<div id="r-api-restrictions" class="section level4">
+<h4>R API Restrictions</h4>
+</div>
+<div id="safe-accessors" class="section level4">
+<h4>Safe Accessors</h4>
+</div>
+<div id="locking" class="section level4">
+<h4>Locking</h4>
+</div>
+</div>
+<div id="algorithms" class="section level3">
+<h3>Algorithms</h3>
+<div id="parallelfor" class="section level4">
+<h4>parallelFor</h4>
+</div>
+<div id="parallelreduce" class="section level4">
+<h4>parallelReduce</h4>
+</div>
+</div>
+<div id="using-tbb" class="section level3">
+<h3>Using TBB</h3>
+<div id="tbb-apis" class="section level4">
+<h4>TBB APIs</h4>
+</div>
+<div id="compatibility" class="section level4">
+<h4>Compatibility</h4>
+</div>
+<div id="example" class="section level4">
+<h4>Example</h4>
 </div>
 </div>
 

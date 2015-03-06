@@ -17,6 +17,8 @@ High level functions for doing parallel programming with Rcpp. For example, the 
 
 The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
 
+See the examples below for a quick overview of the basic capabilities of the package. Review this guide to learn how to use `parallelFor` and `parallelReduce` in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.
+
 ### Examples
 
 Here are links to some examples that illustrate using RcppParallel. Performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading). 
@@ -29,7 +31,7 @@ Here are links to some examples that illustrate using RcppParallel. Performance 
 
 [Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
 
-### Usage
+### Getting Started
 
 You can install the RcppParallel package from CRAN as follows:
 
@@ -39,14 +41,16 @@ install.packages("RcppParallel")
 
 #### sourceCpp
 
-You can use the RcppParallel library from within a standalone C++ source file as follows:
+Add the following to a standalone C++ source file to import RcppParallel:
 
 ```cpp
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
 ```
 
-#### Packages
+When you compile the file using `Rcpp::sourceCpp` the required compiler and linker settings for RcppParallel will be automatically included in the compilation.
+
+#### R Packages
 
 If you want to use RcppParallel from within an R package you add the following to your **DESCRIPTION** file:
 
@@ -71,5 +75,34 @@ PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
               -e "RcppParallel::RcppParallelLibs()")
 ```
+
+### Thread Safety
+
+#### R API Restrictions
+
+#### Safe Accessors  
+
+#### Locking
+
+### Algorithms
+
+#### parallelFor
+
+#### parallelReduce
+
+### Using TBB
+
+#### TBB APIs
+
+#### Compatibility
+
+#### Example
+
+
+
+
+
+
+
 
 
