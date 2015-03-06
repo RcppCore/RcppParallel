@@ -17,6 +17,8 @@ High level functions for doing parallel programming with Rcpp. For example, the 
 
 The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
 
+In addition to a robust concurrent programming model, parallelization using TBB can achieve significantly better performance than traditional use of threads or even [OpenMP](http://openmp.org/wp/). This is accomplished via dynamic optimization around grain size (which affects locality of reference and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).
+
 This guide describes how to use `parallelFor` and `parallelReduce` in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.
 
 
@@ -81,17 +83,17 @@ The code that you write within parallel workers should not call the R or Rcpp AP
 
 > Calling any of the R API from threaded code is ‘for experts only’: they will need to read the source code to determine if it is thread-safe. In particular, code which makes use of the stack-checking mechanism must not be called from threaded code.
 
-Not being able to call the R or Rcpp API creates an obvious challenge: how to read and write to R vectors and matrixes. Fortunately, R vectors and matrixes are just contiguous arrays of `int`, `double`, etc. so can be accessed using traditional array and pointer offsets. The next section describes a safe and high level way to do this.
+Not being able to call the R or Rcpp API creates an obvious challenge: how to read and write to R vectors and matrices. Fortunately, R vectors and matrices are just contiguous arrays of `int`, `double`, etc. so can be accessed using traditional array and pointer offsets. The next section describes a safe and high level way to do this.
 
 #### Safe Accessors  
 
-To provide safe and convinent access to the arrays underlying R vectors and matrixes RcppParallel introduces several accessor classes:
+To provide safe and convenient access to the arrays underlying R vectors and matrices RcppParallel introduces several accessor classes:
 
 * `RVector<T>` --- Wrap R vectors of various types
 
-* `RMatrix<T>` --- Wrap R matrixes of various types (also includes `Row` and `Column` classes)
+* `RMatrix<T>` --- Wrap R matrices of various types (also includes `Row` and `Column` classes)
 
-To create a threadsafe accessor for an Rcpp vector or matrix just construct an instance of `RVector` or `RMatrix` with it. For example:
+To create a thread safe accessor for an Rcpp vector or matrix just construct an instance of `RVector` or `RMatrix` with it. For example:
 
 ```cpp
 // [[Rcpp::export]]
@@ -118,7 +120,7 @@ IntegerVector transformVector(IntegerVector x) {
 
 #### Locking
 
-When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of `parallelFor` and `parallelReduce` (explained below) take care of providing safe windows into input and ouptut data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you an use the TinyThread locking classes (automatically available via `RcppParallel.h`). See the [TinyThread documentation](http://tinythreadpp.bitsnbites.eu/doc/) for additional details.
+When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of `parallelFor` and `parallelReduce` (explained below) take care of providing safe windows into input and output data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you an use the TinyThread locking classes (automatically available via `RcppParallel.h`). See the [TinyThread documentation](http://tinythreadpp.bitsnbites.eu/doc/) for additional details.
 
 ### Algorithms
 
@@ -219,7 +221,7 @@ struct Sum : public Worker
 };
 ```
 
-Now that we’ve defined the Worker, implementing the parallel sum function is straightforward. Just initialize an instance of `Sum` with an input vector and call `parallelReduce`:
+Now that we've defined the Worker, implementing the parallel sum function is straightforward. Just initialize an instance of `Sum` with an input vector and call `parallelReduce`:
 
 ```cpp
 // [[Rcpp::export]]
@@ -254,6 +256,10 @@ Here are links to some examples that illustrate using `parallelFor` and `paralle
 #### Grain Size
 
 #### Threads Used
+
+#### Benchmarking
+
+
 
 ### Using TBB
 

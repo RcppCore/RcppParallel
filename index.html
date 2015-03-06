@@ -155,6 +155,7 @@ blockquote {
 <p><img src="images/RcppParallelLogo.png" alt="RcppParallel" /></p>
 <p>High level functions for doing parallel programming with Rcpp. For example, the <code>parallelFor</code> function can be used to convert the work of a standard serial “for” loop into a parallel one and the <code>parallelReduce</code> function can be used for accumulating aggregate or other values.</p>
 <p>The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on <a href="https://www.threadingbuildingblocks.org/">Intel TBB</a> (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the <a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a> library is used.</p>
+<p>In addition to a robust concurrent programming model, parallization using TBB can achieve significantly better performance than traditional use of threads or even <a href="http://openmp.org/wp/">OpenMP</a>. This is accomplished via dynamic optimization around grain size (which affects locality of reference and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).</p>
 <p>This guide describes how to use <code>parallelFor</code> and <code>parallelReduce</code> in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.</p>
 </div>
 <div id="getting-started" class="section level3">
@@ -340,6 +341,9 @@ double parallelVectorSum(NumericVector x) {
 <div id="threads-used" class="section level4">
 <h4>Threads Used</h4>
 </div>
+<div id="benchmarking" class="section level4">
+<h4>Benchmarking</h4>
+</div>
 </div>
 <div id="using-tbb" class="section level3">
 <h3>Using TBB</h3>
@@ -349,8 +353,8 @@ double parallelVectorSum(NumericVector x) {
 <div id="compatibility" class="section level4">
 <h4>Compatibility</h4>
 </div>
-<div id="example" class="section level4">
-<h4>Example</h4>
+<div id="examples-1" class="section level4">
+<h4>Examples</h4>
 </div>
 </div>
 
