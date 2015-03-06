@@ -11,7 +11,7 @@ output:
 
 ### Overview
 
-<div id="rcppparallel-header">RcppParallel</div>
+![RcppParallel](images/RcppParallelLogo.png)
 
 High level functions for doing parallel programming with Rcpp. For example, the `parallelFor` function can be used to convert the work of a standard serial "for" loop into a parallel one and the `parallelReduce` function can be used for accumulating aggregate or other values.
 
@@ -71,4 +71,5 @@ PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
               -e "RcppParallel::RcppParallelLibs()")
 ```
+
 

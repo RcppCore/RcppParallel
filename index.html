@@ -101,6 +101,20 @@ h4 {
   margin-bottom: 25px;
 }
 
+.tocify {
+  border: none;
+}
+
+.tocify .list-group-item.active {
+  color: black;
+  background-color: #caddec;
+}
+
+.tocify .list-group-item.active:hover {
+  color: black;
+  background-color: #caddec;
+}
+
 .tocify-subheader {
   display: inline;
 }
@@ -126,9 +140,7 @@ h4 {
 
 <div id="overview" class="section level3">
 <h3>Overview</h3>
-<div id="rcppparallel-header">
-RcppParallel
-</div>
+<p><img src="images/RcppParallelLogo.png" alt="RcppParallel" /></p>
 <p>High level functions for doing parallel programming with Rcpp. For example, the <code>parallelFor</code> function can be used to convert the work of a standard serial “for” loop into a parallel one and the <code>parallelReduce</code> function can be used for accumulating aggregate or other values.</p>
 <p>The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on <a href="https://www.threadingbuildingblocks.org/">Intel TBB</a> (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the <a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a> library is used.</p>
 </div>
