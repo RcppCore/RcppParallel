@@ -21,6 +21,7 @@ Description: High level functions for doing parallel programming with Rcpp.
 Suggests: Rcpp, testthat
 SystemRequirements: GNU make
 License: GPL-2
+URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
 Collate: 
    'build.R'
    'hooks.R'
