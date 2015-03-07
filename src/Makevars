@@ -1,7 +1,7 @@
 
 CXX_STD = CXX11
 
-PKG_CPPFLAGS += -I../inst/include/ -DRCPP_PARALLEL_USE_TBB=1
+PKG_CPPFLAGS += -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
 
@@ -23,6 +23,8 @@ else
 endif
 
 ifdef USE_TBB
+
+  PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
   MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib
 
