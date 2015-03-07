@@ -2,11 +2,12 @@
 output:
   html_document:
     highlight: textmate
-    self_contained: no
-    includes: 
-      in_header: includes/header.html
-      before_body: includes/before.html
+    includes:
       after_body: includes/after.html
+      before_body: includes/before.html
+      in_header: includes/header.html
+    self_contained: no
+    theme: cosmo
 ---
 
 ### Overview
