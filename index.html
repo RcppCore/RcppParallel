@@ -375,8 +375,8 @@ res[,1:4]</code></pre>
 </div>
 <div id="using-tbb" class="section level3">
 <h3>Using TBB</h3>
-<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization. The motivation for <code>parallelFor</code> and <code>parallelReduce</code> is compatibility. You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on threads on other platforms.</p>
-<p>If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass <code>parallelFor</code> and <code>parallelReduce</code>. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the <em>Compatibility</em> section below).</p>
+<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization. The motivation for <code>parallelFor</code> and <code>parallelReduce</code> is portability You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on TinyThread on other platforms.</p>
+<p>If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass <code>parallelFor</code> and <code>parallelReduce</code>. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the <em>Portability</em> section below).</p>
 <div id="tbb-apis" class="section level4">
 <h4>TBB APIs</h4>
 <p>TBB includes a wide variety of tools for parallel programming, including:</p>
@@ -390,8 +390,8 @@ res[,1:4]</code></pre>
 </ul>
 <p>See the <a href="https://software.intel.com/en-us/node/506045">Intel TBB User Guide</a> for documentation on using these features.</p>
 </div>
-<div id="compatibility" class="section level4">
-<h4>Compatibility</h4>
+<div id="portability" class="section level4">
+<h4>Portability</h4>
 <p>When using TBB directly in a CRAN package you should check the value of the <code>RCPP_PARALLEL_USE_TBB</code> macro and conditionally include a serial implementation of your algorithm if it’s not <code>TRUE</code>. Note that this macro is defined in <code>RcppParallel.h</code> so you should include this in all cases (it will in turn automatically include <code>&lt;tbb/tbb.h&gt;</code> on platforms where it’s supported). For example, your source file might look like this:</p>
 <pre class="cpp"><code>#include &lt;RcppParallel.h&gt;
 

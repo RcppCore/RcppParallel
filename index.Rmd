@@ -313,9 +313,9 @@ res[,1:4]
 
 ### Using TBB
 
-RcppParallel provides the `parallelFor` and `parallelReduce` functions however the TBB library includes a wealth of other tools for parallelization. The motivation for `parallelFor` and `parallelReduce` is compatibility. You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on threads on other platforms.
+RcppParallel provides the `parallelFor` and `parallelReduce` functions however the TBB library includes a wealth of other tools for parallelization. The motivation for `parallelFor` and `parallelReduce` is portability You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on TinyThread on other platforms.
 
-If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass `parallelFor` and `parallelReduce`. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the *Compatibility* section below).
+If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass `parallelFor` and `parallelReduce`. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the *Portability* section below).
 
 #### TBB APIs
 
@@ -330,7 +330,7 @@ TBB includes a wide variety of tools for parallel programming, including:
 
 See the [Intel TBB User Guide](https://software.intel.com/en-us/node/506045) for documentation on using these features.
 
-#### Compatibility
+#### Portability
 
 When using TBB directly in a CRAN package you should check the value of the `RCPP_PARALLEL_USE_TBB` macro and conditionally include a serial implementation of your algorithm if it's not `TRUE`. Note that this macro is defined in `RcppParallel.h` so you should include this in all cases (it will in turn automatically include `<tbb/tbb.h>` on platforms where it's supported). For example, your source file might look like this:
 
