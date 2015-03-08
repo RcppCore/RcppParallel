@@ -1,3 +1,9 @@
+RcppParallel 4.3.5
+------------------------------------------------------------------------
+
+* Use COMSPEC as shell when building on Windows
+* Fix for failure to compile on non-TBB platforms
+
 RcppParallel 4.3.4
 ------------------------------------------------------------------------
 
