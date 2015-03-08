@@ -160,10 +160,14 @@ blockquote {
 <div id="overview" class="section level3">
 <h3>Overview</h3>
 <p><img src="images/RcppParallelLogo.png" alt="RcppParallel" /></p>
-<p>High level functions for doing parallel programming with Rcpp. For example, the <code>parallelFor</code> function can be used to convert the work of a standard serial “for” loop into a parallel one and the <code>parallelReduce</code> function can be used for accumulating aggregate or other values.</p>
-<p>The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on <a href="https://www.threadingbuildingblocks.org/">Intel TBB</a> (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the <a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a> library is used.</p>
-<p>In addition to a robust concurrent programming model, parallelization using TBB can achieve significantly better performance than traditional use of threads or even <a href="http://openmp.org/wp/">OpenMP</a>. This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).</p>
-<p>This guide describes how to use <code>parallelFor</code> and <code>parallelReduce</code> in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.</p>
+<p>RcppParallel provides a complete toolkit for creating portable, high-performance parallel algorithms without requiring direct manipulation of operating system threads. RcppParallel includes:</p>
+<ul>
+<li><p><a href="https://www.threadingbuildingblocks.org/">Intel Thread Building Blocks</a>, a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, and Linux only).</p></li>
+<li><p><a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a>, a C++ library for portable use of operating system threads.</p></li>
+<li><p><code>RVector</code> and <code>RMatrix</code> wrapper classes for safe and convenient access to R data structures in a multi-threaded environment.</p></li>
+<li><p>High level parallel functions (<code>parallelFor</code> and <code>parallelReduce</code>) that use Intel TBB as a back-end on systems that support it and TinyThread on other platforms.</p></li>
+</ul>
+<p>In many cases, RcppParallel can achieve significantly better performance than traditional use of threads or even <a href="http://openmp.org/wp/">OpenMP</a>. This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).</p>
 </div>
 <div id="getting-started" class="section level3">
 <h3>Getting Started</h3>

@@ -14,14 +14,17 @@ output:
 
 ![RcppParallel](images/RcppParallelLogo.png)
 
-High level functions for doing parallel programming with Rcpp. For example, the `parallelFor` function can be used to convert the work of a standard serial "for" loop into a parallel one and the `parallelReduce` function can be used for accumulating aggregate or other values.
+RcppParallel provides a complete toolkit for creating portable, high-performance parallel algorithms without requiring direct manipulation of operating system threads. RcppParallel includes:
 
-The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
+* [Intel Thread Building Blocks](https://www.threadingbuildingblocks.org/), a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, and Linux only).
 
-In addition to a robust concurrent programming model, parallelization using TBB can achieve significantly better performance than traditional use of threads or even [OpenMP](http://openmp.org/wp/). This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).
+* [TinyThread](http://tinythreadpp.bitsnbites.eu/), a C++ library for portable use of operating system threads.
 
-This guide describes how to use `parallelFor` and `parallelReduce` in your code (including a discussion of thread safety). For more complex use cases there is also documentation on making direct use of lower-level TBB APIs.
+* `RVector` and `RMatrix` wrapper classes for safe and convenient access to R data structures in a multi-threaded environment. 
 
+* High level parallel functions (`parallelFor` and `parallelReduce`) that use Intel TBB as a back-end on systems that support it and TinyThread on other platforms.
+
+In many cases, RcppParallel can achieve significantly better performance than traditional use of threads or even [OpenMP](http://openmp.org/wp/). This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).
 
 ### Getting Started
 
