@@ -290,7 +290,7 @@ library(RcppParallel)
 setNumThreads(defaultNumThreads() / 2)
 ```
 
-#### Benchmarks
+#### Benchmarking
 
 As you experiment with various settings to tune your parallel algorithms you should always measure the results. The **rbenchmark** package has some useful tools for doing this. For example, here's a benchmark of the parallel matrix square root example from above (in this case it's a comparison against the serial version):
 
