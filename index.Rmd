@@ -12,7 +12,8 @@ output:
 
 ### Overview
 
-![RcppParallel](images/RcppParallelLogo.png)
+<img src="images/RcppParallelLogo.png" width="643" height="90"></img> 
+
 
 RcppParallel provides a complete toolkit for creating portable, high-performance parallel algorithms without requiring direct manipulation of operating system threads. RcppParallel includes:
 
