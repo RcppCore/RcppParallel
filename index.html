@@ -182,12 +182,13 @@ blockquote {
 </div>
 <div id="r-packages" class="section level4">
 <h4>R Packages</h4>
-<p>If you want to use RcppParallel from within an R package you add the following to your <strong>DESCRIPTION</strong> file:</p>
+<p>If you want to use RcppParallel from within an R package you need to edit several files to create the requisite build and runtime links. The following additions should be made:</p>
+<p><strong>DESCRIPTION</strong></p>
 <pre class="yaml"><code>Imports: RcppParallel
 LinkingTo: RcppParallel</code></pre>
-<p>And the following to your <strong>NAMESPACE</strong> file:</p>
+<p><strong>NAMESPACE</strong></p>
 <pre class="r"><code>importFrom(RcppParallel, RcppParallelLibs)</code></pre>
-<p>Finally, for Windows builds you’ll need the following in <strong>src\Makevars.win</strong> to ensure that your package can use TBB (if you don’t do this the TinyThread fallback implementation will be used):</p>
+<p><strong>src\Makevars.win</strong></p>
 <pre class="make"><code>PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
 PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
@@ -364,8 +365,8 @@ double parallelVectorSum(NumericVector x) {
 <pre class="r"><code>library(RcppParallel)
 setNumThreads(defaultNumThreads() / 2)</code></pre>
 </div>
-<div id="benchmarks" class="section level4">
-<h4>Benchmarks</h4>
+<div id="benchmarking" class="section level4">
+<h4>Benchmarking</h4>
 <p>As you experiment with various settings to tune your parallel algorithms you should always measure the results. The <strong>rbenchmark</strong> package has some useful tools for doing this. For example, here’s a benchmark of the parallel matrix square root example from above (in this case it’s a comparison against the serial version):</p>
 <pre class="r"><code># allocate a matrix
 m &lt;- matrix(as.numeric(c(1:1000000)), nrow = 1000, ncol = 1000)

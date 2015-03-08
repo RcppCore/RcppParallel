@@ -48,22 +48,22 @@ When you compile the file using `Rcpp::sourceCpp` the required compiler and link
 
 #### R Packages
 
-If you want to use RcppParallel from within an R package you add the following to your **DESCRIPTION** file:
+If you want to use RcppParallel from within an R package you need to edit several files to create the requisite build and runtime links. The following additions should be made:
+
+**DESCRIPTION**
 
 ```yaml
 Imports: RcppParallel
 LinkingTo: RcppParallel
 ```
 
-And the following to your **NAMESPACE** file:
+**NAMESPACE**
 
 ```R
 importFrom(RcppParallel, RcppParallelLibs)
 ```
 
-Finally, for Windows builds you'll need the following in **src\\Makevars.win**
-to ensure that your package can use TBB (if you don't do
-this the TinyThread fallback implementation will be used):
+**src\\Makevars.win**
 
 ```make
 PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
@@ -201,15 +201,15 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
 
 #### parallelReduce
 
-To use `parallelReduce` you create a "Worker" object that:
+To use `parallelReduce` you create a `Worker` object as well, this object should include:
 
-1. Implements a standard and "splitting" constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it's "accumulated" value to zero.
+1. A standard and "splitting" constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it's "accumulated" value to zero.
 
-2. Implements operator() to perform the work. This works just like the operator() in `parallelFor`, but instead of writing to another vector or matrix it typically will accumulate a value.
+2. An operator() which performs the work. This works just like the operator() in `parallelFor`, but instead of writing to another vector or matrix it typically will accumulate a value.
 
-3. Implements a join method which composes the operations of two worker instances that were previously split. Here we simply combine the accumulated value of the instance we are being joined with to our own.
+3. A join method which composes the operations of two worker instances that were previously split. Here we simply combine the accumulated value of the instance we are being joined with to our own.
 
-For example, here's a Worker object that is used to sum a vector:
+For example, here's a `Worker` object that is used to sum a vector:
 
 ```cpp
 // [[Rcpp::depends(RcppParallel)]]
