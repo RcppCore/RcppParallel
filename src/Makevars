@@ -24,14 +24,13 @@ endif
 
 ifdef USE_TBB
 
-  PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
-  MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib
+MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib
 
-  # What I really want is startswith but this doesn't appear to be available
-  ifneq (,$(findstring clang,$(CC)))
-    MAKE_ARGS += compiler=clang
-
+# What I really want is startswith but this doesn't appear to be available
+ifneq (,$(findstring clang,$(CC)))
+  MAKE_ARGS += compiler=clang
 endif
 
 ifeq ($(USE_TBB),  Windows)
