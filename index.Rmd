@@ -147,7 +147,7 @@ RcppParallel provides two high level parallel algorithms: `parallelFor` can be u
 
 #### parallelFor
 
-To use `parallelFor`, you create a "Worker" object that defines an `operator()` which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here's a Worker object that takes the square root of it's input and writes it into it's output:
+To use `parallelFor`, you create a `Worker` object that defines an `operator()` which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here's a `Worker` object that takes the square root of it's input and writes it into it's output:
 
 ```cpp
 // [[Rcpp::depends(RcppParallel)]]
@@ -318,7 +318,7 @@ res[,1:4]
 
 ### Using TBB
 
-RcppParallel provides the `parallelFor` and `parallelReduce` functions however the TBB library includes a wealth of other tools for parallelization. The motivation for `parallelFor` and `parallelReduce` is portability You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on TinyThread on other platforms.
+RcppParallel provides the `parallelFor` and `parallelReduce` functions however the TBB library includes a wealth of other tools for parallelization. The motivation for `parallelFor` and `parallelReduce` is portability: you can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a lower-performance implementation based on TinyThread on other platforms.
 
 If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass `parallelFor` and `parallelReduce`. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the *Portability* section below).
 

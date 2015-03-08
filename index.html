@@ -252,7 +252,7 @@ IntegerVector transformVector(IntegerVector x) {
 <p>RcppParallel provides two high level parallel algorithms: <code>parallelFor</code> can be used to convert the work of a standard serial “for” loop into a parallel one and <code>parallelReduce</code> can be used for accumulating aggregate or other values.</p>
 <div id="parallelfor" class="section level4">
 <h4>parallelFor</h4>
-<p>To use <code>parallelFor</code>, you create a “Worker” object that defines an <code>operator()</code> which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here’s a Worker object that takes the square root of it’s input and writes it into it’s output:</p>
+<p>To use <code>parallelFor</code>, you create a <code>Worker</code> object that defines an <code>operator()</code> which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here’s a <code>Worker</code> object that takes the square root of it’s input and writes it into it’s output:</p>
 <pre class="cpp"><code>// [[Rcpp::depends(RcppParallel)]]
 #include &lt;RcppParallel.h&gt;
 using namespace RcppParallel;
@@ -298,13 +298,13 @@ NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
 </div>
 <div id="parallelreduce" class="section level4">
 <h4>parallelReduce</h4>
-<p>To use <code>parallelReduce</code> you create a “Worker” object that:</p>
+<p>To use <code>parallelReduce</code> you create a <code>Worker</code> object as well, this object should include:</p>
 <ol style="list-style-type: decimal">
-<li><p>Implements a standard and “splitting” constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it’s “accumulated” value to zero.</p></li>
-<li><p>Implements operator() to perform the work. This works just like the operator() in <code>parallelFor</code>, but instead of writing to another vector or matrix it typically will accumulate a value.</p></li>
-<li><p>Implements a join method which composes the operations of two worker instances that were previously split. Here we simply combine the accumulated value of the instance we are being joined with to our own.</p></li>
+<li><p>A standard and “splitting” constructor. The standard constructor takes the input data and initializes whatever value is being accumulated (e.g. initialize a sum to zero). The splitting constructor is called when work needs to be split onto other threads—it takes a reference to the instance it is being split from and simply copies the pointer to the input data and initializes it’s “accumulated” value to zero.</p></li>
+<li><p>An operator() which performs the work. This works just like the operator() in <code>parallelFor</code>, but instead of writing to another vector or matrix it typically will accumulate a value.</p></li>
+<li><p>A join method which composes the operations of two worker instances that were previously split. Here we simply combine the accumulated value of the instance we are being joined with to our own.</p></li>
 </ol>
-<p>For example, here’s a Worker object that is used to sum a vector:</p>
+<p>For example, here’s a <code>Worker</code> object that is used to sum a vector:</p>
 <pre class="cpp"><code>// [[Rcpp::depends(RcppParallel)]]
 #include &lt;RcppParallel.h&gt;
 using namespace RcppParallel;
@@ -387,7 +387,7 @@ res[,1:4]</code></pre>
 </div>
 <div id="using-tbb" class="section level3">
 <h3>Using TBB</h3>
-<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization. The motivation for <code>parallelFor</code> and <code>parallelReduce</code> is portability You can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a more naive implementation based on TinyThread on other platforms.</p>
+<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization. The motivation for <code>parallelFor</code> and <code>parallelReduce</code> is portability: you can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a lower-performance implementation based on TinyThread on other platforms.</p>
 <p>If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass <code>parallelFor</code> and <code>parallelReduce</code>. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the <em>Portability</em> section below).</p>
 <div id="tbb-apis" class="section level4">
 <h4>TBB APIs</h4>
