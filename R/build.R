@@ -17,7 +17,7 @@ RcppParallelLibs <- function() {
 inlineCxxPlugin <- function() {
    list(
       env = list(
-         PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1",
+         PKG_CXXFLAGS = tbbCxxFlags(),
          PKG_LIBS = tbbLdFlags()
       ),
       includes = "#include <RcppParallel.h>",
@@ -27,6 +27,12 @@ inlineCxxPlugin <- function() {
    )
 }
 
+tbbCxxFlags <- function() {
+   if (Sys.info()['sysname'] == "Windows")
+      "-DRCPP_PARALLEL_USE_TBB=1"
+   else
+      ""
+}
 
 # Return the linker flags requried for TBB on this platform
 tbbLdFlags <- function() {
@@ -38,7 +44,6 @@ tbbLdFlags <- function() {
       ""
    }
 }
-
 
 # Determine the platform-specific path to the TBB library
 tbbLibPath <- function() {
