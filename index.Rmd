@@ -63,6 +63,12 @@ LinkingTo: RcppParallel
 importFrom(RcppParallel, RcppParallelLibs)
 ```
 
+**src\\Makevars**
+
+```make
+PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::RcppParallelLibs()")
+```
+
 **src\\Makevars.win**
 
 ```make
@@ -72,7 +78,9 @@ PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
               -e "RcppParallel::RcppParallelLibs()")
 ```
 
-Then in each source file that needs to use RcppParallel include the main package header:
+Note that the Windows variation (Makevars.win) requires an extra `PKG_CXXFLAGS` entry that enables the use of TBB. This is because TBB is not used by default on Windows (for backward compatibility with a previous version of RcppParallel which lacked support for TBB on Windows).
+
+After you've added the above to the package you can simply include the main RcppParallel package header in source files that need to use it:
 
 ```cpp
 #include <RcppParallel.h>
