@@ -255,7 +255,8 @@ IntegerVector transformVector(IntegerVector x) {
 <p>RcppParallel provides two high level parallel algorithms: <code>parallelFor</code> can be used to convert the work of a standard serial “for” loop into a parallel one and <code>parallelReduce</code> can be used for accumulating aggregate or other values.</p>
 <div id="parallelfor" class="section level4">
 <h4>parallelFor</h4>
-<p>To use <code>parallelFor</code>, you create a <code>Worker</code> object that defines an <code>operator()</code> which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here’s a <code>Worker</code> object that takes the square root of it’s input and writes it into it’s output:</p>
+<p>To use <code>parallelFor</code>, you create a <code>Worker</code> object that defines an <code>operator()</code> which is called by the parallel scheduler. This function is passed a <code>[begin,end)</code> exclusive range which is a safe window (i.e. not in use by other threads) into the input or output data. Note that the <code>end</code> element is not included in the range (just like an STL <code>end</code> iterator).</p>
+<p>For example, here’s a <code>Worker</code> object that takes the square root of it’s input and writes it into it’s output:</p>
 <pre class="cpp"><code>// [[Rcpp::depends(RcppParallel)]]
 #include &lt;RcppParallel.h&gt;
 using namespace RcppParallel;

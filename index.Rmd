@@ -155,7 +155,9 @@ RcppParallel provides two high level parallel algorithms: `parallelFor` can be u
 
 #### parallelFor
 
-To use `parallelFor`, you create a `Worker` object that defines an `operator()` which is called by the parallel scheduler. This function is passed begin/end ranges which are safe windows (i.e. not in use by other threads) into the input or output data. For example, here's a `Worker` object that takes the square root of it's input and writes it into it's output:
+To use `parallelFor`, you create a `Worker` object that defines an `operator()` which is called by the parallel scheduler. This function is passed a `[begin,end)` exclusive range which is a safe window (i.e. not in use by other threads) into the input or output data. Note that the `end` element is not included in the range (just like an STL `end` iterator).
+
+For example, here's a `Worker` object that takes the square root of it's input and writes it into it's output:
 
 ```cpp
 // [[Rcpp::depends(RcppParallel)]]
