@@ -3,6 +3,7 @@ RcppParallel 4.3.5
 
 * Use COMSPEC as shell when building on Windows
 * Fix for failure to compile on non-TBB platforms
+* Fix for failure to compile due to protected members of concurrent_vector
 
 RcppParallel 4.3.4
 ------------------------------------------------------------------------

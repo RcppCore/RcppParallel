@@ -104,11 +104,11 @@ namespace internal {
             pointers_per_short_table = 3, // to fit into 8 words of entire structure
             pointers_per_long_table = sizeof(segment_index_t) * 8 // one segment per bit
         };
-
+    public:
         struct segment_not_used {};
         struct segment_allocated {};
         struct segment_allocation_failed {};
-
+    protected:
         class segment_t;
         class segment_value_t {
             void* array;
