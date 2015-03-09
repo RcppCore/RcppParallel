@@ -169,6 +169,15 @@ blockquote {
 </ul>
 <p>In many cases, RcppParallel can achieve significantly better performance than traditional use of threads or even <a href="http://openmp.org/wp/">OpenMP</a>. This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).</p>
 </div>
+<div id="examples" class="section level3">
+<h3>Examples</h3>
+<p>Some simple example uses of RcppParallel along with performance increases achieved over serial code. The benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading).</p>
+<p><a href="http://gallery.rcpp.org/articles/parallel-matrix-transform/">Parallel Matrix Transform</a> — Demonstrates using <code>parallelFor</code> to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.</p>
+<p><a href="http://gallery.rcpp.org/articles/parallel-vector-sum/">Parallel Vector Sum</a> — Demonstrates using <code>parallelReduce</code> to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.</p>
+<p><a href="http://gallery.rcpp.org/articles/parallel-distance-matrix/">Parallel Distance Matrix</a> — Demonstrates using <code>parallelFor</code> to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.</p>
+<p><a href="http://gallery.rcpp.org/articles/parallel-inner-product/">Parallel Inner Product</a> — Demonstrates using <code>parallelReduce</code> to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.</p>
+<p>You may get the hang of using RcppParallel by studying the examples however you should still also review this guide in detail as it includes important documentation on thread safety, tuning, and using Intel TBB directly for more advanced use cases.</p>
+</div>
 <div id="getting-started" class="section level3">
 <h3>Getting Started</h3>
 <p>You can install the RcppParallel package from CRAN as follows:</p>
@@ -198,15 +207,6 @@ PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
 <p>Note that the Windows variation (Makevars.win) requires an extra <code>PKG_CXXFLAGS</code> entry that enables the use of TBB. This is because TBB is not used by default on Windows (for backward compatibility with a previous version of RcppParallel which lacked support for TBB on Windows).</p>
 <p>After you’ve added the above to the package you can simply include the main RcppParallel package header in source files that need to use it:</p>
 <pre class="cpp"><code>#include &lt;RcppParallel.h&gt;</code></pre>
-</div>
-<div id="examples" class="section level4">
-<h4>Examples</h4>
-<p>You may want to get started by reviewing some examples (links to several are provided below). Even if you get the hang of things by looking at examples, it’s still highly recommended that you review this guide as it has important content about thread safety, tuning, and more advanced uses of TBB.</p>
-<p><a href="http://gallery.rcpp.org/articles/parallel-matrix-transform/">Parallel Matrix Transform</a> — Demonstrates using <code>parallelFor</code> to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.</p>
-<p><a href="http://gallery.rcpp.org/articles/parallel-vector-sum/">Parallel Vector Sum</a> — Demonstrates using <code>parallelReduce</code> to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.</p>
-<p><a href="http://gallery.rcpp.org/articles/parallel-distance-matrix/">Parallel Distance Matrix</a> — Demonstrates using <code>parallelFor</code> to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.</p>
-<p><a href="http://gallery.rcpp.org/articles/parallel-inner-product/">Parallel Inner Product</a> — Demonstrates using <code>parallelReduce</code> to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.</p>
-<p>Note that performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading).</p>
 </div>
 </div>
 <div id="thread-safety" class="section level3">

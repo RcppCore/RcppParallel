@@ -27,6 +27,20 @@ RcppParallel provides a complete toolkit for creating portable, high-performance
 
 In many cases, RcppParallel can achieve significantly better performance than traditional use of threads or even [OpenMP](http://openmp.org/wp/). This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).
 
+### Examples
+
+Some simple example uses of RcppParallel along with performance increases achieved over serial code. The benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading).
+
+[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
+
+[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.
+
+[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
+
+[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
+
+You may get the hang of using RcppParallel by studying the examples however you should still also review this guide in detail as it includes important documentation on thread safety, tuning, and using Intel TBB directly for more advanced use cases.
+
 ### Getting Started
 
 You can install the RcppParallel package from CRAN as follows:
@@ -85,20 +99,6 @@ After you've added the above to the package you can simply include the main Rcpp
 ```cpp
 #include <RcppParallel.h>
 ```
-
-#### Examples
-
-You may want to get started by reviewing some examples (links to several are provided below). Even if you get the hang of things by looking at examples, it's still highly recommended that you review this guide as it has important content about thread safety, tuning, and more advanced uses of TBB.
-
-[Parallel Matrix Transform](http://gallery.rcpp.org/articles/parallel-matrix-transform/) --- Demonstrates using `parallelFor` to transform a matrix (take the square root of each element) in parallel. In this example the parallel version performs about 2.5x faster than the serial version.
-
-[Parallel Vector Sum](http://gallery.rcpp.org/articles/parallel-vector-sum/) --- Demonstrates using `parallelReduce` to take the sum of a vector in parallel. In this example the parallel version performs 4.5x faster than the serial version.
-
-[Parallel Distance Matrix](http://gallery.rcpp.org/articles/parallel-distance-matrix/) --- Demonstrates using `parallelFor` to compute pairwise distances for each row in an input data matrix. In this example the parallel version performs 5.5x faster than the serial version.
-
-[Parallel Inner Product](http://gallery.rcpp.org/articles/parallel-inner-product/) --- Demonstrates using `parallelReduce` to compute the inner product of two vectors in parallel. In this example the parallel version performs 2.5x faster than the serial version.
-
-Note that performance benchmarks were executed on a 2.6GHz Haswell MacBook Pro with 4 cores (8 with hyperthreading). 
 
 ### Thread Safety
 
