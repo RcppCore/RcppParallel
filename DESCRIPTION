@@ -19,7 +19,7 @@ Description: High level functions for doing parallel programming with Rcpp.
   a standard serial "for" loop into a parallel one and the parallelReduce 
   function can be used for accumulating aggregate or other values.
 Suggests: Rcpp, testthat
-SystemRequirements: GNU make
+SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe
 License: GPL-2
 URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
 Collate: 
