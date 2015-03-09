@@ -49,6 +49,10 @@ extern "C" SEXP defaultNumThreads() {
 
 #include <tthread/tinythread.h>
 
+extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
+   return R_NilValue;   
+}
+
 extern "C" SEXP defaultNumThreads() {
    SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
    INTEGER(threadsSEXP)[0] = tthread::thread::hardware_concurrency();
