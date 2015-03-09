@@ -10,14 +10,18 @@ using namespace Rcpp;
 #include <cmath>
 #include <algorithm>
 
+double timesTwo(double x) {
+   return x * 2;
+}
+
 // [[Rcpp::export]]
-NumericMatrix matrixSqrt(NumericMatrix orig) {
+NumericMatrix matrixTimesTwo(NumericMatrix orig) {
 
   // allocate the matrix we will return
   NumericMatrix mat(orig.nrow(), orig.ncol());
 
   // transform it
-  std::transform(orig.begin(), orig.end(), mat.begin(), ::sqrt);
+  std::transform(orig.begin(), orig.end(), mat.begin(), ::timesTwo);
 
   // return the new matrix
   return mat;
@@ -26,7 +30,7 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
 #include <RcppParallel.h>
 using namespace RcppParallel;
 
-struct SquareRoot : public Worker
+struct TimesTwo : public Worker
 {
    // source matrix
    const RMatrix<double> input;
@@ -35,29 +39,28 @@ struct SquareRoot : public Worker
    RMatrix<double> output;
    
    // initialize with source and destination
-   SquareRoot(const NumericMatrix input, NumericMatrix output) 
+   TimesTwo(const NumericMatrix input, NumericMatrix output) 
       : input(input), output(output) {}
    
-   // take the square root of the range of elements requested
    void operator()(std::size_t begin, std::size_t end) {
       std::transform(input.begin() + begin, 
                      input.begin() + end, 
                      output.begin() + begin, 
-                     ::sqrt);
+                     ::timesTwo);
    }
 };
 
 // [[Rcpp::export]]
-NumericMatrix parallelMatrixSqrt(NumericMatrix x) {
+NumericMatrix parallelMatrixTimesTwo(NumericMatrix x) {
   
   // allocate the output matrix
   NumericMatrix output(x.nrow(), x.ncol());
   
-  // SquareRoot functor (pass input and output matrixes)
-  SquareRoot squareRoot(x, output);
+  // TimesTwo functor (pass input and output matrixes)
+  TimesTwo timesTwo(x, output);
   
   // call parallelFor to do the work
-  parallelFor(0, x.nrow() * x.ncol(), squareRoot);
+  parallelFor(0, x.nrow() * x.ncol(), timesTwo);
   
   // return the output matrix
   return output;

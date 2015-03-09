@@ -5,6 +5,6 @@ test_that( "transform works with Rcpp", {
        
     m <- matrix(as.numeric(c(1:1000000)), nrow = 1000, ncol = 1000)
 
-    expect_equal(matrixSqrt(m), parallelMatrixSqrt(m))      
+    expect_equal(matrixTimesTwo(m), parallelMatrixTimesTwo(m))      
 })
 
