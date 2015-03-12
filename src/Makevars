@@ -41,8 +41,10 @@ ifeq ($(USE_TBB),  Windows)
   ifeq ("$(WIN)", "64")
     # TBB defaults to ia32
     MAKE_ARGS += arch=intel64
+    ARCH_GCC=64
     ARCH_DIR=x64/
   else
+    ARCH_GCC=32
     ARCH_DIR=i386/
   endif
 
@@ -50,6 +52,19 @@ ifeq ($(USE_TBB),  Windows)
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
   PKG_LIBS += -L../inst/lib/$(ARCH_DIR) -ltbb
 
+  # For R 3.2 / Rtools 3.3, prepend the Rtools architecture-specific 
+  # gcc492 directory to the PATH. Note this logic also has the embedded
+  # assumption that that Rtools is on the C drive (we need this so we 
+  # can substitute /cygdrive/c for C:).
+  RTOOLS_33 := $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
+                 -e "cat(getRversion() >= '3.2')")
+  ifeq ($(RTOOLS_33), TRUE)
+    ifndef RTOOLS
+      RTOOLS := C:/Rtools/
+    endif
+    RTOOLS_GCC_PATH := $(subst C:,/cygdrive/c,$(RTOOLS))gcc492_$(ARCH_GCC)/bin:
+  endif
+  
 endif
 
 .PHONY: all tbb
@@ -58,8 +73,11 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
-	mkdir -p ../inst/lib/$(ARCH_DIR)
-	( cd tbb/src; make $(MAKE_ARGS) )
+	PATH="$(RTOOLS_GCC_PATH)$(PATH)"; \
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
+	cd tbb/src; \
+	make $(MAKE_ARGS); \
+	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
 
 clean:
