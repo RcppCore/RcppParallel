@@ -1,11 +1,10 @@
-RcppParallel 4.3.5
+RcppParallel 4.3.7
 ------------------------------------------------------------------------
 
-* Use COMSPEC as shell when building on Windows
-* Fix for failure to compile on non-TBB platforms
-* Fix for failure to compile due to protected members of concurrent_vector
+* Fix failure to compile with Rtools 3.3
+* Fix failure to compile on OS X Snow Leopard R toolchain
 
-RcppParallel 4.3.4
+RcppParallel 4.3.6
 ------------------------------------------------------------------------
 
 * Support for TBB on Windows
