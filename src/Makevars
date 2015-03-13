@@ -1,6 +1,4 @@
 
-CXX_STD = CXX11
-
 PKG_CPPFLAGS += -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
@@ -10,6 +8,8 @@ ifeq ($(OS), Windows_NT)
 
   # Extra PATH entry for gcc (required by TBB)
   GCC_PATH = $(shell cygpath $(dir $(CC))):
+  	
+  CXX_STD = CXX11	
   
 else
   
@@ -17,9 +17,14 @@ else
   TBB_COPY_PATTERN=libtbb.*
   ifeq ($(UNAME), Darwin)
     USE_TBB=Mac
+    # We don't set this on OS X because it caused build failures on
+    # pre-Mavericks R toolchains (it was originally put in to prevent
+    # warnings on a Linux toolchain so isn't needed on OS X anyway)
+    # CXX_STD = CXX11
   endif
   ifeq ($(UNAME), Linux)
     USE_TBB=Linux
+    CXX_STD = CXX11
   endif
   # Note: regular MinGW not supported
 
