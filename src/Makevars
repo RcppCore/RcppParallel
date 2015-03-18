@@ -4,7 +4,7 @@ PKG_CPPFLAGS += -I../inst/include/
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
-  TBB_COPY_PATTERN=tbb.dll
+  TBB_COPY_PATTERN=tbb*.dll
 
   # Extra PATH entry for gcc (required by TBB)
   GCC_PATH = $(shell cygpath $(dir $(CC))):
@@ -14,7 +14,7 @@ ifeq ($(OS), Windows_NT)
 else
   
   UNAME := $(shell uname)
-  TBB_COPY_PATTERN=libtbb.*
+  TBB_COPY_PATTERN=libtbb*.*
   ifeq ($(UNAME), Darwin)
     USE_TBB=Mac
     # We don't set this on OS X because it caused build failures on
@@ -34,7 +34,7 @@ ifdef USE_TBB
 
 PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
-MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbb_build_prefix=lib
+MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbbmalloc_release tbb_build_prefix=lib
 
 # What I really want is startswith but this doesn't appear to be available
 ifneq (,$(findstring clang,$(CC)))
@@ -56,7 +56,7 @@ ifeq ($(USE_TBB),  Windows)
 
   # Linker needs access to the tbb dll; otherwise you get errors such as:
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
-  PKG_LIBS += -L../inst/lib/$(ARCH_DIR) -ltbb
+  PKG_LIBS += -L../inst/lib/$(ARCH_DIR) -ltbb -ltbbmalloc
 
 endif
 

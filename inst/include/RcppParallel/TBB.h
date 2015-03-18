@@ -4,6 +4,7 @@
 #include "Common.h"
 
 #include <tbb/tbb.h>
+#include <tbb/scalable_allocator.h>
 
 namespace RcppParallel {
 

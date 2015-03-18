@@ -41,4 +41,22 @@ double parallelVectorSum(NumericVector x) {
    return sum.value;
 }
 
+// [[Rcpp::export]]
+void testMalloc() {
+   
+#if RCPP_PARALLEL_USE_TBB
+   
+   std::vector<int,tbb::tbb_allocator<int> > vec;
+   vec.push_back(42);
+   
+   std::vector<int,tbb::scalable_allocator<int> > scalableVec;
+   scalableVec.push_back(42);
+   
+   std::vector<int,tbb::cache_aligned_allocator<int> > cacheAlignedVec;
+   cacheAlignedVec.push_back(42);
+   
+#endif 
+   
+}
+
 

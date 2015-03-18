@@ -39,19 +39,19 @@ tbbLdFlags <- function() {
    # on Windows we need to explicitly link against tbb.dll
    if (Sys.info()['sysname'] == "Windows") {
       tbb <- tbbLibPath()
-      paste("-L", asBuildPath(dirname(tbb)), " -ltbb", sep="")
+      paste("-L", asBuildPath(dirname(tbb)), " -ltbb", "-ltbbmalloc", sep = "")
    } else {
       ""
    }
 }
 
 # Determine the platform-specific path to the TBB library
-tbbLibPath <- function() {
+tbbLibPath <- function(suffix = "") {
    sysname <- Sys.info()['sysname']
    tbbSupported <- list(
-      "Darwin" = "libtbb.dylib", 
-      "Linux" = "libtbb.so.2", 
-      "Windows" = "tbb.dll"
+      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""), 
+      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""), 
+      "Windows" = paste("tbb", suffix, ".dll", sep = "") 
    )
    if (sysname %in% names(tbbSupported)) {
       libDir <- "lib/"

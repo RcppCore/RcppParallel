@@ -3,6 +3,7 @@ RcppParallel 4.3.7
 
 * Fix failure to compile with Rtools 3.3
 * Fix failure to compile on OS X Snow Leopard R toolchain
+* Add tbbmalloc library
 
 RcppParallel 4.3.6
 ------------------------------------------------------------------------
