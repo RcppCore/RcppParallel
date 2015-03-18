@@ -39,7 +39,7 @@ tbbLdFlags <- function() {
    # on Windows we need to explicitly link against tbb.dll
    if (Sys.info()['sysname'] == "Windows") {
       tbb <- tbbLibPath()
-      paste("-L", asBuildPath(dirname(tbb)), " -ltbb", "-ltbbmalloc", sep = "")
+      paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
    } else {
       ""
    }
