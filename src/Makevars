@@ -5,9 +5,6 @@ ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
-
-  # Extra PATH entry for gcc (required by TBB)
-  GCC_PATH = $(shell cygpath $(dir $(CC))):
   	
   CXX_STD = CXX11	
   
@@ -66,7 +63,6 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
-	PATH="$(GCC_PATH)$(PATH)"; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	make $(MAKE_ARGS); \
