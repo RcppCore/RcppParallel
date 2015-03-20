@@ -69,6 +69,7 @@ If you want to use RcppParallel from within an R package you need to edit severa
 ```yaml
 Imports: RcppParallel
 LinkingTo: RcppParallel
+SystemRequirements: GNU make
 ```
 
 **NAMESPACE**
