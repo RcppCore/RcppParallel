@@ -11,9 +11,9 @@
 
   The high level interface enables safe and robust parallel programming without
   direct manipulation of operating system threads. On Windows, OS X, and Linux
-  systems the underlying implementation is based on \href{https://www.threadingbuildingblocks.org/}{Intel TBB} (Threading Building
+  systems the underlying implementation is based on Intel TBB (Threading Building
   Blocks). On other platforms a less-performant fallback implementation based on the
-  \href{http://tinythreadpp.bitsnbites.eu/}{TinyThread} library is used.
+  TinyThread library is used.
   
   For additional documentation see the package website at: \href{http://rcppcore.github.io/RcppParallel}{http://rcppcore.github.io/RcppParallel}.
 }
