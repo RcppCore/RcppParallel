@@ -4,6 +4,7 @@
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.s?o$
 ^inst/lib$
 ^.travis.yml
+^README.md
 ^doc$
 
 
