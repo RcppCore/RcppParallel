@@ -2,6 +2,8 @@ context( "package" )
 
 test_that( "linking from a package works", {
    
+   skip_on_cran()
+   
    templib <- tempfile()
    dir.create(templib)
    

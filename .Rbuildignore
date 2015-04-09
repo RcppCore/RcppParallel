@@ -1,6 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^src/tbb/build/lib_.*$
+^tests/testthat/pkg/RcppParallelTest/src/.*\.s?o$
 ^inst/lib$
 ^.travis.yml
 ^doc$
