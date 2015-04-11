@@ -1,5 +1,5 @@
 
-PKG_CPPFLAGS += -I../inst/include/
+PKG_CPPFLAGS += -I../inst/include/ -Wno-long-long
 
 ifeq ($(OS), Windows_NT)
 
