@@ -28,10 +28,10 @@ inlineCxxPlugin <- function() {
 }
 
 tbbCxxFlags <- function() {
+   flags <- "-Wno-long-long"
    if (Sys.info()['sysname'] == "Windows")
-      "-DRCPP_PARALLEL_USE_TBB=1"
-   else
-      ""
+      flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+   flags
 }
 
 # Return the linker flags requried for TBB on this platform
