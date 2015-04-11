@@ -29,11 +29,6 @@ PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
 MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbbmalloc_release tbb_build_prefix=lib
 
-# What I really want is startswith but this doesn't appear to be available
-ifneq (,$(findstring clang,$(CC)))
-  MAKE_ARGS += compiler=clang
-endif
-
 ifeq ($(USE_TBB),  Windows)
 
   # rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
@@ -68,7 +63,11 @@ all: tbb $(SHLIB)
 tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
-	make $(MAKE_ARGS); \
+	if [[ "$(CC)" == clang* ]]; then \
+	   make compiler=clang $(MAKE_ARGS); \
+	else \
+	   make $(MAKE_ARGS); \
+	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
 
