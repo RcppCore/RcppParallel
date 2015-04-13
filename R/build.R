@@ -28,7 +28,10 @@ inlineCxxPlugin <- function() {
 }
 
 tbbCxxFlags <- function() {
-   flags <- "-Wno-long-long"
+   if (Sys.info()['sysname'] != "SunOS")
+      flags <- "-Wno-long-long"
+   else
+      flags <- ""
    if (Sys.info()['sysname'] == "Windows")
       flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
    flags
