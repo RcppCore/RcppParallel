@@ -1,10 +1,11 @@
 
-PKG_CPPFLAGS += -I../inst/include/ -Wno-long-long
+PKG_CPPFLAGS += -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
+  PKG_CPPFLAGS += -Wno-long-long
 
 else
   
@@ -18,8 +19,9 @@ else
   endif
   ifeq ($(UNAME), SunOS)
     USE_TBB=SunOS
+  else
+    PKG_CPPFLAGS += -Wno-long-long
   endif
-  # Note: regular MinGW not supported
 
 endif
 
