@@ -5,23 +5,16 @@ ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
-  	
-  CXX_STD = CXX11	
-  
+
 else
   
   UNAME := $(shell uname)
   TBB_COPY_PATTERN=libtbb*.*
   ifeq ($(UNAME), Darwin)
     USE_TBB=Mac
-    # We don't set this on OS X because it caused build failures on
-    # pre-Mavericks R toolchains (it was originally put in to prevent
-    # warnings on a Linux toolchain so isn't needed on OS X anyway)
-    # CXX_STD = CXX11
   endif
   ifeq ($(UNAME), Linux)
     USE_TBB=Linux
-    CXX_STD = CXX11
   endif
   ifeq ($(UNAME), SunOS)
     USE_TBB=SunOS
