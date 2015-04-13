@@ -10,7 +10,7 @@
 // compatibility with CRAN packages not previously configured
 // to link to TBB in Makevars.win)
 #ifndef RCPP_PARALLEL_USE_TBB
-#if defined(__APPLE__) || defined(__gnu_linux__)
+#if defined(__APPLE__) || defined(__gnu_linux__) || ((defined(__sun) && defined(__SVR4)))
 #define RCPP_PARALLEL_USE_TBB 1
 #include "RcppParallel/TBB.h"
 #else

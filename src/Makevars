@@ -23,6 +23,9 @@ else
     USE_TBB=Linux
     CXX_STD = CXX11
   endif
+  ifeq ($(UNAME), SunOS)
+    USE_TBB=SunOS
+  endif
   # Note: regular MinGW not supported
 
 endif
@@ -55,6 +58,13 @@ ifeq ($(USE_TBB),  Windows)
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
   PKG_LIBS += -L../inst/lib/$(ARCH_DIR) -ltbb -ltbbmalloc
 
+endif
+
+ifeq ($(USE_TBB),  SunOS)
+   R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
+   ifeq ($(R_32BIT), TRUE)
+      MAKE_ARGS += arch=ia32
+   endif
 endif
 
 .PHONY: all tbb

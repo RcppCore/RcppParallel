@@ -36,8 +36,8 @@ tbbCxxFlags <- function() {
 
 # Return the linker flags requried for TBB on this platform
 tbbLdFlags <- function() {
-   # on Windows we need to explicitly link against tbb.dll
-   if (Sys.info()['sysname'] == "Windows") {
+   # on Windows and Solaris we need to explicitly link against tbb.dll
+   if (Sys.info()['sysname'] %in% c("Windows", "SunOS")) {
       tbb <- tbbLibPath()
       paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
    } else {
@@ -51,7 +51,8 @@ tbbLibPath <- function(suffix = "") {
    tbbSupported <- list(
       "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""), 
       "Linux" = paste("libtbb", suffix, ".so.2", sep = ""), 
-      "Windows" = paste("tbb", suffix, ".dll", sep = "") 
+      "Windows" = paste("tbb", suffix, ".dll", sep = ""),
+      "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
    if (sysname %in% names(tbbSupported)) {
       libDir <- "lib/"

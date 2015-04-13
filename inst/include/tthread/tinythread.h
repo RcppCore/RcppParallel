@@ -81,6 +81,7 @@ freely, subject to the following restrictions:
   #include <signal.h>
   #include <sched.h>
   #include <unistd.h>
+  #include <stdlib.h> 
 #endif
 
 // Generic includes
