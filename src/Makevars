@@ -63,9 +63,9 @@ tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	if [[ "$(CC)" == clang* ]]; then \
-	   make cpp0x=1 compiler=clang $(MAKE_ARGS); \
+	   $(MAKE) cpp0x=1 compiler=clang $(MAKE_ARGS); \
 	else \
-	   make cpp0x=1 $(MAKE_ARGS); \
+	   $(MAKE) cpp0x=1 $(MAKE_ARGS); \
 	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
