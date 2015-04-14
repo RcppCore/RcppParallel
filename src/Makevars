@@ -1,11 +1,10 @@
 
-PKG_CPPFLAGS += -I../inst/include/
+PKG_CPPFLAGS += $(CXX1XSTD) -I../inst/include/ 
 
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
-  PKG_CPPFLAGS += -Wno-long-long
 
 else
   
@@ -19,8 +18,6 @@ else
   endif
   ifeq ($(UNAME), SunOS)
     USE_TBB=SunOS
-  else
-    PKG_CPPFLAGS += -Wno-long-long
   endif
 
 endif
@@ -66,9 +63,9 @@ tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	if [[ "$(CC)" == clang* ]]; then \
-	   make compiler=clang $(MAKE_ARGS); \
+	   make cpp0x=1 compiler=clang $(MAKE_ARGS); \
 	else \
-	   make $(MAKE_ARGS); \
+	   make cpp0x=1 $(MAKE_ARGS); \
 	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
