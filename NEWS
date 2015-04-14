@@ -1,8 +1,12 @@
-RcppParallel 4.3.7
+RcppParallel 4.3.9
+------------------------------------------------------------------------
+
+* Add support for TBB on Solaris
+
+RcppParallel 4.3.8
 ------------------------------------------------------------------------
 
 * Add tbbmalloc library
-* Add support for TBB on Solaris
 * Fix failure to compile on OS X Snow Leopard R toolchain
 * Correctly pass clang to TBB configure when R is using clang
 
