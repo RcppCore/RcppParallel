@@ -194,7 +194,8 @@ blockquote {
 <p>If you want to use RcppParallel from within an R package you need to edit several files to create the requisite build and runtime links. The following additions should be made:</p>
 <p><strong>DESCRIPTION</strong></p>
 <pre class="yaml"><code>Imports: RcppParallel
-LinkingTo: RcppParallel</code></pre>
+LinkingTo: RcppParallel
+SystemRequirements: GNU make</code></pre>
 <p><strong>NAMESPACE</strong></p>
 <pre class="r"><code>importFrom(RcppParallel, RcppParallelLibs)</code></pre>
 <p><strong>src\Makevars</strong></p>
