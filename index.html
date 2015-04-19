@@ -162,10 +162,9 @@ blockquote {
 <p><img src="images/RcppParallelLogo.png" width="643" height="90"></img></p>
 <p>RcppParallel provides a complete toolkit for creating portable, high-performance parallel algorithms without requiring direct manipulation of operating system threads. RcppParallel includes:</p>
 <ul>
-<li><p><a href="https://www.threadingbuildingblocks.org/">Intel Thread Building Blocks</a>, a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, and Linux only).</p></li>
-<li><p><a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a>, a C++ library for portable use of operating system threads.</p></li>
+<li><p><a href="https://www.threadingbuildingblocks.org/">Intel Thread Building Blocks</a>, a C++ library for task parallelism with a wide variety of parallel algorithms and data structures.</p></li>
 <li><p><code>RVector</code> and <code>RMatrix</code> wrapper classes for safe and convenient access to R data structures in a multi-threaded environment.</p></li>
-<li><p>High level parallel functions (<code>parallelFor</code> and <code>parallelReduce</code>) that use Intel TBB as a back-end on systems that support it and TinyThread on other platforms.</p></li>
+<li><p>High level functions (<code>parallelFor</code> and <code>parallelReduce</code>) that provide a straightforward wrapper for the most common parallel algorithms.</p></li>
 </ul>
 <p>In many cases, RcppParallel can achieve significantly better performance than traditional use of threads or even <a href="http://openmp.org/wp/">OpenMP</a>. This is accomplished via dynamic task scheduling that attempts to optimize locality of reference (and therefore cache hit rates) as well as work stealing (detecting idle threads and pushing work to them).</p>
 </div>
@@ -205,7 +204,6 @@ SystemRequirements: GNU make</code></pre>
 
 PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
               -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
-<p>Note that the Windows variation (Makevars.win) requires an extra <code>PKG_CXXFLAGS</code> entry that enables the use of TBB. This is because TBB is not used by default on Windows (for backward compatibility with a previous version of RcppParallel which lacked support for TBB on Windows).</p>
 <p>After you’ve added the above to the package you can simply include the main RcppParallel package header in source files that need to use it:</p>
 <pre class="cpp"><code>#include &lt;RcppParallel.h&gt;</code></pre>
 </div>
@@ -248,7 +246,12 @@ IntegerVector transformVector(IntegerVector x) {
 </div>
 <div id="locking" class="section level4">
 <h4>Locking</h4>
-<p>When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of <code>parallelFor</code> and <code>parallelReduce</code> (explained below) take care of providing safe windows into input and output data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you can use the TinyThread locking classes (automatically available via <code>RcppParallel.h</code>). See the <a href="http://tinythreadpp.bitsnbites.eu/doc/">TinyThread documentation</a> for additional details.</p>
+<p>When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of <code>parallelFor</code> and <code>parallelReduce</code> (explained below) take care of providing safe windows into input and output data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you can use one of the following facilities provided by TBB:</p>
+<ol style="list-style-type: decimal">
+<li><p>TBB concurrent container classes (see: <a href="https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Containers.htm" class="uri">https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Containers.htm</a>).</p></li>
+<li><p>TBB mutual exclusion classes (see: <a href="https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Mutual_Exclusion.htm" class="uri">https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Mutual_Exclusion.htm</a>)</p></li>
+<li><p>TBB atomic operations (see <a href="https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Atomic_Operations.htm" class="uri">https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Atomic_Operations.htm</a>).</p></li>
+</ol>
 </div>
 </div>
 <div id="algorithms" class="section level3">
@@ -350,6 +353,19 @@ double parallelVectorSum(NumericVector x) {
    return sum.value;
 }</code></pre>
 </div>
+<div id="using-tbb-directly" class="section level4">
+<h4>Using TBB Directly</h4>
+<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization, including:</p>
+<ul>
+<li>Advanced algorithms: <code>parallel_scan</code>, <code>parallel_while</code>, <code>parallel_do</code>, <code>parallel_pipeline</code>, <code>parallel_sort</code></li>
+<li>Containers: <code>concurrent_queue</code>, <code>concurrent_priority_queue</code>, <code>concurrent_vector</code>, <code>concurrent_hash_map</code></li>
+<li>Mutual exclusion: <code>mutex</code>, <code>spin_mutex</code>, <code>queuing_mutex</code>, <code>spin_rw_mutex</code>, <code>queuing_rw_mutex</code>, <code>recursive_mutex</code></li>
+<li>Atomic operations: <code>fetch_and_add</code>, <code>fetch_and_increment</code>, <code>fetch_and_decrement</code>, <code>compare_and_swap</code>, <code>fetch_and_store</code></li>
+<li>Timing: portable fine grained global time stamp</li>
+<li>Task Scheduler: direct access to control the creation and activation of tasks</li>
+</ul>
+<p>See the <a href="https://software.intel.com/en-us/node/506045">Intel TBB User Guide</a> for documentation on using these features.</p>
+</div>
 </div>
 <div id="tuning" class="section level3">
 <h3>Tuning</h3>
@@ -388,48 +404,6 @@ res[,1:4]</code></pre>
 <pre><code>                   test replications elapsed relative
 2 parallelMatrixSqrt(m)          100   0.294    1.000
 1         matrixSqrt(m)          100   0.755    2.568</code></pre>
-</div>
-</div>
-<div id="using-tbb" class="section level3">
-<h3>Using TBB</h3>
-<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization. The motivation for <code>parallelFor</code> and <code>parallelReduce</code> is portability: you can write a single algorithm that uses TBB on Windows, OS X, and Linux but falls back to a lower-performance implementation based on TinyThread on other platforms.</p>
-<p>If however you are okay with targeting only Windows, OS X, and Linux, you can use TBB directly and bypass <code>parallelFor</code> and <code>parallelReduce</code>. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on other platforms (details on doing this are in the <em>Portability</em> section below).</p>
-<div id="tbb-apis" class="section level4">
-<h4>TBB APIs</h4>
-<p>TBB includes a wide variety of tools for parallel programming, including:</p>
-<ul>
-<li>Advanced algorithms: <code>parallel_scan</code>, <code>parallel_while</code>, <code>parallel_do</code>, <code>parallel_pipeline</code>, <code>parallel_sort</code></li>
-<li>Containers: <code>concurrent_queue</code>, <code>concurrent_priority_queue</code>, <code>concurrent_vector</code>, <code>concurrent_hash_map</code></li>
-<li>Mutual exclusion: <code>mutex</code>, <code>spin_mutex</code>, <code>queuing_mutex</code>, <code>spin_rw_mutex</code>, <code>queuing_rw_mutex</code>, <code>recursive_mutex</code></li>
-<li>Atomic operations: <code>fetch_and_add</code>, <code>fetch_and_increment</code>, <code>fetch_and_decrement</code>, <code>compare_and_swap</code>, <code>fetch_and_store</code></li>
-<li>Timing: portable fine grained global time stamp</li>
-<li>Task Scheduler: direct access to control the creation and activation of tasks</li>
-</ul>
-<p>See the <a href="https://software.intel.com/en-us/node/506045">Intel TBB User Guide</a> for documentation on using these features.</p>
-</div>
-<div id="portability" class="section level4">
-<h4>Portability</h4>
-<p>When using TBB directly in a CRAN package you should check the value of the <code>RCPP_PARALLEL_USE_TBB</code> macro and conditionally include a serial implementation of your algorithm if it’s not <code>TRUE</code>. Note that this macro is defined in <code>RcppParallel.h</code> so you should include this in all cases (it will in turn automatically include <code>&lt;tbb/tbb.h&gt;</code> on platforms where it’s supported). For example, your source file might look like this:</p>
-<pre class="cpp"><code>#include &lt;RcppParallel.h&gt;
-
-#if RCPP_PARALLEL_USE_TBB
-
-IntegerVector transformData(IntegerVector x) {
-
-  // Implement by calling TBB APIs directly 
-
-}
-
-#else
-
-IntegerVector transformData(IntegerVector x) {
-
-  // Implement serially
-
-}
-
-#endif</code></pre>
-<p>Note that the two functions have the same name (only one will be compiled and linked based on whether the target platform supports TBB).</p>
 </div>
 </div>
 
