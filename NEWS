@@ -2,6 +2,7 @@ RcppParallel 4.3.9
 ------------------------------------------------------------------------
 
 * Add support for TBB on Solaris
+* Add const and non-const operator[] for RMatrix class
 
 RcppParallel 4.3.8
 ------------------------------------------------------------------------

@@ -239,6 +239,14 @@ public:
       return Column(*const_cast<RMatrix*>(this), i);
    }
    
+   inline T& operator[](std::size_t i) {
+      return *(data_ + i);
+   }
+   
+   inline const T& operator[](std::size_t i) const {
+      return *(data_ + i);
+   }
+   
 private:
    T* data_;
    std::size_t nrow_;
