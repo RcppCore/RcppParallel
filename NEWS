@@ -2,13 +2,13 @@ RcppParallel 4.3.9
 ------------------------------------------------------------------------
 
 * Add support for TBB on Solaris
+* Fix failure to compile on OS X Snow Leopard R toolchain
 * Add const and non-const operator[] for RMatrix class
 
 RcppParallel 4.3.8
 ------------------------------------------------------------------------
 
 * Add tbbmalloc library
-* Fix failure to compile on OS X Snow Leopard R toolchain
 * Correctly pass clang to TBB configure when R is using clang
 
 RcppParallel 4.3.6
