@@ -14,7 +14,7 @@ Authors@R: c(
        comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
     person(family = "Microsoft", role = "cph")
     )
-Description: High level functions for doing parallel programming with "Rcpp".
+Description: High level functions for doing parallel programming with 'Rcpp'.
   For example, the parallelFor() function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce() 
   function can be used for accumulating aggregate or other values.
