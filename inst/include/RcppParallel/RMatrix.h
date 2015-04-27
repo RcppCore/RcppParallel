@@ -41,7 +41,7 @@ public:
          }
          
          inline row_iterator operator++(int) {
-            iterator tmp(*this); 
+            row_iterator tmp(*this); 
             operator++(); 
             return tmp;
          }
