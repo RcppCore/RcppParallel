@@ -64,6 +64,8 @@ tbb:
 	cd tbb/src; \
 	if [[ "$(CC)" == clang* ]]; then \
 	   $(MAKE) cpp0x=1 compiler=clang $(MAKE_ARGS); \
+	elif [[ "$(CC)" == gcc* ]]; then \
+	   $(MAKE) cpp0x=1 compiler=gcc $(MAKE_ARGS); \
 	else \
 	   $(MAKE) cpp0x=1 $(MAKE_ARGS); \
 	fi; \
