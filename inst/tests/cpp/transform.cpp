@@ -10,6 +10,10 @@ using namespace Rcpp;
 #include <cmath>
 #include <algorithm>
 
+double squareRoot(double x) {
+   return ::sqrt(x);
+}
+
 // [[Rcpp::export]]
 NumericMatrix matrixSqrt(NumericMatrix orig) {
 
@@ -17,7 +21,7 @@ NumericMatrix matrixSqrt(NumericMatrix orig) {
   NumericMatrix mat(orig.nrow(), orig.ncol());
 
   // transform it
-  std::transform(orig.begin(), orig.end(), mat.begin(), ::sqrt);
+  std::transform(orig.begin(), orig.end(), mat.begin(), squareRoot);
 
   // return the new matrix
   return mat;
@@ -43,7 +47,7 @@ struct SquareRoot : public Worker
       std::transform(input.begin() + begin, 
                      input.begin() + end, 
                      output.begin() + begin, 
-                     ::sqrt);
+                     squareRoot);
    }
 };
 
