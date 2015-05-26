@@ -66,8 +66,8 @@ endif
 # for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify).
 # RcppParallel: CRAN uses 32-bit SPARC so we force that here
 ifeq (sparc,$(arch))
-    CPLUS_FLAGS += -m32
-    LIB_LINK_FLAGS += -m32
+    CPLUS_FLAGS += -mcpu=v9 -m32
+    LIB_LINK_FLAGS += -mcpu=v9 -m32
 #   CPLUS_FLAGS    += -mcpu=v9 -m64
 #   LIB_LINK_FLAGS += -mcpu=v9 -m64
 endif 
