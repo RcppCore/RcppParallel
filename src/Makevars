@@ -47,10 +47,14 @@ ifeq ($(USE_TBB),  Windows)
 
 endif
 
+# For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
 ifeq ($(USE_TBB),  SunOS)
-   R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
-   ifeq ($(R_32BIT), TRUE)
-      MAKE_ARGS += arch=ia32
+   SUNOS_ARCH = $(shell uname -p)
+   ifneq ($(SUNOS_ARCH),  sparc)
+      R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
+      ifeq ($(R_32BIT), TRUE)
+         MAKE_ARGS += arch=ia32
+      endif
    endif
 endif
 
