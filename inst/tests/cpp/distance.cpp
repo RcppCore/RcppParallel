@@ -66,7 +66,7 @@ NumericMatrix rcpp_js_distance(NumericMatrix mat) {
          double d2 = kl_divergence(row2.begin(), row2.end(), avg.begin());
         
          // write to output matrix
-         rmat(i,j) = std::sqrt((double)(.5 * (d1 + d2)));
+         rmat(i,j) = std::sqrt(.5 * (d1 + d2));
       }
    }
    
