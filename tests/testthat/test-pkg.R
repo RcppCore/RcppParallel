@@ -14,7 +14,7 @@ test_that( "linking from a package works", {
           intern = TRUE, ignore.stderr = TRUE)
    require(RcppParallelTest, lib.loc = templib, quietly = TRUE)
    
-   v <- as.numeric(c(1:10000))
+   v <- as.integer(c(1:1000))
 
    expect_equal( 
       sum(v), 
