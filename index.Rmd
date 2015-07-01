@@ -106,7 +106,7 @@ A major goal of RcppParallel is to make it possible to write parallel code witho
 
 #### API Restrictions
 
-The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R is single-threaded and concurrent interaction with it's data structures can  cause crashes and other undefined behavior. Here is the official guidance from [Writing R Extensions](http://cran.rstudio.com/doc/manuals/r-release/R-exts.html):
+The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R is single-threaded and concurrent interaction with it's data structures can  cause crashes and other undefined behavior. Here is the official guidance from [Writing R Extensions](https://cran.rstudio.com/doc/manuals/r-release/R-exts.html):
 
 > Calling any of the R API from threaded code is ‘for experts only’: they will need to read the source code to determine if it is thread-safe. In particular, code which makes use of the stack-checking mechanism must not be called from threaded code.
 

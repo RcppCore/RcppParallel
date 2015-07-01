@@ -214,7 +214,7 @@ PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
 <p>A major goal of RcppParallel is to make it possible to write parallel code without traditional threading and locking primitives (which are notoriously complicated and difficult to get right). This is achieved for the most part by <code>parallelFor</code> and <code>parallelReduce</code> however the fact that the R API itself is single-threaded must also be taken into consideration.</p>
 <div id="api-restrictions" class="section level4">
 <h4>API Restrictions</h4>
-<p>The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R is single-threaded and concurrent interaction with it’s data structures can cause crashes and other undefined behavior. Here is the official guidance from <a href="http://cran.rstudio.com/doc/manuals/r-release/R-exts.html">Writing R Extensions</a>:</p>
+<p>The code that you write within parallel workers should not call the R or Rcpp API in any fashion. This is because R is single-threaded and concurrent interaction with it’s data structures can cause crashes and other undefined behavior. Here is the official guidance from <a href="https://cran.rstudio.com/doc/manuals/r-release/R-exts.html">Writing R Extensions</a>:</p>
 <blockquote>
 <p>Calling any of the R API from threaded code is ‘for experts only’: they will need to read the source code to determine if it is thread-safe. In particular, code which makes use of the stack-checking mechanism must not be called from threaded code.</p>
 </blockquote>
