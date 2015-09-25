@@ -9,8 +9,7 @@ before_install:
 
 script: 
   - R CMD INSTALL .
-  - cd tests
-  - Rscript testthat.R
+  - cd tests && Rscript doRUnit.R
 
 notifications:
   email:
