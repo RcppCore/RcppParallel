@@ -7,6 +7,4 @@
 ^.travis.yml
 ^README.md
 ^doc$
-
-
-
+^src/.*\.o$
