@@ -4,13 +4,13 @@ before_install:
   - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
   - chmod 755 ./travis-tool.sh
   - ./travis-tool.sh bootstrap
-  - ./travis-tool.sh github_package hadley/testthat
+  #- ./travis-tool.sh github_package hadley/testthat
   - ./travis-tool.sh github_package RcppCore/Rcpp
+  - ./travis-tool.sh install_aptget r-cran-runit
 
 script: 
   - R CMD INSTALL .
-  - cd tests
-  - Rscript testthat.R
+  - cd tests && Rscript doRUnit.R
 
 notifications:
   email:
