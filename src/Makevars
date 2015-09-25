@@ -5,6 +5,8 @@ ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
+  
+  MAKE_CMD = PATH="$(shell cygpath $(dir $(CC))):$(PATH)" make
 
 else
   
@@ -23,6 +25,8 @@ else
     endif
   endif
 
+  MAKE_CMD=$(MAKE)
+  
 endif
 
 ifdef USE_TBB
@@ -67,11 +71,11 @@ tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	if [[ "$(CC)" == clang* ]]; then \
-	   $(MAKE) cpp0x=1 compiler=clang $(MAKE_ARGS); \
+	   $(MAKE_CMD) cpp0x=1 compiler=clang $(MAKE_ARGS); \
 	elif [[ "$(CC)" == *gcc* ]]; then \
-	   $(MAKE) cpp0x=1 compiler=gcc $(MAKE_ARGS); \
+	   $(MAKE_CMD) cpp0x=1 compiler=gcc $(MAKE_ARGS); \
 	else \
-	   $(MAKE) cpp0x=1 $(MAKE_ARGS); \
+	   $(MAKE_CMD) cpp0x=1 $(MAKE_ARGS); \
 	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
