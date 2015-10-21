@@ -297,17 +297,17 @@ This will prevent the creation of threads that process less than 100 items. You 
 
 By default all of the available cores on a machine are used for parallel algorithms. You may instead want to use a fixed number of threads or a fixed proportion of cores available on the machine. 
 
-R rather than C++ functions are provided to control these settings so that users of your algorithm can control the use of resources on their system. You can call the `setNumThreads` function to allocate threads. For example, the following sets a maximum of 4 threads:
+R rather than C++ functions are provided to control these settings so that users of your algorithm can control the use of resources on their system. You can call the `setThreadOptions` function to allocate threads. For example, the following sets a maximum of 4 threads:
 
 ```r
-RcppParallel::setNumThreads(4)
+RcppParallel::setThreadOptions(numThreads = 4)
 ```
 
 To use a proportion of available cores you can use the `defaultNumThreads` function. For example, the following says to use half of the available cores on a system:
 
 ```r
 library(RcppParallel)
-setNumThreads(defaultNumThreads() / 2)
+setThreadOptions(numThreads = defaultNumThreads() / 2)
 ```
 
 #### Benchmarking

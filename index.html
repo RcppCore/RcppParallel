@@ -370,11 +370,11 @@ double parallelVectorSum(NumericVector x) {
 <div id="threads-used" class="section level4">
 <h4>Threads Used</h4>
 <p>By default all of the available cores on a machine are used for parallel algorithms. You may instead want to use a fixed number of threads or a fixed proportion of cores available on the machine.</p>
-<p>R rather than C++ functions are provided to control these settings so that users of your algorithm can control the use of resources on their system. You can call the <code>setNumThreads</code> function to allocate threads. For example, the following sets a maximum of 4 threads:</p>
-<pre class="r"><code>RcppParallel::setNumThreads(4)</code></pre>
+<p>R rather than C++ functions are provided to control these settings so that users of your algorithm can control the use of resources on their system. You can call the <code>setThreadOptions</code> function to allocate threads. For example, the following sets a maximum of 4 threads:</p>
+<pre class="r"><code>RcppParallel::setThreadOptions(numThreads = 4)</code></pre>
 <p>To use a proportion of available cores you can use the <code>defaultNumThreads</code> function. For example, the following says to use half of the available cores on a system:</p>
 <pre class="r"><code>library(RcppParallel)
-setNumThreads(defaultNumThreads() / 2)</code></pre>
+setThreadOptions(numThreads = defaultNumThreads() / 2)</code></pre>
 </div>
 <div id="benchmarking" class="section level4">
 <h4>Benchmarking</h4>
