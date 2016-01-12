@@ -2,7 +2,7 @@ Package: RcppParallel
 Type: Package
 Title: Parallel Programming Tools for Rcpp
 Version: 4.3.15
-Date: 2015-09-25
+Date: 2016-01-12
 Authors@R: c(
     person("JJ", "Allaire", role = c("aut", "cre"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
