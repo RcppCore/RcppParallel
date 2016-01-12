@@ -62,10 +62,10 @@ ifeq ($(USE_TBB),  SunOS)
    endif
 endif
 
-.PHONY: all tbb
+.PHONY: all tbb vc
 
 # Order is important in Windows' case. See PKG_LIBS above
-all: tbb $(SHLIB)
+all: tbb vc $(SHLIB)
 
 tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
@@ -80,8 +80,19 @@ tbb:
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
 
+vc:
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
+	cd vc; \
+	mkdir build; \
+	cd build; \
+	cmake -DBUILD_TESTING=OFF ..; \
+	make -j4; \
+	cd ../..; \
+	cp vc/build/libVc.a ../inst/lib/$(ARCH_DIR)
+	
 clean:
 	(cd tbb/src; make clean)
+	(cd vc; make clean)
 
 endif
 
