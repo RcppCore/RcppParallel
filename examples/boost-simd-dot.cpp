@@ -24,8 +24,8 @@ Value simd_dot(Value* first1, Value* last1, Value* first2)
    while (first1 != last1)
    {
       // Load current values from the datasets
-      pack<Value> x1(first1);
-      pack<Value> x2(first2);
+      pack<Value> x1 = boost::simd::aligned_load<Value>(first1);
+      pack<Value> x2 = boost::simd::aligned_load<Value>(first2);
       
       // Computation
       tmp = tmp + x1 * x2;
