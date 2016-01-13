@@ -62,4 +62,12 @@ lhs <- rnorm(10)
 rhs <- rnorm(10)
 result <- dot(lhs, rhs)
 all.equal(result, sum(lhs * rhs))
+
+library(microbenchmark)
+lhs <- rnorm(1024 * 1000)
+rhs <- rnorm(1024 * 1000)
+microbenchmark(
+   simd = dot(lhs, rhs),
+   R = sum(lhs * rhs)
+)
 */
