@@ -1,0 +1,8 @@
+doc/html
+doc/latex
+doc/man
+vc-benchmarks
+*.swp
+*~
+.makeApidox.stamp
+.makeApidox.stamp.new

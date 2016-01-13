@@ -1,0 +1,68 @@
+language: cpp
+
+cache: ccache
+
+env:
+    - GCC_VERSION=5
+    - GCC_VERSION=default
+
+os:
+    - linux
+    - osx
+
+compiler:
+    - gcc
+    - clang
+
+matrix:
+    exclude:
+        - env: GCC_VERSION=5
+          os: osx
+          compiler: clang
+        - env: GCC_VERSION=5
+          os: linux
+          compiler: clang
+
+# The following gives us Ubuntu 14.04 LTS instead of 12.04 LTS
+sudo: required
+dist: trusty
+
+install:
+    - if test "$TRAVIS_OS_NAME" = "osx" -a "$CXX" = "g++"; then
+        brew update;
+        if test $GCC_VERSION = 5; then
+          brew install gcc5 && export CXX=g++-5 CC=gcc-5;
+        else
+          brew install coreutils && export CXX=g++-4.9 CC=gcc-4.9;
+        fi
+      fi
+    - if test "$TRAVIS_OS_NAME" = "linux" -a "$GCC_VERSION" = "5"; then
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y &&
+        sudo apt-get update -q &&
+        sudo apt-get install g++-5 -y &&
+        export CXX=g++-5 CC=gcc-5;
+      fi
+    - if test "$TRAVIS_OS_NAME" = "linux" -a "$CXX" = "clang++"; then
+        sudo apt-get update -q &&
+        sudo apt-get install libc++-dev libc++abi-dev -y;
+      fi
+
+before_script:
+    - $CXX --version
+    - cmake --version
+    - export dashboard_model=Experimental
+    - export build_type=Release
+    - export NUMBER_OF_PROCESSORS=2
+
+script:
+    - ctest -V -S test.cmake
+
+notifications:
+    email: false
+    irc:
+        channels:
+            - "chat.freenode.net##Vc"
+        on_success: change # [always|never|change] # default: always
+        on_failure: always # [always|never|change] # default: always
+        use_notice: true
+        skip_join: true
