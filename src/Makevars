@@ -5,6 +5,7 @@ ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
+  VC_COPY_PATTERN=Vc*.dll
   
   MAKE_CMD = PATH="$(shell cygpath $(dir $(CC))):$(PATH)" make
 
@@ -12,6 +13,7 @@ else
   
   UNAME := $(shell uname)
   TBB_COPY_PATTERN=libtbb*.*
+  VC_COPY_PATTERN=libVc*.*
   ifeq ($(UNAME), Darwin)
     USE_TBB=Mac
   endif
@@ -89,7 +91,7 @@ vc:
 	make -j4; \
 	make install; \
 	cd ../..; \
-	cp    vc/build/vc/lib/libVc.a ../inst/lib/$(ARCH_DIR)
+	cp    vc/build/vc/lib/$(VC_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
 	cp -R vc/build/vc/include/Vc ../inst/include
 	
 clean:
