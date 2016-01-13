@@ -24,3 +24,7 @@ void HelloWorld()
    
    Rcout << res << std::endl;
 }
+
+/*** R
+HelloWorld()
+*/
