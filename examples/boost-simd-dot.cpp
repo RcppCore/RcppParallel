@@ -16,7 +16,6 @@ Value simd_dot(Value* first1, Value* last1, Value* first2)
 {
    using boost::simd::sum;
    using boost::simd::pack;
-   using boost::simd::load;
    
    typedef pack<Value> type;
    type tmp;
@@ -25,8 +24,8 @@ Value simd_dot(Value* first1, Value* last1, Value* first2)
    while (first1 != last1)
    {
       // Load current values from the datasets
-      pack<Value> x1 = load<type>(first1);
-      pack<Value> x2 = load<type>(first2);
+      pack<Value> x1(first1);
+      pack<Value> x2(first2);
       
       // Computation
       tmp = tmp + x1 * x2;
@@ -48,24 +47,21 @@ double dot(NumericVector lhs, NumericVector rhs)
    vector_t b(rhs.begin(), rhs.end());
    
    // call dot function
-   double result = simd_dot(
-      &a[0],
-      &a[0] + a.size(),
-      &b[0]
-   );
+   double result = simd_dot(&a[0], &a[0] + a.size(), &b[0]);
    
    return result;
 }
 
 /*** R
-lhs <- rnorm(10)
-rhs <- rnorm(10)
+n <- 1024
+lhs <- rnorm(n)
+rhs <- rnorm(n)
 result <- dot(lhs, rhs)
 all.equal(result, sum(lhs * rhs))
 
 library(microbenchmark)
-lhs <- rnorm(1024 * 1000)
-rhs <- rnorm(1024 * 1000)
+lhs <- rnorm(n * 1000)
+rhs <- rnorm(n * 1000)
 microbenchmark(
    simd = dot(lhs, rhs),
    R = sum(lhs * rhs)
