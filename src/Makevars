@@ -85,10 +85,12 @@ vc:
 	cd vc; \
 	mkdir build; \
 	cd build; \
-	cmake -DBUILD_TESTING=OFF ..; \
+	cmake -DCMAKE_INSTALL_PREFIX=$(shell pwd)/vc/build/vc -DBUILD_TESTING=OFF ..; \
 	make -j4; \
+	make install; \
 	cd ../..; \
-	cp vc/build/libVc.a ../inst/lib/$(ARCH_DIR)
+	cp    vc/build/vc/lib/libVc.a ../inst/lib/$(ARCH_DIR)
+	cp -R vc/build/vc/include/Vc ../inst/include
 	
 clean:
 	(cd tbb/src; make clean)
