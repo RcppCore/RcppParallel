@@ -23,6 +23,7 @@ Suggests:
     RUnit,
     knitr,
     rmarkdown
+LinkingTo: BH
 SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL-2
 URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
