@@ -17,7 +17,7 @@ Here's a quick example of how we might compute the sum of elements in a vector, 
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
-#include <RcppParallel.h>
+#include <RcppParallelSIMD.h>
 #include <Rcpp.h>
 
 using namespace RcppParallel;
@@ -59,7 +59,7 @@ These functions operate like their `std::` counterparts, but expect a functor wi
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
-#include <RcppParallel.h>
+#include <RcppParallelSIMD.h>
 #include <Rcpp.h>
 
 #include <boost/simd/arithmetic/functions/min.hpp>
