@@ -1,0 +1,54 @@
+---
+title: "SIMD Operations"
+author: "Kevin Ushey"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{SIMD Operations}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Modern CPU processors are built with new, extended instruction sets that optimize for certain operations. A class of these allow for vectorized operations, called Single Instruction / Multiple Data (SIMD) instructions. Although modern compilers will use these instructions when possible, it is often not possible for the compiler to reason about whether or not a particular block of code can be executed using SIMD instructions.
+
+`Boost.SIMD` is a (proposed) C++ header-only libary, that makes it possible to explicitly request the use of SIMD instructions when possible, while falling back to regular scalar operations if not. `RcppParallel` wraps and exposes this library for use with R vectors.
+
+Here's a quick example of how we might compute the sum of elements in a vector, using `Boost.SIMD`. 
+
+```{r, engine='Rcpp'}
+// [[Rcpp::depends(RcppParallel)]]
+#include <RcppParallel.h>
+#include <Rcpp.h>
+
+using namespace RcppParallel;
+using namespace Rcpp;
+
+// Define a functor -- a C++ class which defines a 'function call'
+// operator -- to perform the addition of two pieces of data.
+struct add_two {
+   template <typename T>
+   T operator()(const T& lhs, const T& rhs) {
+      return lhs + rhs;
+   }
+};
+
+// [[Rcpp::export]]
+double simd_sum(NumericVector x) {
+   return simd::accumulate(x, 0.0, add_two());
+}
+```
+
+```{r}
+data <- rnorm(1024 * 1000)
+all.equal(simd_sum(data), sum(data))
+if (requireNamespace("microbenchmark", quietly = TRUE)) {
+   microbenchmark::microbenchmark(sum(data), simd_sum(data))
+}
+```
+
+Boost.SIMD provides two primary abstractions for the implementation of SIMD algorithms:
+
+- `simd::accumulate()`, for vector -> scalar transformations, and
+- `simd::transform()`,  for vector -> vector transformations.
+
+These functions operate like their `std::` counterparts, but expect a functor with a templated call operator. By making the call operator templated, `Boost.SIMD` can generate code using its own optimized SIMD functions when appropriate, and fall back to a default implementation (based on the types provided) when not.
