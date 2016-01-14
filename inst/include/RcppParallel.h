@@ -5,9 +5,6 @@
 // TinyThread implementation
 #include "RcppParallel/TinyThread.h"
 
-// SIMD Wrappers
-#include "RcppParallel/SIMD.h"
-
 // Use TBB only where it's known to compile and work correctly
 // (NOTE: Windows TBB is temporarily opt-in for packages for 
 // compatibility with CRAN packages not previously configured
