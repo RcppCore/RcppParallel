@@ -9,7 +9,7 @@ Compilation flags for RcppParallel
 Output the compiler or linker flags required to build against RcppParallel.
 }
 \usage{
-CxxFlags(simd = FALSE)
+CxxFlags(simd = TRUE)
 LdFlags()
 RcppParallelLibs()
 }

@@ -6,7 +6,7 @@
 #
 #  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::CxxFlags()")
 #
-CxxFlags <- function(simd = FALSE) {
+CxxFlags <- function(simd = TRUE) {
    cat(tbbCxxFlags(simd = simd))
 }
 
@@ -40,7 +40,7 @@ inlineCxxPlugin <- function() {
    )
 }
 
-tbbCxxFlags <- function(simd = FALSE) {
+tbbCxxFlags <- function(simd = TRUE) {
    
    # request use of C++11 when possible
    flags <- "$(CXX1XSTD)"

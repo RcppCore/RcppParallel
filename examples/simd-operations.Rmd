@@ -15,11 +15,10 @@ Modern CPU processors are built with new, extended instruction sets that optimiz
 
 `Boost.SIMD` is a C++ header-only library that makes it possible to explicitly request the use of SIMD instructions when possible, while falling back to regular scalar operations if not. `RcppParallel` wraps and exposes this library for use with R vectors.
 
-Here's a quick example of how we might compute the sum of elements in a vector, using `Boost.SIMD`. Note that we've added `#define RCPP_PARALLEL_USE_SIMD 1` before including `RcppParallel.h` since SIMD features are not included by default. 
+Here's a quick example of how we might compute the sum of elements in a vector, using `Boost.SIMD`.
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
-#define RCPP_PARALLEL_USE_SIMD 1
 #include <RcppParallel.h>
 #include <Rcpp.h>
 
@@ -65,7 +64,6 @@ These functions operate like their `std::` counterparts, but expect a functor wi
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
-#define RCPP_PARALLEL_USE_SIMD 1
 #include <RcppParallel.h>
 #include <Rcpp.h>
 
@@ -84,8 +82,9 @@ NumericVector simd_min(NumericVector data) {
 
 To build an R package that uses Boost.SIMD you need to make some modifications to the standard RcppParallel configuration:
 
-1. Add definitions to `PKG_CXXFLAGS` to opt-in to Boost.SIMD 
+1. Make sure you call the `CxxFlags` and `LdFlags` functions in `Makevars`
 2. Add the **BH** package as a LinkingTo dependency
+3. Add C++11 as a SystemRequirement
 
 Here's the complete recipe for using RcppParallel with Boost.SIMD in an R package:
 
@@ -94,7 +93,7 @@ Here's the complete recipe for using RcppParallel with Boost.SIMD in an R packag
 ```yaml
 Imports: RcppParallel
 LinkingTo: RcppParallel, BH
-SystemRequirements: GNU make
+SystemRequirements: GNU make, C++11
 ```
 
 **NAMESPACE**
@@ -106,34 +105,31 @@ importFrom(RcppParallel, RcppParallelLibs)
 **src/Makevars**
 
 ```make
-PKG_CXXFLAGS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::CxxFlags(simd = TRUE)")
+PKG_CXXFLAGS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::CxxFlags()")
 PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::LdFlags()")
 ```
 
 **src/Makevars.win**
 
 ```make
-PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \ 
-                   -e "RcppParallel::CxxFlags(simd = TRUE)")
-PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
-               -e "RcppParallel::LdFlags()")
+PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \ -e "RcppParallel::CxxFlags()")
+PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
 ```
 
 ### Platform Compatibility
 
 Note that Boost.SIMD requires a C++11 conformant compiler. This means that packages making use of SIMD features may not compile on platforms with older compilers including Windows and RedHat/CentOS Linux. You can however create a package that takes advantage of Boost.SIMD where available and falls back to a non-SIMD implementation elsewhere.
 
-The result of specifying `simd = TRUE` in Makevars to to define the `RCPP_PARALLEL_USE_SIMD` preprocessor variable. This is interpreted as a *request* for Boost.SIMD. If the current compiler doesn't support C++11 (as determined by `__cplusplus <= 199711L`) the variable will be undefined. This allows you to write code like this:
+You can test for the availability of Boost.SIMD on a given platform using the `RCPP_PARALLEL_USE_SIMD` preprocessor variable. If the current compiler doesn't support C++11 (as determined by `__cplusplus <= 199711L`) the variable will be undefined. This allows you to write code like this:
 
 ```cpp
-#define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
 
 #if RCPP_PARALLEL_USE_SIMD
 
 #include <boost/simd/sdk/simd/pack.hpp>
 
-IntegerVector transformData(IntegerVector x) {
+IntegerVector transformDataImpl(IntegerVector x) {
 
   // Implement with Boost.SIMD
 
@@ -141,17 +137,24 @@ IntegerVector transformData(IntegerVector x) {
 
 #else
 
-IntegerVector transformData(IntegerVector x) {
+IntegerVector transformDataImpl(IntegerVector x) {
 
   // Implement without Boost.SIMD
 
 }
 
 #endif
+
+// [[Rcpp::export]]
+IntegerVector transformData(IntegerVector x) {
+   return transformDataImpl(x);
+}
+
 ```
 
-Note that the two functions have the same name (only one will be compiled and linked based on whether the target platform supports Boost.SIMD).
+The two `transformDataImpl` functions have the same name, but only one will be compiled and linked based on whether the target platform supports Boost.SIMD. 
 
+Note that if you conditionally compile all uses of Boost.SIMD within your package then you can actually drop the `C++11` from `SystemRequirements` (it's no longer required as a result of your fallback implementation).
 
 
 
