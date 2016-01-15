@@ -1,5 +1,6 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
+^\.Rprofile$
 ^src/tbb/build/lib_.*$
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.s?o$
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.dll$

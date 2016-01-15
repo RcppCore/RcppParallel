@@ -9,15 +9,17 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
+## SIMD Basics
+
 Modern CPU processors are built with new, extended instruction sets that optimize for certain operations. A class of these allow for vectorized operations, called Single Instruction / Multiple Data (SIMD) instructions. Although modern compilers will use these instructions when possible, it is often not possible for the compiler to reason about whether or not a particular block of code can be executed using SIMD instructions.
 
-`Boost.SIMD` is a C++ header-only libary that makes it possible to explicitly request the use of SIMD instructions when possible, while falling back to regular scalar operations if not. `RcppParallel` wraps and exposes this library for use with R vectors.
+`Boost.SIMD` is a C++ header-only library that makes it possible to explicitly request the use of SIMD instructions when possible, while falling back to regular scalar operations if not. `RcppParallel` wraps and exposes this library for use with R vectors.
 
-Here's a quick example of how we might compute the sum of elements in a vector, using `Boost.SIMD`. 
+Here's a quick example of how we might compute the sum of elements in a vector, using `Boost.SIMD`.
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
-#include <RcppParallelSIMD.h>
+#include <RcppParallel.h>
 #include <Rcpp.h>
 
 using namespace RcppParallel;
@@ -48,6 +50,9 @@ if (requireNamespace("microbenchmark", quietly = TRUE)) {
 }
 ```
 
+
+## SIMD Algorithms
+
 Boost.SIMD provides two primary abstractions for the implementation of SIMD algorithms:
 
 - `simd::accumulate()`, for vector -> scalar transformations, and
@@ -55,11 +60,11 @@ Boost.SIMD provides two primary abstractions for the implementation of SIMD algo
 
 These functions operate like their `std::` counterparts, but expect a functor with a templated call operator. By making the call operator templated, `Boost.SIMD` can generate code using its own optimized SIMD functions when appropriate, and fall back to a default implementation (based on the types provided) when not.
 
-`Boost.SIMD` also provides a number of builtin functions, which can be used effectively with `simd::accumulate()` or `simd::transform()`. For example, let's use SIMD instructions to compute the minimum:
+`Boost.SIMD` also provides a number of built in functions, which can be used effectively with `simd::accumulate()` or `simd::transform()`. For example, let's use SIMD instructions to compute the minimum:
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
-#include <RcppParallelSIMD.h>
+#include <RcppParallel.h>
 #include <Rcpp.h>
 
 #include <boost/simd/arithmetic/functions/min.hpp>
@@ -72,3 +77,112 @@ NumericVector simd_min(NumericVector data) {
    return simd::transform(data, boost::simd::tag::min_());
 }
 ```
+
+## Using SIMD in an R Package
+
+To build an R package that uses Boost.SIMD you need to make some modifications to the standard RcppParallel configuration:
+
+1. Make sure you call the `CxxFlags` and `LdFlags` functions in `Makevars`
+2. Add the **BH** package as a LinkingTo dependency
+3. Add C++11 as a SystemRequirement
+
+Here's the complete recipe for using RcppParallel with Boost.SIMD in an R package:
+
+**DESCRIPTION**
+
+```yaml
+Imports: RcppParallel
+LinkingTo: RcppParallel, BH
+SystemRequirements: GNU make, C++11
+```
+
+**NAMESPACE**
+
+```R
+importFrom(RcppParallel, RcppParallelLibs)
+```
+
+**src/Makevars**
+
+```make
+PKG_CXXFLAGS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::CxxFlags()")
+PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::LdFlags()")
+```
+
+**src/Makevars.win**
+
+```make
+PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \ -e "RcppParallel::CxxFlags()")
+PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
+```
+
+### Platform Compatibility
+
+Note that Boost.SIMD requires a C++11 conformant compiler. This means that packages making use of SIMD features may not compile on platforms with older compilers including Windows and RedHat/CentOS Linux. You can however create a package that takes advantage of Boost.SIMD where available and falls back to a non-SIMD implementation elsewhere.
+
+You can test for the availability of Boost.SIMD on a given platform using the `RCPP_PARALLEL_USE_SIMD` preprocessor variable. If the current compiler doesn't support C++11 (as determined by `__cplusplus <= 199711L`) the variable will be undefined. This allows you to write code like this:
+
+```cpp
+#include <RcppParallel.h>
+
+#if RCPP_PARALLEL_USE_SIMD
+
+#include <boost/simd/sdk/simd/pack.hpp>
+
+IntegerVector transformDataImpl(IntegerVector x) {
+
+  // Implement with Boost.SIMD
+
+}
+
+#else
+
+IntegerVector transformDataImpl(IntegerVector x) {
+
+  // Implement without Boost.SIMD
+
+}
+
+#endif
+
+// [[Rcpp::export]]
+IntegerVector transformData(IntegerVector x) {
+   return transformDataImpl(x);
+}
+
+```
+
+The two `transformDataImpl` functions have the same name, but only one will be compiled and linked based on whether the target platform supports Boost.SIMD. 
+
+Note that if you conditionally compile all uses of Boost.SIMD within your package then you can actually drop the `C++11` from `SystemRequirements` (it's no longer required as a result of your fallback implementation).
+
+## Disabling SIMD
+
+If you don't want to use Boost.SIMD at all you can explicitly disable it as follows:
+
+1. For `sourceCpp` you can define `RCPP_PARALLEL_USE_TBB`:
+
+    ```cpp
+    #define RCPP_PARALLEL_USE_TBB 0
+    ```
+
+2. For R packages you can pass `simd = FALSE` to the CxxFlags function:
+
+    ```make
+    PKG_CXXFLAGS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::CxxFlags(simd = FALSE)")
+    ```
+   
+
+   
+
+
+
+
+
+
+   
+
+
+
+
+

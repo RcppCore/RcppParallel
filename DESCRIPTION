@@ -12,12 +12,16 @@ Authors@R: c(
     person(family = "RStudio", role = "cph"),
     person(family = "Intel", role = c("aut", "cph"),
        comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
-    person(family = "Microsoft", role = "cph")
+    person(family = "Microsoft", role = "cph"),
+    person("Joel", "Falcou", role = "aut"),
+    person(family = "UMR 8623 CNRS/Univ Paris Sud XI", role = "cph",
+      comment = "Boost.SIMD library, https://www.lri.fr/~falcou/pub/pact-2012.pdf")
     )
 Description: High level functions for doing parallel programming with 'Rcpp'.
   For example, the parallelFor() function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce() 
   function can be used for accumulating aggregate or other values.
+Depends: R (>= 3.0.2)
 Suggests:
     Rcpp,
     RUnit,

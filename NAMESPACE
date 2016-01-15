@@ -1,4 +1,7 @@
 export(setThreadOptions)
 export(defaultNumThreads)
 export(RcppParallelLibs)
+export(CxxFlags)
+export(LdFlags)
+
 
