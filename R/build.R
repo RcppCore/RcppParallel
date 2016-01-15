@@ -30,7 +30,7 @@ RcppParallelLibs <- function() {
 inlineCxxPlugin <- function() {
    list(
       env = list(
-         PKG_CXXFLAGS = paste(tbbCxxFlags()),
+         PKG_CXXFLAGS = paste("$(CXX1XSTD)", tbbCxxFlags()),
          PKG_LIBS = tbbLdFlags()
       ),
       includes = "#include <RcppParallel.h>",
@@ -42,8 +42,7 @@ inlineCxxPlugin <- function() {
 
 tbbCxxFlags <- function(simd = TRUE) {
    
-   # request use of C++11 when possible
-   flags <- "$(CXX1XSTD)"
+   flags <- c()
    
    # opt-in to TBB on Windows
    if (Sys.info()['sysname'] == "Windows")
