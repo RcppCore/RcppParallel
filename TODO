@@ -1,0 +1,10 @@
+Boost.SIMD
+==========
+
+- Make it easy for client packages to use Boost.SIMD (plugin? Also need LinkingTo: BH?)
+- Enable 'parallelFor', 'parallelReduce'-style calls to SIMD
+- See 'Wizard' (http://www.evanmiller.org/) for inspiration
+- Need to think about NA (idiom that handled NA)
+- Setting of compiler flags for CRAN
+- Don't overlap with Armadillo, Eigen
+

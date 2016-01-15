@@ -4,3 +4,5 @@
 .DS_Store
 src-i386/
 src-x64/
+.Rprofile
+inst/doc

@@ -17,13 +17,22 @@ RcppParallelLibs <- function() {
 inlineCxxPlugin <- function() {
    list(
       env = list(
-         PKG_CXXFLAGS = tbbCxxFlags(),
+         PKG_CXXFLAGS = paste(tbbCxxFlags(), mtuneFlags()),
          PKG_LIBS = tbbLdFlags()
       ),
       includes = "#include <RcppParallel.h>",
-      LinkingTo = "RcppParallel",
-      body = function( x ) x,
+      LinkingTo = c("RcppParallel", "BH"),
+      body = function(x) x,
       Depends = "RcppParallel"
+   )
+}
+
+mtuneFlags <- function() {
+   switch(Sys.info()[["sysname"]],
+          "Linux"   = "-mtune=native",
+          "Darwin"  = "-mtune=core2",
+          "Windows" = "-mtune=core2",
+          ""
    )
 }
 

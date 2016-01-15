@@ -18,8 +18,12 @@ Description: High level functions for doing parallel programming with 'Rcpp'.
   For example, the parallelFor() function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce() 
   function can be used for accumulating aggregate or other values.
-Suggests: Rcpp, RUnit
-LinkingTo: BH
+Suggests:
+    Rcpp,
+    RUnit,
+    knitr,
+    rmarkdown
+LinkingTo: BH (>= 1.60.0-1)
 SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL-2
 URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
@@ -27,4 +31,4 @@ Collate:
    'build.R'
    'hooks.R'
    'options.R'
-
+VignetteBuilder: knitr

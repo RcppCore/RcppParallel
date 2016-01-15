@@ -42,6 +42,7 @@ public:
    inline const_iterator begin() const { return begin_; }
    inline const_iterator end() const { return end_; }
    
+   inline std::size_t size() const { return end_ - begin_; }
    inline std::size_t length() const { return end_ - begin_; }
    
    inline T& operator[](std::size_t i) {
