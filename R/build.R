@@ -49,8 +49,8 @@ tbbCxxFlags <- function(simd = TRUE) {
       flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
    
    # reflect requested use of boost::simd
-   if (isTRUE(simd))
-      flags <- paste(flags, "-DRCPP_PARALLEL_USE_SIMD=1")
+   if (!simd)
+      flags <- paste(flags, "-DRCPP_PARALLEL_USE_SIMD=0")
    
    flags
 }
