@@ -52,4 +52,12 @@ inline void parallelReduce(std::size_t begin, std::size_t end,
 
 } // namespace RcppParallel
 
+// Enable SIMD if requested (requires C++11)
+#if RCPP_PARALLEL_USE_SIMD && (__cplusplus <= 199711L)
+  #undef RCPP_PARALLEL_USE_SIMD
+#endif
+#if RCPP_PARALLEL_USE_SIMD
+  #include "RcppParallel/SIMD.h"
+#endif
+
 #endif // __RCPP_PARALLEL__
