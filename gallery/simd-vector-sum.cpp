@@ -61,11 +61,14 @@ double vectorSumSimd(NumericVector x) {
  *
  * Behind the scenes of `boost::simd::accumulate()`, `Boost.SIMD` will
  * apply your templated functor to 'packs' of values when appropriate,
- * and simple values when not. In other words, there are effectively
+ * and scalar values when not. In other words, there are effectively
  * two kinds of template specializations being generated behind the scenes:
  * one with `T = double`, and one with `T = boost::simd::pack<double>`. The
  * use of the packed representation is what allows `Boost.SIMD` to ensure
- * vectorized instructions are used and generated.
+ * vectorized instructions are used and generated. `Boost.SIMD` provides
+ * a host of functions and operator overloads that ensure that optimized
+ * instructions are used when possible over a packed object, while falling
+ * back to 'default' operations for scalar values when not.
  *
  * Now, let's compare the performance of these two implementations.
  */
