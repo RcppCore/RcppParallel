@@ -3,8 +3,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include <boost/simd/sdk/simd/algorithm.hpp>
-
 struct plus
 {
    template <class T>

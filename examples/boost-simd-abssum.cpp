@@ -3,14 +3,6 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include <boost/simd/sdk/simd/pack.hpp>
-#include <boost/simd/memory/allocator.hpp>
-#include <boost/simd/include/functions/sum.hpp>
-#include <boost/simd/include/functions/load.hpp>
-#include <boost/simd/include/functions/plus.hpp>
-#include <boost/simd/include/functions/multiplies.hpp>
-#include <boost/simd/include/functions/abs.hpp>
-
 // [[Rcpp::export]]
 double simd_abssum(NumericVector x)
 {

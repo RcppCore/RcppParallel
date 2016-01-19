@@ -1,34 +1,32 @@
 #ifndef RCPP_PARALLEL_SIMD_H
 #define RCPP_PARALLEL_SIMD_H
 
+// Bring in the headers that automatically include the most
+// commonly used SIMD functions. We do this for a couple reasons:
+//
+//    1. Including each desired header 'by hand' can be tedious
+//       for the user,
+//
+//    2. Certain headers depend on others in such a way that attempting
+//       to include one without the other can lead to obscure compiler
+//       errors.
+//
+// The downside is the increased compile time, but this is something that users
+// have implicitly accepted given the heavy use of template meta-programming in
+// Boost.SIMD and its dependent libraries.
 #include <boost/simd/sdk/simd/algorithm.hpp>
 
-namespace RcppParallel {
-namespace simd {
+#include <boost/simd/memory/memory.hpp>
+#include <boost/simd/memory/allocator.hpp>
 
-template <class T, class UnaryFunction>
-T transform(const T& data, UnaryFunction f)
-{
-   T result(data.size());
-   boost::simd::transform(data.begin(), data.end(), result.begin(), f);
-   return result;
-}
+#include <boost/simd/arithmetic/arithmetic.hpp>
 
-template <class T, class BinaryFunction>
-T transform(const T& lhs, const T& rhs, BinaryFunction f)
-{
-   T result(lhs.size());
-   boost::simd::transform(lhs.begin(), lhs.end(), rhs.begin(), result.begin(), f);
-   return result;
-}
+#include <boost/simd/bitwise/bitwise.hpp>
 
-template <class T, class U, class F>
-U accumulate(const T& data, U init, F f)
-{
-   return boost::simd::accumulate(data.begin(), data.end(), init, f);
-}
+#include <boost/simd/boolean/boolean.hpp>
 
-} // namespace simd
-} // namespace RcppParallel
+#include <boost/simd/reduction/reduction.hpp>
+
+#include <boost/simd/swar/swar.hpp>
 
 #endif /* RCPP_PARALLEL_SIMD_H */

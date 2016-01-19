@@ -4,12 +4,6 @@
 using namespace Rcpp;
 
 // http://nt2.metascale.fr/doc/html/tutorials/processing_data_the_simd_way.html
-#include <boost/simd/memory/allocator.hpp>
-#include <boost/simd/sdk/simd/pack.hpp>
-#include <boost/simd/include/functions/sum.hpp>
-#include <boost/simd/include/functions/load.hpp>
-#include <boost/simd/include/functions/plus.hpp>
-#include <boost/simd/include/functions/multiplies.hpp>
 
 template <typename Value>
 Value simd_dot_impl(Value* first1, Value* last1, Value* first2)
