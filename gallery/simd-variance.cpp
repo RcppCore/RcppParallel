@@ -17,7 +17,7 @@ public:
    
    void update(const packed_type& data, packed_type* pBuffer)
    {
-      *pBuffer += boost::simd::sqr(data - mean_);
+      *pBuffer += sqr(data - mean_);
    }
    
    value_type reduce(const packed_type& data)
