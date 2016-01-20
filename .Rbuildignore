@@ -11,3 +11,4 @@
 ^src/.*\.o$
 ^examples/
 ^gallery/
+^gen/

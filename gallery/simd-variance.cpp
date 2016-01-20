@@ -11,7 +11,7 @@ public:
    packed_type initialize(const value_type* begin, const value_type* end)
    {
       n_ = end - begin;
-      mean_ = boost::simd::accumulate(begin, end, 0.0, plus()) / n_;
+      mean_ = boost::simd::accumulate(begin, end, 0.0, boost::simd::functors::plus()) / n_;
       return packed_type(0);
    }
    
@@ -26,16 +26,6 @@ public:
    }
    
 private:
-   
-   struct plus
-   {
-      template <typename T>
-      T operator()(const T& lhs, const T& rhs)
-      {
-         return lhs + rhs;
-      }
-   };
-   
    double mean_;
    std::size_t n_;
 };

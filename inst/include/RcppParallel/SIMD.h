@@ -29,10 +29,8 @@
 
 #include <boost/simd/swar/swar.hpp>
 
-
-
-
-
+// Auto-generated functors for use in 'transform()', 'accumulate()'
+#include <RcppParallel/simd/functors.h>
 
 namespace RcppParallel {
 
