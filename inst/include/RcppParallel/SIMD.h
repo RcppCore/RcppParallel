@@ -29,4 +29,33 @@
 
 #include <boost/simd/swar/swar.hpp>
 
+
+
+
+
+
+namespace RcppParallel {
+
+template <typename DataType>
+class SimdTransformer
+{
+public:
+   typedef DataType value_type;
+   typedef boost::simd::pack<DataType> packed_type;
+};
+
+template <typename DataType, class Transformer>
+DataType simdTransformAndReduce(const DataType* it, const DataType* end, Transformer transformer)
+{
+   using boost::simd::pack;
+   using boost::simd::load;
+   
+   pack<DataType> accumulated = transformer.initialize(it, end);
+   for (; it != end; it += pack<DataType>::static_size)
+      transformer.update(load<pack<DataType>>(it), &accumulated);
+   return transformer.reduce(accumulated);
+}
+
+} // namespace RcppParallel
+
 #endif /* RCPP_PARALLEL_SIMD_H */
