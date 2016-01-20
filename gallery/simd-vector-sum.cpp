@@ -42,6 +42,7 @@ double vectorSum(NumericVector x) {
  */
 
 // [[Rcpp::depends(RcppParallel)]]
+#define RCPP_PARALLEL_USE_SIMD 1
 #include <RcppParallel.h>
 
 struct simd_plus {

@@ -28,6 +28,7 @@ using `Boost.SIMD`.
 
 ```{r, engine='Rcpp'}
 // [[Rcpp::depends(RcppParallel)]]
+#define RCPP_PARALLEL_USE_SIMD 1
 #include <RcppParallel.h>
 #include <Rcpp.h>
 
@@ -72,48 +73,20 @@ These functions operate like their `std::` counterparts, but expect a functor wi
 
 To build an R package that uses Boost.SIMD you need to make some modifications to the standard RcppParallel configuration:
 
-1. Make sure you call the `CxxFlags` and `LdFlags` functions in `Makevars`
-2. Add the **BH** package as a LinkingTo dependency
-3. Add C++11 as a SystemRequirement
+1. Add the **BH** package as a LinkingTo dependency
+2. Add C++11 as a SystemRequirement
 
-Here's the complete recipe for using RcppParallel with Boost.SIMD in an R package:
-
-**DESCRIPTION**
-
-```yaml
-Imports: RcppParallel
-LinkingTo: RcppParallel, BH
-SystemRequirements: GNU make, C++11
-```
-
-**NAMESPACE**
-
-```R
-importFrom(RcppParallel, RcppParallelLibs)
-```
-
-**src/Makevars**
-
-```make
-PKG_CXXFLAGS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::CxxFlags()")
-PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::LdFlags()")
-```
-
-**src/Makevars.win**
-
-```make
-PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \ -e "RcppParallel::CxxFlags()")
-PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
-```
 
 ### Platform Compatibility
 
 Note that Boost.SIMD requires a C++11 conformant compiler. This means that packages making use of SIMD features may not compile on platforms with older compilers including Windows and RedHat/CentOS Linux. You can however create a package that takes advantage of Boost.SIMD where available and falls back to a non-SIMD implementation elsewhere.
 
-You can test for the availability of Boost.SIMD on a given platform using the `RCPP_PARALLEL_USE_SIMD` preprocessor variable. If the current compiler doesn't support C++11 (as determined by `__cplusplus <= 199711L`) the variable will be undefined. This allows you to write code like this:
+You can test for the availability of Boost.SIMD on a given platform using the `RCPP_PARALLEL_USE_SIMD` preprocessor variable. If the current compiler doesn't support C++11 (as determined by `__cplusplus <= 199711L`) the variable will be undefined (even if you defined it explicitly). This allows you to write code like this:
 
 ```cpp
+#define RCPP_PARALLEL_USE_SIMD 1
 #include <RcppParallel.h>
+
 
 #if RCPP_PARALLEL_USE_SIMD
 
@@ -145,28 +118,6 @@ IntegerVector transformData(IntegerVector x) {
 The two `transformDataImpl` functions have the same name, but only one will be compiled and linked based on whether the target platform supports Boost.SIMD. 
 
 Note that if you conditionally compile all uses of Boost.SIMD within your package then you can actually drop the `C++11` from `SystemRequirements` (it's no longer required as a result of your fallback implementation).
-
-## Disabling SIMD
-
-If you don't want to use Boost.SIMD at all you can explicitly disable it as follows:
-
-1. For `sourceCpp` you can define `RCPP_PARALLEL_USE_SIMD`:
-
-    ```cpp
-    #define RCPP_PARALLEL_USE_SIMD 0
-    ```
-
-2. For R packages you can pass `simd = FALSE` to the CxxFlags function:
-
-    ```make
-    PKG_CXXFLAGS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::CxxFlags(simd = FALSE)")
-    ```
-   
-
-   
-
-
-
 
 
 

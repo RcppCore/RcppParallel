@@ -6,8 +6,8 @@
 #
 #  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::CxxFlags()")
 #
-CxxFlags <- function(simd = TRUE) {
-   cat(tbbCxxFlags(simd = simd))
+CxxFlags <- function() {
+   cat(tbbCxxFlags())
 }
 
 
@@ -40,17 +40,13 @@ inlineCxxPlugin <- function() {
    )
 }
 
-tbbCxxFlags <- function(simd = TRUE) {
+tbbCxxFlags <- function() {
    
    flags <- c()
    
    # opt-in to TBB on Windows
    if (Sys.info()['sysname'] == "Windows")
       flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
-   
-   # reflect requested use of boost::simd
-   if (!simd)
-      flags <- paste(flags, "-DRCPP_PARALLEL_USE_SIMD=0")
    
    flags
 }
