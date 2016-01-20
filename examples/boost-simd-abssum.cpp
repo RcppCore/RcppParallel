@@ -1,5 +1,5 @@
 // [[Rcpp::depends(RcppParallel)]]
-#define RCPP_PARALLEL_USE_SIMD 1
+#define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
 #include <Rcpp.h>
 using namespace Rcpp;

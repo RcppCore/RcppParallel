@@ -102,9 +102,9 @@ print(res)
  * similarly efficient code when the `-ffast-math` optimization flag is set.
  * By default, the compiler is somewhat 'pessimistic' about the set of 
  * optimizations it can perform around floating point arithmetic. This is 
- * because it must respect the [IEEE floating 
- * point](https://en.wikipedia.org/wiki/IEEE_floating_point) standard, and
- * this means respecting the fact that, for example, floating point
+ * because it must respect the
+ * [IEEE floating point standard](https://en.wikipedia.org/wiki/IEEE_floating_point),
+ * and this means respecting the fact that, for example, floating point 
  * operations are not assocative:
  */
 
@@ -116,6 +116,6 @@ print(res)
  * Surprisingly, the above computation does not evaluate to zero!
  *
  * In practice, you're likely safe to take advantage of the `-ffast-math`
- * optimizations, or Boost.SIMD, in your own work. However, be sure to test and
+ * optimizations, or `Boost.SIMD`, in your own work. However, be sure to test and
  * verify!
  */

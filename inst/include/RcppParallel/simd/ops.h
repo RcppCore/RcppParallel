@@ -1,14 +1,14 @@
 // Auto-generated functors for functions provided by Boost.SIMD.
-// See 'gen/simd-functors.R' for implementation.
+// See 'gen/simd-ops.R' for implementation.
 
 namespace boost {
 namespace simd {
-namespace functors {
+namespace ops {
 
 struct sum {
 template <typename T>
 inline T operator()(const T& data) {
-    return boost::simd::sum(data);
+    return sum(data);
 }
 };
 
@@ -41,6 +41,6 @@ inline T operator()(const T& lhs, const T& rhs) {
 };
 
 
-} // namespace functors
+} // namespace ops
 } // namespace simd
 } // namespace boost
