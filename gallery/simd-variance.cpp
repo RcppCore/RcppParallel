@@ -3,7 +3,8 @@
  * @author Kevin Ushey
  * @license GPL (>= 2)
  * @tags simd parallel
- * @summary Demonstrates how RcppParallel could be used to implement a SIMD-aware variance.
+ * @summary Demonstrates how RcppParallel could be used compute
+ *     the variance, using SIMD instructions.
  */
 
 // [[Rcpp::depends(RcppParallel)]]
@@ -15,10 +16,10 @@ using namespace RcppParallel;
 using namespace Rcpp;
 
 /**
- * This article illustrates how the 'simdMapReduce()'
- * function can be used to compute the variance for a vector
- * of numbers. First, let's look at the R code one might
- * write to compute the variance.
+ * This article illustrates how we might take advantage of
+ * `Boost.SIMD` in computing the variance for a vector of
+ * numers. First, let's look at the R code one might write
+ * to compute the variance.
  */
 
 /*** R
@@ -34,66 +35,66 @@ sum((x - mean(x))^2) / (length(x) - 1)
  *    3. Sum the deviations about the mean,
  *    4. Divide the summation by the length minus one.
  * 
- * Naively, we could imagine writing a 'transform()' for
- * step 2, and an 'accumulate()' for step 3. However, this
- * is a bit inefficient as the transform would require
- * allocating a whole new vector, with the same length as
- * our initial vector. It'd be much better if we could
- * combine our map and reduction operations, as we could
- * then avoid that large allocation. The 'simdMapReduce()'
- * function provides an interface for doing just that, with
- * a SIMD pack providing the 'buffer' for the mapped
- * operations.
- * 
- * The 'simdMapReduce()' function expects a class providing
- * templated 'map()' and 'reduce()' functions. The 'map()'
- * operation represents the transformation we wish to make
- * on the input data (in this case, the square of the
- * deviation from the mean); while the 'reduce()' operation
- * represents how the transformed result should be combined
- * (in this case, as a summation of said deviations).
+ * Naively, we could imagine writing a 'transform()' for 
+ * step 2, and an 'accumulate()' for step 3. However, this 
+ * is a bit inefficient as the transform would require 
+ * allocating a whole new vector, with the same length as 
+ * our initial vector. When neither 'accumulate()' nor
+ * 'transform()' seem to be a good fit, we can fall back to
+ * 'for_each()'. We can pass a stateful functor to handle
+ * accumulation of the transformed results.
  * 
  * Let's write a class that encapsulates this 'sum of
  * squares' map-reduction operation.
  */
 
-class SumOfSquaresMapReducer
+class SumOfSquaresAccumulator
 {
 public:
    
-   // Since the 'map' operation requires knowledge of the mean,
-   // we ensure our class must be constructed with a mean value.
-   explicit SumOfSquaresMapReducer(double mean)
-      : mean_(mean)
+   // Since the 'map' operation requires knowledge of the
+   // mean, we ensure our class must be constructed with a
+   // mean value. We will also hold the final result within
+   // the 'result_' variable.
+   explicit SumOfSquaresAccumulator(double mean)
+      : mean_(mean), result_(0.0), pack_(0.0)
    {}
    
-   // The 'map()' operation generates a squared deviation, 
-   // and updates a buffer. By making this a template, 
-   // specializations for SIMD packs, versus scalar values, 
-   // can be generated as appropriate. We use the 
-   // 'boost::simd::sqr()' function to compute the square.
-   template <typename T>
-   void map(const T& data, T* pBuffer)
+   // We need to provide two call operators: one to handle
+   // SIMD packs, and one to handle scalar values. We do this
+   // as we want to accumulate SIMD results in a SIMD data
+   // structure, and scalar results in a scalar data object.
+   //
+   // We _could_ just accumulate all our results in a single
+   // 'double', but this is actually less efficient -- it
+   // pays to use packed structures when possible.
+   void operator()(double data)
    {
-      *pBuffer += boost::simd::sqr(data - mean_);
+      double diff = data - mean_;
+      result_ += diff * diff;
    }
    
-   // The 'reduce()' operation collapses the accumulated 
-   // SIMD pack structure into a scalar value, and updates 
-   // the buffer. In this case, we just need to add up the 
-   // values in that pack, and add it to the buffer.
-   template <typename T, typename U>
-   void reduce(const T& data, U* pBuffer)
+   void operator()(const boost::simd::pack<double>& data)
    {
-      *pBuffer += boost::simd::sum(data);
+      pack_ += boost::simd::sqr(data - mean_);
+   }
+   
+   // Provide a 'conversion to double' operator -- this lets
+   // us easily extract the resulting value after computation.
+   // This is also where we combine our scalar, and packed,
+   // representations of the data.
+   operator double() const {
+      return result_ + boost::simd::sum(pack_);
    }
    
 private:
    double mean_;
+   double result_;
+   boost::simd::pack<double> pack_;
 };
 
 /**
- * Now that we have our 'SumOfSquares' class defined, we can
+ * Now that we have our accumulator class defined, we can
  * use it to compute the variance. We'll call our function
  * 'simdVar()', and export it using Rcpp attributes in the
  * usual way.
@@ -108,15 +109,18 @@ double simdVar(NumericVector data) {
    
    // First, compute the mean as we'll need that for
    // computation of the sum of squares.
-   double total = simd::accumulate(data.begin(), data.end(), 0.0, simd::ops::plus());
+   double total = simd::accumulate(data.begin(),
+                                   data.end(),
+                                   0.0,
+                                   simd::ops::plus());
+   
    std::size_t n = data.size();
    double mean = total / n;
    
-   // Construct our map-reducer with the generated mean.
-   auto reducer = SumOfSquaresMapReducer(mean);
-   
-   // Use it to compute the sum of squares.
-   double ssq = simdMapReduce(data.begin(), data.end(), 0.0, reducer);
+   // Use our accumulator to compute the sum of squares.
+   double ssq = simd::for_each(data.begin(),
+                               data.end(),
+                               SumOfSquaresAccumulator(mean));
    
    // Divide by 'n - 1', and we're done!
    return ssq / (n - 1);
