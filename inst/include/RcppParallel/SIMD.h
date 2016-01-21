@@ -38,5 +38,6 @@
 #include <RcppParallel/simd/adaptors.h>
 
 #include <RcppParallel/simd/map_reduce.h>
+#include <RcppParallel/simd/for_each.h>
 
 #endif /* RCPP_PARALLEL_SIMD_H */
