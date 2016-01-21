@@ -28,8 +28,7 @@ private:
 // [[Rcpp::export]]
 double vectorProd(NumericVector x) {
    auto accumulator = Accumulator();
-   boost::simd::for_each(x.begin(), x.end(), accumulator);
-   return accumulator;
+   return boost::simd::for_each(x.begin(), x.end(), accumulator);
 }
 
 /*** R

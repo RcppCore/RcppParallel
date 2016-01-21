@@ -5,7 +5,7 @@ namespace boost {
 namespace simd {
 
 template <typename T, typename F>
-void for_each(const T* it, const T* end, F& f)
+F for_each(const T* it, const T* end, F f)
 {
    typedef boost::simd::pack<T> vT;
    static const std::size_t N = vT::static_size;
@@ -20,6 +20,8 @@ void for_each(const T* it, const T* end, F& f)
    
    for (; it != end; ++it)
       f(*it);
+   
+   return f;
 }
 
 } // namespace simd
