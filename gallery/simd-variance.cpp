@@ -45,17 +45,17 @@ sum((x - mean(x))^2) / (length(x) - 1)
  * accumulation of the transformed results.
  * 
  * Let's write a class that encapsulates this 'sum of
- * squares' map-reduction operation.
+ * squares' operation.
  */
 
 class SumOfSquaresAccumulator
 {
 public:
    
-   // Since the 'map' operation requires knowledge of the
-   // mean, we ensure our class must be constructed with a
-   // mean value. We will also hold the final result within
-   // the 'result_' variable.
+   // Since the 'transform()' operation requires knowledge
+   // of the mean, we ensure our class must be constructed
+   // with a mean value. We will also hold the final result
+   // within the 'result_' variable.
    explicit SumOfSquaresAccumulator(double mean)
       : mean_(mean), result_(0.0), pack_(0.0)
    {}
@@ -152,6 +152,6 @@ microbenchmark(var(large), simdVar(large))
 */
 
 /**
- * As we can see, taking advantage of our SIMD map-reducer
+ * As we can see, taking advantage of SIMD instructions
  * has improved the runtime quite drastically.
  */
