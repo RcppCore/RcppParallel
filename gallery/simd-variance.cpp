@@ -79,11 +79,11 @@ public:
       pack_ += boost::simd::sqr(data - mean_);
    }
    
-   // Provide a 'conversion to double' operator -- this lets
-   // us easily extract the resulting value after computation.
-   // This is also where we combine our scalar, and packed,
-   // representations of the data.
-   operator double() const {
+   // We can use 'value()' to extract the result of the 
+   // computation, after providing this object to
+   // 'simd::for_each()'.
+   double value() const
+   {
       return result_ + boost::simd::sum(pack_);
    }
    
@@ -101,7 +101,8 @@ private:
  */
 
 // [[Rcpp::export]]
-double simdVar(NumericVector data) {
+double simdVar(NumericVector data)
+{
    
    // Pull in the 'boost::simd' namespace for easier access
    // to the functions we need to use.
@@ -118,9 +119,11 @@ double simdVar(NumericVector data) {
    double mean = total / n;
    
    // Use our accumulator to compute the sum of squares.
-   double ssq = simd::for_each(data.begin(),
-                               data.end(),
-                               SumOfSquaresAccumulator(mean));
+   SumOfSquaresAccumulator accumulator(mean);
+   simd::for_each(data.begin(),
+                  data.end(),
+                  accumulator);
+   double ssq = accumulator.value();
    
    // Divide by 'n - 1', and we're done!
    return ssq / (n - 1);
