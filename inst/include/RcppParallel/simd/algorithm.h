@@ -4,7 +4,7 @@
 namespace RcppParallel {
 
 template <typename T, typename F>
-void simdFor(const T* it, const T* end, F&& f)
+F simdFor(const T* it, const T* end, F&& f)
 {
    typedef boost::simd::pack<T> vT;
    static const std::size_t N = vT::static_size;
@@ -19,6 +19,8 @@ void simdFor(const T* it, const T* end, F&& f)
    
    for (; it != end; ++it)
       f(*it);
+   
+   return f;
 }
 
 template <typename T, typename U, typename F>

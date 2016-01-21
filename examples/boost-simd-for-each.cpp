@@ -29,9 +29,7 @@ private:
 
 // [[Rcpp::export]]
 double vectorProd(NumericVector x) {
-   Accumulator accumulator;
-   simdFor(x.begin(), x.end(), accumulator);
-   return accumulator;
+   return simdFor(x.begin(), x.end(), Accumulator());
 }
 
 /*** R
