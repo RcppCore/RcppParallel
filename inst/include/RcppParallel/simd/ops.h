@@ -4,9 +4,8 @@
 // Auto-generated functors for functions provided by Boost.SIMD.
 // See 'gen/simd-ops.R' for implementation.
 
-namespace boost {
-namespace simd {
-namespace ops {
+namespace RcppParallel {
+namespace simd_ops {
 
 struct sum {
 template <typename T>
@@ -44,8 +43,7 @@ inline T operator()(const T& lhs, const T& rhs) {
 };
 
 
-} // namespace ops
-} // namespace simd
-} // namespace boost
+} // namespace simd_ops
+} // namespace RcppParallel
 
 #endif /* RCPP_PARALLEL_SIMD_OPS_H */

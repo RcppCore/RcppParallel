@@ -1,6 +1,8 @@
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
+using namespace RcppParallel;
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -27,8 +29,9 @@ private:
 
 // [[Rcpp::export]]
 double vectorProd(NumericVector x) {
-   auto accumulator = Accumulator();
-   return boost::simd::for_each(x.begin(), x.end(), accumulator);
+   Accumulator accumulator;
+   simdFor(x.begin(), x.end(), accumulator);
+   return accumulator;
 }
 
 /*** R

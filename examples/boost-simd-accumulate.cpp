@@ -1,6 +1,8 @@
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
+using namespace RcppParallel;
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -16,7 +18,7 @@ struct plus
 // [[Rcpp::export]]
 double simd_sum(NumericVector x)
 {
-   return boost::simd::accumulate(x.begin(), x.end(), 0.0, plus());
+   return simdReduce(x.begin(), x.end(), 0.0, plus());
 }
 
 // [[Rcpp::export]]

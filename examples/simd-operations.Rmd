@@ -33,9 +33,9 @@ elements in a vector, using `Boost.SIMD`.
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
-#include <Rcpp.h>
-
 using namespace RcppParallel;
+
+#include <Rcpp.h>
 using namespace Rcpp;
 
 // Define a functor -- a C++ class which defines a templated 'function call' 
@@ -49,7 +49,7 @@ struct add_two {
 
 // [[Rcpp::export]]
 double simd_sum(NumericVector x) {
-   return boost::simd::accumulate(x.begin(), x.end(), 0.0, add_two());
+   return simdReduce(x.begin(), x.end(), 0.0, add_two());
 }
 ```
 
@@ -67,8 +67,8 @@ if (requireNamespace("microbenchmark", quietly = TRUE)) {
 `Boost.SIMD` provides two primary abstractions for the
 implementation of SIMD algorithms:
 
-- `simd::accumulate()`, for vector -> scalar transformations, and
-- `simd::transform()`,  for vector -> vector transformations.
+- `boost::simd::transform()`  --- for vector -> vector transformations, and
+- `boost::simd::accumulate()` --- for vector -> scalar transformations.
 
 These functions operate like their `std::` counterparts, but
 expect a functor with a templated call operator. By making
@@ -77,6 +77,12 @@ using its own optimized SIMD functions when appropriate, and
 fall back to a default implementation (based on the types
 provided) when not.
 
+`RcppParallel` augments this with its own algorithms as well,
+for consistency with `parallelFor()` and `parallelReduce()`:
+
+- `RcppParallel::simdFor()`    --- apply an operation over a range, and
+- `RcppParallel::simdReduce()` --- accumulate elements in a range.
+   
 ## Using SIMD in an R Package
 
 To build an R package that uses `Boost.SIMD`, you need to

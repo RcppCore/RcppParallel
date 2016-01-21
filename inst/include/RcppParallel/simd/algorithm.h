@@ -1,7 +1,31 @@
-#ifndef RCPP_PARALLEL_SIMD_MAP_REDUCE_H
-#define RCPP_PARALLEL_SIMD_MAP_REDUCE_H
+#ifndef RCPP_PARALLEL_SIMD_ALGORITHM_H
+#define RCPP_PARALLEL_SIMD_ALGORITHM_H
 
 namespace RcppParallel {
+
+template <typename T, typename F>
+void simdFor(const T* it, const T* end, F&& f)
+{
+   typedef boost::simd::pack<T> vT;
+   static const std::size_t N = vT::static_size;
+   const T* aligned_begin = std::min(boost::simd::align_on(it, N * sizeof(T)), end);
+   const T* aligned_end   = aligned_begin + (end - aligned_begin) / N * N;
+   
+   for (; it != aligned_begin; ++it)
+      f(*it);
+   
+   for (; it != aligned_end; it += N)
+      f(boost::simd::aligned_load<vT>(it));
+   
+   for (; it != end; ++it)
+      f(*it);
+}
+
+template <typename T, typename U, typename F>
+U simdReduce(const T* begin, const T* end, U init, F f)
+{
+   return boost::simd::accumulate(begin, end, init, f);
+}
 
 template <typename T, typename U, typename MapReducer>
 U simdMapReduce(const T* it, const T* end, U init, MapReducer mapper)
@@ -46,4 +70,4 @@ U simdMapReduce(const T* it, const T* end, U init, MapReducer mapper)
 
 } // namespace RcppParallel
 
-#endif /* RCPP_PARALLEL_SIMD_MAP_REDUCE_H */
+#endif /* RCPP_PARALLEL_SIMD_ALGORITHM_H */
