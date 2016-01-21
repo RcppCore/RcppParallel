@@ -1,3 +1,6 @@
+#ifndef RCPP_PARALLEL_SIMD_OPS_H
+#define RCPP_PARALLEL_SIMD_OPS_H
+
 // Auto-generated functors for functions provided by Boost.SIMD.
 // See 'gen/simd-ops.R' for implementation.
 
@@ -44,3 +47,5 @@ inline T operator()(const T& lhs, const T& rhs) {
 } // namespace ops
 } // namespace simd
 } // namespace boost
+
+#endif /* RCPP_PARALLEL_SIMD_OPS_H */

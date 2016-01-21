@@ -2,7 +2,7 @@
  * @title Using SIMD Instructions to Sum a Vector with RcppParallel
  * @author Kevin Ushey
  * @license GPL (>= 2)
- * @tags parallel
+ * @tags simd parallel
  * @summary Demonstrates how RcppParallel could be used to implement a SIMD-aware sum.
  */
 
@@ -42,7 +42,10 @@ double vectorSum(NumericVector x) {
  */
 
 // [[Rcpp::depends(RcppParallel)]]
-#define RCPP_PARALLEL_USE_SIMD 1
+
+// Because the Boost.SIMD headers are quite heavy-weight,
+// we must explicitly opt-in to using the SIMD headers
+#define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
 
 struct simd_plus {
@@ -59,7 +62,20 @@ double vectorSumSimd(NumericVector x) {
 
 /**
  * As you can see, it's quite simple to take advantage of `Boost.SIMD`.
- *
+ * For very simple operations such as this, `RcppParallel` provides a
+ * number of pre-defined functors, which can be accessed in the
+ * `boost::simd::ops` namespace. The following is an equivalent way of
+ * defining the above function:
+ */
+
+// [[Rcpp::export]]
+double vectorSumSimdV2(NumericVector x) {
+   return boost::simd::accumulate(
+      x.begin(), x.end(), 0.0, boost::simd::ops::plus()
+   );
+}
+
+/**
  * Behind the scenes of `boost::simd::accumulate()`, `Boost.SIMD` will
  * apply your templated functor to 'packs' of values when appropriate,
  * and scalar values when not. In other words, there are effectively
@@ -115,7 +131,7 @@ print(res)
 /**
  * Surprisingly, the above computation does not evaluate to zero!
  *
- * In practice, you're likely safe to take advantage of the `-ffast-math`
- * optimizations, or `Boost.SIMD`, in your own work. However, be sure to test and
- * verify!
+ * In practice, you're likely safe to take advantage of the `-ffast-math` 
+ * optimizations, or `Boost.SIMD`, in your own work. However, be sure to test
+ * and verify!
  */

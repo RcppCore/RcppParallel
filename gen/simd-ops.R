@@ -14,6 +14,9 @@ indent <- function(code, indent = "    ") {
 }
 
 template <- paste(c(
+   "#ifndef RCPP_PARALLEL_SIMD_OPS_H",
+   "#define RCPP_PARALLEL_SIMD_OPS_H",
+   "",
    "// Auto-generated functors for functions provided by Boost.SIMD.",
    "// See 'gen/simd-ops.R' for implementation.",
    "",
@@ -25,7 +28,9 @@ template <- paste(c(
    "",
    "} // namespace ops",
    "} // namespace simd",
-   "} // namespace boost"
+   "} // namespace boost",
+   "",
+   "#endif /* RCPP_PARALLEL_SIMD_OPS_H */"
 ), collapse = "\n")
 
 code <- NULL

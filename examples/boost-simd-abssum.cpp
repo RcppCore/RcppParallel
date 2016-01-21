@@ -11,7 +11,7 @@ double simd_abssum(NumericVector x)
    using boost::simd::load;
    using boost::simd::aligned_load;
    
-   typedef std::vector< double, boost::simd::allocator<double> > vector_type;
+   typedef std::vector<double, boost::simd::allocator<double>> vector_type;
    typedef pack<double> packed_type;
    
    vector_type data(x.begin(), x.end());

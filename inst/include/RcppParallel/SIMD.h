@@ -29,7 +29,14 @@
 
 #include <boost/simd/swar/swar.hpp>
 
+#include <boost/simd/include/pack.hpp>
+
 // Auto-generated functors for use in 'transform()', 'accumulate()'
 #include <RcppParallel/simd/ops.h>
+
+// Adaptors to enable access to start, end pointers for vectors
+#include <RcppParallel/simd/adaptors.h>
+
+#include <RcppParallel/simd/map_reduce.h>
 
 #endif /* RCPP_PARALLEL_SIMD_H */
