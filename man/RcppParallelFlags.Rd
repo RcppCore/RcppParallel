@@ -9,15 +9,11 @@ Compilation flags for RcppParallel
 Output the compiler or linker flags required to build against RcppParallel.
 }
 \usage{
-CxxFlags(simd = TRUE)
+CxxFlags()
 LdFlags()
 RcppParallelLibs()
 }
-\arguments{
-  \item{simd}{
-      \code{TRUE} to enable use of Boost.SIMD.
-   }
-}
+
 \details{
 These functions are typically called from \code{Makevars} as follows:
 
