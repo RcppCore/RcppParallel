@@ -30,13 +30,13 @@ F simdFor(const T* it, const T* end, F&& f)
    const T* aligned_end   = aligned_begin + (end - aligned_begin) / N * N;
    
    for (; it != aligned_begin; ++it)
-      f(*it);
+      std::forward<F>(f)(*it);
    
    for (; it != aligned_end; it += N)
-      f(boost::simd::aligned_load<vT>(it));
+      std::forward<F>(f)(boost::simd::aligned_load<vT>(it));
    
    for (; it != end; ++it)
-      f(*it);
+      std::forward<F>(f)(*it);
    
    return f;
 }
