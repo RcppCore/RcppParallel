@@ -1,10 +1,15 @@
+// The 'hello world' of Boost.SIMD, showing how packs can be
+// used and manipulated at a low level.
+//
+// See: http://nt2.metascale.fr/doc/html/tutorials/simd_hello_world.html
+
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
+using namespace RcppParallel;
+
 #include <Rcpp.h>
 using namespace Rcpp;
-
-// http://nt2.metascale.fr/doc/html/tutorials/simd_hello_world.html
 
 // [[Rcpp::export]]
 void HelloWorld()

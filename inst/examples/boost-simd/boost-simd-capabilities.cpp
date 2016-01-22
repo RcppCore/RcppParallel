@@ -1,3 +1,5 @@
+// Print the SIMD capabilities of your processor.
+
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>

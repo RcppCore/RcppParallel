@@ -1,4 +1,6 @@
 // Investigate a couple methods for computing the variance.
+// See https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+// for more information.
 
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
@@ -45,7 +47,8 @@ double simdVarTwoPass(NumericVector x)
 }
 
 // A one-pass method for computation of the variance.
-// Numerically unstable, relative to other methods.
+// Numerically unstable, relative to other methods, but
+// can be made stable if the mean is known a-priori.
 class SumOfSquares
 {
 public:
@@ -92,13 +95,17 @@ double simdVarOnePass(NumericVector x, double shift = 0.0)
 }
 
 /*** R
-x <- rnorm(1E7, mean = 1E6)
+set.seed(123)
+n <- 1000; shift <- 1E9
+x <- rnorm(n, mean = shift)
 simdVarTwoPass(x)
 simdVarOnePass(x) # ouch!
-simdVarOnePass(x, 1E6)
+simdVarOnePass(x, shift)
+
+library(microbenchmark)
 microbenchmark(
    simdVarOnePass(x),
-   simdVarOnePass(x, 1E6),
+   simdVarOnePass(x, shift),
    simdVarTwoPass(x)
 )
 */

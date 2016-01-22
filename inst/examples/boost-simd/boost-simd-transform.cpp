@@ -1,6 +1,11 @@
+// A simple example demonstration how 'simdTransform()'
+// can be used.
+
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
+using namespace RcppParallel;
+
 #include <Rcpp.h>
 using namespace Rcpp;
 
@@ -14,11 +19,10 @@ struct plus
 };
 
 // [[Rcpp::export]]
-NumericVector simd_add(NumericVector lhs,
-                       NumericVector rhs)
+NumericVector simd_add(NumericVector lhs, NumericVector rhs)
 {
    NumericVector result = no_init(lhs.size());
-   boost::simd::transform(lhs.begin(), lhs.end(), rhs.begin(), result.begin(), plus());
+   simdTransform(lhs.begin(), lhs.end(), rhs.begin(), result.begin(), plus());
    return result;
 }
 
@@ -29,13 +33,16 @@ NumericVector cpp_add(NumericVector lhs, NumericVector rhs)
 }
 
 /***R
+set.seed(123)
 n <- 1024 * 1000
 lhs <- rnorm(n)
 rhs <- rnorm(n)
 simd <- simd_add(lhs, rhs)
 cpp <- cpp_add(lhs, rhs)
-all.equal(simd, cpp)
-microbenchmark::microbenchmark(
+stopifnot(all.equal(simd, cpp))
+
+library(microbenchmark)
+microbenchmark(
    simd = simd_add(lhs, rhs),
    cpp  = cpp_add(lhs, rhs),
    R    = lhs + rhs

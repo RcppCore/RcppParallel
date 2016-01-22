@@ -1,3 +1,6 @@
+// Shows how 'simdMapReduce()' can be used to efficiently
+// transform and accumulate values.
+
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
@@ -43,9 +46,9 @@ double simdVar(NumericVector x)
 }
 
 /*** R
-x <- rnorm(1024 * 10000)
-var(x)
-simdVar(x)
+set.seed(123)
+x <- rnorm(1024)
+stopifnot(all.equal(var(x), simdVar(x)))
 library(microbenchmark)
 microbenchmark(var(x), simdVar(x))
 */

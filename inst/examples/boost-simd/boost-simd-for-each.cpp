@@ -1,3 +1,6 @@
+// Showcases how a stateful functor can be used with `simdFor()`,
+// for arbitrary operations over a range of values.
+
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
@@ -28,11 +31,11 @@ private:
 };
 
 // [[Rcpp::export]]
-double vectorProd(NumericVector x) {
+double simdProd(NumericVector x) {
    return simdFor(x.begin(), x.end(), Accumulator());
 }
 
 /*** R
 x <- 1:16
-vectorProd(x)
+stopifnot(all.equal(prod(x), simdProd(x)))
 */

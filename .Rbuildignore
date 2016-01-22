@@ -9,6 +9,4 @@
 ^README.md
 ^doc$
 ^src/.*\.o$
-^examples/
-^gallery/
 ^gen/

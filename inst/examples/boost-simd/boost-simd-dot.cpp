@@ -1,10 +1,15 @@
+// Demonstrates how Boost.SIMD could be used to compute the dot product
+// of two vectors, using a lower-level iteration over packs.
+//
+// See: http://nt2.metascale.fr/doc/html/tutorials/processing_data_the_simd_way.html
+
 // [[Rcpp::depends(RcppParallel)]]
 #define RCPP_PARALLEL_USE_SIMD
 #include <RcppParallel.h>
+using namespace RcppParallel;
+
 #include <Rcpp.h>
 using namespace Rcpp;
-
-// http://nt2.metascale.fr/doc/html/tutorials/processing_data_the_simd_way.html
 
 template <typename Value>
 Value simd_dot_impl(Value* first1, Value* last1, Value* first2)
@@ -44,10 +49,12 @@ double simd_dot(NumericVector lhs, NumericVector rhs)
 }
 
 /*** R
+set.seed(123)
 lhs <- rnorm(1024 * 1000)
 rhs <- rnorm(1024 * 1000)
+stopifnot(all.equal(simd_dot(lhs, rhs), sum(lhs * rhs)))
 
-all.equal(simd_dot(lhs, rhs), sum(lhs * rhs))
+library(microbenchmark)
 microbenchmark(
    simd = simd_dot(lhs, rhs),
    R = sum(lhs * rhs)
