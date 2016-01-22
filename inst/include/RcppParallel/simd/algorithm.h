@@ -4,7 +4,7 @@
 namespace RcppParallel {
 
 template <typename T, typename U, typename UnOp>
-U* simdTransform(const T* begin, const T* end, U* out, Unop&& f)
+U* simdTransform(const T* begin, const T* end, U* out, UnOp&& f)
 {
    return boost::simd::transform(begin, end, out, std::forward<UnOp>(f));
 }
