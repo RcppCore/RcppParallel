@@ -2,7 +2,7 @@
 #define BOOST_SIMD_PREDICATES_FUNCTIONS_HPP_INCLUDED
 
 #include <boost/simd/predicates/include/functions/is_denormal.hpp>
-#include <boost/simd/predicates/include/functions/is_equal_with_equal_nans.hpp>
+#include <boost/simd/predicates/include/functions/is_eq_nans.hpp>
 #include <boost/simd/predicates/include/functions/is_eqz.hpp>
 #include <boost/simd/predicates/include/functions/is_even.hpp>
 #include <boost/simd/predicates/include/functions/is_false.hpp>
@@ -27,7 +27,7 @@
 #include <boost/simd/predicates/include/functions/is_nlt.hpp>
 #include <boost/simd/predicates/include/functions/is_nltz.hpp>
 #include <boost/simd/predicates/include/functions/is_not_denormal.hpp>
-#include <boost/simd/predicates/include/functions/is_not_equal_with_equal_nans.hpp>
+#include <boost/simd/predicates/include/functions/is_ne_nans.hpp>
 #include <boost/simd/predicates/include/functions/is_not_finite.hpp>
 #include <boost/simd/predicates/include/functions/is_not_greater.hpp>
 #include <boost/simd/predicates/include/functions/is_not_greater_equal.hpp>

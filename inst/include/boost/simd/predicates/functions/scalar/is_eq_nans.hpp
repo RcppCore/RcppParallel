@@ -8,7 +8,7 @@
 //==============================================================================
 #ifndef BOOST_SIMD_PREDICATES_FUNCTIONS_SCALAR_IS_EQUAL_WITH_EQUAL_NANS_HPP_INCLUDED
 #define BOOST_SIMD_PREDICATES_FUNCTIONS_SCALAR_IS_EQUAL_WITH_EQUAL_NANS_HPP_INCLUDED
-#include <boost/simd/predicates/functions/is_equal_with_equal_nans.hpp>
+#include <boost/simd/predicates/functions/is_eq_nans.hpp>
 #include <boost/simd/include/functions/scalar/is_nan.hpp>
 #include <boost/simd/include/functions/scalar/logical_and.hpp>
 #include <boost/simd/include/functions/scalar/logical_or.hpp>

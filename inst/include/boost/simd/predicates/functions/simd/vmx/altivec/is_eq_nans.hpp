@@ -10,7 +10,7 @@
 #define BOOST_SIMD_PREDICATES_FUNCTIONS_SIMD_VMX_ALTIVEC_IS_EQUAL_WITH_EQUAL_NANS_HPP_INCLUDED
 #ifdef BOOST_SIMD_HAS_VMX_SUPPORT
 
-#include <boost/simd/predicates/functions/is_equal_with_equal_nans.hpp>
+#include <boost/simd/predicates/functions/is_eq_nans.hpp>
 #include <boost/simd/include/functions/simd/is_greater.hpp>
 #include <boost/simd/include/functions/simd/is_equal.hpp>
 #include <boost/simd/include/functions/simd/logical_or.hpp>
