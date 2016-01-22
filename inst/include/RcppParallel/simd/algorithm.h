@@ -3,6 +3,24 @@
 
 namespace RcppParallel {
 
+template <typename T, typename U, typename UnOp>
+U* simdTransform(const T* begin, const T* end, U* out, Unop&& f)
+{
+   return boost::simd::transform(begin, end, out, std::forward<UnOp>(f));
+}
+
+template <typename T1, typename T2, typename U, typename BinOp>
+U* simdTransform(const T1* begin1, const T1* end1, const T2* begin2, U* out, BinOp&& f)
+{
+   return boost::simd::transform(begin1, end1, begin2, out, std::forward<BinOp>(f));
+}
+
+template <typename T, typename U, typename F>
+U simdAccumulate(const T* begin, const T* end, U init, F&& f)
+{
+   return boost::simd::accumulate(begin, end, init, std::forward<F>(f));
+}
+
 template <typename T, typename F>
 F simdFor(const T* it, const T* end, F&& f)
 {
