@@ -60,8 +60,8 @@ U simdMapReduce(const T* it, const T* end, U init, MapReducer mapper)
    for (; it != aligned_end; it += N)
       mapper.map(boost::simd::aligned_load<vT>(it), &buffer);
    
-   // Reduce our buffer, and join it with the initial value
-   mapper.map(mapper.reduce(buffer), &init);
+   // Reduce the buffer, joining it into the scalar vale
+   mapper.reduce(buffer, &init);
    
    // Leftover unaligned region
    for (; it != end; ++it)
