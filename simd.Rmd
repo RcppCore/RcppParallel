@@ -127,9 +127,7 @@ for consistency with `parallelFor()` and `parallelReduce()`:
 | `RcppParallel::simdFor()`       | `vector` -> `any`    |
 
 `simdFor()` is useful in particular when neither `transform()`
-nor `accumulate()` seem to be a good fit. An example using it
-to compute the variance for a vector of numbers is showcased
-[here]({{ site.baseurl }}/articles/simd-variance/).
+nor `accumulate()` seem to be a good fit.
 
 ## Writing SIMD-Aware Algorithms
 
