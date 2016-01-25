@@ -218,7 +218,129 @@ $(document).ready(function () {
 
 
 
+<div id="introduction-to-boost.simd" class="section level2">
+<h2>Introduction to Boost.SIMD</h2>
+<p>Modern CPU processors are built with new, extended instruction sets that optimize for certain operations. A class of these allow for vectorized operations, called Single Instruction / Multiple Data (SIMD) instructions. Although modern compilers will use these instructions when possible, they are often unable to reason about whether or not a particular block of code can be executed using SIMD instructions.</p>
+<p><code>Boost.SIMD</code> [<a href="https://meetingcpp.com/tl_files/mcpp/slides/12/simd.pdf">PDF</a>] is a C++ header-only library that makes it possible to explicitly request the use of SIMD instructions when possible, while falling back to regular scalar operations when not. <a href="http://rcppcore.github.io/RcppParallel/"><code>RcppParallel</code></a> wraps and exposes this library for use with <code>R</code> vectors.</p>
+<p>The primary abstraction that <code>Boost.SIMD</code> uses under the hood is the <code>boost::simd::pack&lt;&gt;</code> data structure. This item represents a small, contiguous, pack of integral objects (e.g. <code>double</code>s), and comes with a host of functions that facilitate the use of SIMD operations on those objects when possible. Although you don’t need to know the details to use the high-level functionality provided by <code>Boost.SIMD</code>, it’s useful for understanding what happens behind the scenes.</p>
+<p>Here’s a quick example of how we might compute the sum of elements in a vector, using <code>Boost.SIMD</code>.</p>
+<pre class="cpp"><code>// [[Rcpp::depends(RcppParallel)]]
+#define RCPP_PARALLEL_USE_SIMD
+#include &lt;RcppParallel.h&gt;
+using namespace RcppParallel;
 
+#include &lt;Rcpp.h&gt;
+using namespace Rcpp;
+
+// Define a functor -- a C++ class which defines a templated
+// &#39;function call&#39; operator -- to perform the addition of 
+// two pieces of data.
+struct add_two {
+  template &lt;typename T&gt;
+  T operator()(const T&amp; lhs, const T&amp; rhs) {
+    return lhs + rhs;
+  }
+};
+
+// [[Rcpp::export]]
+double simd_sum(NumericVector x) {
+  // Pass the functor to &#39;simdReduce()&#39;.
+  return simdReduce(x.begin(), x.end(), 0.0, add_two());
+}</code></pre>
+<p>Behind the scenes, <code>simdReduce()</code> takes care of iteration over our sequence, and ensures that we use optimized SIMD instructions over packs of numbers when possible, and scalar instructions when not. By passing a templated functor, <code>simdReduce()</code> can automagically choose the correct template specialization depending on whether it’s working with a pack or not. In other words, two template specializations will be generated in this case: one with <code>T = double</code>, and another with <code>T = boost::simd::pack&lt;double&gt;</code>.</p>
+<p>Let’s confirm that this produces the correct output, and run a small benchmark.</p>
+<pre class="r"><code># helper function for printing microbenchmark output
+printBm &lt;- function(bm) {
+  summary &lt;- summary(bm)
+  print(summary[, 1:7], row.names = FALSE)
+}
+
+# generate some data
+data &lt;- rnorm(1024 * 1000)
+
+# verify that it produces the correct sum
+all.equal(simd_sum(data), sum(data))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code># compare results
+library(microbenchmark)
+bm &lt;- microbenchmark(sum(data), simd_sum(data))
+printBm(bm)</code></pre>
+<pre><code>##            expr     min       lq     mean   median       uq      max
+##       sum(data) 825.205 866.9465 904.0931 873.8145 899.7900 1519.317
+##  simd_sum(data) 417.615 446.0480 462.1623 456.3885 463.1685  605.694</code></pre>
+<p>We get a noticable gain by taking advantage of SIMD instructions here, although it’s worth noting that we don’t handle <code>NA</code> and <code>NaN</code> with the same granularity as <code>R</code>.</p>
+</div>
+<div id="simd-algorithms" class="section level2">
+<h2>SIMD Algorithms</h2>
+<p><code>Boost.SIMD</code> provides two primary abstractions for the implementation of SIMD algorithms:</p>
+<p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |—————————–|———————-| | <code>boost::simd::transform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>boost::simd::accumulate()</code> | <code>vector</code> -&gt; <code>scalar</code> |</p>
+<p>These functions operate like their <code>std::</code> counterparts, but expect a functor with a templated call operator. By making the call operator templated, <code>Boost.SIMD</code> can generate code using its own optimized SIMD functions when appropriate, and fall back to a default implementation (based on the types provided) when not.</p>
+<p><code>RcppParallel</code> augments this with its own algorithms as well, for consistency with <code>parallelFor()</code> and <code>parallelReduce()</code>:</p>
+<p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |———————————|———————-| | <code>RcppParallel::simdTransform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>RcppParallel::simdReduce()</code> | <code>vector</code> -&gt; <code>scalar</code> | | <code>RcppParallel::simdFor()</code> | <code>vector</code> -&gt; <code>any</code> |</p>
+<p><code>simdFor()</code> is useful in particular when neither <code>transform()</code> nor <code>accumulate()</code> seem to be a good fit. An example using it to compute the variance for a vector of numbers is showcased <a href="%7B%7B%20site.baseurl%20%7D%7D/articles/simd-variance/">here</a>.</p>
+</div>
+<div id="writing-boost.simd-aware-algorithms" class="section level2">
+<h2>Writing Boost.SIMD-aware Algorithms</h2>
+<p>To take advantage of <code>Boost.SIMD</code>, you should try to perform the following steps:</p>
+<ol style="list-style-type: decimal">
+<li>Decompose your problem into separate, vectorizable pieces,</li>
+<li>Select an appropriate algorithm provided by <code>RcppParallel</code>,</li>
+<li>Write templated functors in a <code>Boost.SIMD</code>-aware way.</li>
+</ol>
+<p><code>Boost.SIMD</code> provides a large number of functions that have optimized specializations for packed data structures, while falling back to regular operations for scalar data structures. These functions can typically be accessed within the <code>boost::simd</code> namespace. To illustrate, here’s an example of a functor that computes the square for a set of data, using the <code>boost::simd::sqr()</code> function:</p>
+<pre class="cpp"><code>class simd_square {
+template &lt;typename T&gt;
+void operator()(const T&amp; data) {
+  return boost::simd::sqr(data);
+}
+};</code></pre>
+<p>A reference guide for other functions provided is available <a href="http://nt2.metascale.fr/doc/html/boost_simd_functions_and_operators/reference.html">here</a>.</p>
+</div>
+<div id="using-simd-in-an-r-package" class="section level2">
+<h2>Using SIMD in an R Package</h2>
+<p>To build an R package that uses <code>Boost.SIMD</code>, you need to make some modifications to the standard <code>RcppParallel</code> configuration. Within the <code>DESCRIPTION</code> file of your package, you need to:</p>
+<ol style="list-style-type: decimal">
+<li>Add the <strong>BH</strong> package as a <code>LinkingTo</code> dependency, and</li>
+<li>Add <code>C++11</code> as a <code>SystemRequirement</code>.</li>
+</ol>
+<div id="platform-compatibility" class="section level3">
+<h3>Platform Compatibility</h3>
+<p><code>Boost.SIMD</code> requires a C++11 conformant compiler. This means that packages making use of SIMD features may not compile on platforms with older compilers, including Windows and RedHat/CentOS Linux. You can however create a package that takes advantage of <code>Boost.SIMD</code> where available and falls back to a non-SIMD implementation otherwise.</p>
+<p>You can opt-in to the use of <code>Boost.SIMD</code> by defining the <code>RCPP_PARALLEL_USE_SIMD</code> macro before including <code>&lt;RcppParallel.h&gt;</code>, e.g.</p>
+<pre><code>#define RCPP_PARALLEL_USE_SIMD
+#include &lt;RcppParallel.h&gt;</code></pre>
+<p>You can test for the availability of <code>Boost.SIMD</code> on a given platform using the <code>RCPP_PARALLEL_USE_SIMD</code> preprocessor variable. If the current compiler doesn’t support C++11 (as determined by <code>__cplusplus &lt;= 199711L</code>) the variable will be undefined (even if you defined it explicitly). This allows you to write code like this:</p>
+<pre class="cpp"><code>#define RCPP_PARALLEL_USE_SIMD
+#include &lt;RcppParallel.h&gt;
+
+#if RCPP_PARALLEL_USE_SIMD
+
+IntegerVector transformDataImpl(IntegerVector x) {
+  // Implement with Boost.SIMD
+}
+
+#else
+
+IntegerVector transformDataImpl(IntegerVector x) {
+  // Implement without Boost.SIMD
+}
+
+#endif
+
+// [[Rcpp::export]]
+IntegerVector transformData(IntegerVector x) {
+   return transformDataImpl(x);
+}</code></pre>
+<p>The two <code>transformDataImpl</code> functions have the same name, but only one will be compiled and linked based on whether the target platform supports <code>Boost.SIMD</code>.</p>
+<p>Note that if you conditionally compile all uses of <code>Boost.SIMD</code> within your package, then you can drop the <code>C++11</code> from <code>SystemRequirements</code> (it’s no longer required as a result of your fallback implementation).</p>
+</div>
+</div>
+<div id="learning-more" class="section level2">
+<h2>Learning More</h2>
+<p>If you want to dive deeper into <code>Boost.SIMD</code>, you can <a href="http://nt2.metascale.fr/doc/html/boost_simd.html">read the online documentation</a>, and also browse the examples <a href="https://github.com/RcppCore/RcppParallel/tree/master/inst/examples/boost-simd">here</a>.</p>
+<hr />
+<p>If you want to try out <code>Boost.SIMD</code> yourself, please install the development version of <a href="http://rcppcore.github.io/RcppParallel/"><code>RcppParallel</code></a> with <code>devtools::install_github(&quot;RcppCore/RcppParalel&quot;)</code>.</p>
+</div>
 
 
 
