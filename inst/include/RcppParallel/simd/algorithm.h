@@ -3,22 +3,118 @@
 
 namespace RcppParallel {
 
-template <typename T, typename U, typename UnOp>
-U* simdTransform(const T* begin, const T* end, U* out, UnOp&& f)
+template<class T, class U, class UnOp>
+U* simdTransform(T const* begin, T const* end, U* out, UnOp f)
 {
-   return boost::simd::transform(begin, end, out, std::forward<UnOp>(f));
+   typedef boost::simd::pack<T> vT;
+   typedef boost::simd::pack<U> vU;
+   
+   BOOST_MPL_ASSERT_MSG( vT::static_size == vU::static_size
+                            , BOOST_SIMD_TRANSFORM_INPUT_OUTPUT_NOT_SAME_SIZE
+                            , (T, U)
+   );
+   
+   static const std::size_t N = vU::static_size;
+   
+   std::size_t shift = boost::simd::align_on(out, N * sizeof(U)) - out;
+   T const* end2 = begin + std::min<size_t>(shift, end-begin);
+   T const* end3 = end2 + (end - end2)/N*N;
+   
+   // prologue
+   for(; begin!=end2; ++begin, ++out)
+      *out = f(*begin);
+   
+   if(boost::simd::is_aligned(begin, N * sizeof(T)))
+   {
+      for(; begin!=end3; begin += N, out += N)
+         boost::simd::aligned_store(f(boost::simd::aligned_load<vT>(begin)), out);
+   }
+   else
+   {
+      for(; begin!=end3; begin += N, out += N)
+         boost::simd::aligned_store(f(boost::simd::load<vT>(begin)), out);
+   }
+   
+   // epilogue
+   for(; begin!=end; ++begin, ++out)
+      *out = f(*begin);
+   
+   return out;
 }
 
-template <typename T1, typename T2, typename U, typename BinOp>
-U* simdTransform(const T1* begin1, const T1* end1, const T2* begin2, U* out, BinOp&& f)
+template<class T1, class T2, class U, class BinOp>
+U* simdTransform(T1 const* begin1, T1 const* end, T2 const* begin2, U* out, BinOp f)
 {
-   return boost::simd::transform(begin1, end1, begin2, out, std::forward<BinOp>(f));
+   typedef boost::simd::pack<T1> vT1;
+   typedef boost::simd::pack<T2> vT2;
+   typedef boost::simd::pack<U> vU;
+   
+   BOOST_MPL_ASSERT_MSG( vT1::static_size == vT2::static_size && vT1::static_size == vU::static_size
+                            , BOOST_SIMD_TRANSFORM_INPUT_OUTPUT_NOT_SAME_SIZE
+                            , (T1, T2, U)
+   );
+   
+   static const std::size_t N = vU::static_size;
+   
+   std::size_t shift = boost::simd::align_on(out, N * sizeof(U)) - out;
+   T1 const* end2 = begin1 + std::min<size_t>(shift, end-begin1);
+   T1 const* end3 = end2 + (end - end2)/N*N;
+   
+   // prologue
+   for(; begin1!=end2; ++begin1, ++begin2, ++out)
+      *out = f(*begin1, *begin2);
+   
+   if(boost::simd::is_aligned(begin1, N * sizeof(T1)) && boost::simd::is_aligned(begin2, N * sizeof(T2)))
+   {
+      for(; begin1!=end3; begin1 += N, begin2 += N, out += N)
+         boost::simd::aligned_store(f(boost::simd::aligned_load<vT1>(begin1), boost::simd::aligned_load<vT2>(begin2)), out);
+   }
+   else
+   {
+      for(; begin1!=end3; begin1 += N, begin2 += N, out += N)
+         boost::simd::aligned_store(f(boost::simd::load<vT1>(begin1), boost::simd::load<vT2>(begin2)), out);
+   }
+   
+   // epilogue
+   for(; begin1!=end; ++begin1, ++begin2, ++out)
+      *out = f(*begin1, *begin2);
+   
+   return out;
 }
 
-template <typename T, typename U, typename F>
-U simdAccumulate(const T* begin, const T* end, U init, F&& f)
+template<class T, class U, class F>
+U simdReduce(T const* begin, T const* end, U init, F f)
 {
-   return boost::simd::accumulate(begin, end, init, std::forward<F>(f));
+   typedef boost::simd::pack<T> vT;
+   typedef boost::simd::pack<U> vU;
+   
+   BOOST_MPL_ASSERT_MSG( vT::static_size == vU::static_size
+                            , BOOST_SIMD_ACCUMULATE_INPUT_OUTPUT_NOT_SAME_SIZE
+                            , (T, U)
+   );
+   
+   static const std::size_t N = vT::static_size;
+   T const* end2 = std::min( boost::simd::align_on(begin, N * sizeof(T)), end );
+   T const* end3 = end2 + (end - end2)/N*N;
+   
+   vU cur = boost::simd::splat<vU>(init);
+   
+   // prologue
+   for(; begin!=end2; ++begin)
+      init = f(init, *begin);
+   
+   for(; begin!=end3; begin += N)
+      cur = f(cur, boost::simd::aligned_load<vT>(begin));
+   
+   // reduce cur
+   for(typename vU::const_iterator b = cur.begin(); b != cur.end(); ++b)
+      init = f(init, *b);
+   
+   // epilogue
+   for(; begin!=end; ++begin)
+      init = f(init, *begin);
+   
+   return init;
 }
 
 template <typename T, typename F>
