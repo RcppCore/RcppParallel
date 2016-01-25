@@ -237,4 +237,4 @@ and also browse the examples
 If you want to try out `Boost.SIMD` yourself, please 
 install the development version of 
 [`RcppParallel`](http://rcppcore.github.io/RcppParallel/)
-with `devtools::install_github("RcppCore/RcppParalel")`.
+with `devtools::install_github("RcppCore/RcppParallel")`.
