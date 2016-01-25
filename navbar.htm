@@ -11,11 +11,22 @@
     </div>
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
-        <li><a href="index.html">Home</a></li>
-        <li><a href="tbb.html">Intel TBB</a></li>
-        <li><a href="simd.html">Boost.SIMD</a></li>
+        <li><a href="/">Home</a></li>
+        <li><a href="/tbb.html">Intel TBB</a></li>
+        <li><a href="/simd.html">Boost.SIMD</a></li>
       </ul>
     </div><!--/.nav-collapse -->
   </div><!--/.container -->
 </div><!--/.navbar -->
 
+<script>
+
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/'))
+  $('a[href="' + href + '"]').parent().addClass('active');
+});
+
+</script>
