@@ -1,16 +1,8 @@
 ---
-output:
-  html_document:
-    toc: yes
-    toc_level: 3
-    toc_float: 
-      collapsed: no
-    highlight: textmate
-    self_contained: no
-    theme: cosmo
+output: html_document
 ---
 
-<h1 class="title"><img src="images/RcppParallelLogo.png" width="643" height="90"></img></h1>
+<h1 class="title"><img id="logo" src="images/RcppParallelLogo.png" width="643" height="90"></img></h1>
 
 ## Overview
 

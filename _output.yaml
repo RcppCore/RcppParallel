@@ -1,0 +1,13 @@
+html_document:
+  toc: yes
+  toc_level: 3
+  toc_float: 
+    collapsed: no
+  lib_dir: libs
+  highlight: textmate
+  self_contained: no
+  theme: cosmo
+  css: styles.css
+  include:
+    before_body: navbar.htm
+
