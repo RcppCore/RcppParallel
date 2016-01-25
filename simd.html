@@ -259,15 +259,12 @@ printBm &lt;- function(bm) {
 data &lt;- rnorm(1024 * 1000)
 
 # verify that it produces the correct sum
-all.equal(simd_sum(data), sum(data))</code></pre>
-<pre><code>## [1] TRUE</code></pre>
-<pre class="r"><code># compare results
+all.equal(simd_sum(data), sum(data))
+
+# compare results
 library(microbenchmark)
 bm &lt;- microbenchmark(sum(data), simd_sum(data))
 printBm(bm)</code></pre>
-<pre><code>##            expr     min       lq     mean   median       uq      max
-##       sum(data) 825.205 866.9465 904.0931 873.8145 899.7900 1519.317
-##  simd_sum(data) 417.615 446.0480 462.1623 456.3885 463.1685  605.694</code></pre>
 <p>We get a noticable gain by taking advantage of SIMD instructions here, although it’s worth noting that we don’t handle <code>NA</code> and <code>NaN</code> with the same granularity as <code>R</code>.</p>
 </div>
 <div id="simd-algorithms" class="section level2">
@@ -279,8 +276,8 @@ printBm(bm)</code></pre>
 <p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |———————————|———————-| | <code>RcppParallel::simdTransform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>RcppParallel::simdReduce()</code> | <code>vector</code> -&gt; <code>scalar</code> | | <code>RcppParallel::simdFor()</code> | <code>vector</code> -&gt; <code>any</code> |</p>
 <p><code>simdFor()</code> is useful in particular when neither <code>transform()</code> nor <code>accumulate()</code> seem to be a good fit. An example using it to compute the variance for a vector of numbers is showcased <a href="%7B%7B%20site.baseurl%20%7D%7D/articles/simd-variance/">here</a>.</p>
 </div>
-<div id="writing-boost.simd-aware-algorithms" class="section level2">
-<h2>Writing Boost.SIMD-aware Algorithms</h2>
+<div id="writing-simd-aware-algorithms" class="section level2">
+<h2>Writing SIMD-Aware Algorithms</h2>
 <p>To take advantage of <code>Boost.SIMD</code>, you should try to perform the following steps:</p>
 <ol style="list-style-type: decimal">
 <li>Decompose your problem into separate, vectorizable pieces,</li>

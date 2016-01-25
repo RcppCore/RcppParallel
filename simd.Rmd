@@ -1,4 +1,9 @@
 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(eval = FALSE)
+```
+
 ## Introduction to Boost.SIMD
 
 Modern CPU processors are built with new, extended
