@@ -333,7 +333,7 @@ void operator()(const T&amp; data) {
 <h2>Using SIMD in an R Package</h2>
 <p>To build an R package that uses <code>Boost.SIMD</code>, you need to make some modifications to the standard <code>RcppParallel</code> configuration. Within the <code>DESCRIPTION</code> file of your package, you need to:</p>
 <ol style="list-style-type: decimal">
-<li>Add the <strong>BH</strong> package as a <code>LinkingTo</code> dependency, and</li>
+<li>Add the <a href="https://cran.r-project.org/package=BH"><strong>BH</strong></a> package as a <code>LinkingTo</code> dependency, and</li>
 <li>Add <code>C++11</code> as a <code>SystemRequirement</code>.</li>
 </ol>
 <div id="platform-compatibility" class="section level3">

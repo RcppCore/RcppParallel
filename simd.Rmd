@@ -167,7 +167,8 @@ make some modifications to the standard `RcppParallel`
 configuration. Within the `DESCRIPTION` file of your package,
 you need to:
 
-1. Add the **BH** package as a `LinkingTo` dependency, and
+1. Add the [**BH**](https://cran.r-project.org/package=BH)
+   package as a `LinkingTo` dependency, and
 2. Add `C++11` as a `SystemRequirement`.
 
 ### Platform Compatibility
