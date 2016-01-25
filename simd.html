@@ -268,10 +268,48 @@ printBm(bm)</code></pre>
 <div id="simd-algorithms" class="section level2">
 <h2>SIMD Algorithms</h2>
 <p><code>Boost.SIMD</code> provides two primary abstractions for the implementation of SIMD algorithms:</p>
-<p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |—————————–|———————-| | <code>boost::simd::transform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>boost::simd::accumulate()</code> | <code>vector</code> -&gt; <code>scalar</code> |</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Algorithm</th>
+<th align="left">Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>boost::simd::transform()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>vector</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>boost::simd::accumulate()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>scalar</code></td>
+</tr>
+</tbody>
+</table>
 <p>These functions operate like their <code>std::</code> counterparts, but expect a functor with a templated call operator. By making the call operator templated, <code>Boost.SIMD</code> can generate code using its own optimized SIMD functions when appropriate, and fall back to a default implementation (based on the types provided) when not.</p>
 <p><code>RcppParallel</code> augments this with its own algorithms as well, for consistency with <code>parallelFor()</code> and <code>parallelReduce()</code>:</p>
-<p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |———————————|———————-| | <code>RcppParallel::simdTransform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>RcppParallel::simdReduce()</code> | <code>vector</code> -&gt; <code>scalar</code> | | <code>RcppParallel::simdFor()</code> | <code>vector</code> -&gt; <code>any</code> |</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Algorithm</th>
+<th align="left">Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>RcppParallel::simdTransform()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>vector</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>RcppParallel::simdReduce()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>scalar</code></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>RcppParallel::simdFor()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>any</code></td>
+</tr>
+</tbody>
+</table>
 <p><code>simdFor()</code> is useful in particular when neither <code>transform()</code> nor <code>accumulate()</code> seem to be a good fit. An example using it to compute the variance for a vector of numbers is showcased <a href="%7B%7B%20site.baseurl%20%7D%7D/articles/simd-variance/">here</a>.</p>
 </div>
 <div id="writing-simd-aware-algorithms" class="section level2">
