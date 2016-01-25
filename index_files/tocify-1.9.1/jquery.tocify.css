@@ -65,6 +65,9 @@
     float: none;
 }
 
+/* We don't override the bootstrap colors because this gives us the
+   wrong selection colors when using bootstrap themes
+
 .tocify .list-group-item:hover, .tocify .list-group-item:focus {
     background-color: #f5f5f5;
 }
@@ -72,4 +75,6 @@
 .tocify .list-group-item.active:hover, .tocify .list-group-item.active:focus {
     background-color: #428bca;
 }
+*/
+
  /* End Twitter Bootstrap Override Styles */
