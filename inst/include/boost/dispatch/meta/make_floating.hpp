@@ -1,38 +1,58 @@
- //==============================================================================
-//         Copyright 2003 - 2012   LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 - 2012   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the make_floating meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_MAKE_FLOATING_HPP_INCLUDED
 #define BOOST_DISPATCH_META_MAKE_FLOATING_HPP_INCLUDED
 
-////////////////////////////////////////////////////////////////////////////////
-// Meta-function that creates a standard real type from a size in bytes.
-// As all make_xxx, also provides an optional lambda to apply to the result.
-// See: http://nt2.metascale.org/sdk/meta/traits/make_floating.html
-////////////////////////////////////////////////////////////////////////////////
-#include <boost/mpl/apply.hpp>
-#include <boost/dispatch/meta/na.hpp>
+#include <boost/dispatch/detail/brigand.hpp>
+#include <cstddef>
 
-namespace boost { namespace dispatch { namespace meta
+namespace boost { namespace dispatch
 {
-  template<std::size_t Size, class Transform = na_>
-  struct  make_floating
-        : boost::mpl::apply<Transform,float> {};
+  namespace detail
+  {
+    template< std::size_t Size, typename Transform>
+    struct  make_floating
+    {
+      static_assert ( Size <= sizeof(double)
+                    , "boost::dispatch::make_floating: can't generate type of given Size"
+                    );
+      using type = brigand::apply<Transform,float>;
+    };
 
-  template<> struct  make_floating<sizeof(double) , na_ > { typedef double  type; };
-  template<> struct  make_floating<sizeof(float)  , na_ > { typedef float   type; };
+    template<typename Transform>
+    struct make_floating<sizeof(double),Transform>
+    {
+      using type = brigand::apply<Transform,double>;
+    };
+  }
 
-  template<class Transform>
-  struct  make_floating<sizeof(double),Transform>
-        : boost::mpl::apply<Transform,double> {};
+  /*!
+    @ingroup group-generation
+    @brief Generate a floating point type of a given size
 
-  template<class Transform>
-  struct  make_floating<sizeof(float),Transform>
-        : boost::mpl::apply<Transform,float> {};
-} } }
+    For any given Size corresponding to a valid floating point type, return said type optionally
+    transformed by an user-defined unary meta-function.
+
+    @tparam Size      Size in bytes of the requested type
+    @tparam Transform Optional unary meta-function to apply to the generated type
+  **/
+  template<std::size_t Size, typename Transform = brigand::identity<brigand::_1>>
+  struct make_floating : detail::make_floating<Size,Transform>
+  {};
+
+  template<std::size_t Size, typename Transform = brigand::identity<brigand::_1>>
+  using make_floating_t = typename make_floating<Size,Transform>::type;
+} }
 
 #endif

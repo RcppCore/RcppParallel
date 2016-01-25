@@ -10,3 +10,5 @@
 ^doc$
 ^src/.*\.o$
 ^gen/
+^boost\.simd/
+^boost\.dispatch/

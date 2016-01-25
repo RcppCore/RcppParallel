@@ -1,63 +1,53 @@
-//==============================================================================
-//         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the sign_of meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_SIGN_OF_HPP_INCLUDED
 #define BOOST_DISPATCH_META_SIGN_OF_HPP_INCLUDED
 
-#include <boost/utility/enable_if.hpp>
-#include <boost/type_traits/is_signed.hpp>
-#include <boost/type_traits/is_unsigned.hpp>
 #include <boost/dispatch/meta/primitive_of.hpp>
-#include <boost/type_traits/is_floating_point.hpp>
+#include <type_traits>
 
-namespace boost { namespace dispatch { namespace meta
+namespace boost { namespace dispatch
 {
-  //============================================================================
-  /*! Computes the signedness of a given type.
-   *
-   * \tparam T Type to compute signedness from.
-   * \return If \c T is signed, \c sign_of<T>::type is \c signed, otherwsie, it
-   * is \c unsigned.
-   **/
-  //============================================================================
-  template<class T> struct sign_of;
-} } }
+  namespace ext
+  {
+    template<typename T, typename Enable = void> struct  sign_of
+    {
+      using primitive = boost::dispatch::primitive_of_t<T>;
+      using signed_t  = std::is_signed<primitive>;
+      using float_t   = std::is_floating_point<primitive>;
+      using type      = typename std::conditional < (signed_t::value || float_t::value)
+                                                  , signed
+                                                  , unsigned
+                                                  >::type;
+    };
+  }
 
-namespace boost { namespace dispatch { namespace ext
-{
-  template<class T, class Enable = void>
-  struct  sign_of
-        : sign_of< typename meta::primitive_of<T>::type >
+  /*!
+    @ingroup group-introspection
+    @brief Return sign of a type
+
+    If a type @c T can contains value with a sign (i.e signed integers and floating points-like
+    types), sign_of<T> evaluates to @c signed. Otherwise, it evaluates @c unsigned.
+
+    @tparam T Type to introspect.
+  **/
+  template<typename T>
+  struct sign_of : ext::sign_of<typename std::decay<T>::type>
   {};
 
-  template<class T>
-  struct sign_of<T, typename enable_if< boost::is_signed<T> >::type>
-  {
-    typedef signed type;
-  };
+  /// Eager shortcut for sign_of
+  template<typename T> using sign_of_t = typename sign_of<T>::type;
+} }
 
-  template<class T>
-  struct sign_of<T, typename enable_if< boost::is_unsigned<T> >::type>
-  {
-    typedef unsigned type;
-  };
-
-  template<class T>
-  struct sign_of<T, typename enable_if< boost::is_floating_point<T> >::type>
-  {
-    typedef signed type;
-  };
-} } }
-
-namespace boost { namespace dispatch { namespace meta
-{
-  template<class T> struct  sign_of           : ext::sign_of<T> {};
-  template<class T> struct  sign_of<T&>       : sign_of <T>     {};
-  template<class T> struct  sign_of<T const>  : sign_of <T>     {};
-} } }
 #endif

@@ -1,75 +1,109 @@
- //==============================================================================
-//         Copyright 2003 - 2012   LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 - 2012   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the make_integer meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_MAKE_INTEGER_HPP_INCLUDED
 #define BOOST_DISPATCH_META_MAKE_INTEGER_HPP_INCLUDED
 
-#include <boost/integer.hpp>
-#include <boost/cstdint.hpp>
-#include <boost/mpl/apply.hpp>
-#include <boost/dispatch/meta/na.hpp>
+#include <boost/dispatch/detail/brigand.hpp>
+#include <cstdint>
+#include <cstddef>
 
-namespace boost { namespace dispatch { namespace meta
+namespace boost { namespace dispatch
 {
-  /**
-   * Build a standard integer type from a sign and a size in bytes
-   **/
+  namespace detail
+  {
+    template< std::size_t Size, typename Sign, typename Transform>
+    struct  make_integer
+    {
+      static_assert ( Size >= sizeof(std::int8_t) && Size <= sizeof(std::int64_t)
+                    , "boost::dispatch::make_integer: can't generate type of given Size"
+                    );
+
+      using type = brigand::no_such_type_;
+    };
+
+    template<typename Transform>
+    struct make_integer<1u, unsigned, Transform>
+    {
+      using type = brigand::apply<Transform,std::uint8_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<2u, unsigned, Transform>
+    {
+      using type = brigand::apply<Transform,std::uint16_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<4u, unsigned, Transform>
+    {
+      using type = brigand::apply<Transform,std::uint32_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<8u, unsigned, Transform>
+    {
+      using type = brigand::apply<Transform,std::uint64_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<1u, signed, Transform>
+    {
+      using type = brigand::apply<Transform,std::int8_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<2u, signed, Transform>
+    {
+      using type = brigand::apply<Transform,std::int16_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<4u, signed, Transform>
+    {
+      using type = brigand::apply<Transform,std::int32_t>;
+    };
+
+    template<typename Transform>
+    struct make_integer<8u, signed, Transform>
+    {
+      using type = brigand::apply<Transform,std::int64_t>;
+    };
+  }
+
+  /*!
+    @ingroup group-generation
+    @brief Generate an integer type of a given size and sign
+
+    For any given Size corresponding to a valid integer type and an optional Sign,
+    return said type optionally transformed by a user-defined unary meta-function.
+
+    @tparam Size      Size in bytes of the requested type
+    @tparam Sign      Optional sign (unsigned by default) of the requested type.
+    @tparam Transform Optional unary meta-function to apply to the generated type
+  **/
   template< std::size_t Size
-          , class Sign      = unsigned
-          , class Transform = na_
+          , typename Sign       = unsigned
+          , typename Transform  = brigand::identity<brigand::_1>
           >
-  struct  make_integer {};
+  struct make_integer : detail::make_integer<Size,Sign,Transform>
+  {};
 
-  /// INTERNAL ONLY
-  template< std::size_t Size, class Transform>
-  struct  make_integer<Size,unsigned,Transform>
-        : boost::mpl::apply<Transform,typename boost::uint_t<CHAR_BIT*Size>::fast> {};
-
-  /// INTERNAL ONLY
-  template< std::size_t Size, class Transform >
-  struct  make_integer<Size,signed,Transform>
-        : boost::mpl::apply<Transform,typename boost::int_t<CHAR_BIT*Size>::fast> {};
-
-  /// INTERNAL ONLY
-  /// Overload for long long to fix lack of boost::integer support
-  template< class Transform >
-  struct  make_integer<sizeof(boost::int64_t),unsigned,Transform>
-        : boost::mpl::apply<Transform,boost::uint64_t> {};
-
-  /// INTERNAL ONLY
-  template< class Transform >
-  struct  make_integer<sizeof(boost::int64_t),signed,Transform>
-        : boost::mpl::apply<Transform,boost::int64_t> {};
-
-  /// INTERNAL ONLY
-  /// Overload to prevent useless apply<_,T> template instanciation
-  template< std::size_t Size> struct make_integer<Size,unsigned,na_>
-  {
-    typedef typename boost::uint_t<CHAR_BIT*Size>::fast type;
-  };
-
-  /// INTERNAL ONLY
-  template< std::size_t Size> struct make_integer<Size,signed,na_>
-  {
-    typedef typename boost::int_t<CHAR_BIT*Size>::fast type;
-  };
-
-  /// INTERNAL ONLY
-  template<> struct make_integer<sizeof(boost::int64_t),unsigned,na_>
-  {
-    typedef boost::uint64_t type;
-  };
-
-  /// INTERNAL ONLY
-  template<> struct make_integer<sizeof(boost::int64_t),signed,na_>
-  {
-    typedef boost::int64_t type;
-  };
-} } }
+  template< std::size_t Size
+          , typename Sign       = unsigned
+          , typename Transform  = brigand::identity<brigand::_1>
+          >
+  using make_integer_t = typename make_integer<Size,Sign,Transform>::type;
+} }
 
 #endif

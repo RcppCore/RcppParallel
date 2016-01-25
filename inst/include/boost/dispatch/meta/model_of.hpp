@@ -1,51 +1,60 @@
-//==============================================================================
-//         Copyright 2003 & onward LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 & onward LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the meta::model_of meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_MODEL_OF_HPP_INCLUDED
 #define BOOST_DISPATCH_META_MODEL_OF_HPP_INCLUDED
 
-#include <boost/mpl/apply.hpp>
+#include <boost/dispatch/detail/model_of.hpp>
 
-/*!
- * \file
- * \brief Defines the \c model_of extension point
- */
-
-namespace boost { namespace dispatch { namespace details
+namespace boost { namespace dispatch
 {
-  template<class T, class Enable = void>
-  struct model_of
-  {
-    struct type
-    {
-      template<class X>
-      struct apply
-      {
-        typedef X type;
-      };
-    };
-  };
-}
+  /*!
+    @ingroup group-introspection
+    @brief Model generator meta-function
 
-namespace meta
-{
-  template<class T>
-  struct model_of : details::model_of<T> {};
+    Defines, for any given type @c T, a @metafunction which can reconstruct a new type @c U similar
+    to @c T but by using a different underlying type, all reference and cv-qualifiers being
+    discarded.
 
-  template<class T>
-  struct model_of<T&> : model_of<T>
-  {
-  };
+    @par Models:
 
-  template<class T>
-  struct model_of<T const> : model_of<T>
-  {
-  };
-} } }
+    @metafunction
+
+    @par Semantic:
+
+    For any type @c T,
+
+    @code
+    std::is_same<boost::mpl::apply<model_of<T>,value_of_t<T>>::type, T>::value
+    @endcode
+
+    evaluates to @c true.
+
+    @par Extension Point:
+
+    meta::model_of can be specialized for user-defined types by either overloading or by
+    specializing (eventually through SFINAE) the ext::model_of class
+
+    Specialization for value_of are provided for most of standard and Boost types.
+
+    @tparam T Type to turn into a generator @metafunction
+  **/
+  template<typename T> struct model_of                    : ext::model_of<T>  {};
+  template<typename T> struct model_of<T&>                : model_of<T>       {};
+  template<typename T> struct model_of<T&&>               : model_of<T>       {};
+  template<typename T> struct model_of<T const>           : model_of<T>       {};
+  template<typename T> struct model_of<volatile T>        : model_of<T>       {};
+  template<typename T> struct model_of<volatile T const>  : model_of<T>       {};
+} }
 
 #endif

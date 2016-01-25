@@ -1,84 +1,59 @@
-//==============================================================================
-//         Copyright 2003 - 2012   LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 - 2012   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the as_signed meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_AS_SIGNED_HPP_INCLUDED
 #define BOOST_DISPATCH_META_AS_SIGNED_HPP_INCLUDED
 
-/*!
- * @file
- * @brief Define the boost::dispatch::meta::as_signed @metafunction.
- **/
-
-#include <boost/mpl/assert.hpp>
+#include <boost/dispatch/meta/factory_of.hpp>
 #include <boost/dispatch/meta/primitive_of.hpp>
-#include <boost/dispatch/meta/is_fundamental.hpp>
-#include <boost/dispatch/meta/details/as_signed.hpp>
+#include <boost/dispatch/meta/is_natural.hpp>
+#include <type_traits>
 
-namespace boost { namespace dispatch { namespace meta
+namespace boost { namespace dispatch
 {
-  /*!
-   * @brief Compute the signed equivalent of a given type
-   *
-   * Returns the input type rebound the signed equivalent type to its primitive
-   * type.
-   *
-   * @tparam T Type to modify
-   *
-   * @par Models:
-   *
-   * @metafunction
-   *
-   * @par Semantic:
-   *
-   * For any type @c T,
-   *
-   * @code
-   * typedef as_signed<T>::type type;
-   * @endcode
-   *
-   * is equivalent to
-   *
-   * @code
-   * typedef T  type;
-   * @endcode
-   *
-   * if @c primitive<T>::type is @c signed and to
-   *
-   * @code
-   *  typedef apply< meta::factory_of<T>::type
-   *               , boost::make_signed< meta::primitive_of<T>::type >::type
-   *               >::type                                              type;
-   * @endcode
-   *
-   * if @c primitive<T>::type is unsigned. Note than for this @metafunction,
-   * real types like @c double or @c float are considered signed.
-   *
-   * @par Usage:
-   *
-   * @include as_signed.cpp
-   */
-  template<class T>
-  struct  as_signed
-        : details::as_signed_impl< typename meta::strip<T>::type >
+  namespace detail
   {
-    //**************************** STATIC ASSERT *****************************//
-    //    A type with a non-fundamental primitive is used in a call to the    //
-    //             boost::dispatch::meta::as_signed meta-function.            //
-    //**************************** STATIC ASSERT *****************************//
-    BOOST_MPL_ASSERT_MSG
-    ( (is_fundamental < typename
-                        meta::primitive_of<typename meta::strip<T>::type>::type
-                      >::value
-      )
-    , BOOST_DISPATCH_NON_FUNDAMENTAL_PRIMITIVE_USED_IN_META_AS_SIGNED
-    , (T&)
-    );
-  };
-} } }
+    template<typename T, typename Enable = void>
+    struct as_signed
+    {
+      using f_t  = boost::dispatch::factory_of<T>;
+      using p_t  = boost::dispatch::primitive_of_t<T>;
+      using type = typename f_t::template apply<typename detail::as_signed<p_t>::type>::type;
+    };
+
+    template<typename T>
+    struct as_signed<T, typename std::enable_if<std::is_fundamental<T>::value>::type>
+    {
+      template<typename U> struct id { using type = T;};
+      using result  = std::conditional<is_natural<T>::value,std::make_signed<T>,id<T>>;
+      using type    = typename result::type::type;
+    };
+  }
+
+  /*!
+    @ingroup group-generation
+    @brief Turn a type into an equivalent signed type
+
+    Converts any type which Primitive is Fundamental into a compatible signed type.
+
+    @tparam T     Type to convert.
+  **/
+  template<typename T>
+  struct as_signed : detail::as_signed<typename std::decay<T>::type>
+  {};
+
+  /// Eager shortcut to as_signed
+  template<typename T> using as_signed_t = typename as_signed<T>::type;
+} }
 
 #endif

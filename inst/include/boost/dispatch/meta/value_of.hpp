@@ -1,87 +1,78 @@
-//==============================================================================
-//         Copyright 2003 - 2011   LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 - 2011   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the value_of meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_VALUE_OF_HPP_INCLUDED
 #define BOOST_DISPATCH_META_VALUE_OF_HPP_INCLUDED
 
-/*!
- * \file
- * \brief Defines the \c value_of extension point
- */
+#include <boost/dispatch/config.hpp>
 
-#include <boost/dispatch/attributes.hpp>
-#include <boost/type_traits/add_reference.hpp>
-#include <boost/type_traits/add_const.hpp>
-
-namespace boost { namespace dispatch { namespace meta
+namespace boost { namespace dispatch
 {
-  template<class T>
-  struct value_of;
-}
-
-namespace details
-{
-  template<class T, class Enable = void>
-  struct value_of
+  namespace ext
   {
-    typedef T type;
-  };
+    template<typename T, typename Enable = void> struct value_of;
+    template<typename T, typename Enable = void> struct value_of_cv;
+  }
 
-  template<class T, class Enable = void>
-  struct value_of_cv;
-
-  template<class T, class Enable>
-  struct value_of_cv<T const, Enable>
-       : add_const<typename meta::value_of<T>::type>
-  {
-  };
-
-  template<class T, class Enable>
-  struct value_of_cv<T&, Enable>
-       : add_reference<typename meta::value_of<T>::type>
-  {
-  };
-}
-
-namespace meta
-{
   /*!
-   * @brief Computes the basic value of a type
-   *
-   * @tparam T
-   *
-   *
-   **/
-  template<class T>
-   struct value_of
-        : details::value_of<T>
-  {};
+    @ingroup group-introspection
+    @brief Underlying type evaluation
 
-  /// INTERNAL ONLY
-  template<class T>
-  struct  value_of<T&>
-        : details::value_of_cv<T&>
-  {};
+    Evaluates, for any given type @c T, the underlying type of @c T.
 
-  /// INTERNAL ONLY
-  template<class T>
-  struct  value_of<T const>
-        : details::value_of_cv<T const>
-  {};
+    @par Models:
 
-#ifndef BOOST_DISPATCH_NO_RESTRICT_REFERENCES
-  /// INTERNAL ONLY
-  template<class T>
-  struct  value_of<T & BOOST_DISPATCH_RESTRICT>
-        : details::value_of_cv<T&>
-  {
-  };
+    @metafunction
+
+    @par Semantic:
+
+    For any type @c T,
+
+    @code
+    using U = value_of<T>;
+    @endcode
+
+    is defined so that
+
+    @code
+    std::is_same<T, meta::model_of<T>::type<U>>::type
+    @endcode
+
+    evaluates to @true_ .
+
+    @par Extension Point:
+
+    meta::value_of can be specialized for user-defined types by either overloading or specializing
+    (eventually through SFINAE) the ext::value_of and/or ext::value_of_cv classes
+
+    Specialization for value_of are provided for most of standard and Boost types.
+
+    @tparam T Type to analyze
+  **/
+  template<typename T> struct  value_of          : ext::value_of<T>          {};
+
+  template<typename T> struct  value_of<T&>      : ext::value_of_cv<T&>      {};
+  template<typename T> struct  value_of<T&&>     : ext::value_of_cv<T&&>     {};
+  template<typename T> struct  value_of<T const> : ext::value_of_cv<T const> {};
+
+#ifndef BOOST_NO_RESTRICT_REFERENCES
+  template<typename T> struct  value_of<T& BOOST_RESTRICT> : ext::value_of_cv<T&> {};
 #endif
-} } }
+
+  // Eager short-cut for value_of
+  template<typename T> using value_of_t = typename value_of<T>::type;
+} }
+
+#include <boost/dispatch/detail/value_of.hpp>
 
 #endif

@@ -1,59 +1,40 @@
-//==============================================================================
-//         Copyright 2003 - 2012   LASMEA UMR 6602 CNRS/Univ. Clermont II
-//         Copyright 2009 - 2012   LRI    UMR 8623 CNRS/Univ Paris Sud XI
-//
-//          Distributed under the Boost Software License, Version 1.0.
-//                 See accompanying file LICENSE.txt or copy at
-//                     http://www.boost.org/LICENSE_1_0.txt
-//==============================================================================
+//==================================================================================================
+/*!
+  @file
+
+  Defines the meta::behave_as meta-function
+
+  @copyright 2015 NumScale SAS
+
+  Distributed under the Boost Software License, Version 1.0.
+  (See accompanying file LICENSE.md or copy at http://boost.org/LICENSE_1_0.txt)
+
+**/
+//==================================================================================================
 #ifndef BOOST_DISPATCH_META_BEHAVE_AS_HPP_INCLUDED
 #define BOOST_DISPATCH_META_BEHAVE_AS_HPP_INCLUDED
 
-/*!
- * @file
- * @brief Defines the @ref boost::dispatch::meta::behave_as @metafunction
- */
-
-#include <boost/mpl/apply.hpp>
-#include <boost/dispatch/meta/strip.hpp>
 #include <boost/dispatch/meta/primitive_of.hpp>
+#include <boost/dispatch/detail/brigand.hpp>
 
-namespace boost { namespace dispatch { namespace meta
+namespace boost { namespace dispatch
 {
   /*!
-   * @brief @mpllambda forwarding on Hierarchizable types
-   *
-   * Forward the application of a given @mpllambda @c Lambda onto a
-   * fundamental type.
-   *
-   * @tparam Lambda @mpllambda to apply.
-   * @tparam T      Fundamental type to transform
-   *
-   * @par Semantic:
-   *
-   * For any type @c T and any @mpllambda @c Lambda:
-   *
-   * @code
-   * typedef boost::dispatch::meta::behave_as<Lambda,T>::type r;
-   * @endcode
-   *
-   * is equivalent to:
-   *
-   * @code
-   * typedef apply1 < Lambda
-   *                , boost::dispatch::meta::primitive_of<T>::type
-   *                >::type     r;
-   * @endcode
-   *
-   * @par Usage
-   *
-   * @include behave_as.cpp
-   */
-  template<class Lambda,class T>
+    @ingroup group-introspection
+    @brief Apply meta-function to a type's Primitive type
+
+    Apply a meta-function to the Primitive type of its input.
+
+    @tparam T         Type to manipulate
+    @tparam Function  Meta-function to apply
+  **/
+  template<typename T, typename Function>
   struct  behave_as
-        : boost::mpl::
-          apply1< Lambda, typename primitive_of<T>::type >::type
+        : brigand::apply<Function,boost::dispatch::primitive_of_t<T>>
   {};
-} } }
+
+  template<typename T, typename Function>
+  using  behave_as_t = typename behave_as<T,Function>::type;
+} }
 
 #endif
