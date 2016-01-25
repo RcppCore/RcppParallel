@@ -11,14 +11,14 @@
 
 
 
-<title></title>
+<title>Parallel Programming with Boost.SIMD</title>
 
 <script src="libs/jquery-1.11.3/jquery.min.js"></script>
 <script src="libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
 <link href="libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
 <script src="libs/tocify-1.9.1/jquery.tocify.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link href="libs/bootstrap-3.3.5/css/cosmo.min.css" rel="stylesheet" />
+<link href="libs/bootstrap-3.3.5/css/yeti.min.css" rel="stylesheet" />
 <script src="libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
 <script src="libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
 <script src="libs/bootstrap-3.3.5/shim/respond.min.js"></script>
@@ -66,19 +66,19 @@ h1 {
   font-size: 34px;
 }
 h1.title {
-  font-size: 40px;
+  font-size: 38px;
 }
 h2 {
-  font-size: 28px;
+  font-size: 30px;
 }
 h3 {
-  font-size: 22px;
+  font-size: 24px;
 }
 h4 {
-  font-size: 16px;
+  font-size: 18px;
 }
 h5 {
-  font-size: 14px;
+  font-size: 16px;
 }
 h6 {
   font-size: 12px;
@@ -105,14 +105,6 @@ $(function() {
 
     // tocify
     var toc = $("#TOC").tocify(options).data("toc-tocify");
-
-    // move the data-unique element so the first toc entry targets the title
-    var h1 = $('h1.title');
-    if (h1 !== null) {
-      var div = $("div[data-unique]:first");
-      div.insertBefore(h1);
-    }
-
 });
 </script>
 
@@ -216,10 +208,13 @@ $(document).ready(function () {
 
 </script>
 
+<div id="header">
+<h1 class="title">Parallel Programming with Boost.SIMD</h1>
+</div>
 
 
-<div id="introduction-to-boost.simd" class="section level2">
-<h2>Introduction to Boost.SIMD</h2>
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
 <p>Modern CPU processors are built with new, extended instruction sets that optimize for certain operations. A class of these allow for vectorized operations, called Single Instruction / Multiple Data (SIMD) instructions. Although modern compilers will use these instructions when possible, they are often unable to reason about whether or not a particular block of code can be executed using SIMD instructions.</p>
 <p><code>Boost.SIMD</code> [<a href="https://meetingcpp.com/tl_files/mcpp/slides/12/simd.pdf">PDF</a>] is a C++ header-only library that makes it possible to explicitly request the use of SIMD instructions when possible, while falling back to regular scalar operations when not. <a href="http://rcppcore.github.io/RcppParallel/"><code>RcppParallel</code></a> wraps and exposes this library for use with <code>R</code> vectors.</p>
 <p>The primary abstraction that <code>Boost.SIMD</code> uses under the hood is the <code>boost::simd::pack&lt;&gt;</code> data structure. This item represents a small, contiguous, pack of integral objects (e.g. <code>double</code>s), and comes with a host of functions that facilitate the use of SIMD operations on those objects when possible. Although you don’t need to know the details to use the high-level functionality provided by <code>Boost.SIMD</code>, it’s useful for understanding what happens behind the scenes.</p>

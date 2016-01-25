@@ -6,7 +6,7 @@ html_document:
   lib_dir: libs
   highlight: textmate
   self_contained: no
-  theme: cosmo
+  theme: yeti
   css: styles.css
   include:
     before_body: navbar.htm

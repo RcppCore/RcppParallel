@@ -1,10 +1,12 @@
-
+---
+title: Parallel Programming with Boost.SIMD
+---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(eval = FALSE)
 ```
 
-## Introduction to Boost.SIMD
+## Introduction 
 
 Modern CPU processors are built with new, extended
 instruction sets that optimize for certain operations. A
