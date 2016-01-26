@@ -61,7 +61,7 @@ inline void parallelReduce(std::size_t begin, std::size_t end,
 
 // Conditionally include SIMD
 #ifdef RCPP_PARALLEL_USE_SIMD
-# include "RcppParallel/SIMD.h"
+# include "RcppParallel/nt2.h"
 #endif
 
 #endif // __RCPP_PARALLEL__

@@ -6,7 +6,10 @@ transformations <- list(
    "is_equal_with_equal_nans.hpp" = "is_eq_nans.hpp"
 )
 
-files <- list.files("inst/include/boost/simd", recursive = TRUE, full.names = TRUE)
+files <- c(
+   list.files("inst/include/nt2", recursive = TRUE, full.names = TRUE),
+   list.files("inst/include/boost", recursive = TRUE, full.names = TRUE)
+)
 
 # First pass to rename contents of files
 for (file in files) {
@@ -15,7 +18,10 @@ for (file in files) {
    for (i in seq_along(transformations)) {
       from <- names(transformations)[[i]]
       to <- transformations[[i]]
-      changed <- gsub(from, to, changed, fixed = TRUE)
+      changed <- tryCatch(
+         gsub(from, to, changed, fixed = TRUE),
+         error = function(e) from
+      )
    }
    
    if (all(contents == changed))

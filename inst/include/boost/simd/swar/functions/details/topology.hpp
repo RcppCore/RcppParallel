@@ -126,7 +126,7 @@ namespace boost { namespace simd { namespace details
   #define M3(z,n,t)                                                            \
   template<typename Permutation> struct topology<Permutation,n>                \
   {                                                                            \
-    BOOST_PP_REPEAT(n,M0,n)                                                    \
+    BOOST_PP_REPEAT(n,M0,n);                                                   \
                                                                                \
     typedef boost::mpl::                                                       \
             int_< true BOOST_PP_REPEAT(n,M1,n)                                 \
