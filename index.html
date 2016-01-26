@@ -190,7 +190,6 @@ div.tocify {
       <ul class="nav navbar-nav">
         <li><a href="index.html">Home</a></li>
         <li><a href="tbb.html">Intel TBB</a></li>
-        <li><a href="simd.html">Boost.SIMD</a></li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li><a href="https://github.com/RcppCore/RcppParallel">GitHub</a></li>
@@ -223,7 +222,6 @@ $(document).ready(function () {
 <p>RcppParallel provides a complete toolkit for creating portable, high-performance parallel algorithms without requiring direct manipulation of operating system threads. RcppParallel includes:</p>
 <ul>
 <li><p><a href="https://www.threadingbuildingblocks.org/">Intel TBB</a> (v4.3), a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, Linux, and Solaris x86 only).</p></li>
-<li><p><a href="http://nt2.metascale.fr/doc/html/boost_simd.html">Boost.SIMD</a>, a C++ template library that provides portable (visa-vi instuction-sets and compilers) access to SIMD extensions.</p></li>
 <li><p><a href="http://tinythreadpp.bitsnbites.eu/">TinyThread</a>, a C++ library for portable use of operating system threads.</p></li>
 <li><p><code>RVector</code> and <code>RMatrix</code> wrapper classes for safe and convenient access to R data structures in a multi-threaded environment.</p></li>
 <li><p>High level parallel functions (<code>parallelFor</code> and <code>parallelReduce</code>) that use Intel TBB as a back-end on systems that support it and TinyThread on other platforms.</p></li>

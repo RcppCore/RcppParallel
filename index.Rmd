@@ -11,8 +11,6 @@ RcppParallel provides a complete toolkit for creating portable, high-performance
 - [Intel TBB](https://www.threadingbuildingblocks.org/) 
 (v4.3), a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, Linux, and Solaris x86 only). 
 
-- [Boost.SIMD](http://nt2.metascale.fr/doc/html/boost_simd.html), a C++ template library that provides portable (visa-vi instuction-sets and compilers) access to SIMD extensions.
-
 - [TinyThread](http://tinythreadpp.bitsnbites.eu/), a C++ library for portable use of operating system threads.
 
 - `RVector` and `RMatrix` wrapper classes for safe and convenient access to R data structures in a multi-threaded environment. 
