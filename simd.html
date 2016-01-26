@@ -184,7 +184,7 @@ div.tocify {
         <span class="icon-bar"></span>
         <span class="icon-bar"></span>
       </button>
-      <a class="navbar-brand" href="/">Rcpp Parallel</a>
+      <a class="navbar-brand" href="index.html">Rcpp Parallel</a>
     </div>
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
@@ -268,8 +268,8 @@ library(microbenchmark)
 bm &lt;- microbenchmark(sum(data), simd_sum(data))
 printBm(bm)</code></pre>
 <pre><code>##            expr     min       lq     mean   median       uq      max
-##       sum(data) 823.391 847.6390 896.8973 859.9300 904.3275 1361.251
-##  simd_sum(data) 418.461 429.5725 492.2480 452.7555 507.2115  916.687</code></pre>
+##       sum(data) 824.063 829.2915 876.7056 834.4425 877.4095 1693.153
+##  simd_sum(data) 417.567 419.4990 459.2425 422.9500 475.8230  931.055</code></pre>
 <p>We get a noticable gain by taking advantage of SIMD instructions here, although it’s worth noting that we don’t handle <code>NA</code> and <code>NaN</code> with the same granularity as <code>R</code>.</p>
 </div>
 <div id="simd-algorithms" class="section level2">
