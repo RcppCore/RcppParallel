@@ -30,11 +30,11 @@ RcppParallelLibs <- function() {
 inlineCxxPlugin <- function() {
    list(
       env = list(
-         PKG_CXXFLAGS = paste("$(CXX1XSTD)", tbbCxxFlags()),
+         PKG_CXXFLAGS = tbbCxxFlags(),
          PKG_LIBS = tbbLdFlags()
       ),
       includes = "#include <RcppParallel.h>",
-      LinkingTo = c("RcppParallel", "BH"),
+      LinkingTo = "RcppParallel",
       body = function(x) x,
       Depends = "RcppParallel"
    )

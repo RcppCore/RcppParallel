@@ -10,8 +10,6 @@ For additional documentation on using RcppParallel see the package website at ht
 
 The RcppParallel package is made available under the [GPLv2](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
-`Boost.SIMD` is licensed under the [Boost Software License, Version 1.0](http://www.boost.org/users/license.html).
-
 The TinyThread library is licensed under the [zlib/libpng](http://www.opensource.org/licenses/zlib-license.php) license as described [here](https://gitorious.org/tinythread/tinythreadpp/source/master:README.txt).
 
 The Intel TBB Library is licensed under the GPLv2 (as described at https://www.threadingbuildingblocks.org/Licensing):
