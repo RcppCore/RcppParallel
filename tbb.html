@@ -11,7 +11,7 @@
 
 
 
-<title></title>
+<title>Parallel Programming with Intel TBB</title>
 
 <script src="libs/jquery-1.11.3/jquery.min.js"></script>
 <script src="libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
@@ -211,9 +211,69 @@ $(document).ready(function () {
 
 </script>
 
+<div id="header">
+<h1 class="title">Parallel Programming with Intel TBB</h1>
+</div>
 
 
+<div id="overview" class="section level2">
+<h2>Overview</h2>
+<p>RcppParallel provides the <code>parallelFor</code> and <code>parallelReduce</code> functions however the TBB library includes a wealth of other tools for parallelization. The motivation for <code>parallelFor</code> and <code>parallelReduce</code> is portability: you can write a single algorithm that uses TBB on Windows, OS X, Linux, and Solaris x86 but falls back to a lower-performance implementation based on TinyThread on other platforms.</p>
+<p>If however you are okay with targeting only the supported platforms you can use TBB directly and bypass <code>parallelFor</code> and <code>parallelReduce</code>. Note that if you are doing this within an R package you plan on submitting to CRAN you should also provide a fallback serial implementation so the package still compiles on platforms that don’t currently support TBB (e.g. Solaris Sparc). Details on doing this are in the <a href="#portability">Portability</a> section below.</p>
+</div>
+<div id="tbb-apis" class="section level2">
+<h2>TBB APIs</h2>
+<div id="algorithms" class="section level3">
+<h3>Algorithms</h3>
+<p>TBB includes a wide variety of tools for parallel programming, including:</p>
+<ul>
+<li>Advanced algorithms: <code>parallel_scan</code>, <code>parallel_while</code>, <code>parallel_do</code>, <code>parallel_pipeline</code>, <code>parallel_sort</code></li>
+<li>Containers: <code>concurrent_queue</code>, <code>concurrent_priority_queue</code>, <code>concurrent_vector</code>, <code>concurrent_hash_map</code></li>
+<li>Atomic operations: <code>fetch_and_add</code>, <code>fetch_and_increment</code>, <code>fetch_and_decrement</code>, <code>compare_and_swap</code>, <code>fetch_and_store</code></li>
+<li>Timing: portable fine grained global time stamp</li>
+<li>Task Scheduler: direct access to control the creation and activation of tasks</li>
+</ul>
+<p>See the <a href="https://software.intel.com/en-us/node/506045">Intel TBB User Guide</a> for documentation on using these features.</p>
+</div>
+<div id="synchronization" class="section level3">
+<h3>Synchronization</h3>
+<p>When using TBB directly you can also take advantage of TBB’s built in concurrency and synchronization classes, including:</p>
+<ol style="list-style-type: decimal">
+<li><p>TBB concurrent container classes (see: <a href="https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Containers.htm" class="uri">https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Containers.htm</a>).</p></li>
+<li><p>TBB mutual exclusion classes (see: <a href="https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Mutual_Exclusion.htm" class="uri">https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Mutual_Exclusion.htm</a>)</p></li>
+<li><p>TBB atomic operations (see <a href="https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Atomic_Operations.htm" class="uri">https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Atomic_Operations.htm</a>).</p></li>
+</ol>
+</div>
+</div>
+<div id="portability" class="section level2">
+<h2>Portability</h2>
+<p>When using TBB directly in a CRAN package you should check the value of the <code>RCPP_PARALLEL_USE_TBB</code> macro and conditionally include a serial implementation of your algorithm if it’s not <code>TRUE</code>. Note that this macro is defined in <code>RcppParallel.h</code> so you should include this in all cases (it will in turn automatically include <code>&lt;tbb/tbb.h&gt;</code> on platforms where it’s supported). For example, your source file might look like this:</p>
+<pre class="cpp"><code>#include &lt;RcppParallel.h&gt;
 
+#if RCPP_PARALLEL_USE_TBB
+
+IntegerVector transformDataImpl(IntegerVector x) {
+
+  // Implement by calling TBB APIs directly 
+
+}
+
+#else
+
+IntegerVector transformDataImpl(IntegerVector x) {
+
+  // Implement serially
+
+}
+
+#endif
+
+// [[Rcpp::export]]
+IntegerVector transformData(IntegerVector x) {
+  return transformDataImpl(x);
+}</code></pre>
+<p>Note that the two functions have the same name (only one will be compiled and linked based on whether the target platform supports TBB).</p>
+</div>
 
 
 

@@ -216,6 +216,8 @@ $(document).ready(function () {
 </div>
 
 
+<p><strong>IMPORTANT NOTE</strong>: Support for Boost.SIMD is currently only available in the development version of RcppParallel. You can install the development version as follows:</p>
+<pre class="r"><code>devtools::install_github(&quot;RcppCore/RcppParallel&quot;)</code></pre>
 <div id="introduction" class="section level2">
 <h2>Introduction</h2>
 <p>Modern CPU processors are built with new, extended instruction sets that optimize for certain operations. A class of these allow for vectorized operations, called Single Instruction / Multiple Data (SIMD) instructions. Although modern compilers will use these instructions when possible, they are often unable to reason about whether or not a particular block of code can be executed using SIMD instructions.</p>
@@ -257,16 +259,21 @@ printBm &lt;- function(bm) {
 data &lt;- rnorm(1024 * 1000)
 
 # verify that it produces the correct sum
-all.equal(simd_sum(data), sum(data))
-
-# compare results
+all.equal(simd_sum(data), sum(data))</code></pre>
+<pre><code>## [1] TRUE</code></pre>
+<pre class="r"><code># compare results
 library(microbenchmark)
 bm &lt;- microbenchmark(sum(data), simd_sum(data))
 printBm(bm)</code></pre>
+<pre><code>##            expr     min       lq     mean   median       uq      max
+##       sum(data) 824.013 836.9370 880.5446 870.0565 909.2475 1300.552
+##  simd_sum(data) 416.062 421.2825 456.2859 432.6560 481.2070  595.670</code></pre>
 <p>We get a noticable gain by taking advantage of SIMD instructions here, although it’s worth noting that we don’t handle <code>NA</code> and <code>NaN</code> with the same granularity as <code>R</code>.</p>
 </div>
 <div id="simd-algorithms" class="section level2">
 <h2>SIMD Algorithms</h2>
+<div id="built-in-algorithms" class="section level3">
+<h3>Built-In Algorithms</h3>
 <p><code>Boost.SIMD</code> provides two primary abstractions for the implementation of SIMD algorithms:</p>
 <table>
 <thead>
@@ -312,8 +319,8 @@ printBm(bm)</code></pre>
 </table>
 <p><code>simdFor()</code> is useful in particular when neither <code>transform()</code> nor <code>accumulate()</code> seem to be a good fit.</p>
 </div>
-<div id="writing-simd-aware-algorithms" class="section level2">
-<h2>Writing SIMD-Aware Algorithms</h2>
+<div id="custom-algorithms" class="section level3">
+<h3>Custom Algorithms</h3>
 <p>To take advantage of <code>Boost.SIMD</code>, you should try to perform the following steps:</p>
 <ol style="list-style-type: decimal">
 <li>Decompose your problem into separate, vectorizable pieces,</li>
@@ -329,13 +336,22 @@ void operator()(const T&amp; data) {
 };</code></pre>
 <p>A reference guide for other functions provided is available <a href="http://nt2.metascale.fr/doc/html/boost_simd_functions_and_operators/reference.html">here</a>.</p>
 </div>
+</div>
 <div id="using-simd-in-an-r-package" class="section level2">
 <h2>Using SIMD in an R Package</h2>
+<p><strong>IMPORTANT NOTE</strong>: Support for Boost.SIMD is currently only available in the development version of RcppParallel. Therefore, packages using Boost.SIMD should not yet be submitted to CRAN.</p>
+<div id="package-configuration" class="section level3">
+<h3>Package Configuration</h3>
 <p>To build an R package that uses <code>Boost.SIMD</code>, you need to make some modifications to the standard <code>RcppParallel</code> configuration. Within the <code>DESCRIPTION</code> file of your package, you need to:</p>
 <ol style="list-style-type: decimal">
 <li>Add the <a href="https://cran.r-project.org/package=BH"><strong>BH</strong></a> package as a <code>LinkingTo</code> dependency, and</li>
 <li>Add <code>C++11</code> as a <code>SystemRequirement</code>.</li>
 </ol>
+<p>For example:</p>
+<pre class="yaml"><code>Imports: RcppParallel
+LinkingTo: RcppParallel, BH
+SystemRequirements: GNU make, C++11</code></pre>
+</div>
 <div id="platform-compatibility" class="section level3">
 <h3>Platform Compatibility</h3>
 <p><code>Boost.SIMD</code> requires a C++11 conformant compiler. This means that packages making use of SIMD features may not compile on platforms with older compilers, including Windows and RedHat/CentOS Linux. You can however create a package that takes advantage of <code>Boost.SIMD</code> where available and falls back to a non-SIMD implementation otherwise.</p>

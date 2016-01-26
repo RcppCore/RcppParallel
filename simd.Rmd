@@ -3,7 +3,13 @@ title: Parallel Programming with Boost.SIMD
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(eval = FALSE)
+knitr::opts_chunk$set(eval = TRUE)
+```
+
+**IMPORTANT NOTE**: Support for Boost.SIMD is currently only available in the development version of RcppParallel. You can install the development version as follows:
+
+```r
+devtools::install_github("RcppCore/RcppParallel")
 ```
 
 ## Introduction 
@@ -102,6 +108,8 @@ handle `NA` and `NaN` with the same granularity as `R`.
 
 ## SIMD Algorithms
 
+### Built-In Algorithms
+
 `Boost.SIMD` provides two primary abstractions for the
 implementation of SIMD algorithms:
 
@@ -129,7 +137,7 @@ for consistency with `parallelFor()` and `parallelReduce()`:
 `simdFor()` is useful in particular when neither `transform()`
 nor `accumulate()` seem to be a good fit.
 
-## Writing SIMD-Aware Algorithms
+### Custom Algorithms
 
 To take advantage of `Boost.SIMD`, you should try to perform
 the following steps:
@@ -160,6 +168,10 @@ A reference guide for other functions provided is available
 
 ## Using SIMD in an R Package
 
+**IMPORTANT NOTE**: Support for Boost.SIMD is currently only available in the development version of RcppParallel. Therefore, packages using Boost.SIMD should not yet be submitted to CRAN.
+
+### Package Configuration
+
 To build an R package that uses `Boost.SIMD`, you need to
 make some modifications to the standard `RcppParallel`
 configuration. Within the `DESCRIPTION` file of your package,
@@ -168,6 +180,14 @@ you need to:
 1. Add the [**BH**](https://cran.r-project.org/package=BH)
    package as a `LinkingTo` dependency, and
 2. Add `C++11` as a `SystemRequirement`.
+
+For example:
+
+```yaml
+Imports: RcppParallel
+LinkingTo: RcppParallel, BH
+SystemRequirements: GNU make, C++11
+```
 
 ### Platform Compatibility
 
