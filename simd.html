@@ -188,9 +188,9 @@ div.tocify {
     </div>
     <div id="navbar" class="navbar-collapse collapse">
       <ul class="nav navbar-nav">
-        <li><a href="/">Home</a></li>
-        <li><a href="/tbb.html">Intel TBB</a></li>
-        <li><a href="/simd.html">Boost.SIMD</a></li>
+        <li><a href="/RcppParallel/">Home</a></li>
+        <li><a href="/RcppParallel/tbb.html">Intel TBB</a></li>
+        <li><a href="/RcppParallel/simd.html">Boost.SIMD</a></li>
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li><a href="https://github.com/RcppCore/RcppParallel">GitHub</a></li>
@@ -265,9 +265,9 @@ all.equal(simd_sum(data), sum(data))</code></pre>
 library(microbenchmark)
 bm &lt;- microbenchmark(sum(data), simd_sum(data))
 printBm(bm)</code></pre>
-<pre><code>##            expr     min       lq     mean   median       uq      max
-##       sum(data) 824.013 836.9370 880.5446 870.0565 909.2475 1300.552
-##  simd_sum(data) 416.062 421.2825 456.2859 432.6560 481.2070  595.670</code></pre>
+<pre><code>##            expr     min       lq     mean  median       uq      max
+##       sum(data) 823.726 827.4340 846.9709 830.145 851.2580 1001.058
+##  simd_sum(data) 416.901 418.5855 430.5362 419.423 421.4735  577.842</code></pre>
 <p>We get a noticable gain by taking advantage of SIMD instructions here, although it’s worth noting that we don’t handle <code>NA</code> and <code>NaN</code> with the same granularity as <code>R</code>.</p>
 </div>
 <div id="simd-algorithms" class="section level2">
