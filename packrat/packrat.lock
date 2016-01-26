@@ -189,12 +189,12 @@ Requires: Rcpp, plyr, stringr
 Package: rmarkdown
 Source: github
 Version: 0.9.5
-Hash: 0ca42cb5542afabe8d8982e2cca458e6
+Hash: cb59ed72c50ca39320f949a32b969203
 Requires: caTools, htmltools, knitr, yaml
 GithubRepo: rmarkdown
 GithubUsername: rstudio
 GithubRef: master
-GithubSha1: e7a1e6b0321e986636b4422531e7fcd59271a047
+GithubSha1: ad4870c5ac14b8aeac0d86618899c6c2475f6517
 
 Package: rstudioapi
 Source: CRAN
