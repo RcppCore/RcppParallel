@@ -6,3 +6,5 @@ src-i386/
 src-x64/
 .Rprofile
 inst/doc
+
+/nt2

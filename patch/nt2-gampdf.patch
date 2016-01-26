@@ -1,0 +1,13 @@
+diff --git a/inst/include/nt2/statistics/functions/generic/gampdf.hpp b/inst/include/nt2/statistics/functions/generic/gampdf.hpp
+index 7f315b5..c2203da 100644
+--- a/inst/include/nt2/statistics/functions/generic/gampdf.hpp
++++ b/inst/include/nt2/statistics/functions/generic/gampdf.hpp
+@@ -30,7 +30,7 @@ namespace nt2 { namespace ext
+       {
+         BOOST_ASSERT_MSG(nt2::globalall(is_gtz(a1)), "shape must be strictly positive");
+         // the following formula must be worked out for accuracy
+-        return  nt2::exp( oneminus(a1)*nt2::log(a0)-a0-nt2::gammaln(a1)
++        return  nt2::exp( oneminus(a1)*nt2::log(a0)-a0-nt2::gammaln(a1) );
+ 
+       }
+   };

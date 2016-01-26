@@ -1,0 +1,20 @@
+diff --git a/inst/include/nt2/sdk/memory/container.hpp b/inst/include/nt2/sdk/memory/container.hpp
+index 7cf630a..2efb1b7 100644
+--- a/inst/include/nt2/sdk/memory/container.hpp
++++ b/inst/include/nt2/sdk/memory/container.hpp
+@@ -476,15 +476,6 @@ namespace nt2 { namespace memory
+                 , boost::mpl::true_ const&
+                 )
+     {
+-      using szt = typename meta::option < Settings
+-                                        , tag::storage_size_
+-                                        , Kind
+-                                        >::type::storage_size_type;
+-      BOOST_ASSERT_MSG
+-      ( nt2::numel(szs) <= szt::value
+-      , "Resizing over available storage size"
+-      );
+-
+       sizes_ = extent_type(szs);
+     }
+ 
