@@ -39,7 +39,7 @@
 #include <nt2/ieee/ieee.hpp>
 #include <nt2/integration/integration.hpp>
 #include <nt2/interpol/interpol.hpp>
-#include <nt2/linalg/linalg.hpp>
+// #include <nt2/linalg/linalg.hpp>
 #include <nt2/memory/memory.hpp>
 #include <nt2/operator/operator.hpp>
 #include <nt2/optimization/optimization.hpp>
