@@ -268,11 +268,49 @@ printBm(bm)</code></pre>
 <div id="simd-algorithms" class="section level2">
 <h2>SIMD Algorithms</h2>
 <p><code>Boost.SIMD</code> provides two primary abstractions for the implementation of SIMD algorithms:</p>
-<p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |—————————–|———————-| | <code>boost::simd::transform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>boost::simd::accumulate()</code> | <code>vector</code> -&gt; <code>scalar</code> |</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Algorithm</th>
+<th align="left">Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>boost::simd::transform()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>vector</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>boost::simd::accumulate()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>scalar</code></td>
+</tr>
+</tbody>
+</table>
 <p>These functions operate like their <code>std::</code> counterparts, but expect a functor with a templated call operator. By making the call operator templated, <code>Boost.SIMD</code> can generate code using its own optimized SIMD functions when appropriate, and fall back to a default implementation (based on the types provided) when not.</p>
 <p><code>RcppParallel</code> augments this with its own algorithms as well, for consistency with <code>parallelFor()</code> and <code>parallelReduce()</code>:</p>
-<p>{: .table .table-condensed .table-bordered} | Algorithm | Transformation | |———————————|———————-| | <code>RcppParallel::simdTransform()</code> | <code>vector</code> -&gt; <code>vector</code> | | <code>RcppParallel::simdReduce()</code> | <code>vector</code> -&gt; <code>scalar</code> | | <code>RcppParallel::simdFor()</code> | <code>vector</code> -&gt; <code>any</code> |</p>
-<p><code>simdFor()</code> is useful in particular when neither <code>transform()</code> nor <code>accumulate()</code> seem to be a good fit. An example using it to compute the variance for a vector of numbers is showcased <a href="%7B%7B%20site.baseurl%20%7D%7D/articles/simd-variance/">here</a>.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Algorithm</th>
+<th align="left">Transformation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><code>RcppParallel::simdTransform()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>vector</code></td>
+</tr>
+<tr class="even">
+<td align="left"><code>RcppParallel::simdReduce()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>scalar</code></td>
+</tr>
+<tr class="odd">
+<td align="left"><code>RcppParallel::simdFor()</code></td>
+<td align="left"><code>vector</code> -&gt; <code>any</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>simdFor()</code> is useful in particular when neither <code>transform()</code> nor <code>accumulate()</code> seem to be a good fit.</p>
 </div>
 <div id="writing-simd-aware-algorithms" class="section level2">
 <h2>Writing SIMD-Aware Algorithms</h2>
@@ -295,7 +333,7 @@ void operator()(const T&amp; data) {
 <h2>Using SIMD in an R Package</h2>
 <p>To build an R package that uses <code>Boost.SIMD</code>, you need to make some modifications to the standard <code>RcppParallel</code> configuration. Within the <code>DESCRIPTION</code> file of your package, you need to:</p>
 <ol style="list-style-type: decimal">
-<li>Add the <strong>BH</strong> package as a <code>LinkingTo</code> dependency, and</li>
+<li>Add the <a href="https://cran.r-project.org/package=BH"><strong>BH</strong></a> package as a <code>LinkingTo</code> dependency, and</li>
 <li>Add <code>C++11</code> as a <code>SystemRequirement</code>.</li>
 </ol>
 <div id="platform-compatibility" class="section level3">
@@ -334,7 +372,7 @@ IntegerVector transformData(IntegerVector x) {
 <h2>Learning More</h2>
 <p>If you want to dive deeper into <code>Boost.SIMD</code>, you can <a href="http://nt2.metascale.fr/doc/html/boost_simd.html">read the online documentation</a>, and also browse the examples <a href="https://github.com/RcppCore/RcppParallel/tree/master/inst/examples/boost-simd">here</a>.</p>
 <hr />
-<p>If you want to try out <code>Boost.SIMD</code> yourself, please install the development version of <a href="http://rcppcore.github.io/RcppParallel/"><code>RcppParallel</code></a> with <code>devtools::install_github(&quot;RcppCore/RcppParalel&quot;)</code>.</p>
+<p>If you want to try out <code>Boost.SIMD</code> yourself, please install the development version of <a href="http://rcppcore.github.io/RcppParallel/"><code>RcppParallel</code></a> with <code>devtools::install_github(&quot;RcppCore/RcppParallel&quot;)</code>.</p>
 </div>
 
 

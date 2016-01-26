@@ -105,7 +105,6 @@ handle `NA` and `NaN` with the same granularity as `R`.
 `Boost.SIMD` provides two primary abstractions for the
 implementation of SIMD algorithms:
 
-{: .table .table-condensed .table-bordered}
 | Algorithm                   | Transformation       |
 |-----------------------------|----------------------|
 | `boost::simd::transform()`  | `vector` -> `vector` |
@@ -121,7 +120,6 @@ provided) when not.
 `RcppParallel` augments this with its own algorithms as well,
 for consistency with `parallelFor()` and `parallelReduce()`:
 
-{: .table .table-condensed .table-bordered}
 | Algorithm                       | Transformation       |
 |---------------------------------|----------------------|
 | `RcppParallel::simdTransform()` | `vector` -> `vector` |
@@ -129,9 +127,7 @@ for consistency with `parallelFor()` and `parallelReduce()`:
 | `RcppParallel::simdFor()`       | `vector` -> `any`    |
 
 `simdFor()` is useful in particular when neither `transform()`
-nor `accumulate()` seem to be a good fit. An example using it
-to compute the variance for a vector of numbers is showcased
-[here]({{ site.baseurl }}/articles/simd-variance/).
+nor `accumulate()` seem to be a good fit.
 
 ## Writing SIMD-Aware Algorithms
 
@@ -169,7 +165,8 @@ make some modifications to the standard `RcppParallel`
 configuration. Within the `DESCRIPTION` file of your package,
 you need to:
 
-1. Add the **BH** package as a `LinkingTo` dependency, and
+1. Add the [**BH**](https://cran.r-project.org/package=BH)
+   package as a `LinkingTo` dependency, and
 2. Add `C++11` as a `SystemRequirement`.
 
 ### Platform Compatibility
@@ -240,4 +237,4 @@ and also browse the examples
 If you want to try out `Boost.SIMD` yourself, please 
 install the development version of 
 [`RcppParallel`](http://rcppcore.github.io/RcppParallel/)
-with `devtools::install_github("RcppCore/RcppParalel")`.
+with `devtools::install_github("RcppCore/RcppParallel")`.
