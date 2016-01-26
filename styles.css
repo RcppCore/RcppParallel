@@ -13,6 +13,18 @@ body {
   padding-top: 55px;
   margin-top: -55px;
 }
+.section h4 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
+.section h5 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
+.section h6 {
+  padding-top: 55px;
+  margin-top: -55px;
+}
 
 blockquote {
   font-size: 1em;
