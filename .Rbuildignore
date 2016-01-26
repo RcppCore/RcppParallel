@@ -11,3 +11,4 @@
 ^src/.*\.o$
 ^gen/
 ^nt2/
+^patch/
