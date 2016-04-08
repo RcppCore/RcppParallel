@@ -62,6 +62,8 @@ ifeq ($(USE_TBB),  SunOS)
    endif
 endif
 
+COMPILER  = $(shell basename $(CC))
+
 .PHONY: all tbb
 
 # Order is important in Windows' case. See PKG_LIBS above
@@ -70,9 +72,9 @@ all: tbb $(SHLIB)
 tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
-	if [[ "$(CC)" == clang* ]]; then \
+	if [ "$(COMPILER:0:5)" = "clang" ]; then \
 	   $(MAKE_CMD) cpp0x=1 compiler=clang $(MAKE_ARGS); \
-	elif [[ "$(CC)" == *gcc* ]]; then \
+	elif [ "$(COMPILER:0:3)" = "gcc" ]; then \
 	   $(MAKE_CMD) cpp0x=1 compiler=gcc $(MAKE_ARGS); \
 	else \
 	   $(MAKE_CMD) cpp0x=1 $(MAKE_ARGS); \
