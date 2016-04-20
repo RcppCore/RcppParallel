@@ -8,7 +8,7 @@ ifeq ($(OS), Windows_NT)
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
   
-  MAKE_CMD = CONLY="$(firstword $(CC))" CPLUS="$(firstword $(CXX1X))" make
+  MAKE_CMD = CONLY="$(CC)" CPLUS="$(CXX1X)" make
 
 else
   
