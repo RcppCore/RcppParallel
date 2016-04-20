@@ -1,12 +1,14 @@
-
-PKG_CPPFLAGS += $(CXX1XSTD) -I../inst/include/ 
+# Calls to 'firstword' are used to strip out
+# a possible '-m64' attached to the CC variable
+# (or other compiler arguments)
+PKG_CPPFLAGS += $(CXX1XSTD) -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
   
-  MAKE_CMD = CONLY="$(CC)" CPLUS="$(CXX1X)" make
+  MAKE_CMD = CONLY="$(firstword $(CC))" CPLUS="$(firstword $(CXX1X))" make
 
 else
   
@@ -70,9 +72,9 @@ all: tbb $(SHLIB)
 tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
-	if [[ "$(CC)" == clang* ]]; then \
+	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
 	   $(MAKE_CMD) cpp0x=1 compiler=clang $(MAKE_ARGS); \
-	elif [[ "$(CC)" == *gcc* ]]; then \
+	elif [ -n "$(shell echo $(CC) | grep gcc)" ]; then \
 	   $(MAKE_CMD) cpp0x=1 compiler=gcc $(MAKE_ARGS); \
 	else \
 	   $(MAKE_CMD) cpp0x=1 $(MAKE_ARGS); \
