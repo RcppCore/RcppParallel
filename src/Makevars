@@ -6,7 +6,7 @@ ifeq ($(OS), Windows_NT)
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
   
-  MAKE_CMD = PATH="$(shell cygpath $(dir $(CC))):$(PATH)" make
+  MAKE_CMD = CONLY="$(CC)" CPLUS="$(CXX1X)" make
 
 else
   
@@ -41,10 +41,10 @@ ifeq ($(USE_TBB),  Windows)
   # compiler: overwrite default (which is cl = MS compiler)
   MAKE_ARGS += rtools=true compiler=gcc
   ifeq ("$(WIN)", "64")
-    # TBB defaults to ia32
     MAKE_ARGS += arch=intel64
     ARCH_DIR=x64/
   else
+    MAKE_ARGS += arch=ia32
     ARCH_DIR=i386/
   endif
 
