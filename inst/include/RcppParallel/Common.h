@@ -21,6 +21,7 @@ struct Worker
    virtual void operator()(std::size_t begin, std::size_t end) = 0;   
    
    // disable copying and assignment
+private:
    Worker(const Worker&);
    void operator=(const Worker&);
 };
