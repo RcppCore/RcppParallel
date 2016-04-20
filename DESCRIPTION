@@ -2,7 +2,6 @@ Package: RcppParallel
 Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
 Version: 4.3.18
-Date: 2016-01-12
 Authors@R: c(
     person("JJ", "Allaire", role = c("aut", "cre"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
@@ -17,6 +16,7 @@ Authors@R: c(
     person(family = "UMR 8623 CNRS/Univ Paris Sud XI", role = "cph",
       comment = "Boost.SIMD library, https://www.lri.fr/~falcou/pub/pact-2012.pdf")
     )
+Maintainer: Kevin Ushey <kevin@rstudio.com>
 Description: High level functions for doing parallel programming with 'Rcpp'.
   For example, the parallelFor() function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce() 
