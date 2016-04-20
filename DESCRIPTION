@@ -3,8 +3,9 @@ Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
 Version: 4.3.18
 Authors@R: c(
-    person("JJ", "Allaire", role = c("aut", "cre"), email = "jj@rstudio.com"),
+    person("JJ", "Allaire", role = c("aut"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
+    person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com"),
     person("Gregory", "Vandenbrouck", role = "aut"),
     person("Marcus", "Geelnard", role = c("aut", "cph"),
        comment = "TinyThread library, http://tinythreadpp.bitsnbites.eu/"),
@@ -16,7 +17,6 @@ Authors@R: c(
     person(family = "UMR 8623 CNRS/Univ Paris Sud XI", role = "cph",
       comment = "Boost.SIMD library, https://www.lri.fr/~falcou/pub/pact-2012.pdf")
     )
-Maintainer: Kevin Ushey <kevin@rstudio.com>
 Description: High level functions for doing parallel programming with 'Rcpp'.
   For example, the parallelFor() function can be used to convert the work of 
   a standard serial "for" loop into a parallel one and the parallelReduce() 
