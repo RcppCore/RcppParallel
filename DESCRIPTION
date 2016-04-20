@@ -35,4 +35,3 @@ Collate:
    'build.R'
    'hooks.R'
    'options.R'
-VignetteBuilder: knitr
