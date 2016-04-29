@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -92,13 +92,13 @@ endef
 LINK_FILES+=$(TEST_LIBS)
 # Rule for generating executable test
 %.$(TEST_EXT): %.$(OBJ) $(TEST_LIBS) $(TEST_PREREQUISITE) $(if $(use_proxy),$(PROXY.LIB))
-	$(call make-test-binary,$@,$< $(LINK_FILES))
+	$(call make-test-binary,$@,$< $(LINK_FILES) $(PIE_FLAG))
 
 # Rules for generating a test DLL
 %_dll.$(DLL): LINK_FLAGS += $(PIC_KEY) $(DYLIB_KEY)
 %_dll.$(DLL): TEST_LIBS := $(subst %_dll.$(DLL),,$(TEST_LIBS))
 %_dll.$(DLL): %_dll.$(OBJ)
-	$(call make-test-binary,$@,$< $(subst %_dll.$(DLL),,$(LINK_FILES)))
+	$(call make-test-binary,$@,$< $(LINK_FILES))
 .PRECIOUS: %_dll.$(OBJ) %_dll.$(DLL)
 
 %.$(OBJ): %.c
@@ -110,12 +110,6 @@ LINK_FILES+=$(TEST_LIBS)
 %.$(OBJ): %.s
 	cpp <$< | grep -v '^#' >$*.tmp
 	$(ASM) $(ASM_FLAGS) -o $@ $*.tmp
-
-ifdef rtools
-# Line 70 doesn't work with rtool's version of make. The symptom being that the asm rule kicks off instead, and these rules are cl only
-%.$(OBJ): %.cpp
-	$(CPLUS) $(OUTPUTOBJ_KEY)$@ $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $<
-endif
 
 # Rule for generating .E file if needed for visual inspection
 # Note that due to mapping for ICL all uses of PREPROC_ONLY should be immediately followed by a file name

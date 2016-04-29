@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -129,7 +129,7 @@ inline bool lessThanWithOverflow(intptr_t a, intptr_t b)
 /* ----------------------------------- Operation processing methods ------------------------------------ */
 
 template<typename Props> void LargeObjectCacheImpl<Props>::CacheBin::CacheBinFunctor::
-    OperationPreprocessor::commitOperation(CacheBinOperation *op) const 
+    OperationPreprocessor::commitOperation(CacheBinOperation *op) const
 {
     FencedStore( (intptr_t&)(op->status), CBST_DONE );
 }
@@ -432,6 +432,7 @@ template<typename Props> LargeMemoryBlock *LargeObjectCacheImpl<Props>::
     size_t size = head->unalignedSize;
     usedSize -= num*size;
     MALLOC_ASSERT( !last || (last->age != 0 && last->age != -1U), ASSERT_TEXT );
+    MALLOC_ASSERT( (tail==head && num==1) || (tail!=head && num>1), ASSERT_TEXT );
     LargeMemoryBlock *toRelease = NULL;
     if (!lastCleanedAge) {
         // 1st object of such size was released.
@@ -448,6 +449,7 @@ template<typename Props> LargeMemoryBlock *LargeObjectCacheImpl<Props>::
     }
     if (num) {
         // add [head;tail] list to cache
+        MALLOC_ASSERT( tail, ASSERT_TEXT );
         tail->next = first;
         if (first)
             first->prev = tail;
@@ -746,7 +748,7 @@ void LargeObjectCache::rollbackCacheState(size_t size)
         hugeCache.rollbackCacheState(extMemPool, size);
 }
 
-// return artifical bin index, it's used only during sorting and never saved
+// return artificial bin index, it's used only during sorting and never saved
 int LargeObjectCache::sizeToIdx(size_t size)
 {
     MALLOC_ASSERT(size < maxHugeSize, ASSERT_TEXT);
@@ -817,8 +819,7 @@ LargeMemoryBlock *LargeObjectCache::get(size_t size)
     return NULL;
 }
 
-
-LargeMemoryBlock *ExtMemoryPool::mallocLargeObject(size_t allocationSize)
+LargeMemoryBlock *ExtMemoryPool::mallocLargeObject(MemoryPool *pool, size_t allocationSize)
 {
 #if __TBB_MALLOC_LOCACHE_STAT
     AtomicIncrement(mallocCalls);
@@ -838,6 +839,7 @@ LargeMemoryBlock *ExtMemoryPool::mallocLargeObject(size_t allocationSize)
             return NULL;
         }
         lmb->backRefIdx = backRefIdx;
+        lmb->pool = pool;
         STAT_increment(getThreadId(), ThreadCommonCounters, allocNewLargeObj);
     } else {
 #if __TBB_MALLOC_LOCACHE_STAT

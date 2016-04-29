@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -47,83 +47,89 @@ struct queue_and_mutex {
     ~queue_and_mutex () {}
 };
 
-const uintptr_t one = 1;
+typedef uintptr_t population_t;
+const population_t one = 1;
 
-inline void set_one_bit( uintptr_t& dest, int pos ) {
+inline void set_one_bit( population_t& dest, int pos ) {
     __TBB_ASSERT( pos>=0, NULL );
-    __TBB_ASSERT( pos<32, NULL );
+    __TBB_ASSERT( pos<int(sizeof(population_t)*CHAR_BIT), NULL );
     __TBB_AtomicOR( &dest, one<<pos );
 }
 
-inline void clear_one_bit( uintptr_t& dest, int pos ) {
+inline void clear_one_bit( population_t& dest, int pos ) {
     __TBB_ASSERT( pos>=0, NULL );
-    __TBB_ASSERT( pos<32, NULL );
+    __TBB_ASSERT( pos<int(sizeof(population_t)*CHAR_BIT), NULL );
     __TBB_AtomicAND( &dest, ~(one<<pos) );
 }
 
-inline bool is_bit_set( uintptr_t val, int pos ) {
+inline bool is_bit_set( population_t val, int pos ) {
     __TBB_ASSERT( pos>=0, NULL );
-    __TBB_ASSERT( pos<32, NULL );
+    __TBB_ASSERT( pos<int(sizeof(population_t)*CHAR_BIT), NULL );
     return (val & (one<<pos)) != 0;
 }
 
 //! The container for "fairness-oriented" aka "enqueued" tasks.
+template<int Levels>
 class task_stream : no_copy {
     typedef queue_and_mutex <task*, spin_mutex> lane_t;
-    uintptr_t population;
-    padded<lane_t>* lanes;
+    population_t population[Levels];
+    padded<lane_t>* lanes[Levels];
     unsigned N;
 
 public:
-    task_stream() : population(), lanes()
-    {
+    task_stream() : N() {
+        for(int level = 0; level < Levels; level++) {
+            population[level] = 0;
+            lanes[level] = NULL;
+        }
     }
 
     void initialize( unsigned n_lanes ) {
-        const unsigned max_lanes =
-#if __TBB_MORE_FIFO_LANES
-                sizeof(population) * CHAR_BIT;
-#else
-                32;
-#endif
+        const unsigned max_lanes = sizeof(population_t) * CHAR_BIT;
+
         N = n_lanes>=max_lanes ? max_lanes : n_lanes>2 ? 1<<(__TBB_Log2(n_lanes-1)+1) : 2;
         __TBB_ASSERT( N==max_lanes || N>=n_lanes && ((N-1)&N)==0, "number of lanes miscalculated");
-        __TBB_ASSERT( N <= sizeof(population) * CHAR_BIT, NULL );
-        lanes = new padded<lane_t>[N];
-        __TBB_ASSERT( !population, NULL );
+        __TBB_ASSERT( N <= sizeof(population_t) * CHAR_BIT, NULL );
+        for(int level = 0; level < Levels; level++) {
+            lanes[level] = new padded<lane_t>[N];
+            __TBB_ASSERT( !population[level], NULL );
+        }
     }
 
-    ~task_stream() { if (lanes) delete[] lanes; }
+    ~task_stream() {
+        for(int level = 0; level < Levels; level++)
+            if (lanes[level]) delete[] lanes[level];
+    }
 
     //! Push a task into a lane.
-    void push( task* source, FastRandom& random ) {
+    void push( task* source, int level, FastRandom& random ) {
         // Lane selection is random. Each thread should keep a separate seed value.
         unsigned idx;
         for( ; ; ) {
             idx = random.get() & (N-1);
             spin_mutex::scoped_lock lock;
-            if( lock.try_acquire(lanes[idx].my_mutex) ) {
-                lanes[idx].my_queue.push_back(source);
-                set_one_bit( population, idx ); //TODO: avoid atomic op if the bit is already set
+            if( lock.try_acquire(lanes[level][idx].my_mutex) ) {
+                lanes[level][idx].my_queue.push_back(source);
+                set_one_bit( population[level], idx ); //TODO: avoid atomic op if the bit is already set
                 break;
             }
         }
     }
 
     //! Try finding and popping a task.
-    task* pop( unsigned& last_used_lane ) {
+    task* pop( int level, unsigned& last_used_lane ) {
         task* result = NULL;
         // Lane selection is round-robin. Each thread should keep its last used lane.
         unsigned idx = (last_used_lane+1)&(N-1);
-        for( ; population; idx=(idx+1)&(N-1) ) {
-            if( is_bit_set( population, idx ) ) {
-                lane_t& lane = lanes[idx];
+        for( ; population[level]; idx=(idx+1)&(N-1) ) {
+            if( is_bit_set( population[level], idx ) ) {
+                lane_t& lane = lanes[level][idx];
                 spin_mutex::scoped_lock lock;
                 if( lock.try_acquire(lane.my_mutex) && !lane.my_queue.empty() ) {
                     result = lane.my_queue.front();
                     lane.my_queue.pop_front();
                     if( lane.my_queue.empty() )
-                        clear_one_bit( population, idx );
+                        clear_one_bit( population[level], idx );
                     break;
                 }
             }
@@ -133,8 +139,8 @@ public:
     }
 
     //! Checks existence of a task.
-    bool empty() {
-        return !population;
+    bool empty(int level) {
+        return !population[level];
     }
 
     //! Destroys all remaining tasks in every lane. Returns the number of destroyed tasks.
@@ -142,18 +148,20 @@ public:
         The scheduler is really expected to execute all tasks before task_stream destruction. */
     intptr_t drain() {
         intptr_t result = 0;
-        for(unsigned i=0; i<N; ++i) {
-            lane_t& lane = lanes[i];
-            spin_mutex::scoped_lock lock(lane.my_mutex);
-            for(lane_t::queue_base_t::iterator it=lane.my_queue.begin();
-                it!=lane.my_queue.end(); ++it, ++result)
-            {
-                task* t = *it;
-                tbb::task::destroy(*t);
+        for(int level = 0; level < Levels; level++)
+            for(unsigned i=0; i<N; ++i) {
+                lane_t& lane = lanes[level][i];
+                spin_mutex::scoped_lock lock(lane.my_mutex);
+                for(lane_t::queue_base_t::iterator it=lane.my_queue.begin();
+                    it!=lane.my_queue.end(); ++it, ++result)
+                {
+                    __TBB_ASSERT( is_bit_set( population[level], i ), NULL );
+                    task* t = *it;
+                    tbb::task::destroy(*t);
+                }
+                lane.my_queue.clear();
+                clear_one_bit( population[level], i );
             }
-            lane.my_queue.clear();
-            clear_one_bit( population, i );
-        }
         return result;
     }
 }; // task_stream

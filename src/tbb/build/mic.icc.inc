@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -25,6 +25,11 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -w1
+# Several options (e.g. -opt-streaming-stores) were deprecated in Intel(R) Compiler 15.0.
+# When Intel(R) Compiler 14.0 support is dropped consider enabling remark 10009 and replacing deprecated options with
+# new ones (e.g. -qopt-streaming-stores never).
+WARNING_SUPPRESS = -diag-disable 10009
+TEST_WARNING_KEY = -diag-disable 10009
 DYLIB_KEY = -shared -Wl,-soname=$@
 EXPORT_KEY = -Wl,--version-script,
 NOINTRINSIC_KEY = -fno-builtin
@@ -43,8 +48,13 @@ ifneq (,$(codecov))
     CPLUS_FLAGS += -prof-genx
 endif
 
+ifneq (,$(shell icc -dumpversion | egrep  "^1[6-9]\."))
+OPENMP_FLAG = -qopenmp
+else
 OPENMP_FLAG = -openmp
-LIB_LINK_FLAGS = -shared -i-static -Wl,-soname=$(BUILDING_LIBRARY)
+endif
+
+LIB_LINK_FLAGS = -shared -static-intel -Wl,-soname=$(BUILDING_LIBRARY)
 LIBS += -lpthread -lrt
 C_FLAGS = $(CPLUS_FLAGS)
 CPP11_FLAGS = -std=c++0x -D_TBB_CPP0X
@@ -63,8 +73,6 @@ CONLY += -mmic
 LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
 # Tell the icc to not link against libcilk*. Otherwise icc tries to link and emits a warning message.
 LIB_LINK_FLAGS += -no-intel-extensions
-# Do not depend on libirc etc dynamic libs. It makes 'native' execution easier for the users.
-LIB_LINK_FLAGS += -static-intel
 
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -35,8 +35,29 @@
     #include <initializer_list>
 #endif
 
+#if __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT
+    #include <type_traits>
+#endif
+
 namespace tbb {
 namespace interface5 {
+namespace internal {
+#if __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT
+    template<typename T, bool C = std::is_copy_constructible<T>::value>
+    struct use_element_copy_constructor {
+        typedef tbb::internal::true_type type;
+    };
+    template<typename T>
+    struct use_element_copy_constructor <T,false> {
+        typedef tbb::internal::false_type type;
+    };
+#else
+    template<typename>
+    struct use_element_copy_constructor {
+        typedef tbb::internal::true_type type;
+    };
+#endif
+} // namespace internal
 
 using namespace tbb::internal;
 
@@ -210,6 +231,9 @@ class concurrent_priority_queue {
     //! Pushes elem onto the queue, increasing capacity of queue if necessary
     /** This operation can be safely used concurrently with other push, try_pop or emplace operations. */
     void push(const_reference elem) {
+#if __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT
+        __TBB_STATIC_ASSERT( std::is_copy_constructible<value_type>::value, "The type is not copy constructible. Copying push operation is impossible." );
+#endif
         cpq_operation op_data(elem, PUSH_OP);
         my_aggregator.execute(&op_data);
         if (op_data.status == FAILED) // exception thrown
@@ -363,7 +387,7 @@ class concurrent_priority_queue {
                 __TBB_ASSERT(tmp->type == PUSH_OP || tmp->type == PUSH_RVALUE_OP, "Unknown operation" );
                 __TBB_TRY{
                     if (tmp->type == PUSH_OP) {
-                        data.push_back(*(tmp->elem));
+                        push_back_helper(*(tmp->elem), typename internal::use_element_copy_constructor<value_type>::type());
                     } else {
                         data.push_back(move(*(tmp->elem)));
                     }
@@ -445,6 +469,14 @@ class concurrent_priority_queue {
             data[cur_pos] = move(data[data.size()-1]);
         data.pop_back();
         if (mark > data.size()) mark = data.size();
+    }
+
+    void push_back_helper(const T& t, tbb::internal::true_type) {
+        data.push_back(t);
+    }
+
+    void push_back_helper(const T&, tbb::internal::false_type) {
+        __TBB_ASSERT( false, "The type is not copy constructible. Copying push operation is impossible." );
     }
 };
 

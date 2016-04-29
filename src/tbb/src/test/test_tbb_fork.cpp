@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -98,9 +98,57 @@ public:
     AllocTask() {}
 };
 
+/* Regression test against data race between termination of workers
+   and setting blocking terination mode in main thread. */
+class RunWorkersBody : NoAssign {
+    bool wait_workers;
+public:
+    RunWorkersBody(bool waitWorkers) : wait_workers(waitWorkers) {}
+    void operator()(const int /*threadID*/) const {
+        tbb::task_scheduler_init sch(MaxThread, 0, wait_workers);
+        tbb::parallel_for(tbb::blocked_range<int>(0, 10000, 1), AllocTask(),
+                          tbb::simple_partitioner());
+    }
+};
+
+void TestBlockNonblock()
+{
+    for (int i=0; i<100; i++) {
+        REMARK("\rIteration %d ", i);
+        NativeParallelFor(4, RunWorkersBody(/*wait_workers=*/false));
+        RunWorkersBody(/*wait_workers=*/true)(0);
+    }
+}
+
+class RunInNativeThread : NoAssign {
+    bool create_tsi;
+public:
+    RunInNativeThread(bool create_tsi_) : create_tsi(create_tsi_) {}
+    void operator()(const int /*threadID*/) const {
+        // nested TSI or auto-initialized TSI can be terminated when
+        // wait_workers is true (deferred TSI means auto-initialization)
+        tbb::task_scheduler_init tsi(create_tsi? 2 :
+                                     tbb::task_scheduler_init::deferred);
+        tbb::parallel_for(tbb::blocked_range<int>(0, 10000, 1), AllocTask(),
+                              tbb::simple_partitioner());
+    }
+};
+
+void TestTasksInThread()
+{
+    tbb::task_scheduler_init sch(2, 0, /*wait_workers=*/true);
+    tbb::parallel_for(tbb::blocked_range<int>(0, 10000, 1), AllocTask(),
+                      tbb::simple_partitioner());
+    for (int i=0; i<2; i++)
+        NativeParallelFor(2, RunInNativeThread(/*create_tsi=*/1==i));
+}
+
 int TestMain()
 {
     using namespace Harness;
+
+    TestBlockNonblock();
+    TestTasksInThread();
 
     bool child = false;
 #if _WIN32||_WIN64

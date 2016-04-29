@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@
 
 #if __linux__ || __APPLE__ || __sun
 #include <unistd.h>
-#elif _WIN32 
+#elif _WIN32
 #include "tbb/machine/windows_api.h"
 #endif /* OS specific */
 #include <memory>
@@ -41,8 +41,7 @@
 #endif
 
 #include <stdexcept>
-
-#include <utility>    // for std::swap
+#include <algorithm>  // std::swap
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
@@ -61,9 +60,16 @@ using std::printf;
 #if defined(_Wp64)
     #pragma warning (disable: 4267)
 #endif
+#if _MSC_VER <= 1600
+    #pragma warning (disable: 4355)
+#endif
+#if _MSC_VER <= 1800
     #pragma warning (disable: 4512)
 #endif
+#endif
 
+#if TBB_INTERFACE_VERSION >= 7005
+// Allocator traits were introduced in 4.2 U5
 namespace Harness {
 #if __TBB_ALLOCATOR_TRAITS_PRESENT
     using std::true_type;
@@ -73,6 +79,7 @@ namespace Harness {
     using tbb::internal::false_type;
 #endif //__TBB_ALLOCATOR_TRAITS_PRESENT
 }
+#endif
 
 template<typename counter_type = size_t>
 struct arena_data  {
@@ -136,9 +143,7 @@ public:
         char* p = reinterpret_cast<char*>(p_arg);
         __TBB_ASSERT(p >=my_data->my_buffer && p <= my_data->my_buffer + my_data->my_size, "trying to deallocate pointer not from arena ?");
         __TBB_ASSERT(p + n*sizeof(T) <= my_data->my_buffer + my_data->my_size, "trying to deallocate incorrect number of items?");
-        tbb::internal::suppress_unused_warning(p_arg);
-        tbb::internal::suppress_unused_warning(p);
-        tbb::internal::suppress_unused_warning(n);
+        tbb::internal::suppress_unused_warning(p, n);
     }
 
     //! Largest value for which method allocate might succeed.
@@ -161,9 +166,8 @@ public:
     //! Destroy value at location pointed to by p.
     void destroy( pointer p ) {
         p->~value_type();
-#if _MSC_VER == 1800
+        // suppress "unreferenced parameter" warnings by MSVC up to and including 2015
         tbb::internal::suppress_unused_warning(p);
-#endif
     }
 
     friend bool operator==(arena const& lhs, arena const& rhs){
@@ -220,7 +224,7 @@ public:
     static_counting_allocator(const base_alloc_t& src) throw()
     : base_alloc_t(src) { }
 
-    static_counting_allocator(const static_counting_allocator& src) throw() 
+    static_counting_allocator(const static_counting_allocator& src) throw()
     : base_alloc_t(src) { }
 
     template<typename U, typename C>
@@ -236,9 +240,10 @@ public:
                 __TBB_THROW( std::bad_alloc() );
             return NULL;
         }
+        pointer p = base_alloc_t::allocate(n, pointer(0));
         allocations++;
         items_allocated += n;
-        return base_alloc_t::allocate(n, pointer(0));
+        return p;
     }
 
     pointer allocate(const size_type n, const void * const)
@@ -472,9 +477,10 @@ public:
     {
         if(max_items && items_allocated + n >= max_items)
             __TBB_THROW( std::bad_alloc() );
+        pointer p = base_alloc_t::allocate(n, pointer(0));
         ++allocations;
         items_allocated += n;
-        return base_alloc_t::allocate(n, pointer(0));
+        return p;
     }
 
     pointer allocate(const size_type n, const void * const)
@@ -522,7 +528,7 @@ public:
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
 /** @ingroup memory_allocation */
-template<template<typename T> class Allocator> 
+template<template<typename T> class Allocator>
 class debug_allocator<void, Allocator> : public Allocator<void> {
 public:
     typedef Allocator<void> base_allocator_type;
@@ -579,10 +585,10 @@ public:
 
 };
 
-#if defined(_MSC_VER)
-    // Workaround for overzealous compiler warnings in /Wp64 mode
+#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
+    // Workaround for overzealous compiler warnings
     #pragma warning (pop)
-#endif // warning 4267,4512 is back
+#endif // warning 4267,4512,4355 is back
 
 namespace Harness {
 
@@ -592,6 +598,11 @@ namespace Harness {
         static bool compare( const std::weak_ptr<T> &t1, const std::weak_ptr<T> &t2 ) {
             // Compare real pointers.
             return t1.lock().get() == t2.lock().get();
+        }
+        template <typename T>
+        static bool compare( const std::unique_ptr<T> &t1, const std::unique_ptr<T> &t2 ) {
+            // Compare real values.
+            return *t1 == *t2;
         }
         template <typename T1, typename T2>
         static bool compare( const std::pair< const std::weak_ptr<T1>, std::weak_ptr<T2> > &t1,

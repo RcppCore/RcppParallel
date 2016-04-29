@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -36,9 +36,9 @@ int TestMain () {
 // dynamic_link initializes its data structures in a static constructor. But
 // the initialization order of static constructors in different modules is
 // non-deterministic. Thus dynamic_link fails on some systems when the
-// applicaton changes its current directory after the library (TBB/OpenMP/...)
+// application changes its current directory after the library (TBB/OpenMP/...)
 // is loaded but before the static constructors in the library are executed.
-#define CHDIR_SUPPORT_BROKEN ( __GNUC__ == 4 && __GNUC_MINOR__ >= 6 && __GNUC_MINOR__ <= 8 )
+#define CHDIR_SUPPORT_BROKEN ( (__TBB_GCC_VERSION >= 40600 && __TBB_GCC_VERSION < 50200) || (__linux__ && __TBB_CLANG_VERSION == 30500) )
 
 const int OMP_ParallelRegionSize = 16;
 int TBB_MaxThread = 4;           // Includes master

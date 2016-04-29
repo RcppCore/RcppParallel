@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -126,32 +126,41 @@ void TestAlignedMsize()
     const int NUM = 4;
     char *p[NUM];
     size_t objSizes[NUM];
-    size_t allocSz[] = {8, 512, 2*1024, 4*2024, 8*1024, 0};
+    size_t allocSz[] = {4, 8, 512, 2*1024, 4*1024, 8*1024, 16*1024, 0};
+    size_t align[] = {8, 512, 2*1024, 4*1024, 8*1024, 16*1024, 0};
 
-    for (int s=0; allocSz[s]; s++) {
-        for (int i=0; i<NUM; i++)
-            p[i] = (char*)scalable_aligned_malloc(16, allocSz[s]);
+    for (int a=0; align[a]; a++)
+        for (int s=0; allocSz[s]; s++) {
+            for (int i=0; i<NUM; i++) {
+                p[i] = (char*)scalable_aligned_malloc(allocSz[s], align[a]);
+                ASSERT(is_aligned(p[i], align[a]), NULL);
+            }
 
-        for (int i=0; i<NUM; i++) {
-            objSizes[i] = scalable_msize(p[i]);
-            memset(p[i], i, objSizes[i]);
-        }
-        for (int i=0; i<NUM; i++) {
-            for (unsigned j=0; j<objSizes[i]; j++)
-                ASSERT(((char*)p[i])[j] == i, "Error: data broken\n");
-        }
+            for (int i=0; i<NUM; i++) {
+                objSizes[i] = scalable_msize(p[i]);
+                ASSERT(objSizes[i] >= allocSz[s],
+                       "allocated size must be not less than requested");
+                memset(p[i], i, objSizes[i]);
+            }
+            for (int i=0; i<NUM; i++) {
+                for (unsigned j=0; j<objSizes[i]; j++)
+                    ASSERT(((char*)p[i])[j] == i, "Error: data broken");
+            }
 
-        for (int i=0; i<NUM; i++) {
-            p[i] = (char*)scalable_aligned_realloc(p[i], allocSz[s], 16);
-            memset(p[i], i, allocSz[s]);
+            for (int i=0; i<NUM; i++) {
+                p[i] = (char*)scalable_aligned_realloc(p[i], 2*allocSz[s], align[a]);
+                ASSERT(is_aligned(p[i], align[a]), NULL);
+                memset((char*)p[i]+allocSz[s], i+1, allocSz[s]);
+            }
+            for (int i=0; i<NUM; i++) {
+                for (unsigned j=0; j<allocSz[s]; j++)
+                    ASSERT(((char*)p[i])[j] == i, "Error: data broken");
+                for (size_t j=allocSz[s]; j<2*allocSz[s]; j++)
+                    ASSERT(((char*)p[i])[j] == i+1, "Error: data broken");
+            }
+            for (int i=0; i<NUM; i++)
+                scalable_free(p[i]);
         }
-        for (int i=0; i<NUM; i++) {
-            for (unsigned j=0; j<objSizes[i]; j++)
-                ASSERT(((char*)p[i])[j] == i, "Error: data broken\n");
-        }
-        for (int i=0; i<NUM; i++)
-            scalable_free(p[i]);
-    }
 }
 
 /*--------------------------------------------------------------------*/

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -17,6 +17,9 @@
     by the GNU General Public License. This exception does not however invalidate any other
     reasons why the executable file might be covered by the GNU General Public License.
 */
+
+#define HARNESS_DEFAULT_MIN_THREADS 4
+#define HARNESS_DEFAULT_MAX_THREADS 8
 
 #include "harness_defs.h"
 #include <cstdio>
@@ -50,7 +53,7 @@ public:
         for(;;) {
             typename M::scoped_lock lock( mutex );
             if(SharedI >= SharedN) break;
-            volatile double sum = 7.3; 
+            volatile double sum = 7.3;
             sum *= 11.17;
             ++SharedI;
         }
@@ -61,8 +64,8 @@ public:
 template<class M>
 void SharedSerialFib(int n)
 {
-    SharedI = 1; 
-    SharedN = n; 
+    SharedI = 1;
+    SharedN = n;
     M mutex;
     parallel_for( blocked_range<int>(0,4,1), SharedSerialFibBody<M>( mutex ) );
 }

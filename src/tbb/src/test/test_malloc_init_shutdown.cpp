@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -141,7 +141,7 @@ extern "C" void threadDtor(void*) {
 
 inline bool intersectingObjects(const void *p1, const void *p2, size_t n)
 {
-    return (size_t)labs((uintptr_t)p1 - (uintptr_t)p2) < n;
+    return p1>p2 ? ((uintptr_t)p1-(uintptr_t)p2)<n : ((uintptr_t)p2-(uintptr_t)p1)<n;
 }
 
 struct TestThread: NoAssign {

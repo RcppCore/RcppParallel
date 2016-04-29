@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -49,7 +49,7 @@ PROXY.LIB =
 # Compiler-specific variables
 #------------------------------------------------------------------------------
 
-# CPLUS = g++
+CPLUS = g++
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
@@ -60,7 +60,7 @@ PIC_KEY =
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
 TEST_WARNING_KEY = -Wextra -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor -Wno-uninitialized
-WARNING_SUPPRESS = -Wno-parentheses -Wno-uninitialized
+WARNING_SUPPRESS = -Wno-parentheses -Wno-uninitialized -Wno-non-virtual-dtor
 DYLIB_KEY = -shared
 LIBDL =
 EXPORT_KEY = -Wl,--version-script,
@@ -101,7 +101,7 @@ CPLUS_FLAGS += -D_WIN32_WINNT=$(_WIN32_WINNT)
 # MinGW specific
 CPLUS_FLAGS += -DMINGW_HAS_SECURE_API=1 -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
 
-# CONLY = gcc
+CONLY = gcc
 debugger = gdb
 C_FLAGS = $(CPLUS_FLAGS)
 

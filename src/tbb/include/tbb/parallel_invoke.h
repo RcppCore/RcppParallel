@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -201,7 +201,7 @@ namespace internal {
     };
 
     // Select task_group_context parameter from the back of a pack
-    task_group_context& get_context( task_group_context& tgc ) { return tgc; }
+    inline task_group_context& get_context( task_group_context& tgc ) { return tgc; }
 
     template<typename T1, typename... T>
     task_group_context& get_context( T1&& /*ignored*/, T&&... t )

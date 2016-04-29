@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -125,6 +125,9 @@ ifeq ($(VCCOMPAT_FLAG),)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
         VCCOMPAT_FLAG := $(if $(findstring vc12, $(VCVERSION)),/Qvc12)
+endif
+ifeq ($(VCCOMPAT_FLAG),)
+        VCCOMPAT_FLAG := $(if $(findstring vc14, $(VCVERSION)),/Qvc14)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
         $(error VC version not detected correctly: $(VCVERSION) )

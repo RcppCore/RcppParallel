@@ -1,0 +1,10 @@
+#define __TBB_VERSION_STRINGS(N) \
+#N": BUILD_HOST		Kevins-MacBook-Pro (i386)" ENDL \
+#N": BUILD_OS		Mac OS X version 10.11.4" ENDL \
+#N": BUILD_KERNEL	Darwin Kernel Version 15.4.0: Fri Feb 26 22:08:05 PST 2016; root:xnu-3248.40.184~3/RELEASE_X86_64" ENDL \
+#N": BUILD_CLANG	Apple LLVM version 7.3.0 (clang-703.0.29)" ENDL \
+#N": BUILD_XCODE	Xcode 7.3" ENDL \
+#N": BUILD_TARGET	intel64 on cc7.3.0_os10.11.4" ENDL \
+#N": BUILD_COMMAND	clang++ -g -O2 -DUSE_PTHREAD -stdlib=libc++ -m64 -mrtm -fPIC -D__TBB_BUILD=1 -Wall -Wno-non-virtual-dtor -Wno-dangling-else -DTBB_NO_LEGACY=1 -std=c++11 -D_TBB_CPP0X -I../../src -I../../src/rml/include -I../../include -I." ENDL \
+
+#define __TBB_DATETIME "Fri Apr 29 23:46:24 UTC 2016"

@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -31,8 +31,10 @@ WARNING_AS_ERROR_KEY = Warning as error
 WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,inlasmpnu
 tbb_strict=0
 
-CPLUS = CC -library=stlport4
+CPLUS = CC
 CONLY = cc
+
+OPENMP_FLAG = -xopenmp
 LIB_LINK_FLAGS = -G -R . -M$(tbb_root)/build/suncc.map.pause
 LINK_FLAGS += -M$(tbb_root)/build/suncc.map.pause
 LIBS = -lpthread -lrt -R .

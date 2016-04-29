@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -84,7 +84,7 @@ namespace internal {
     //! Exception helper function
     template<typename T>
     void handle_unconstructed_elements(T* array, size_t n_of_elements){
-        std::memset(array, 0, n_of_elements * sizeof(T));
+        std::memset( array, 0, n_of_elements * sizeof( T ) );
     }
 
     //! Base class of concurrent vector implementation.
@@ -104,11 +104,11 @@ namespace internal {
             pointers_per_short_table = 3, // to fit into 8 words of entire structure
             pointers_per_long_table = sizeof(segment_index_t) * 8 // one segment per bit
         };
-    public:
+
         struct segment_not_used {};
         struct segment_allocated {};
         struct segment_allocation_failed {};
-    protected:
+
         class segment_t;
         class segment_value_t {
             void* array;
@@ -126,6 +126,12 @@ namespace internal {
             template<typename T>
             T* pointer() const {  return static_cast<T*>(const_cast<void*>(array)); }
         };
+
+        friend void enforce_segment_allocated(segment_value_t const& s, internal::exception_id exception = eid_bad_last_alloc){
+            if(s != segment_allocated()){
+                internal::throw_exception(exception);
+            }
+        }
 
         // Segment pointer.
         class segment_t {
@@ -239,7 +245,7 @@ namespace internal {
             //and 2 is the minimal index for which it's true
             __TBB_ASSERT(element_index, "there should be no need to call "
                                         "is_first_element_in_segment for 0th element" );
-            return is_power_of_two_factor( element_index, 2 );
+            return is_power_of_two_at_least( element_index, 2 );
         }
 
         //! An operation on an n-element array starting at begin.
@@ -321,11 +327,11 @@ private:
         template<typename C, typename U>
         friend class internal::vector_iterator;
 
-#if !defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#if !__TBB_TEMPLATE_FRIENDS_BROKEN
         template<typename T, class A>
         friend class tbb::concurrent_vector;
 #else
-public: // workaround for MSVC
+public:
 #endif
 
         vector_iterator( const Container& vector, size_t index, void *ptr = 0 ) :
@@ -835,12 +841,9 @@ public:
     /** Returns iterator pointing to the new element. */
     iterator push_back( const_reference item )
     {
-        size_type k;
-        T* ptr = static_cast<T*>(internal_push_back(sizeof(T),k));
-        element_construction_guard g(ptr);
-        new(ptr) T(item);
-        g.dismiss();
-        return iterator(*this, k, ptr);
+        push_back_helper prolog(*this);
+        new(prolog.internal_push_back_result()) T(item);
+        return prolog.return_iterator_and_dismiss();
     }
 
 #if    __TBB_CPP11_RVALUE_REF_PRESENT
@@ -848,25 +851,19 @@ public:
     /** Returns iterator pointing to the new element. */
     iterator push_back(  T&& item )
     {
-        size_type k;
-        T* ptr = static_cast<T*>(internal_push_back(sizeof(T),k));
-        element_construction_guard g(ptr);
-        new(ptr) T(std::move(item));
-        g.dismiss();
-        return iterator(*this, k, ptr);
+        push_back_helper prolog(*this);
+        new(prolog.internal_push_back_result()) T(std::move(item));
+        return prolog.return_iterator_and_dismiss();
     }
 #if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
     //! Push item, create item "in place" with provided arguments
     /** Returns iterator pointing to the new element. */
     template<typename... Args>
-    iterator emplace_back(  Args&&... args)
+    iterator emplace_back(  Args&&... args )
     {
-        size_type k;
-        T* ptr = static_cast<T*>(internal_push_back(sizeof(T),k));
-        element_construction_guard g(ptr);
-        new(ptr) T( std::forward<Args>(args)...);
-        g.dismiss();
-        return iterator(*this, k, ptr);
+        push_back_helper prolog(*this);
+        new(prolog.internal_push_back_result()) T(std::forward<Args>(args)...);
+        return prolog.return_iterator_and_dismiss();
     }
 #endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
 #endif //__TBB_CPP11_RVALUE_REF_PRESENT
@@ -972,12 +969,14 @@ public:
     //! the first item
     reference front() {
         __TBB_ASSERT( size()>0, NULL);
-        return (my_segment[0].template load<relaxed>().template pointer<T>())[0];
+        const segment_value_t& segment_value = my_segment[0].template load<relaxed>();
+        return (segment_value.template pointer<T>())[0];
     }
     //! the first item const
     const_reference front() const {
         __TBB_ASSERT( size()>0, NULL);
-        return static_cast<const T*>(my_segment[0].array)[0];
+        const segment_value_t& segment_value = my_segment[0].template load<relaxed>();
+        return (segment_value.template pointer<const T>())[0];
     }
     //! the last item
     reference back() {
@@ -1081,9 +1080,15 @@ private:
     //! Copy-construct n instances of T by copying single element pointed to by src, starting at "dst".
     static void __TBB_EXPORTED_FUNC copy_array( void* dst, const void* src, size_type n );
 
+#if __TBB_MOVE_IF_NOEXCEPT_PRESENT
+    //! Either opy or move-construct n instances of T, starting at "dst" by copying according element of src array.
+    static void __TBB_EXPORTED_FUNC move_array_if_noexcept( void* dst, const void* src, size_type n );
+#endif //__TBB_MOVE_IF_NO_EXCEPT_PRESENT
+
 #if __TBB_CPP11_RVALUE_REF_PRESENT
     //! Move-construct n instances of T, starting at "dst" by copying according element of src array.
     static void __TBB_EXPORTED_FUNC move_array( void* dst, const void* src, size_type n );
+
     //! Move-assign (using operator=) n instances of T, starting at "dst" by assigning according element of src array.
     static void __TBB_EXPORTED_FUNC move_assign_array( void* dst, const void* src, size_type n );
 #endif
@@ -1117,6 +1122,10 @@ private:
         void move_assign(const void *src)       { for(; i < n; ++i) array[i]         =  std::move(as_pointer(src)[i]);   }
         void move_construct(const void *src)    { for(; i < n; ++i) new( &array[i] ) T( std::move(as_pointer(src)[i]) ); }
 #endif
+#if __TBB_MOVE_IF_NOEXCEPT_PRESENT
+        void move_construct_if_noexcept(const void *src)    { for(; i < n; ++i) new( &array[i] ) T( std::move_if_noexcept(as_pointer(src)[i]) ); }
+#endif //__TBB_MOVE_IF_NOEXCEPT_PRESENT
+
         //TODO: rename to construct_range
         template<class I> void iterate(I &src) { for(; i < n; ++i, ++src) new( &array[i] ) T( *src ); }
         ~internal_loop_guide() {
@@ -1126,15 +1135,33 @@ private:
         }
     };
 
-    class element_construction_guard : internal::no_copy{
-        pointer element;
-    public:
-        element_construction_guard(pointer an_element) : element (an_element){}
-        void dismiss(){ element = NULL; }
-        ~element_construction_guard(){
-            if (element){
-                internal::handle_unconstructed_elements(element, 1);
+    struct push_back_helper : internal::no_copy{
+        struct element_construction_guard : internal::no_copy{
+            pointer element;
+
+            element_construction_guard(pointer an_element) : element (an_element){}
+            void dismiss(){ element = NULL; }
+            ~element_construction_guard(){
+                if (element){
+                    internal::handle_unconstructed_elements(element, 1);
+                }
             }
+        };
+
+        concurrent_vector & v;
+        size_type k;
+        element_construction_guard g;
+
+        push_back_helper(concurrent_vector & vector) :
+            v(vector),
+            g (static_cast<T*>(v.internal_push_back(sizeof(T),k)))
+        {}
+
+        pointer internal_push_back_result(){ return g.element;}
+        iterator return_iterator_and_dismiss(){
+            pointer ptr = g.element;
+            g.dismiss();
+            return iterator(v, k, ptr);
         }
     };
 };
@@ -1147,7 +1174,14 @@ template<typename T, class A>
 void concurrent_vector<T, A>::shrink_to_fit() {
     internal_segments_table old;
     __TBB_TRY {
-        if( internal_compact( sizeof(T), &old, &destroy_array, &copy_array ) )
+        internal_array_op2 copy_or_move_array =
+#if __TBB_MOVE_IF_NOEXCEPT_PRESENT
+                &move_array_if_noexcept
+#else
+                &copy_array
+#endif
+        ;
+        if( internal_compact( sizeof(T), &old, &destroy_array, copy_or_move_array ) )
             internal_free_segments( old.table, pointers_per_long_table, old.first_block ); // free joined and unnecessary segments
     } __TBB_CATCH(...) {
         if( old.first_block ) // free segment allocated for compacting. Only for support of exceptions in ctor of user T[ype]
@@ -1208,8 +1242,7 @@ T& concurrent_vector<T, A>::internal_subscript_with_exceptions( size_type index 
     //TODO: why not make a load of my_segment relaxed as well ?
     //TODO: add an assertion that my_segment[k] is properly aligned to please ITT
     segment_value_t segment_value =  my_segment[k].template load<relaxed>();
-    if( segment_value != segment_allocated() ) // check for correct segment pointer
-        internal::throw_exception(internal::eid_index_range_error); // throw std::range_error
+    enforce_segment_allocated(segment_value, internal::eid_index_range_error);
     return (segment_value.pointer<T>())[j];
 }
 
@@ -1254,12 +1287,18 @@ template<typename T, class A>
 void concurrent_vector<T, A>::move_array( void* dst, const void* src, size_type n ) {
     internal_loop_guide loop(n, dst); loop.move_construct(src);
 }
-
 template<typename T, class A>
 void concurrent_vector<T, A>::move_assign_array( void* dst, const void* src, size_type n ) {
     internal_loop_guide loop(n, dst); loop.move_assign(src);
 }
 #endif
+
+#if __TBB_MOVE_IF_NOEXCEPT_PRESENT
+template<typename T, class A>
+void concurrent_vector<T, A>::move_array_if_noexcept( void* dst, const void* src, size_type n ) {
+    internal_loop_guide loop(n, dst); loop.move_construct_if_noexcept(src);
+}
+#endif //__TBB_MOVE_IF_NOEXCEPT_PRESENT
 
 template<typename T, class A>
 template<typename I>

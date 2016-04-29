@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -18,13 +18,19 @@
     reasons why the executable file might be covered by the GNU General Public License.
 */
 
+#if _MSC_VER==1500 && !__INTEL_COMPILER
+    // VS2008/VC9 has an issue in math.h
+    #pragma warning( push )
+    #pragma warning( disable: 4985 )
+#endif
 #include <cmath>
+#if _MSC_VER==1500 && !__INTEL_COMPILER
+    #pragma warning( pop )
+#endif
 #include "tbb/tbb_stddef.h"
 #include "harness.h"
 
 namespace test_partitioner_utils {
-
-using tbb::internal::uint64_t;
 
 struct RangeStatisticData {
     // denotes the number of range objects
@@ -37,6 +43,7 @@ struct RangeStatisticData {
     bool m_wasMinRangeSizeWritten; // shows whether relevant field was written or not
 };
 
+using tbb::internal::uint64_t;
 using tbb::split;
 using tbb::proportional_split;
 using tbb::blocked_range;
@@ -51,7 +58,7 @@ public:
     {
         m_called = false;
         if (m_statData)
-            m_statData->m_rangeNum++;
+            m_statData->m_rangeNum = 1;
     }
 
     // constructor is called from non-proportional split constructor of derived Range
@@ -75,7 +82,8 @@ public:
             }
         }
         *this = sc;
-        // constructor is used on work balancing phase only, so no need to increment number of range objects created
+        // constructor is used on work balancing phase only, so no need to increment
+        // number of range objects created
     }
 
     RangeStatisticCollector(RangeStatisticCollector& sc, proportional_split&) {
@@ -97,31 +105,39 @@ template <typename DerivedRange, typename T>
 class RangeBase: public RangeStatisticCollector {
 protected:
     size_t my_begin, my_end;
+    bool m_provide_feedback;
+    bool m_ensure_non_empty_size;
 public:
-    RangeBase(size_t _begin, size_t _end, RangeStatisticData *statData) :
-        RangeStatisticCollector(statData), my_begin(_begin), my_end(_end) { }
+    RangeBase(size_t _begin, size_t _end, RangeStatisticData *statData,
+              bool provide_feedback, bool ensure_non_empty_size)
+        : RangeStatisticCollector(statData)
+        , my_begin(_begin), my_end(_end)
+        , m_provide_feedback(provide_feedback)
+        , m_ensure_non_empty_size(ensure_non_empty_size)
+        { }
     RangeBase(RangeBase& r, tbb::split) : RangeStatisticCollector(r, r.size()) {
-        my_end = r.my_end;
+        *this = r;
         size_t middle = r.my_begin + (r.my_end - r.my_begin) / 2u;
         r.my_end = my_begin = middle;
     }
 
-    RangeBase(RangeBase& r, tbb::proportional_split& p) : RangeStatisticCollector(r, p) {
+    RangeBase(RangeBase& r, proportional_split& p)
+        : RangeStatisticCollector(r, p) {
+        *this = r;
         size_t original_size = r.size();
-        my_end = r.my_end;
         T right = self().compute_right_part(r, p);
-        size_t right_part_size = self().round(right);
-        right_part_size = (original_size == right_part_size) ? (original_size - 1) : right_part_size;
-        right_part_size = (right_part_size != 0) ? right_part_size : 1;
-        r.my_end = my_begin = r.my_end - right_part_size;
-        p.set_proportion(original_size - right_part_size, right_part_size);
-        ASSERT(r.my_end != r.my_begin && my_end != my_begin, "Incorrect range split");
-    }
-
-    DerivedRange& self() { return static_cast<DerivedRange&>(*this); }
-    size_t round(T part) { return size_t(part); }
-    T compute_right_part(RangeBase& r, tbb::proportional_split& p) {
-        return T(r.size() * T(p.right())) / T(p.left() + p.right());
+        size_t right_part = self().round(right);
+        if( m_ensure_non_empty_size ) {
+            right_part = (original_size == right_part) ? (original_size - 1) : right_part;
+            right_part = (right_part != 0) ? right_part : 1;
+        }
+        r.my_end = my_begin = r.my_end - right_part;
+#if __TBB_ENABLE_RANGE_FEEDBACK
+        if( m_provide_feedback )
+            p.set_proportion(original_size - right_part, right_part);
+#endif
+        if( m_ensure_non_empty_size )
+            ASSERT(r.my_end != r.my_begin && my_end != my_begin, "Incorrect range split");
     }
 
     size_t begin() const { return my_begin; }
@@ -129,6 +145,14 @@ public:
     bool is_divisible() const { return (my_end - my_begin) > 1; }
     bool empty() const { return my_end == my_begin; }
     size_t size() const { return my_end - my_begin; }
+
+    // helper methods (not part of the range concept)
+    DerivedRange& self() { return static_cast<DerivedRange&>(*this); }
+    size_t round(T part) { return size_t(part); }
+    T compute_right_part(RangeBase& r, proportional_split& p) {
+        return T(r.size() * T(p.right())) / T(p.left() + p.right());
+    }
+    bool is_ensure_non_emptiness() { return m_ensure_non_empty_size; }
 };
 
 namespace TestRanges {
@@ -138,40 +162,49 @@ namespace TestRanges {
  * Range1_2 forces proportion always to be 1:2 and rounds up
  * Range1_999 uses weird proportion 1:999 and rounds up
  * Range1_999 uses weird proportion 999:1 and rounds up
+ * BlockedRange uses tbb::blocked_range formula for proportion calculation
+ * InvertedProportionRange inverts proportion suggested by partitioner (e.g. 1:3 --> 3:1)
+ * ExactSplitRange uses integer arithmetic for accurate splitting
  */
 
 class RoundedDownRange: public RangeBase<RoundedDownRange, float> {
 public:
-    RoundedDownRange(size_t _begin, size_t _end, RangeStatisticData *statData = NULL) :
-        RangeBase<RoundedDownRange, float>(_begin, _end, statData) { }
-    RoundedDownRange(RoundedDownRange& r, tbb::split) :
-        RangeBase<RoundedDownRange, float>(r, tbb::split()) { }
-    RoundedDownRange(RoundedDownRange& r, tbb::proportional_split& p) :
-        RangeBase<RoundedDownRange, float>(r, p) { }
+    RoundedDownRange(size_t _begin, size_t _end, RangeStatisticData *statData,
+                     bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<RoundedDownRange, float>(_begin, _end, statData, provide_feedback,
+                                             ensure_non_empty_size) { }
+    RoundedDownRange(RoundedDownRange& r, tbb::split)
+        : RangeBase<RoundedDownRange, float>(r, tbb::split()) { }
+    RoundedDownRange(RoundedDownRange& r, proportional_split& p)
+        : RangeBase<RoundedDownRange, float>(r, p) { }
     // uses default implementation of RangeBase::round() which rounds down
-    static const bool is_divisible_in_proportion = true;
+    static const bool is_splittable_in_proportion = true;
 };
 
 class RoundedUpRange: public RangeBase<RoundedUpRange, float> {
 public:
-    RoundedUpRange(size_t _begin, size_t _end, RangeStatisticData *statData = NULL) :
-        RangeBase<RoundedUpRange, float>(_begin, _end, statData) { }
-    RoundedUpRange(RoundedUpRange& r, tbb::split) :
-        RangeBase<RoundedUpRange, float>(r, tbb::split()) { }
-    RoundedUpRange(RoundedUpRange& r, tbb::proportional_split& p) :
-        RangeBase<RoundedUpRange, float>(r, p) { }
+    RoundedUpRange(size_t _begin, size_t _end, RangeStatisticData *statData,
+                   bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<RoundedUpRange, float>(_begin, _end, statData, provide_feedback,
+                                           ensure_non_empty_size) { }
+    RoundedUpRange(RoundedUpRange& r, tbb::split)
+        : RangeBase<RoundedUpRange, float>(r, tbb::split()) { }
+    RoundedUpRange(RoundedUpRange& r, proportional_split& p)
+        : RangeBase<RoundedUpRange, float>(r, p) { }
     size_t round(float part) { return size_t(std::ceil(part)); }
-    static const bool is_divisible_in_proportion = true;
+    static const bool is_splittable_in_proportion = true;
 };
 
 class Range1_2: public RangeBase<Range1_2, float> {
 public:
-    Range1_2(size_t _begin, size_t _end, RangeStatisticData *statData = NULL) :
-        RangeBase<Range1_2, float>(_begin, _end, statData) { }
+    Range1_2(size_t _begin, size_t _end, RangeStatisticData *statData,
+             bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<Range1_2, float>(_begin, _end, statData, provide_feedback,
+                                     ensure_non_empty_size) { }
     Range1_2(Range1_2& r, tbb::split) : RangeBase<Range1_2, float>(r, tbb::split()) { }
-    Range1_2(Range1_2& r, tbb::proportional_split& p) : RangeBase<Range1_2, float>(r, p) { }
-    static const bool is_divisible_in_proportion = true;
-    float compute_right_part(RangeBase<Range1_2, float>& r, tbb::proportional_split&) {
+    Range1_2(Range1_2& r, proportional_split& p) : RangeBase<Range1_2, float>(r, p) { }
+    static const bool is_splittable_in_proportion = true;
+    float compute_right_part(RangeBase<Range1_2, float>& r, proportional_split&) {
         return float(r.size() * 2) / 3.0f;
     }
     // uses default implementation of RangeBase::round() which rounds down
@@ -179,12 +212,14 @@ public:
 
 class Range1_999: public RangeBase<Range1_999, float> {
 public:
-    Range1_999(size_t _begin, size_t _end, RangeStatisticData *statData = NULL) :
-        RangeBase<Range1_999, float>(_begin, _end, statData) { }
+    Range1_999(size_t _begin, size_t _end, RangeStatisticData *statData,
+               bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<Range1_999, float>(_begin, _end, statData, provide_feedback,
+                                       ensure_non_empty_size) { }
     Range1_999(Range1_999& r, tbb::split) : RangeBase<Range1_999, float>(r, tbb::split()) { }
-    Range1_999(Range1_999& r, tbb::proportional_split& p) : RangeBase<Range1_999, float>(r, p) { }
-    static const bool is_divisible_in_proportion = true;
-    float compute_right_part(RangeBase<Range1_999, float>& r, tbb::proportional_split&) {
+    Range1_999(Range1_999& r, proportional_split& p) : RangeBase<Range1_999, float>(r, p) { }
+    static const bool is_splittable_in_proportion = true;
+    float compute_right_part(RangeBase<Range1_999, float>& r, proportional_split&) {
         return float(r.size() * 999) / 1000.0f;
     }
     // uses default implementation of RangeBase::round() which rounds down
@@ -192,16 +227,71 @@ public:
 
 class Range999_1: public RangeBase<Range999_1, float> {
 public:
-    Range999_1(size_t _begin, size_t _end, RangeStatisticData *statData = NULL) :
-        RangeBase<Range999_1, float>(_begin, _end, statData) { }
+    Range999_1(size_t _begin, size_t _end, RangeStatisticData *statData,
+               bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<Range999_1, float>(_begin, _end, statData, provide_feedback,
+                                       ensure_non_empty_size) { }
     Range999_1(Range999_1& r, tbb::split) : RangeBase<Range999_1, float>(r, tbb::split()) { }
-    Range999_1(Range999_1& r, tbb::proportional_split& p) : RangeBase<Range999_1, float>(r, p) { }
-    static const bool is_divisible_in_proportion = true;
-    float compute_right_part(RangeBase<Range999_1, float>& r, tbb::proportional_split&) {
+    Range999_1(Range999_1& r, proportional_split& p) : RangeBase<Range999_1, float>(r, p) { }
+    static const bool is_splittable_in_proportion = true;
+    float compute_right_part(RangeBase<Range999_1, float>& r, proportional_split&) {
         return float(r.size()) / 1000.0f;
     }
     // uses default implementation of RangeBase::round() which rounds down
 };
+
+class BlockedRange: public RangeStatisticCollector, public blocked_range<size_t>  {
+public:
+    BlockedRange(size_t _begin, size_t _end, RangeStatisticData *statData, bool, bool)
+        : RangeStatisticCollector(statData), blocked_range<size_t>(_begin, _end) { }
+    BlockedRange(BlockedRange& r, split)
+        : RangeStatisticCollector(r, r.size()), blocked_range<size_t>(r, split()) { }
+    BlockedRange(BlockedRange& r, proportional_split& p)
+        : RangeStatisticCollector(r, p), blocked_range<size_t>(r, p) { }
+    static const bool is_splittable_in_proportion = true;
+    bool is_ensure_non_emptiness() { return false; }
+};
+
+class InvertedProportionRange: public RangeBase<InvertedProportionRange, float> {
+public:
+    InvertedProportionRange(size_t _begin, size_t _end, RangeStatisticData *statData,
+                            bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<InvertedProportionRange, float>(_begin, _end, statData, provide_feedback,
+                                                    ensure_non_empty_size) { }
+    InvertedProportionRange(InvertedProportionRange& r, split)
+        : RangeBase<InvertedProportionRange, float>(r, split()) { }
+    InvertedProportionRange(InvertedProportionRange& r, proportional_split& p)
+        : RangeBase<InvertedProportionRange, float>(r, p) { }
+    float compute_right_part(RangeBase<InvertedProportionRange, float>& r,
+                             proportional_split& p) {
+        return float(r.size() * float(p.left())) / float(p.left() + p.right());
+    }
+    static const bool is_splittable_in_proportion = true;
+};
+
+class ExactSplitRange: public RangeBase<ExactSplitRange, size_t> {
+public:
+    ExactSplitRange(size_t _begin, size_t _end, RangeStatisticData *statData,
+                    bool provide_feedback, bool ensure_non_empty_size)
+        : RangeBase<ExactSplitRange, size_t>(_begin, _end, statData, provide_feedback,
+                                             ensure_non_empty_size) { }
+    ExactSplitRange(ExactSplitRange& r, split)
+        : RangeBase<ExactSplitRange, size_t>(r, split()) { }
+    ExactSplitRange(ExactSplitRange& r, proportional_split& p)
+        : RangeBase<ExactSplitRange, size_t>(r, p) { }
+    size_t compute_right_part(RangeBase<ExactSplitRange, size_t>& r, proportional_split& p) {
+        size_t parts = size_t(p.left() + p.right());
+        size_t currSize = r.size();
+        size_t int_part = currSize / parts * p.right();
+        size_t remainder = currSize % parts * p.right();
+        int_part += remainder / parts;
+        remainder %= parts;
+        size_t right_part = int_part + (remainder > parts/2 ? 1 : 0);
+        return right_part;
+    }
+    static const bool is_splittable_in_proportion = true;
+};
+
 } // namespace TestRanges
 
 struct TreeNode {
@@ -210,10 +300,9 @@ struct TreeNode {
     TreeNode *m_left, *m_right;
 private:
     TreeNode(size_t range_begin, size_t range_end, size_t affinity,
-             TreeNode* left, TreeNode* right) :
-        m_affinity(affinity), m_range_begin(range_begin), m_range_end(range_end),
-        m_left(left), m_right(right)
-        { }
+             TreeNode* left, TreeNode* right)
+        : m_affinity(affinity), m_range_begin(range_begin), m_range_end(range_end),
+          m_left(left), m_right(right) { }
 
     friend TreeNode* make_node(size_t range_begin, size_t range_end, size_t affinity,
                                TreeNode *left, TreeNode *right);
@@ -221,7 +310,7 @@ private:
 
 TreeNode* make_node(size_t range_begin, size_t range_end, size_t affinity,
                     TreeNode* left = NULL, TreeNode* right = NULL) {
-    ASSERT(range_begin < range_end, "Incorrect range interval");
+    ASSERT(range_begin <= range_end, "Incorrect range interval");
     return new TreeNode(range_begin, range_end, affinity, left, right);
 }
 
@@ -377,7 +466,7 @@ public:
         *this = r;
         ASSERT( !my_assert_in_nonproportional, "Disproportional splitting constructor was called but should not been" );
     }
-    SplitConstructorAssertedRange(SplitConstructorAssertedRange& r, tbb::proportional_split&) {
+    SplitConstructorAssertedRange(SplitConstructorAssertedRange& r, proportional_split&) {
         *this = r;
         ASSERT( !my_assert_in_proportional, "Proportional splitting constructor was called but should not been" );
     }
@@ -400,7 +489,7 @@ public:
 /*
  * Possible use cases are:
  * -------------------------------------------------------------------------------------------------------------
- * Range#  is_divisible_in_proportion   Range proportional ctor      Used partitioner          Result Effect
+ * Range#  is_splittable_in_proportion   Range proportional ctor      Used partitioner          Result Effect
  * -------------------------------------------------------------------------------------------------------------
  *   1           true                       available                proportional             pMN, r(p), part(p)
  * -------------------------------------------------------------------------------------------------------------
@@ -441,58 +530,58 @@ public:
  */
 
 
-// is_divisible_in_proportion = true, proportional_split ctor
+// is_splittable_in_proportion = true, proportional_split ctor
 class Range1: public SplitConstructorAssertedRange {
 public:
     Range1(bool assert_in_nonproportional, bool assert_in_proportional)
         : SplitConstructorAssertedRange(assert_in_nonproportional, assert_in_proportional) { }
     Range1( Range1& r, tbb::split ) : SplitConstructorAssertedRange(r, tbb::split()) { }
-    Range1( Range1& r, tbb::proportional_split& proportion ) : SplitConstructorAssertedRange(r, proportion) { }
-    static const bool is_divisible_in_proportion = true;
+    Range1( Range1& r, proportional_split& proportion ) : SplitConstructorAssertedRange(r, proportion) { }
+    static const bool is_splittable_in_proportion = true;
 };
 
-// is_divisible_in_proportion = false, proportional_split ctor
+// is_splittable_in_proportion = false, proportional_split ctor
 class Range2: public SplitConstructorAssertedRange {
 public:
     Range2(bool assert_in_nonproportional, bool assert_in_proportional)
         : SplitConstructorAssertedRange(assert_in_nonproportional, assert_in_proportional) { }
     Range2(Range2& r, tbb::split) : SplitConstructorAssertedRange(r, tbb::split()) { }
-    Range2(Range2& r, tbb::proportional_split& p) : SplitConstructorAssertedRange(r, p) {
-        // TODO: add check that 'is_divisible_in_proportion==false' results only in 1:1 proportions
+    Range2(Range2& r, proportional_split& p) : SplitConstructorAssertedRange(r, p) {
+        // TODO: add check that 'is_splittable_in_proportion==false' results only in 1:1 proportions
     }
-    static const bool is_divisible_in_proportion = false;
+    static const bool is_splittable_in_proportion = false;
 };
 
-// is_divisible_in_proportion is not defined, proportional_split ctor
+// is_splittable_in_proportion is not defined, proportional_split ctor
 class Range3: public SplitConstructorAssertedRange {
 public:
     Range3(bool assert_in_nonproportional, bool assert_in_proportional)
         : SplitConstructorAssertedRange(assert_in_nonproportional, assert_in_proportional) { }
     Range3(Range3& r, tbb::split) : SplitConstructorAssertedRange(r, tbb::split()) { }
-    Range3(Range3& r, tbb::proportional_split& p) : SplitConstructorAssertedRange(r, p) {
-        // TODO: add check that absence of 'is_divisible_in_proportion' results only in 1:1 proportions
+    Range3(Range3& r, proportional_split& p) : SplitConstructorAssertedRange(r, p) {
+        // TODO: add check that absence of 'is_splittable_in_proportion' results only in 1:1 proportions
     }
 };
 
-// is_divisible_in_proportion = true, proportional_split ctor is not defined
+// is_splittable_in_proportion = true, proportional_split ctor is not defined
 class Range4: public SplitConstructorAssertedRange {
 public:
     Range4(bool assert_in_nonproportional, bool assert_in_proportional)
         : SplitConstructorAssertedRange(assert_in_nonproportional, assert_in_proportional) { }
     Range4(Range4& r, tbb::split) : SplitConstructorAssertedRange(r, tbb::split()) { }
-    static const bool is_divisible_in_proportion = true;
+    static const bool is_splittable_in_proportion = true;
 };
 
-// is_divisible_in_proportion = false, proportional_split ctor is not defined
+// is_splittable_in_proportion = false, proportional_split ctor is not defined
 class Range5: public SplitConstructorAssertedRange {
 public:
     Range5(bool assert_in_nonproportional, bool assert_in_proportional)
         : SplitConstructorAssertedRange(assert_in_nonproportional, assert_in_proportional) { }
     Range5(Range5& r, tbb::split) : SplitConstructorAssertedRange(r, tbb::split()) { }
-    static const bool is_divisible_in_proportion = false;
+    static const bool is_splittable_in_proportion = false;
 };
 
-// is_divisible_in_proportion is not defined, proportional_split ctor is not defined
+// is_splittable_in_proportion is not defined, proportional_split ctor is not defined
 class Range6: public SplitConstructorAssertedRange {
 public:
     Range6(bool assert_in_nonproportional, bool assert_in_proportional)

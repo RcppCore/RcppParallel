@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -54,8 +54,10 @@ PROXY.OBJ := proxy.$(OBJ) tbb_function_replacement.$(OBJ)
 M_CPLUS_FLAGS := $(subst $(WARNING_KEY),,$(M_CPLUS_FLAGS)) $(DEFINE_KEY)__TBBMALLOC_BUILD=1
 M_INCLUDES := $(INCLUDES) $(INCLUDE_KEY)$(MALLOC_ROOT) $(INCLUDE_KEY)$(MALLOC_SOURCE_ROOT)
 
-# Suppress superfluous warnings for TBBmalloc compilation
+# Suppress superfluous warnings for TBBMalloc compilation
 $(MALLOC.OBJ): M_CPLUS_FLAGS += $(WARNING_SUPPRESS)
+# Suppress superfluous warnings for TBBMalloc proxy compilation
+$(PROXY.OBJ): CPLUS_FLAGS += $(WARNING_SUPPRESS)
 
 frontend.$(OBJ): frontend.cpp version_string.ver
 	$(CPLUS) $(COMPILE_ONLY) $(M_CPLUS_FLAGS) $(PIC_KEY) $(M_INCLUDES) $(INCLUDE_KEY). $<
@@ -74,7 +76,7 @@ PROXY_LINK_FLAGS = $(LIB_LINK_FLAGS)
 
 ifneq (,$(MALLOC.DEF))
 tbbmalloc.def: $(MALLOC.DEF)
-	$(CPLUS) $(PREPROC_ONLY) $< $(M_CPLUS_FLAGS) $(INCLUDES) > $@
+	$(CPLUS) $(PREPROC_ONLY) $< $(M_CPLUS_FLAGS) $(WARNING_SUPPRESS) $(INCLUDES) > $@
 
 MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
 $(MALLOC.DLL): tbbmalloc.def
@@ -86,7 +88,7 @@ $(MALLOC.DLL): $(MALLOC.OBJ) $(MALLOC.RES) $(MALLOC_NO_VERSION.DLL)
 
 ifneq (,$(MALLOCPROXY.DEF))
 tbbmallocproxy.def: $(MALLOCPROXY.DEF)
-	$(CPLUS) $(PREPROC_ONLY) $< $(CPLUS_FLAGS) $(INCLUDES) > $@
+	$(CPLUS) $(PREPROC_ONLY) $< $(CPLUS_FLAGS) $(WARNING_SUPPRESS) $(INCLUDES) > $@
 
 PROXY_LINK_FLAGS += $(EXPORT_KEY)tbbmallocproxy.def
 $(MALLOCPROXY.DLL): tbbmallocproxy.def
@@ -141,6 +143,7 @@ MALLOC_TESTS += test_malloc_overload.$(TEST_EXT) \
                 test_malloc_atexit.$(TEST_EXT)
 endif
 # -----------------------------------------------------
+
 # ------------ Set test specific variables ------------
 ifeq (windows.gcc,$(tbb_os).$(compiler))
 test_malloc_overload.$(TEST_EXT): LIBS += $(MALLOCPROXY.LIB)
@@ -154,13 +157,17 @@ MALLOC_LINK_PROXY_TESTS = test_malloc_overload_proxy.$(TEST_EXT)
 MALLOC_ADD_DLL_TESTS =    test_malloc_lib_unload.$(TEST_EXT) test_malloc_used_by_lib.$(TEST_EXT) \
         test_malloc_atexit.$(TEST_EXT)
 
+# TODO: implement accurate warning suppression for tests to unify with Makefile.test.
+
 $(MALLOC_M_CPLUS_TESTS): CPLUS_FLAGS=$(M_CPLUS_FLAGS)
 $(MALLOC_M_CPLUS_TESTS): INCLUDES=$(M_INCLUDES)
 $(MALLOC_NO_LIB_TESTS): LINK_MALLOC.LIB=
 $(MALLOC_NO_LIB_TESTS): LINK_FLAGS+=$(LIBDL)
 $(MALLOC_LINK_PROXY_TESTS): LINK_MALLOC.LIB=$(LINK_MALLOCPROXY.LIB)
+ifneq (,$(DYLIB_KEY))
 $(MALLOC_ADD_DLL_TESTS): %.$(TEST_EXT): %_dll.$(DLL)
 $(MALLOC_ADD_DLL_TESTS): TEST_LIBS+=$(@:.$(TEST_EXT)=_dll.$(LIBEXT))
+endif
 
 test_malloc_over%.$(TEST_EXT): CPLUS_FLAGS=$(subst /MT,/MD,$(M_CPLUS_FLAGS))
 test_malloc_over%.$(TEST_EXT): INCLUDES=$(M_INCLUDES)
@@ -175,7 +182,7 @@ test_malloc_atexit.$(TEST_EXT): LINK_FLAGS+=$(LIBDL)
 ifeq (linux.gcc,$(tbb_os).$(compiler))
 test_malloc_atexit.$(TEST_EXT): MALLOCPROXY.LIB := -Wl,--no-as-needed $(MALLOCPROXY.LIB)
 endif
-# The test doesn't added to MALLOC_LINK_PROXY_TESTS, because we need both
+# The test isn't added to MALLOC_LINK_PROXY_TESTS, because we need both
 # tbbmalloc and proxy libs. For platforms other than Android it's enough
 # to modify LINK_MALLOC.LIB for TEST_EXT target only. But under Android build
 # of DLL and TEST_EXT can be requested independently, so there is no chance
@@ -196,6 +203,7 @@ test_malloc_used_by_lib_dll.$(DLL): CPLUS_FLAGS=$(subst /MT,/LD,$(M_CPLUS_FLAGS)
 test_malloc_used_by_lib_dll.$(DLL): LINK_FILES+=$(ORIG_LINK_MALLOC.LIB)
 test_malloc_used_by_lib_dll.$(DLL): LIBDL=
 # -----------------------------------------------------
+
 # ---- The list of TBBMalloc test running commands ----
 # run_cmd is usually empty
 malloc_test: $(MALLOC.DLL) malloc_test_no_depends

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -17,6 +17,9 @@
     by the GNU General Public License. This exception does not however invalidate any other
     reasons why the executable file might be covered by the GNU General Public License.
 */
+
+#define HARNESS_DEFAULT_MIN_THREADS 4
+#define HARNESS_DEFAULT_MAX_THREADS 4
 
 #include "tbb/queuing_rw_mutex.h"
 #include "tbb/spin_rw_mutex.h"
@@ -63,7 +66,7 @@ int TestMain () {
     for( int p=MinThread; p<=MaxThread; ++p ) {
         REMARK("Testing on %d threads", p);
         Count = 0;
-        NativeParallelFor( p, Hammer<queuing_rw_mutex>(QRW_mutex) ); 
+        NativeParallelFor( p, Hammer<queuing_rw_mutex>(QRW_mutex) );
         Count = 0;
         NativeParallelFor( p, Hammer<spin_rw_mutex>(SRW_mutex) );
     }

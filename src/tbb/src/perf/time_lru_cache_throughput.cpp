@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -54,11 +54,12 @@ namespace utils{
     // this at beginning of program; sets one_us_iters to number of iters to
     // busy_wait for approx. 1 us
     void calibrate_busy_wait() {
+        const unsigned niter = 1000000;
         tbb::tick_count t0 = tbb::tick_count::now();
-        for (volatile unsigned int i=0; i<1000000; ++i) continue;
+        for (volatile unsigned int i=0; i<niter; ++i) continue;
         tbb::tick_count t1 = tbb::tick_count::now();
 
-        one_us_iters = (unsigned int)((1000000.0/(t1-t0).seconds())*0.000001);
+        one_us_iters = (unsigned int)(niter/(t1-t0).seconds())*1e-6;
     }
 
     void busy_wait(int us)
@@ -161,7 +162,7 @@ struct throughput {
                         (std::min)(p.time_check_granularity_ops, _this->per_thread_sample_size - part_of_the_sample_so_far);
 
                 for (access_sequence_type::iterator it = iteration_begin_it; it < iteration_end_it; ++it){
-                    typename cache_type::handle h = _this->m_cache(*it);
+                    typename cache_type::handle h = _this->m_cache[*it];
                     micro_benchmarking::utils::busy_wait(p.time_of_item_use_usec);
                     micro_benchmarking::utils::disable_elimination(h.value());
                 }

@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -89,6 +89,12 @@ endif
 # We want to use strict ISO semantics in the library and tests
 ifeq (ok,$(call detect_js,/minversion cl 17))
         CPLUS_FLAGS += /volatile:iso
+endif
+
+# Since VS2013, VC++ uses the same .pdb file for different sources so we need
+# to add /FS (Force Synchronous PDB Writes)
+ifeq (ok,$(call detect_js,/minversion cl 18))
+        CPLUS_FLAGS += /FS
 endif
 
 CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \

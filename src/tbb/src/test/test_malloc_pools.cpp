@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -61,10 +61,11 @@ static tbb::atomic<int> liveRegions;
 
 static void *getMallocMem(intptr_t /*pool_id*/, size_t &bytes)
 {
-    void *rawPtr = malloc(bytes+sizeof(MallocPoolHeader));
+    void *rawPtr = malloc(bytes+sizeof(MallocPoolHeader)+1);
     if (!rawPtr)
         return NULL;
-    void *ret = (void *)((uintptr_t)rawPtr+sizeof(MallocPoolHeader));
+    // +1 to check working with unaligned space
+    void *ret = (void *)((uintptr_t)rawPtr+sizeof(MallocPoolHeader)+1);
 
     MallocPoolHeader *hdr = (MallocPoolHeader*)ret-1;
     hdr->rawPtr = rawPtr;
@@ -97,14 +98,16 @@ void TestPoolReset()
         ASSERT(pool_malloc(pool, 50*1024), NULL);
     }
     int regionsBeforeReset = liveRegions;
-    pool_reset(pool);
+    bool ok = pool_reset(pool);
+    ASSERT(ok, NULL);
     for (int i=0; i<100; i++) {
         ASSERT(pool_malloc(pool, 8), NULL);
         ASSERT(pool_malloc(pool, 50*1024), NULL);
     }
     ASSERT(regionsBeforeReset == liveRegions,
            "Expected no new regions allocation.");
-    pool_destroy(pool);
+    ok = pool_destroy(pool);
+    ASSERT(ok, NULL);
     ASSERT(!liveRegions, "Expected all regions were released.");
 }
 
@@ -187,7 +190,8 @@ void TestSharedPool()
     delete []afterTerm;
     delete []crossThread;
 
-    pool_destroy(pool);
+    bool ok = pool_destroy(pool);
+    ASSERT(ok, NULL);
     ASSERT(!liveRegions, "Expected all regions were released.");
 }
 
@@ -259,7 +263,8 @@ public:
         for (int i=0; i<10*myPool; i++)
             ASSERT(myPool==obj[myPool][i], NULL);
         pool_free(pool[myPool], obj[myPool]);
-        pool_destroy(pool[myPool]);
+        bool ok = pool_destroy(pool[myPool]);
+        ASSERT(ok, NULL);
     }
 };
 
@@ -289,49 +294,180 @@ void TestTooSmallBuffer()
     rml::MemPoolPolicy pol(CrossThreadGetMem, CrossThreadPutMem);
     rml::MemoryPool *pool;
     pool_create_v1(0, &pol, &pool);
-    pool_destroy(pool);
+    bool ok = pool_destroy(pool);
+    ASSERT(ok, NULL);
     ASSERT(!poolSpace[0].regions, "No leaks.");
 
     delete poolSpace;
 }
 
-static void *fixedBufGetMem(intptr_t /*pool_id*/, size_t &bytes)
-{
-    static const size_t BUF_SZ = 8*1024*1024;
-    static char buf[BUF_SZ];
-    static bool used;
+class FixedPoolHeadBase : NoAssign {
+    size_t   size;
+    intptr_t used;
+    char    *data;
+public:
+    FixedPoolHeadBase(size_t s) : size(s), used(false) {
+        data = new char[size];
+    }
+    void *useData(size_t &bytes) {
+        intptr_t wasUsed = __TBB_FetchAndStoreW(&used, true);
+        ASSERT(!wasUsed, "The buffer must not be used twice.");
+        bytes = size;
+        return data;
+    }
+    ~FixedPoolHeadBase() {
+        delete []data;
+    }
+};
 
-    if (used)
-        return NULL;
-    used = true;
-    bytes = BUF_SZ;
-    return buf;
+template<size_t SIZE>
+class FixedPoolHead : FixedPoolHeadBase {
+public:
+    FixedPoolHead() : FixedPoolHeadBase(SIZE) { }
+};
+
+static void *fixedBufGetMem(intptr_t pool_id, size_t &bytes)
+{
+    return ((FixedPoolHeadBase*)pool_id)->useData(bytes);
+}
+
+class FixedPoolUse: NoAssign {
+    static Harness::SpinBarrier startB;
+    rml::MemoryPool *pool;
+    size_t reqSize;
+    int iters;
+public:
+    FixedPoolUse(unsigned threads, rml::MemoryPool *p, size_t sz, int it) :
+        pool(p), reqSize(sz), iters(it) {
+        startB.initialize(threads);
+    }
+    void operator()( int /*id*/ ) const {
+        startB.wait();
+        for (int i=0; i<iters; i++) {
+            void *o = pool_malloc(pool, reqSize);
+            ASSERT(o, NULL);
+            pool_free(pool, o);
+        }
+    }
+};
+
+Harness::SpinBarrier FixedPoolUse::startB;
+
+class FixedPoolNomem: NoAssign {
+    Harness::SpinBarrier *startB;
+    rml::MemoryPool *pool;
+public:
+    FixedPoolNomem(Harness::SpinBarrier *b, rml::MemoryPool *p) :
+        startB(b), pool(p) {}
+    void operator()(int id) const {
+        startB->wait();
+        void *o = pool_malloc(pool, id%2? 64 : 128*1024);
+        ASSERT(!o, "All memory must be consumed.");
+    }
+};
+
+class FixedPoolSomeMem: NoAssign {
+    Harness::SpinBarrier *barrier;
+    rml::MemoryPool *pool;
+public:
+    FixedPoolSomeMem(Harness::SpinBarrier *b, rml::MemoryPool *p) :
+        barrier(b), pool(p) {}
+    void operator()(int id) const {
+        barrier->wait();
+        Harness::Sleep(2*id);
+        void *o = pool_malloc(pool, id%2? 64 : 128*1024);
+        barrier->wait();
+        pool_free(pool, o);
+    }
+};
+
+bool haveEnoughSpace(rml::MemoryPool *pool, size_t sz)
+{
+    if (void *p = pool_malloc(pool, sz)) {
+        pool_free(pool, p);
+        return true;
+    }
+    return false;
 }
 
 void TestFixedBufferPool()
 {
-    void *ptrs[7];
+    const int ITERS = 7;
+    const size_t MAX_OBJECT = 7*1024*1024;
+    void *ptrs[ITERS];
     rml::MemPoolPolicy pol(fixedBufGetMem, NULL, 0, /*fixedSizePool=*/true,
                            /*keepMemTillDestroy=*/false);
     rml::MemoryPool *pool;
+    {
+        FixedPoolHead<MAX_OBJECT + 1024*1024> head;
 
-    pool_create_v1(0, &pol, &pool);
-    void *largeObj = pool_malloc(pool, 7*1024*1024);
-    ASSERT(largeObj, NULL);
-    pool_free(pool, largeObj);
+        pool_create_v1((intptr_t)&head, &pol, &pool);
+        {
+            NativeParallelFor( 1, FixedPoolUse(1, pool, MAX_OBJECT, 2) );
 
-    for (int i=0; i<7; i++) {
-        ptrs[i] = pool_malloc(pool, 1024*1024);
-        ASSERT(ptrs[i], NULL);
+            for (int i=0; i<ITERS; i++) {
+                ptrs[i] = pool_malloc(pool, MAX_OBJECT/ITERS);
+                ASSERT(ptrs[i], NULL);
+            }
+            for (int i=0; i<ITERS; i++)
+                pool_free(pool, ptrs[i]);
+
+            NativeParallelFor( 1, FixedPoolUse(1, pool, MAX_OBJECT, 1) );
+        }
+        // each thread asks for an MAX_OBJECT/p/2 object,
+        // /2 is to cover fragmentation
+        for (int p=MinThread; p<=MaxThread; p++)
+            NativeParallelFor( p, FixedPoolUse(p, pool, MAX_OBJECT/p/2, 10000) );
+        {
+            const int p=128;
+            NativeParallelFor( p, FixedPoolUse(p, pool, MAX_OBJECT/p/2, 1) );
+        }
+        {
+            size_t maxSz;
+            const int p = 512;
+            Harness::SpinBarrier barrier(p);
+
+            // Find maximal useful object size. Start with MAX_OBJECT/2,
+            // as the pool might be fragmented by BootStrapBlocks consumed during
+            // FixedPoolRun.
+            size_t l, r;
+            ASSERT(haveEnoughSpace(pool, MAX_OBJECT/2), NULL);
+            for (l = MAX_OBJECT/2, r = MAX_OBJECT + 1024*1024; l < r-1; ) {
+                size_t mid = (l+r)/2;
+                if (haveEnoughSpace(pool, mid))
+                    l = mid;
+                else
+                    r = mid;
+            }
+            maxSz = l;
+            ASSERT(!haveEnoughSpace(pool, maxSz+1), "Expect to find boundary value.");
+            // consume all available memory
+            void *largeObj = pool_malloc(pool, maxSz);
+            ASSERT(largeObj, NULL);
+            void *o = pool_malloc(pool, 64);
+            if (o) // pool fragmented, skip FixedPoolNomem
+                pool_free(pool, o);
+            else
+                NativeParallelFor( p, FixedPoolNomem(&barrier, pool) );
+            pool_free(pool, largeObj);
+            // keep some space unoccupied
+            largeObj = pool_malloc(pool, maxSz-512*1024);
+            ASSERT(largeObj, NULL);
+            NativeParallelFor( p, FixedPoolSomeMem(&barrier, pool) );
+            pool_free(pool, largeObj);
+        }
+        bool ok = pool_destroy(pool);
+        ASSERT(ok, NULL);
     }
-    for (int i=0; i<7; i++)
-        pool_free(pool, ptrs[i]);
-
-    largeObj = pool_malloc(pool, 7*1024*1024);
-    ASSERT(largeObj, NULL);
-    pool_free(pool, largeObj);
-
-    pool_destroy(pool);
+    // check that fresh untouched pool can successfully fulfil requests from 128 threads
+    {
+        FixedPoolHead<MAX_OBJECT + 1024*1024> head;
+        pool_create_v1((intptr_t)&head, &pol, &pool);
+        int p=128;
+        NativeParallelFor( p, FixedPoolUse(p, pool, MAX_OBJECT/p/2, 1) );
+        bool ok = pool_destroy(pool);
+        ASSERT(ok, NULL);
+    }
 }
 
 static size_t currGranularity;
@@ -349,7 +485,7 @@ static int putGranMem(intptr_t /*pool_id*/, void *ptr, size_t bytes)
     return 0;
 }
 
-static void TestPoolGranularity()
+void TestPoolGranularity()
 {
     rml::MemPoolPolicy pol(getGranMem, putGranMem);
     const size_t grans[] = {4*1024, 2*1024*1024, 6*1024*1024, 10*1024*1024};
@@ -364,7 +500,8 @@ static void TestPoolGranularity()
             ASSERT(p, "Can't allocate memory in pool.");
             pool_free(pool, p);
         }
-        pool_destroy(pool);
+        bool ok = pool_destroy(pool);
+        ASSERT(ok, NULL);
     }
 }
 
@@ -383,7 +520,7 @@ static int putMemPolicy(intptr_t /*pool_id*/, void *ptr, size_t /*bytes*/)
     return 0;
 }
 
-static void TestPoolKeepTillDestroy()
+void TestPoolKeepTillDestroy()
 {
     const int ITERS = 50*1024;
     void *ptrs[2*ITERS+1];
@@ -418,9 +555,11 @@ static void TestPoolKeepTillDestroy()
         if (keep)
             ASSERT(currGetCalls == getMemCalls, "Must not lead to new getMem call");
         size_t currPuts = putMemCalls;
-        pool_reset(pool);
+        bool ok = pool_reset(pool);
+        ASSERT(ok, NULL);
         ASSERT(currPuts == putMemCalls, "Pool is not releasing memory during reset.");
-        pool_destroy(pool);
+        ok = pool_destroy(pool);
+        ASSERT(ok, NULL);
         ASSERT(putMemCalls, NULL);
         totalPutMemCalls += putMemCalls;
         ASSERT(getMemCalls == totalPutMemCalls, "Memory leak detected.");
@@ -437,7 +576,7 @@ static bool memEqual(char *buf, size_t size, int val)
     return memEq;
 }
 
-static void TestEntries()
+void TestEntries()
 {
     const int SZ = 4;
     const int ALGN = 4;
@@ -470,10 +609,16 @@ static void TestEntries()
             pool_free(pool, p2);
         }
 
-    pool_destroy(pool);
+    bool ok = pool_destroy(pool);
+    ASSERT(ok, NULL);
+
+    bool fail = rml::pool_destroy(NULL);
+    ASSERT(!fail, NULL);
+    fail = rml::pool_reset(NULL);
+    ASSERT(!fail, NULL);
 }
 
-static void TestPoolCreation()
+void TestPoolCreation()
 {
     using namespace rml;
 
@@ -491,8 +636,174 @@ static void TestPoolCreation()
     ASSERT(!putMemCalls && !getMemCalls, "no callback calls are expected");
     res = pool_create_v1(0, &okPolicy, &pool);
     ASSERT(res==POOL_OK, NULL);
-    pool_destroy(pool);
+    bool ok = pool_destroy(pool);
+    ASSERT(ok, NULL);
     ASSERT(putMemCalls == getMemCalls, "no leaks after pool_destroy");
+
+    // test creation of many pools
+    // each pool consumes ~2MB of address space, so limit number
+    // of pools on 32-bit systems
+    const size_t MAX_POOLS = 4==sizeof(void*)? 500 : 16*1000;
+    MemoryPool *pools[MAX_POOLS];
+    size_t created;
+
+    for (created=0; created<MAX_POOLS; created++) {
+        putMemCalls = getMemCalls = 0;
+        res = pool_create_v1(created, &okPolicy, pools+created);
+        if (res!=POOL_OK) {
+            ASSERT(!getMemCalls && !putMemCalls, "No leak after fail.");
+            break;
+        }
+        void *o = pool_malloc(pools[created], 1024);
+        ASSERT(o, "Created pool must be useful.");
+        ASSERT(1==getMemCalls && !putMemCalls, "Single callback request expected.");
+        pool_free(pools[created], o);
+    }
+    // 32 is guess for number of pools that is acceptable everywere
+    ASSERT(created>=32, "Expect that reasonable number of pools can be created at any system.");
+    for (size_t i=0; i<created; i++) {
+        ok = pool_destroy(pools[i]);
+        ASSERT(ok, NULL);
+    }
+    // check that failure during pool creation doesn't lead to leaks
+    for (size_t i=0; i<created; i++) {
+        res = pool_create_v1(i, &okPolicy, pools+i);
+        ASSERT(res==POOL_OK, "2nd iteration of pool creation must be possible.");
+        void *o = pool_malloc(pools[i], 1024);
+        ASSERT(o, "Created pool must be useful.");
+        pool_free(pools[i], o);
+    }
+    for (size_t i=0; i<created; i++) {
+        ok = pool_destroy(pools[i]);
+        ASSERT(ok, NULL);
+    }
+}
+
+struct AllocatedObject {
+    rml::MemoryPool *pool;
+};
+
+// TODO: extend testing of pool_identify() in concurrent environment
+void TestPoolDetection()
+{
+    using namespace rml;
+    const int POOLS = 4;
+    rml::MemPoolPolicy pol(fixedBufGetMem, NULL, 0, /*fixedSizePool=*/true,
+                           /*keepMemTillDestroy=*/false);
+    rml::MemoryPool *pools[POOLS];
+    const size_t BUF_SIZE = 1024*1024;
+    FixedPoolHead<BUF_SIZE> head[POOLS];
+    AllocatedObject *objs[POOLS];
+
+    for (int i=0; i<POOLS; i++)
+        pool_create_v1((intptr_t)(head+i), &pol, &pools[i]);
+    // if object somehow released to different pools, subsequent allocation
+    // from affected pools became impossible
+    for (int k=0; k<10; k++) {
+        for (int i=0; i<POOLS; i++) {
+            objs[i] = (AllocatedObject*)pool_malloc(pools[i], BUF_SIZE/2);
+            ASSERT(objs[i], NULL);
+            MemoryPool *act_pool = pool_identify(objs[i]);
+            ASSERT(act_pool == pools[i], NULL);
+            objs[i]->pool = act_pool;
+            for (size_t total=0; total<2*BUF_SIZE; total+=256) {
+                AllocatedObject *o = (AllocatedObject*)pool_malloc(pools[i], 256);
+                ASSERT(o, NULL);
+                act_pool = pool_identify(o);
+                ASSERT(act_pool == pools[i], NULL);
+                o->pool = act_pool;
+                pool_free(act_pool, o);
+            }
+        }
+        for (int i=0; i<POOLS; i++) {
+            rml::MemoryPool *p = pool_identify(objs[i]);
+            ASSERT(p == objs[i]->pool, NULL);
+            pool_free(p, objs[i]);
+        }
+    }
+    for (int i=0; i<POOLS; i++) {
+        bool ok = pool_destroy(pools[i]);
+        ASSERT(ok, NULL);
+    }
+}
+
+
+void TestLazyBootstrap()
+{
+    rml::MemPoolPolicy pol(getMemPolicy, putMemPolicy);
+    rml::MemoryPool *pool;
+    const size_t sizes[] = {8, 9*1024, 0};
+
+    for (int i=0; sizes[i]; i++) {
+        putMemCalls = getMemCalls = 0;
+        pool_create_v1(0, &pol, &pool);
+        ASSERT(!putMemCalls && !getMemCalls,
+               "memory from the pool must not be requested during pool creation.");
+        void *o = pool_malloc(pool, sizes[i]);
+        ASSERT(o, "Created pool must be useful.");
+        ASSERT(1==getMemCalls && !putMemCalls, "Single callback request expected.");
+        pool_free(pool, o);
+        bool ok = pool_destroy(pool);
+        ASSERT(ok, NULL);
+        ASSERT(getMemCalls==putMemCalls, "No leak.");
+    }
+}
+
+class NoLeakOnDestroyRun: NoAssign {
+    rml::MemoryPool      *pool;
+    Harness::SpinBarrier *barrier;
+public:
+    NoLeakOnDestroyRun(rml::MemoryPool *p, Harness::SpinBarrier *b) : pool(p), barrier(b) {}
+    void operator()(int id) const {
+        void *p = pool_malloc(pool, id%2? 8 : 9000);
+        ASSERT(p && liveRegions, NULL);
+        barrier->wait();
+        if (!id) {
+            bool ok = pool_destroy(pool);
+            ASSERT(ok, NULL);
+            ASSERT(!liveRegions, "Expected all regions were released.");
+        }
+        // other threads must wait till pool destruction,
+        // to not call thread destruction cleanup before this
+        barrier->wait();
+    }
+};
+
+void TestNoLeakOnDestroy()
+{
+    liveRegions = 0;
+    for (int p=MinThread; p<=MaxThread; p++) {
+        rml::MemPoolPolicy pol(getMallocMem, putMallocMem);
+        Harness::SpinBarrier barrier(p);
+        rml::MemoryPool *pool;
+
+        pool_create_v1(0, &pol, &pool);
+        NativeParallelFor(p, NoLeakOnDestroyRun(pool, &barrier));
+    }
+}
+
+
+static int putMallocMemError(intptr_t /*pool_id*/, void *ptr, size_t bytes)
+{
+    MallocPoolHeader *hdr = (MallocPoolHeader*)ptr-1;
+    ASSERT(bytes == hdr->userSize, "Invalid size in pool callback.");
+    free(hdr->rawPtr);
+
+    liveRegions--;
+
+    return -1;
+}
+
+void TestDestroyFailed()
+{
+    rml::MemPoolPolicy pol(getMallocMem, putMallocMemError);
+    rml::MemoryPool *pool;
+    pool_create_v1(0, &pol, &pool);
+    void *ptr = pool_malloc(pool, 16);
+    ASSERT(ptr, NULL);
+    bool fail = pool_destroy(pool);
+    ASSERT(fail==false, "putMemPolicyError callback returns error, "
+           "expect pool_destroy() failure");
 }
 
 int TestMain () {
@@ -505,6 +816,10 @@ int TestMain () {
     TestPoolKeepTillDestroy();
     TestEntries();
     TestPoolCreation();
+    TestPoolDetection();
+    TestLazyBootstrap();
+    TestNoLeakOnDestroy();
+    TestDestroyFailed();
 
     return Harness::Done;
 }

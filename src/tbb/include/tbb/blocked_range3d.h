@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -83,7 +83,7 @@ public:
 
 #if __TBB_USE_PROPORTIONAL_SPLIT_IN_BLOCKED_RANGES
     //! Static field to support proportional split
-    static const bool is_divisible_in_proportion = true;
+    static const bool is_splittable_in_proportion = true;
 
     blocked_range3d( blocked_range3d& r, proportional_split& proportion ) :
         my_pages(r.my_pages),

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -36,7 +36,6 @@
     #define __TBB_FUNCTION_BY_CONSTREF_IN_TEMPLATE_BROKEN 1
 #endif
 
-static const size_t MAX_NUMBER_OF_PINVOKE_ARGS = 10;
 tbb::atomic<size_t> function_counter;
 
 // Some macros to make the test easier to read

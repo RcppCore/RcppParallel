@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -481,13 +481,13 @@ void test() {
 
 } // namespace interaction_with_range_and_partitioner
 
-namespace uniform_work_distribution {
+namespace various_range_implementations {
 
-/*
- * Test checks that initial work distribution is done uniformly
- * through affinity mechanism and not through work stealing
- */
+using namespace test_partitioner_utils;
+using namespace test_partitioner_utils::TestRanges;
 
+// Body ensures that initial work distribution is done uniformly through affinity mechanism and not
+// through work stealing
 class Body {
     Harness::SpinBarrier &m_sb;
 public:
@@ -501,28 +501,82 @@ public:
     }
 };
 
+namespace correctness {
 
-
-template <typename RangeType>
-void test_uniform_work_distribution() {
-    int thread_num = tbb::task_scheduler_init::default_num_threads();
-    Harness::SpinBarrier sb(thread_num);
+/* Testing only correctness (that is parallel_for does not hang) */
+template <typename RangeType, bool /* feedback */, bool ensure_non_emptiness>
+void test() {
+    static const int thread_num = tbb::task_scheduler_init::default_num_threads();
+    RangeType range( 0, thread_num, NULL, false, ensure_non_emptiness );
     tbb::affinity_partitioner ap;
-    tbb::parallel_for(RangeType(0, thread_num), Body(sb), ap);
+    tbb::parallel_for( range, SimpleBody(), ap );
 }
+
+} // namespace correctness
+
+namespace uniform_distribution {
+
+/* Body of parallel_for algorithm would hang if non-uniform work distribution happened  */
+template <typename RangeType, bool feedback, bool ensure_non_emptiness>
+void test() {
+    static const int thread_num = tbb::task_scheduler_init::default_num_threads();
+    Harness::SpinBarrier sb( thread_num );
+    RangeType range(0, thread_num, NULL, feedback, ensure_non_emptiness);
+    const Body sync_body( sb );
+    tbb::affinity_partitioner ap;
+    tbb::parallel_for( range, sync_body, ap );
+}
+
+} // namespace uniform_distribution
 
 void test() {
-    using namespace test_partitioner_utils::TestRanges;
+    const bool provide_feedback = __TBB_ENABLE_RANGE_FEEDBACK;
+    const bool ensure_non_empty_range = true;
 
-    test_uniform_work_distribution<RoundedDownRange>();
-    test_uniform_work_distribution<RoundedUpRange>();
-    test_uniform_work_distribution< tbb::blocked_range<size_t> >();
-    test_uniform_work_distribution<Range1_2>();
-    test_uniform_work_distribution<Range1_999>();
-    test_uniform_work_distribution<Range999_1>();
+    // BlockedRange does not take into account feedback and non-emptiness settings but uses the
+    // tbb::blocked_range implementation
+    uniform_distribution::test<BlockedRange, !provide_feedback, !ensure_non_empty_range>();
+
+#if __TBB_ENABLE_RANGE_FEEDBACK
+    using uniform_distribution::test; // if feedback is enabled ensure uniform work distribution
+#else
+    using correctness::test;
+#endif
+
+    {
+        test<RoundedDownRange, provide_feedback, ensure_non_empty_range>();
+        test<RoundedDownRange, provide_feedback, !ensure_non_empty_range>();
+#if __TBB_ENABLE_RANGE_FEEDBACK && !__TBB_MIC_NATIVE
+        // due to fast division algorithm on MIC
+        test<RoundedDownRange, !provide_feedback, ensure_non_empty_range>();
+        test<RoundedDownRange, !provide_feedback, !ensure_non_empty_range>();
+#endif
+    }
+
+    {
+        test<RoundedUpRange, provide_feedback, ensure_non_empty_range>();
+        test<RoundedUpRange, provide_feedback, !ensure_non_empty_range>();
+#if __TBB_ENABLE_RANGE_FEEDBACK && !__TBB_MIC_NATIVE
+        // due to fast division algorithm on MIC
+        test<RoundedUpRange, !provide_feedback, ensure_non_empty_range>();
+        test<RoundedUpRange, !provide_feedback, !ensure_non_empty_range>();
+#endif
+    }
+
+    // Testing that parallel_for algorithm works with such weird ranges
+    correctness::test<Range1_2, /* provide_feedback= */ false, !ensure_non_empty_range>();
+    correctness::test<Range1_999, /* provide_feedback= */ false, !ensure_non_empty_range>();
+    correctness::test<Range999_1, /* provide_feedback= */ false, !ensure_non_empty_range>();
+
+    // The following ranges do not comply with the proportion suggested by partitioner. Therefore
+    // they have to provide the proportion in which they were actually split back to partitioner and
+    // ensure theirs non-emptiness
+    test<Range1_2, provide_feedback, ensure_non_empty_range>();
+    test<Range1_999, provide_feedback, ensure_non_empty_range>();
+    test<Range999_1, provide_feedback, ensure_non_empty_range>();
 }
 
-} // namespace uniform_work_distribution
+} // namespace various_range_implementations
 
 int TestMain () {
     if( MinThread<1 ) {
@@ -592,7 +646,7 @@ int TestMain () {
     REPORT("Known issue: stack alignment for SIMD instructions not tested.\n");
 #endif
 
-    uniform_work_distribution::test();
+    various_range_implementations::test();
     interaction_with_range_and_partitioner::test();
     return Harness::Done;
 }

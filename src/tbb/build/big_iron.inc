@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -41,6 +41,7 @@
     LIB_LINK_FLAGS =
     LIB_LINK_LIBS =
     LIB_OUTPUT_KEY =
+    DYLIB_KEY =
     ifeq ($(tbb_os),linux)
         ifeq ($(compiler),clang)
             LIBS = -pthread -lrt
@@ -58,7 +59,7 @@
     DLL = a
     LIBEXT = a
     LIBPREF = lib
-    LIBDL = 
+    LIBDL =
 # <= OS specific settings
 
 TBB.DLL = $(LIBPREF)tbb$(DEBUG_SUFFIX).$(LIBEXT)

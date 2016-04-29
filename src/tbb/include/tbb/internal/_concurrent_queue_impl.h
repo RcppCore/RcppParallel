@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -434,6 +434,7 @@ struct concurrent_queue_rep : public concurrent_queue_rep_base {
  */
 template<typename T>
 class concurrent_queue_base_v3: public concurrent_queue_page_allocator {
+private:
     //! Internal representation
     concurrent_queue_rep<T>* my_rep;
 
@@ -760,7 +761,7 @@ class concurrent_queue_iterator: public concurrent_queue_iterator_base_v3<typena
     template<typename T, class A>
     friend class ::tbb::strict_ppl::concurrent_queue;
 #else
-public: // workaround for MSVC
+public:
 #endif
     //! Construct iterator pointing to head of queue.
     concurrent_queue_iterator( const concurrent_queue_base_v3<Value>& queue ) :
@@ -831,6 +832,7 @@ template<typename Container, typename Value> class concurrent_queue_iterator;
 /** Type-independent portion of concurrent_queue.
     @ingroup containers */
 class concurrent_queue_base_v3: no_copy {
+private:
     //! Internal representation
     concurrent_queue_rep* my_rep;
 
@@ -1013,11 +1015,11 @@ template<typename Container, typename Value>
 class concurrent_queue_iterator: public concurrent_queue_iterator_base,
         public std::iterator<std::forward_iterator_tag,Value> {
 
-#if !defined(_MSC_VER) || defined(__INTEL_COMPILER)
+#if !__TBB_TEMPLATE_FRIENDS_BROKEN
     template<typename T, class A>
     friend class ::tbb::concurrent_bounded_queue;
 #else
-public: // workaround for MSVC
+public:
 #endif
 
     //! Construct iterator pointing to head of queue.

@@ -1,5 +1,5 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 
     This file is part of Threading Building Blocks. Threading Building Blocks is free software;
     you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -83,7 +83,11 @@ int TestMain ();
 #if _WIN32||_WIN64
     #include "tbb/machine/windows_api.h"
     #if _WIN32_WINNT > 0x0501 && _MSC_VER && !_M_ARM
+        // Suppress "typedef ignored ... when no variable is declared" warning by vc14
+        #pragma warning (push)
+        #pragma warning (disable: 4091)
         #include <dbghelp.h>
+        #pragma warning (pop)
         #pragma comment (lib, "dbghelp.lib")
     #endif
     #if _XBOX
@@ -127,7 +131,7 @@ void print_call_stack() {
     #elif __SUNPRO_CC
         REPORT("Call stack info:\n");
         printstack(fileno(stdout));
-    #elif _WIN32_WINNT > 0x0501 && _MSC_VER && !__TBB_WIN8UI_SUPPORT
+    #elif _WIN32_WINNT > 0x0501 && _MSC_VER>=1500 && !__TBB_WIN8UI_SUPPORT
         const int sz = 62; // XP limitation for number of frames
         void *buff[sz];
         int n = CaptureStackBackTrace(0, sz, buff, NULL);
@@ -144,7 +148,7 @@ void print_call_stack() {
             if(!SymFromAddr( GetCurrentProcess(), DWORD64(buff[i]), &offset, &sym )) {
                 sym.Address = ULONG64(buff[i]); offset = 0; sym.Name[0] = 0;
             }
-            REPORT("[%d] %016I64LX+%04I64LX: %s\n", i, sym.Address, offset, sym.Name); //TODO: print module name
+            REPORT("[%d] %016I64X+%04I64X: %s\n", i, sym.Address, offset, sym.Name); //TODO: print module name
         }
     #endif /*BACKTRACE_FUNCTION_AVAILABLE*/
 }
@@ -331,6 +335,10 @@ static void ParseCommandLine( int argc, char* argv[] ) {
 #include "mpi.h"
 #endif
 
+#if __TBB_MIC_OFFLOAD && __MIC__
+extern "C" int COIProcessProxyFlush();
+#endif
+
 HARNESS_EXPORT
 #if HARNESS_NO_PARSE_COMMAND_LINE
 int main() {
@@ -383,7 +391,16 @@ int main(int argc, char* argv[]) {
     #pragma offload target(mic) out(res) mandatory
 #endif
 #endif
-    res = TestMain ();
+    {
+        res = TestMain();
+#if __TBB_MIC_OFFLOAD && __MIC__
+        // It is recommended not to use the __MIC__ macro directly in the offload block but it is Ok here
+        // since it is not lead to an unexpected difference between host and target compilation phases.
+        // We need to flush internals COI buffers to order output from the offload part before the host part.
+        // Also it is work-around for the issue with missed output.
+        COIProcessProxyFlush();
+#endif
+    }
 
     ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
 #if __TBB_MPI_INTEROP
@@ -441,7 +458,11 @@ public:
         thread_handle = thread_tmp->native_handle();
         thread_id = 0;
 #else
-        thread_handle = (HANDLE)_beginthreadex( NULL, 0, thread_function, this, 0, &thread_id );
+        unsigned stack_size = 0;
+#if HARNESS_THREAD_STACK_SIZE
+        stack_size = HARNESS_THREAD_STACK_SIZE;
+#endif
+        thread_handle = (HANDLE)_beginthreadex( NULL, stack_size, thread_function, this, 0, &thread_id );
 #endif
         ASSERT( thread_handle!=0, "NativeParallelFor: _beginthreadex failed" );
 #else
@@ -455,6 +476,7 @@ public:
         // Therefore we set the stack size explicitly (as for TBB worker threads).
 // TODO: make a single definition of MByte used by all tests.
         const size_t MByte = 1024*1024;
+#if !defined(HARNESS_THREAD_STACK_SIZE)
 #if __i386__||__i386||__arm__
         const size_t stack_size = 1*MByte;
 #elif __x86_64__
@@ -462,6 +484,9 @@ public:
 #else
         const size_t stack_size = 4*MByte;
 #endif
+#else
+        const size_t stack_size = HARNESS_THREAD_STACK_SIZE;
+#endif /* HARNESS_THREAD_STACK_SIZE */
         pthread_attr_t attr_stack;
         int status = pthread_attr_init(&attr_stack);
         ASSERT(0==status, "NativeParallelFor: pthread_attr_init failed");
@@ -584,6 +609,11 @@ T1 max ( const T1& val1, const T2& val2 ) {
 }
 #endif /* !max */
 
+template<typename T>
+static inline bool is_aligned(T arg, size_t alignment) {
+    return 0==((size_t)arg &  (alignment-1));
+}
+
 #if __linux__
 inline unsigned LinuxKernelVersion()
 {
@@ -686,6 +716,31 @@ public:
             a = Primes[seed % (sizeof(Primes) / sizeof(Primes[0]))];
         }
     };
+    int SetEnv( const char *envname, const char *envval ) {
+        ASSERT( envname && envval, "Harness::SetEnv() requires two valid C strings" );
+#if __TBB_WIN8UI_SUPPORT
+        ASSERT( false, "Harness::SetEnv() should not be called in code built for win8ui" );
+        return -1;
+#elif !(_MSC_VER || __MINGW32__ || __MINGW64__)
+        // On POSIX systems use setenv
+        return setenv(envname, envval, /*overwrite=*/1);
+#elif __STDC_SECURE_LIB__>=200411
+        // this macro is set in VC & MinGW if secure API functions are present
+        return _putenv_s(envname, envval);
+#else
+        // If no secure API on Windows, use _putenv
+        size_t namelen = strlen(envname), valuelen = strlen(envval);
+        char* buf = new char[namelen+valuelen+2];
+        strncpy(buf, envname, namelen);
+        buf[namelen] = '=';
+        strncpy(buf+namelen+1, envval, valuelen);
+        buf[namelen+1+valuelen] = char(0);
+        int status = _putenv(buf);
+        delete[] buf;
+        return status;
+#endif
+    }
+
 } // namespace Harness
 
 #endif /* tbb_tests_harness_H */

@@ -1,4 +1,4 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright 2005-2016 Intel Corporation.  All Rights Reserved.
 #
 # This file is part of Threading Building Blocks. Threading Building Blocks is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General Public License
@@ -63,6 +63,7 @@ ifeq (ia32,$(arch))
     LIB_LINK_FLAGS += -m32
 endif 
 
+# for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify)
 ifeq (sparc,$(arch))
     CPLUS_FLAGS    += -mcpu=v9 -m64
     LIB_LINK_FLAGS += -mcpu=v9 -m64
