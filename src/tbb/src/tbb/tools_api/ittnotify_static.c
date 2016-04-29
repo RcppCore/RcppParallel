@@ -806,9 +806,7 @@ static const char* __itt_get_lib_name(void)
     return lib_name;
 }
 
-#ifndef min
-#define min(a,b) (a) < (b) ? (a) : (b)
-#endif /* min */
+#define TBB_MIN(a, b) (a) < (b) ? (a) : (b)
 
 static __itt_group_id __itt_get_groups(void)
 {
@@ -825,7 +823,7 @@ static __itt_group_id __itt_get_groups(void)
         while ((group_str = __itt_fsplit(group_str, ",; ", &chunk, &len)) != NULL)
         {
             __itt_fstrcpyn(gr, chunk, sizeof(gr) - 1);
-            gr[min(len, (int)(sizeof(gr) - 1))] = 0;
+            gr[TBB_MIN(len, (int)(sizeof(gr) - 1))] = 0;
 
             for (i = 0; group_list[i].name != NULL; i++)
             {
