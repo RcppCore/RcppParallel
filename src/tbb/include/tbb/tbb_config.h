@@ -224,7 +224,7 @@
 
 // C++11 standard library features
 
-#define __TBB_CPP11_TYPE_PROPERTIES_PRESENT      (_LIBCPP_VERSION || _MSC_VER >= 1700 || (__TBB_GCC_VERSION >= 50000 && __GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L)
+#define __TBB_CPP11_TYPE_PROPERTIES_PRESENT      (_LIBCPP_VERSION || _MSC_VER >= 1700 || (__TBB_GCC_VERSION >= 50000 && (__GXX_EXPERIMENTAL_CXX0X__ || __cplusplus >= 201103L)))
 #define __TBB_TR1_TYPE_PROPERTIES_IN_STD_PRESENT (__GXX_EXPERIMENTAL_CXX0X__ && __TBB_GCC_VERSION >= 40300 || _MSC_VER >= 1600)
 //TODO: Probably more accurate way is to analyze version of stdlibc++ via__GLIBCXX__ instead of __TBB_GCC_VERSION
 #define __TBB_ALLOCATOR_TRAITS_PRESENT           (__cplusplus >= 201103L && _LIBCPP_VERSION  || _MSC_VER >= 1700 ||                                             \
