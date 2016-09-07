@@ -72,12 +72,14 @@ importFrom(RcppParallel, RcppParallelLibs)
 **src\\Makevars**
 
 ```make
+CXX_STD = CXX11
 PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::RcppParallelLibs()")
 ```
 
 **src\\Makevars.win**
 
 ```make
+CXX_STD = CXX11
 PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
 PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
@@ -85,6 +87,8 @@ PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" \
 ```
 
 Note that the Windows variation (Makevars.win) requires an extra `PKG_CXXFLAGS` entry that enables the use of TBB. This is because TBB is not used by default on Windows (for backward compatibility with a previous version of RcppParallel which lacked support for TBB on Windows).
+
+TBB uses a subset of C++11 features -- for example, `long long` is not defined in the C++98 standard. Although most compilers make this type available as a compiler extension, they may emit warnings / errors when using these types while compiling in C++98 mode. To ensure that your package builds on CRAN without these warnings, you can enforce compilation using C++11, as done by `CXX_STD = CXX11`.
 
 After you've added the above to the package you can simply include the main RcppParallel package header in source files that need to use it:
 
