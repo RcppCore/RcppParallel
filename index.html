@@ -7,21 +7,21 @@
 <meta charset="utf-8">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <meta name="generator" content="pandoc" />
-<meta name="viewport" content="width=device-width, initial-scale=1">
+
 
 
 
 <title></title>
 
 <script src="libs/jquery-1.11.3/jquery.min.js"></script>
-<script src="libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
-<link href="libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
-<script src="libs/tocify-1.9.1/jquery.tocify.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link href="libs/bootstrap-3.3.5/css/yeti.min.css" rel="stylesheet" />
 <script src="libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
 <script src="libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
 <script src="libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="libs/jqueryui-1.11.4/jquery-ui.min.js"></script>
+<link href="libs/tocify-1.9.1/jquery.tocify.css" rel="stylesheet" />
+<script src="libs/tocify-1.9.1/jquery.tocify.js"></script>
 
 <style type="text/css">code{white-space: pre;}</style>
 <link rel="stylesheet"
@@ -42,26 +42,8 @@ if (window.hljs && document.readyState && document.readyState === "complete") {
 </script>
 
 
-<link rel="stylesheet" href="styles.css" type="text/css" />
 
-</head>
-
-<body>
-
-<style type = "text/css">
-.main-container {
-  max-width: 940px;
-  margin-left: auto;
-  margin-right: auto;
-}
-code {
-  color: inherit;
-  background-color: rgba(0, 0, 0, 0.04);
-}
-img {
-  max-width:100%;
-  height: auto;
-}
+<style type="text/css">
 h1 {
   font-size: 34px;
 }
@@ -83,12 +65,64 @@ h5 {
 h6 {
   font-size: 12px;
 }
+.table th:not([align]) {
+  text-align: left;
+}
 </style>
+
+<link rel="stylesheet" href="styles.css" type="text/css" />
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+
 <div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script src="libs/navigation-1.1/tabsets.js"></script>
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
 
 
 <script>
-$(function() {
+$(document).ready(function ()  {
+
+    // move toc-ignore selectors from section div to header
+    $('div.section.toc-ignore')
+        .removeClass('toc-ignore')
+        .children('h1,h2,h3,h4,h5').addClass('toc-ignore');
+
     // establish options
     var options = {
       selectors: "h1,h2,h3",
@@ -97,7 +131,7 @@ $(function() {
       hashGenerator: function (text) {
         return text.replace(/[.\/?&!#<>]/g, '').replace(/\s/g, '_').toLowerCase();
       },
-      ignoreSelector: "h1.title",
+      ignoreSelector: ".toc-ignore",
       scrollTo: 0
     };
     options.showAndHide = false;
@@ -120,6 +154,7 @@ $(function() {
 }
 }
 
+
 .toc-content {
   padding-left: 30px;
   padding-right: 40px;
@@ -138,6 +173,13 @@ div.tocify {
 @media (min-width: 768px) and (max-width: 991px) {
   div.tocify {
     width: 25%;
+  }
+}
+
+@media (max-width: 767px) {
+  div.tocify {
+    width: 100%;
+    max-width: none;
   }
 }
 
@@ -166,12 +208,12 @@ div.tocify {
 
 <!-- setup 3col/9col grid for toc_float and main content  -->
 <div class="row-fluid">
-<div class="col-sm-4 col-md-3">
+<div class="col-xs-12 col-sm-4 col-md-3">
 <div id="TOC" class="tocify">
 </div>
 </div>
 
-<div class="toc-content col-sm-8 col-md-9">
+<div class="toc-content col-xs-12 col-sm-8 col-md-9">
 
 
 
@@ -212,6 +254,12 @@ $(document).ready(function () {
 
 </script>
 
+<div class="fluid-row" id="header">
+
+
+
+
+</div>
 
 
 <h1 class="title">
@@ -257,13 +305,16 @@ SystemRequirements: GNU make</code></pre>
 <p><strong>NAMESPACE</strong></p>
 <pre class="r"><code>importFrom(RcppParallel, RcppParallelLibs)</code></pre>
 <p><strong>src\Makevars</strong></p>
-<pre class="make"><code>PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
+<pre class="make"><code>CXX_STD = CXX11
+PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
 <p><strong>src\Makevars.win</strong></p>
-<pre class="make"><code>PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+<pre class="make"><code>CXX_STD = CXX11
+PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
 PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
               -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
 <p>Note that the Windows variation (Makevars.win) requires an extra <code>PKG_CXXFLAGS</code> entry that enables the use of TBB. This is because TBB is not used by default on Windows (for backward compatibility with a previous version of RcppParallel which lacked support for TBB on Windows).</p>
+<p>TBB uses a subset of C++11 features – for example, <code>long long</code> is not defined in the C++98 standard. Although most compilers make this type available as a compiler extension, they may emit warnings / errors when using these types while compiling in C++98 mode. To ensure that your package builds on CRAN without these warnings, you can enforce compilation using C++11, as done by <code>CXX_STD = CXX11</code>.</p>
 <p>After you’ve added the above to the package you can simply include the main RcppParallel package header in source files that need to use it:</p>
 <pre class="cpp"><code>#include &lt;RcppParallel.h&gt;</code></pre>
 </div>
@@ -307,33 +358,33 @@ IntegerVector transformVector(IntegerVector x) {
 <div id="locking" class="section level3">
 <h3>Locking</h3>
 <p>When using RcppParallel you typically do not need to worry about explicit locking, as the mechanics of <code>parallelFor</code> and <code>parallelReduce</code> (explained below) take care of providing safe windows into input and output data that have no possibility of contention. Nevertheless, if for some reason you do need to synchronize access to shared data, you can use the TinyThread locking classes (automatically available via <code>RcppParallel.h</code>):</p>
-<table style="width:114%;">
+<table>
 <colgroup>
-<col width="29%" />
-<col width="84%" />
+<col width="25%" />
+<col width="74%" />
 </colgroup>
 <thead>
 <tr class="header">
-<th align="left">Function</th>
-<th align="left">Description</th>
+<th>Function</th>
+<th>Description</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="left"><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1lock__guard.html"><code>lock_guard</code></a></td>
-<td align="left">Lock guard class. The constructor locks the mutex, and the destructor unlocks the mutex, so the mutex will automatically be unlocked when the lock guard goes out of scope.</td>
+<td><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1lock__guard.html"><code>lock_guard</code></a></td>
+<td>Lock guard class. The constructor locks the mutex, and the destructor unlocks the mutex, so the mutex will automatically be unlocked when the lock guard goes out of scope.</td>
 </tr>
 <tr class="even">
-<td align="left"><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1mutex.html"><code>mutex</code></a></td>
-<td align="left">Mutual exclusion object for synchronizing access to shared memory areas for several threads. The mutex is non-recursive (i.e. a program may deadlock if the thread that owns a mutex object calls lock() on that object).</td>
+<td><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1mutex.html"><code>mutex</code></a></td>
+<td>Mutual exclusion object for synchronizing access to shared memory areas for several threads. The mutex is non-recursive (i.e. a program may deadlock if the thread that owns a mutex object calls lock() on that object).</td>
 </tr>
 <tr class="odd">
-<td align="left"><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1recursive__mutex.html"><code>recursive_mutex</code></a></td>
-<td align="left">Mutual exclusion object for synchronizing access to shared memory areas for several threads. The mutex is recursive (i.e. a thread may lock the mutex several times, as long as it unlocks the mutex the same number of times).</td>
+<td><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1recursive__mutex.html"><code>recursive_mutex</code></a></td>
+<td>Mutual exclusion object for synchronizing access to shared memory areas for several threads. The mutex is recursive (i.e. a thread may lock the mutex several times, as long as it unlocks the mutex the same number of times).</td>
 </tr>
 <tr class="even">
-<td align="left"><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1fast__mutex.htmll"><code>fast_mutex</code></a></td>
-<td align="left">Mutual exclusion object for synchronizing access to shared memory areas for several threads. It is similar to the tthread::mutex class, but instead of using system level functions, it is implemented as an atomic spin lock with very low CPU overhead.</td>
+<td><a href="http://tinythreadpp.bitsnbites.eu/doc/classtthread_1_1fast__mutex.htmll"><code>fast_mutex</code></a></td>
+<td>Mutual exclusion object for synchronizing access to shared memory areas for several threads. It is similar to the tthread::mutex class, but instead of using system level functions, it is implemented as an atomic spin lock with very low CPU overhead.</td>
 </tr>
 </tbody>
 </table>
@@ -498,6 +549,7 @@ res[,1:4]</code></pre>
 $(document).ready(function () {
   $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
 });
+
 
 </script>
 
