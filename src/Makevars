@@ -1,7 +1,8 @@
 # Calls to 'firstword' are used to strip out
 # a possible '-m64' attached to the CC variable
 # (or other compiler arguments)
-PKG_CPPFLAGS += $(CXX1XSTD) -I../inst/include/
+CXX_STD = CXX11
+PKG_CPPFLAGS += -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
 
