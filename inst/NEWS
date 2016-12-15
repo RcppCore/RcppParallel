@@ -1,4 +1,10 @@
-RcppParallel 4.3.15
+RcppParallel 4.3.21 (unreleased)
+------------------------------------------------------------------------
+
+* Allow setting the number of threads to use via RCPP_PARALLEL_NUM_THREADS
+  environment variable.
+
+RcppParallel 4.3.20
 ------------------------------------------------------------------------
 
 * Add support for Rtools 3.3 w/ GCC 4.9
