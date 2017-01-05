@@ -32,3 +32,4 @@ Collate:
    'build.R'
    'hooks.R'
    'options.R'
+   'skeleton.R'
