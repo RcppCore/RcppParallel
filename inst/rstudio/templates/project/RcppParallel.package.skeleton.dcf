@@ -2,7 +2,7 @@ Binding: RcppParallel.package.skeleton
 Title: R Package using RcppParallel
 Subtitle: Create a new R Package using RcppParallel
 Caption: Create R Package using RcppParallel
-OpenFiles: Read-and-delete-me, src/vector-sum.cpp
+OpenFiles: src/vector-sum.cpp
 
 Parameter: example_code
 Widget: CheckboxInput
