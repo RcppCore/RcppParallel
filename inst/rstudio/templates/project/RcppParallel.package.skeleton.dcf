@@ -6,5 +6,5 @@ OpenFiles: Read-and-delete-me, src/vector-sum.cpp
 
 Parameter: example_code
 Widget: CheckboxInput
-Label: Include an example C++ file using RcppParallel?
+Label: Include an example C++ file using RcppParallel
 Default: On
