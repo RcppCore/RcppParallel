@@ -23,6 +23,7 @@ RcppParallel.package.skeleton <- function(name = "anRpackage",
    # remove dummy stuff
    unlink("data/dummy.Rda")
    unlink("man/dummy.Rd")
+   unlink("Read-and-delete-me")
    
    message("\nAdding RcppParallel settings")
    

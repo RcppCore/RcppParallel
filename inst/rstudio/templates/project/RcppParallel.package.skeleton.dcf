@@ -1,0 +1,10 @@
+Binding: RcppParallel.package.skeleton
+Title: R Package using RcppParallel
+Subtitle: Create a new R Package using RcppParallel
+Caption: Create R Package using RcppParallel
+OpenFiles: src/vector-sum.cpp
+
+Parameter: example_code
+Widget: CheckboxInput
+Label: Include an example C++ file using RcppParallel
+Default: On

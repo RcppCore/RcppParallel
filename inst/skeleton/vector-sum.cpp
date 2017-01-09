@@ -1,3 +1,16 @@
+/**
+ *
+ * This file contains example code showcasing how RcppParallel
+ * can be used. In this file, we define and export a function called
+ * 'parallelVectorSum()', which computes the sum of a numeric vector
+ * in parallel.
+ *
+ * Please see https://rcppcore.github.io/RcppParallel/ for more
+ * details on how to use RcppParallel in an R package, and the
+ * Rcpp gallery at http://gallery.rcpp.org/ for more examples.
+ *
+ */
+
 // [[Rcpp::depends(RcppParallel)]]
 #include <Rcpp.h>
 #include <RcppParallel.h>
