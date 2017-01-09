@@ -3,5 +3,6 @@ export(defaultNumThreads)
 export(RcppParallelLibs)
 export(CxxFlags)
 export(LdFlags)
+export(RcppParallel.package.skeleton)
 
 
