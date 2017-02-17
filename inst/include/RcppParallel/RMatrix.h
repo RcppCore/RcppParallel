@@ -129,7 +129,11 @@ public:
       inline size_t length() const {
          return parent_.ncol();
       }
-      
+
+      inline size_t size() const {
+        return parent_.ncol();
+      }
+
       inline T& operator[](std::size_t i) {
         return start_[i * parent_.nrow()];
       }
@@ -174,6 +178,7 @@ public:
       inline const_iterator end() const { return end_; }
       
       inline size_t length() const { return end_ - begin_; }
+      inline size_t size() const { return end_ - begin_; }
       
       inline T& operator[](std::size_t i) {
         return *(begin_ + i);
