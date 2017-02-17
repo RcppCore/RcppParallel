@@ -7,6 +7,7 @@ ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
+  VC_COPY_PATTERN=Vc*.dll
   
   MAKEFLAGS = -j1
   MAKE_CMD = CONLY="$(CC)" CPLUS="$(CXX1X)" make
@@ -15,6 +16,7 @@ else
   
   UNAME := $(shell uname)
   TBB_COPY_PATTERN=libtbb*.*
+  VC_COPY_PATTERN=libVc*.*
   ifeq ($(UNAME), Darwin)
     USE_TBB=Mac
   endif
@@ -65,10 +67,10 @@ ifeq ($(USE_TBB),  SunOS)
    endif
 endif
 
-.PHONY: all tbb
+.PHONY: all tbb vc
 
 # Order is important in Windows' case. See PKG_LIBS above
-all: tbb $(SHLIB)
+all: tbb vc $(SHLIB)
 
 tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
@@ -83,8 +85,21 @@ tbb:
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
 
+vc:
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
+	cd vc; \
+	mkdir build; \
+	cd build; \
+	cmake -DCMAKE_INSTALL_PREFIX=$(shell pwd)/vc/build/vc -DBUILD_TESTING=OFF ..; \
+	make -j4; \
+	make install; \
+	cd ../..; \
+	cp    vc/build/vc/lib/$(VC_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
+	cp -R vc/build/vc/include/Vc ../inst/include
+	
 clean:
 	(cd tbb/src; make clean)
+	(cd vc; make clean)
 
 endif
 

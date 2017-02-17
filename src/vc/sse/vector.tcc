@@ -1,0 +1,886 @@
+/*  This file is part of the Vc library. {{{
+Copyright © 2010-2015 Matthias Kretz <kretz@kde.org>
+All rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+    * Neither the names of contributing organizations nor the
+      names of its contributors may be used to endorse or promote products
+      derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+}}}*/
+
+#include "../common/x86_prefetches.h"
+#include "limits.h"
+#include "../common/bitscanintrinsics.h"
+#include "../common/set.h"
+#include "../common/gatherimplementation.h"
+#include "../common/scatterimplementation.h"
+#include "../common/transpose.h"
+#include "macros.h"
+
+namespace Vc_VERSIONED_NAMESPACE
+{
+// constants {{{1
+template<typename T> Vc_INTRINSIC Vector<T, VectorAbi::Sse>::Vector(VectorSpecialInitializerZero)
+    : d(HV::zero())
+{
+}
+
+template<typename T> Vc_INTRINSIC Vector<T, VectorAbi::Sse>::Vector(VectorSpecialInitializerOne)
+    : d(HT::one())
+{
+}
+
+template<typename T> Vc_INTRINSIC Vector<T, VectorAbi::Sse>::Vector(VectorSpecialInitializerIndexesFromZero)
+    : d(HV::template load<AlignedTag>(Detail::IndexesFromZero<EntryType, Size>()))
+{
+}
+
+template <>
+Vc_INTRINSIC SSE::float_v::Vector(VectorSpecialInitializerIndexesFromZero)
+    : d(SSE::convert<int, float>(SSE::int_v::IndexesFromZero().data()))
+{
+}
+
+template <>
+Vc_INTRINSIC SSE::double_v::Vector(VectorSpecialInitializerIndexesFromZero)
+    : d(SSE::convert<int, double>(SSE::int_v::IndexesFromZero().data()))
+{
+}
+
+// load member functions {{{1
+template <typename DstT>
+template <typename SrcT, typename Flags, typename>
+Vc_INTRINSIC void Vector<DstT, VectorAbi::Sse>::load(const SrcT *mem, Flags flags)
+{
+    Common::handleLoadPrefetches(mem, flags);
+    d.v() = Detail::load<VectorType, DstT>(mem, flags);
+}
+
+// zeroing {{{1
+template<typename T> Vc_INTRINSIC void Vector<T, VectorAbi::Sse>::setZero()
+{
+    data() = HV::zero();
+}
+
+template<typename T> Vc_INTRINSIC void Vector<T, VectorAbi::Sse>::setZero(const Mask &k)
+{
+    data() = Detail::andnot_(SSE::sse_cast<VectorType>(k.data()), data());
+}
+
+template<typename T> Vc_INTRINSIC void Vector<T, VectorAbi::Sse>::setZeroInverted(const Mask &k)
+{
+    data() = Detail::and_(SSE::sse_cast<VectorType>(k.data()), data());
+}
+
+template<> Vc_INTRINSIC void SSE::double_v::setQnan()
+{
+    data() = SSE::_mm_setallone_pd();
+}
+template<> Vc_INTRINSIC void SSE::double_v::setQnan(const Mask &k)
+{
+    data() = _mm_or_pd(data(), k.dataD());
+}
+template<> Vc_INTRINSIC void SSE::float_v::setQnan()
+{
+    data() = SSE::_mm_setallone_ps();
+}
+template<> Vc_INTRINSIC void SSE::float_v::setQnan(const Mask &k)
+{
+    data() = _mm_or_ps(data(), k.data());
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// stores {{{1
+template <typename T>
+template <typename U, typename Flags, typename>
+Vc_INTRINSIC void Vector<T, VectorAbi::Sse>::store(U *mem, Flags flags) const
+{
+    Common::handleStorePrefetches(mem, flags);
+    HV::template store<Flags>(mem, data());
+}
+
+template <typename T>
+template <typename U, typename Flags, typename>
+Vc_INTRINSIC void Vector<T, VectorAbi::Sse>::store(U *mem, Mask mask, Flags flags) const
+{
+    Common::handleStorePrefetches(mem, flags);
+    HV::template store<Flags>(mem, data(), sse_cast<VectorType>(mask.data()));
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// division {{{1
+template<typename T> inline Vector<T, VectorAbi::Sse> &Vector<T, VectorAbi::Sse>::operator/=(EntryType x)
+{
+    if (SSE::VectorTraits<T>::HasVectorDivision) {
+        return operator/=(Vector<T, VectorAbi::Sse>(x));
+    }
+    Common::for_all_vector_entries<Size>([&](size_t i) { d.set(i, d.m(i) / x); });
+    return *this;
+}
+
+template <typename T>
+inline Vector<T, VectorAbi::Sse> &Vector<T, VectorAbi::Sse>::operator/=(
+    Vc_ALIGNED_PARAMETER(V<T>) x)
+{
+    Common::for_all_vector_entries<Size>([&](size_t i) { d.set(i, d.m(i) / x.d.m(i)); });
+    return *this;
+}
+
+template<typename T> inline Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::operator/(Vc_ALIGNED_PARAMETER(V<T>) x) const
+{
+    Vector<T, VectorAbi::Sse> r;
+    Common::for_all_vector_entries<Size>(
+        [&](size_t i) { r.d.set(i, d.m(i) / x.d.m(i)); });
+    return r;
+}
+
+template<> inline SSE::short_v &SSE::short_v::operator/=(Vc_ALIGNED_PARAMETER(SSE::short_v) x)
+{
+    __m128 lo = _mm_cvtepi32_ps(HT::expand0(d.v()));
+    __m128 hi = _mm_cvtepi32_ps(HT::expand1(d.v()));
+    lo = _mm_div_ps(lo, _mm_cvtepi32_ps(HT::expand0(x.d.v())));
+    hi = _mm_div_ps(hi, _mm_cvtepi32_ps(HT::expand1(x.d.v())));
+    d.v() = HT::concat(_mm_cvttps_epi32(lo), _mm_cvttps_epi32(hi));
+    return *this;
+}
+
+template<> inline Vc_PURE SSE::short_v SSE::short_v::operator/(Vc_ALIGNED_PARAMETER(SSE::short_v) x) const
+{
+    __m128 lo = _mm_cvtepi32_ps(HT::expand0(d.v()));
+    __m128 hi = _mm_cvtepi32_ps(HT::expand1(d.v()));
+    lo = _mm_div_ps(lo, _mm_cvtepi32_ps(HT::expand0(x.d.v())));
+    hi = _mm_div_ps(hi, _mm_cvtepi32_ps(HT::expand1(x.d.v())));
+    return HT::concat(_mm_cvttps_epi32(lo), _mm_cvttps_epi32(hi));
+}
+
+template<> inline SSE::ushort_v &SSE::ushort_v::operator/=(Vc_ALIGNED_PARAMETER(SSE::ushort_v) x)
+{
+    __m128 lo = _mm_cvtepi32_ps(HT::expand0(d.v()));
+    __m128 hi = _mm_cvtepi32_ps(HT::expand1(d.v()));
+    lo = _mm_div_ps(lo, _mm_cvtepi32_ps(HT::expand0(x.d.v())));
+    hi = _mm_div_ps(hi, _mm_cvtepi32_ps(HT::expand1(x.d.v())));
+    d.v() = HT::concat(_mm_cvttps_epi32(lo), _mm_cvttps_epi32(hi));
+    return *this;
+}
+
+template<> Vc_ALWAYS_INLINE Vc_PURE SSE::ushort_v SSE::ushort_v::operator/(Vc_ALIGNED_PARAMETER(SSE::ushort_v) x) const
+{
+    __m128 lo = _mm_cvtepi32_ps(HT::expand0(d.v()));
+    __m128 hi = _mm_cvtepi32_ps(HT::expand1(d.v()));
+    lo = _mm_div_ps(lo, _mm_cvtepi32_ps(HT::expand0(x.d.v())));
+    hi = _mm_div_ps(hi, _mm_cvtepi32_ps(HT::expand1(x.d.v())));
+    return HT::concat(_mm_cvttps_epi32(lo), _mm_cvttps_epi32(hi));
+}
+
+template<> Vc_ALWAYS_INLINE SSE::float_v &SSE::float_v::operator/=(Vc_ALIGNED_PARAMETER(SSE::float_v) x)
+{
+    d.v() = _mm_div_ps(d.v(), x.d.v());
+    return *this;
+}
+
+template<> Vc_ALWAYS_INLINE Vc_PURE SSE::float_v SSE::float_v::operator/(Vc_ALIGNED_PARAMETER(SSE::float_v) x) const
+{
+    return _mm_div_ps(d.v(), x.d.v());
+}
+
+template<> Vc_ALWAYS_INLINE SSE::double_v &SSE::double_v::operator/=(Vc_ALIGNED_PARAMETER(SSE::double_v) x)
+{
+    d.v() = _mm_div_pd(d.v(), x.d.v());
+    return *this;
+}
+
+template<> Vc_ALWAYS_INLINE Vc_PURE SSE::double_v SSE::double_v::operator/(Vc_ALIGNED_PARAMETER(SSE::double_v) x) const
+{
+    return _mm_div_pd(d.v(), x.d.v());
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// operator- {{{1
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::operator-() const
+{
+    return Detail::negate(d.v(), std::integral_constant<std::size_t, sizeof(T)>());
+}
+///////////////////////////////////////////////////////////////////////////////////////////
+// integer ops {{{1
+template <typename T> inline Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::operator%(const Vector<T, VectorAbi::Sse> &n) const
+{
+    return *this - *this / n * n;
+}
+
+#define Vc_OP_IMPL(T, symbol, fun)                                                       \
+    template <>                                                                          \
+    Vc_ALWAYS_INLINE Vector<T, VectorAbi::Sse> &Vector<T, VectorAbi::Sse>::              \
+    operator symbol##=(const Vector<T, VectorAbi::Sse> &x)                               \
+    {                                                                                    \
+        d.v() = Detail::fun(d.v(), x.d.v());                                             \
+        return *this;                                                                    \
+    }                                                                                    \
+    template <>                                                                          \
+    Vc_ALWAYS_INLINE Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::       \
+    operator symbol(const Vector<T, VectorAbi::Sse> &x) const                            \
+    {                                                                                    \
+        return Detail::fun(d.v(), x.d.v());                                              \
+    }
+Vc_OP_IMPL(int, &, and_)
+Vc_OP_IMPL(int, |, or_)
+Vc_OP_IMPL(int, ^, xor_)
+Vc_OP_IMPL(unsigned int, &, and_)
+Vc_OP_IMPL(unsigned int, |, or_)
+Vc_OP_IMPL(unsigned int, ^, xor_)
+Vc_OP_IMPL(short, &, and_)
+Vc_OP_IMPL(short, |, or_)
+Vc_OP_IMPL(short, ^, xor_)
+Vc_OP_IMPL(unsigned short, &, and_)
+Vc_OP_IMPL(unsigned short, |, or_)
+Vc_OP_IMPL(unsigned short, ^, xor_)
+#ifdef Vc_ENABLE_FLOAT_BIT_OPERATORS
+Vc_OP_IMPL(float, &, and_)
+Vc_OP_IMPL(float, |, or_)
+Vc_OP_IMPL(float, ^, xor_)
+Vc_OP_IMPL(double, &, and_)
+Vc_OP_IMPL(double, |, or_)
+Vc_OP_IMPL(double, ^, xor_)
+#endif
+#undef Vc_OP_IMPL
+
+#ifdef Vc_IMPL_XOP
+static Vc_INTRINSIC Vc_CONST __m128i shiftLeft (const    SSE::int_v &value, const    SSE::int_v &count) { return _mm_sha_epi32(value.data(), count.data()); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftLeft (const   SSE::uint_v &value, const   SSE::uint_v &count) { return _mm_shl_epi32(value.data(), count.data()); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftLeft (const  SSE::short_v &value, const  SSE::short_v &count) { return _mm_sha_epi16(value.data(), count.data()); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftLeft (const SSE::ushort_v &value, const SSE::ushort_v &count) { return _mm_shl_epi16(value.data(), count.data()); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftRight(const    SSE::int_v &value, const    SSE::int_v &count) { return shiftLeft(value,          -count ); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftRight(const   SSE::uint_v &value, const   SSE::uint_v &count) { return shiftLeft(value,   SSE::uint_v(-count)); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftRight(const  SSE::short_v &value, const  SSE::short_v &count) { return shiftLeft(value,          -count ); }
+static Vc_INTRINSIC Vc_CONST __m128i shiftRight(const SSE::ushort_v &value, const SSE::ushort_v &count) { return shiftLeft(value, SSE::ushort_v(-count)); }
+
+#define Vc_OP(T, symbol, impl)                                                           \
+    template <> Vc_INTRINSIC SSE::T &SSE::T::operator symbol##=(SSE::T::AsArg shift)     \
+    {                                                                                    \
+        d.v() = impl(*this, shift);                                                      \
+        return *this;                                                                    \
+    }                                                                                    \
+    template <>                                                                          \
+    Vc_INTRINSIC Vc_PURE SSE::T SSE::T::operator symbol(SSE::T::AsArg shift) const       \
+    {                                                                                    \
+        return impl(*this, shift);                                                       \
+    }
+Vc_APPLY_2(Vc_LIST_INT_VECTOR_TYPES, Vc_OP, <<, shiftLeft)
+Vc_APPLY_2(Vc_LIST_INT_VECTOR_TYPES, Vc_OP, >>, shiftRight)
+#undef Vc_OP
+#else
+
+#define Vc_OP_IMPL(T, symbol)                                                            \
+    template <>                                                                          \
+    Vc_INTRINSIC Vector<T, VectorAbi::Sse> &Vector<T, VectorAbi::Sse>::                  \
+    operator symbol##=(Vector<T, VectorAbi::Sse>::AsArg x)                               \
+    {                                                                                    \
+        Common::for_all_vector_entries<Size>(                                            \
+            [&](size_t i) { d.set(i, d.m(i) symbol x.d.m(i)); });                        \
+        return *this;                                                                    \
+    }                                                                                    \
+    template <>                                                                          \
+    inline Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::operator symbol( \
+        Vector<T, VectorAbi::Sse>::AsArg x) const                                        \
+    {                                                                                    \
+        Vector<T, VectorAbi::Sse> r;                                                     \
+        Common::for_all_vector_entries<Size>(                                            \
+            [&](size_t i) { r.d.set(i, d.m(i) symbol x.d.m(i)); });                      \
+        return r;                                                                        \
+    }
+Vc_OP_IMPL(int, <<)
+Vc_OP_IMPL(int, >>)
+Vc_OP_IMPL(unsigned int, <<)
+Vc_OP_IMPL(unsigned int, >>)
+Vc_OP_IMPL(short, <<)
+Vc_OP_IMPL(short, >>)
+Vc_OP_IMPL(unsigned short, <<)
+Vc_OP_IMPL(unsigned short, >>)
+#undef Vc_OP_IMPL
+#endif
+
+template<typename T> Vc_ALWAYS_INLINE Vector<T, VectorAbi::Sse> &Vector<T, VectorAbi::Sse>::operator>>=(int shift) {
+    d.v() = HT::shiftRight(d.v(), shift);
+    return *this;
+}
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::operator>>(int shift) const {
+    return HT::shiftRight(d.v(), shift);
+}
+template<typename T> Vc_ALWAYS_INLINE Vector<T, VectorAbi::Sse> &Vector<T, VectorAbi::Sse>::operator<<=(int shift) {
+    d.v() = HT::shiftLeft(d.v(), shift);
+    return *this;
+}
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::operator<<(int shift) const {
+    return HT::shiftLeft(d.v(), shift);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// isnegative {{{1
+Vc_INTRINSIC Vc_CONST SSE::float_m isnegative(SSE::float_v x)
+{
+    return sse_cast<__m128>(_mm_srai_epi32(
+        sse_cast<__m128i>(_mm_and_ps(SSE::_mm_setsignmask_ps(), x.data())), 31));
+}
+Vc_INTRINSIC Vc_CONST SSE::double_m isnegative(SSE::double_v x)
+{
+    return Mem::permute<X1, X1, X3, X3>(sse_cast<__m128>(_mm_srai_epi32(
+        sse_cast<__m128i>(_mm_and_pd(SSE::_mm_setsignmask_pd(), x.data())), 31)));
+}
+
+// gathers {{{1
+template <>
+template <typename MT, typename IT>
+Vc_ALWAYS_INLINE void SSE::double_v::gatherImplementation(const MT *mem, IT &&indexes)
+{
+    d.v() = _mm_setr_pd(mem[indexes[0]], mem[indexes[1]]);
+}
+
+template <>
+template <typename MT, typename IT>
+Vc_ALWAYS_INLINE void SSE::float_v::gatherImplementation(const MT *mem, IT &&indexes)
+{
+    d.v() = _mm_setr_ps(mem[indexes[0]], mem[indexes[1]], mem[indexes[2]], mem[indexes[3]]);
+}
+
+template <>
+template <typename MT, typename IT>
+Vc_ALWAYS_INLINE void SSE::int_v::gatherImplementation(const MT *mem, IT &&indexes)
+{
+    d.v() = _mm_setr_epi32(mem[indexes[0]], mem[indexes[1]], mem[indexes[2]], mem[indexes[3]]);
+}
+
+template <>
+template <typename MT, typename IT>
+Vc_ALWAYS_INLINE void SSE::uint_v::gatherImplementation(const MT *mem, IT &&indexes)
+{
+    d.v() = _mm_setr_epi32(mem[indexes[0]], mem[indexes[1]], mem[indexes[2]], mem[indexes[3]]);
+}
+
+template <>
+template <typename MT, typename IT>
+Vc_ALWAYS_INLINE void SSE::short_v::gatherImplementation(const MT *mem, IT &&indexes)
+{
+    d.v() = set(mem[indexes[0]], mem[indexes[1]], mem[indexes[2]], mem[indexes[3]],
+            mem[indexes[4]], mem[indexes[5]], mem[indexes[6]], mem[indexes[7]]);
+}
+
+template <>
+template <typename MT, typename IT>
+Vc_ALWAYS_INLINE void SSE::ushort_v::gatherImplementation(const MT *mem, IT &&indexes)
+{
+    d.v() = set(mem[indexes[0]], mem[indexes[1]], mem[indexes[2]], mem[indexes[3]],
+                mem[indexes[4]], mem[indexes[5]], mem[indexes[6]], mem[indexes[7]]);
+}
+
+template <typename T>
+template <typename MT, typename IT>
+inline void Vector<T, VectorAbi::Sse>::gatherImplementation(const MT *mem, IT &&indexes, MaskArgument mask)
+{
+    using Selector = std::integral_constant < Common::GatherScatterImplementation,
+#ifdef Vc_USE_SET_GATHERS
+          Traits::is_simd_vector<IT>::value ? Common::GatherScatterImplementation::SetIndexZero :
+#endif
+#ifdef Vc_USE_BSF_GATHERS
+                                            Common::GatherScatterImplementation::BitScanLoop
+#elif defined Vc_USE_POPCNT_BSF_GATHERS
+              Common::GatherScatterImplementation::PopcntSwitch
+#else
+              Common::GatherScatterImplementation::SimpleLoop
+#endif
+                                                > ;
+    Common::executeGather(Selector(), *this, mem, indexes, mask);
+}
+
+// scatters {{{1
+template <typename T>
+template <typename MT, typename IT>
+inline void Vector<T, VectorAbi::Sse>::scatterImplementation(MT *mem, IT &&indexes) const
+{
+    Common::unrolled_loop<std::size_t, 0, Size>([&](std::size_t i) { mem[indexes[i]] = d.m(i); });
+}
+
+template <typename T>
+template <typename MT, typename IT>
+inline void Vector<T, VectorAbi::Sse>::scatterImplementation(MT *mem, IT &&indexes, MaskArgument mask) const
+{
+    using Selector = std::integral_constant < Common::GatherScatterImplementation,
+#ifdef Vc_USE_SET_GATHERS
+          Traits::is_simd_vector<IT>::value ? Common::GatherScatterImplementation::SetIndexZero :
+#endif
+#ifdef Vc_USE_BSF_GATHERS
+                                            Common::GatherScatterImplementation::BitScanLoop
+#elif defined Vc_USE_POPCNT_BSF_GATHERS
+              Common::GatherScatterImplementation::PopcntSwitch
+#else
+              Common::GatherScatterImplementation::SimpleLoop
+#endif
+                                                > ;
+    Common::executeScatter(Selector(), *this, mem, indexes, mask);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// operator[] {{{1
+template<typename T> Vc_INTRINSIC typename Vector<T, VectorAbi::Sse>::EntryType Vc_PURE Vector<T, VectorAbi::Sse>::operator[](size_t index) const
+{
+    return d.m(index);
+}
+#ifdef Vc_GCC
+template<> Vc_INTRINSIC double Vc_PURE SSE::double_v::operator[](size_t index) const
+{
+    if (__builtin_constant_p(index)) {
+        return SSE::extract_double_imm(d.v(), index);
+    }
+    return d.m(index);
+}
+template<> Vc_INTRINSIC float Vc_PURE SSE::float_v::operator[](size_t index) const
+{
+    return SSE::extract_float(d.v(), index);
+}
+template<> Vc_INTRINSIC int Vc_PURE SSE::int_v::operator[](size_t index) const
+{
+    if (__builtin_constant_p(index)) {
+#ifdef __x86_64__
+        if (index == 0) return _mm_cvtsi128_si64(d.v()) & 0xFFFFFFFFull;
+        if (index == 1) return _mm_cvtsi128_si64(d.v()) >> 32;
+#else
+        if (index == 0) return _mm_cvtsi128_si32(d.v());
+#endif
+#ifdef Vc_IMPL_SSE4_1
+        return _mm_extract_epi32(d.v(), index);
+#endif
+    }
+    return d.m(index);
+}
+template<> Vc_INTRINSIC unsigned int Vc_PURE SSE::uint_v::operator[](size_t index) const
+{
+    if (__builtin_constant_p(index)) {
+#ifdef __x86_64__
+        if (index == 0) return _mm_cvtsi128_si64(d.v()) & 0xFFFFFFFFull;
+        if (index == 1) return _mm_cvtsi128_si64(d.v()) >> 32;
+#else
+        if (index == 0) return _mm_cvtsi128_si32(d.v());
+#endif
+#ifdef Vc_IMPL_SSE4_1
+        return _mm_extract_epi32(d.v(), index);
+#endif
+    }
+    return d.m(index);
+}
+template<> Vc_INTRINSIC short Vc_PURE SSE::short_v::operator[](size_t index) const
+{
+    if (__builtin_constant_p(index)) {
+        return _mm_extract_epi16(d.v(), index);
+    }
+    return d.m(index);
+}
+template<> Vc_INTRINSIC unsigned short Vc_PURE SSE::ushort_v::operator[](size_t index) const
+{
+    if (__builtin_constant_p(index)) {
+        return _mm_extract_epi16(d.v(), index);
+    }
+    return d.m(index);
+}
+#endif // GCC
+///////////////////////////////////////////////////////////////////////////////////////////
+// horizontal ops {{{1
+template<typename T> Vc_ALWAYS_INLINE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::partialSum() const
+{
+    //   a    b    c    d    e    f    g    h
+    // +      a    b    c    d    e    f    g    -> a ab bc  cd   de    ef     fg      gh
+    // +           a    ab   bc   cd   de   ef   -> a ab abc abcd bcde  cdef   defg    efgh
+    // +                     a    ab   abc  abcd -> a ab abc abcd abcde abcdef abcdefg abcdefgh
+    Vector<T, VectorAbi::Sse> tmp = *this;
+    if (Size >  1) tmp += tmp.shifted(-1);
+    if (Size >  2) tmp += tmp.shifted(-2);
+    if (Size >  4) tmp += tmp.shifted(-4);
+    if (Size >  8) tmp += tmp.shifted(-8);
+    if (Size > 16) tmp += tmp.shifted(-16);
+    return tmp;
+}
+#ifndef Vc_IMPL_SSE4_1
+// without SSE4.1 integer multiplication is slow and we rather multiply the scalars
+template<> Vc_INTRINSIC Vc_PURE int SSE::int_v::product() const
+{
+    return (d.m(0) * d.m(1)) * (d.m(2) * d.m(3));
+}
+template<> Vc_INTRINSIC Vc_PURE unsigned int SSE::uint_v::product() const
+{
+    return (d.m(0) * d.m(1)) * (d.m(2) * d.m(3));
+}
+#endif
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE typename Vector<T, VectorAbi::Sse>::EntryType Vector<T, VectorAbi::Sse>::min(MaskArg m) const
+{
+    Vector<T, VectorAbi::Sse> tmp = std::numeric_limits<Vector<T, VectorAbi::Sse> >::max();
+    tmp(m) = *this;
+    return tmp.min();
+}
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE typename Vector<T, VectorAbi::Sse>::EntryType Vector<T, VectorAbi::Sse>::max(MaskArg m) const
+{
+    Vector<T, VectorAbi::Sse> tmp = std::numeric_limits<Vector<T, VectorAbi::Sse> >::min();
+    tmp(m) = *this;
+    return tmp.max();
+}
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE typename Vector<T, VectorAbi::Sse>::EntryType Vector<T, VectorAbi::Sse>::product(MaskArg m) const
+{
+    Vector<T, VectorAbi::Sse> tmp(Vc::One);
+    tmp(m) = *this;
+    return tmp.product();
+}
+template<typename T> Vc_ALWAYS_INLINE Vc_PURE typename Vector<T, VectorAbi::Sse>::EntryType Vector<T, VectorAbi::Sse>::sum(MaskArg m) const
+{
+    Vector<T, VectorAbi::Sse> tmp(Vc::Zero);
+    tmp(m) = *this;
+    return tmp.sum();
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+// exponent {{{1
+namespace Detail
+{
+Vc_INTRINSIC Vc_CONST __m128 exponent(__m128 v)
+{
+    __m128i tmp = _mm_srli_epi32(_mm_castps_si128(v), 23);
+    tmp = _mm_sub_epi32(tmp, _mm_set1_epi32(0x7f));
+    return _mm_cvtepi32_ps(tmp);
+}
+Vc_INTRINSIC Vc_CONST __m128d exponent(__m128d v)
+{
+    __m128i tmp = _mm_srli_epi64(_mm_castpd_si128(v), 52);
+    tmp = _mm_sub_epi32(tmp, _mm_set1_epi32(0x3ff));
+    return _mm_cvtepi32_pd(_mm_shuffle_epi32(tmp, 0x08));
+}
+} // namespace Detail
+
+Vc_INTRINSIC Vc_CONST SSE::float_v exponent(SSE::float_v x)
+{
+    Vc_ASSERT((x >= 0.f).isFull());
+    return Detail::exponent(x.data());
+}
+Vc_INTRINSIC Vc_CONST SSE::double_v exponent(SSE::double_v x)
+{
+    Vc_ASSERT((x >= 0.).isFull());
+    return Detail::exponent(x.data());
+}
+// }}}1
+// Random {{{1
+static void _doRandomStep(SSE::uint_v &state0,
+        SSE::uint_v &state1)
+{
+    state0.load(&Common::RandomState[0]);
+    state1.load(&Common::RandomState[SSE::uint_v::Size]);
+    (state1 * 0xdeece66du + 11).store(&Common::RandomState[SSE::uint_v::Size]);
+    SSE::uint_v(_mm_xor_si128((state0 * 0xdeece66du + 11).data(), _mm_srli_epi32(state1.data(), 16))).store(&Common::RandomState[0]);
+}
+
+template<typename T> Vc_ALWAYS_INLINE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::Random()
+{
+    SSE::uint_v state0, state1;
+    _doRandomStep(state0, state1);
+    return state0.reinterpretCast<Vector<T, VectorAbi::Sse> >();
+}
+
+template<> Vc_ALWAYS_INLINE SSE::float_v SSE::float_v::Random()
+{
+    SSE::uint_v state0, state1;
+    _doRandomStep(state0, state1);
+    return _mm_sub_ps(_mm_or_ps(_mm_castsi128_ps(_mm_srli_epi32(state0.data(), 2)), HT::one()), HT::one());
+}
+
+template<> Vc_ALWAYS_INLINE SSE::double_v SSE::double_v::Random()
+{
+    typedef unsigned long long uint64 Vc_MAY_ALIAS;
+    uint64 state0 = *reinterpret_cast<const uint64 *>(&Common::RandomState[8]);
+    uint64 state1 = *reinterpret_cast<const uint64 *>(&Common::RandomState[10]);
+    const __m128i state = _mm_load_si128(reinterpret_cast<const __m128i *>(&Common::RandomState[8]));
+    *reinterpret_cast<uint64 *>(&Common::RandomState[ 8]) = (state0 * 0x5deece66dull + 11);
+    *reinterpret_cast<uint64 *>(&Common::RandomState[10]) = (state1 * 0x5deece66dull + 11);
+    return _mm_sub_pd(_mm_or_pd(_mm_castsi128_pd(_mm_srli_epi64(state, 12)), HT::one()), HT::one());
+}
+// shifted / rotated {{{1
+template<typename T> Vc_INTRINSIC Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::shifted(int amount) const
+{
+    enum {
+        EntryTypeSizeof = sizeof(EntryType)
+    };
+    switch (amount) {
+    case  0: return *this;
+    case  1: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 1 * EntryTypeSizeof));
+    case  2: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 2 * EntryTypeSizeof));
+    case  3: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 3 * EntryTypeSizeof));
+    case  4: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 4 * EntryTypeSizeof));
+    case  5: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 5 * EntryTypeSizeof));
+    case  6: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 6 * EntryTypeSizeof));
+    case  7: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 7 * EntryTypeSizeof));
+    case  8: return SSE::sse_cast<VectorType>(_mm_srli_si128(SSE::sse_cast<__m128i>(d.v()), 8 * EntryTypeSizeof));
+    case -1: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 1 * EntryTypeSizeof));
+    case -2: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 2 * EntryTypeSizeof));
+    case -3: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 3 * EntryTypeSizeof));
+    case -4: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 4 * EntryTypeSizeof));
+    case -5: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 5 * EntryTypeSizeof));
+    case -6: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 6 * EntryTypeSizeof));
+    case -7: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 7 * EntryTypeSizeof));
+    case -8: return SSE::sse_cast<VectorType>(_mm_slli_si128(SSE::sse_cast<__m128i>(d.v()), 8 * EntryTypeSizeof));
+    }
+    return Zero();
+}
+template<typename T> Vc_INTRINSIC Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::shifted(int amount, Vector shiftIn) const
+{
+    if (amount >= -int(size())) {
+        constexpr int VectorWidth = size();
+        constexpr int EntryTypeSizeof = sizeof(EntryType);
+        const __m128i v0 = sse_cast<__m128i>(d.v());
+        const __m128i v1 = sse_cast<__m128i>(shiftIn.d.v());
+        auto &&fixup = sse_cast<VectorType, __m128i>;
+        switch (amount) {
+        case  0: return *this;
+                 // alignr_epi8: [arg1 arg0] << n
+        case -1: return fixup(SSE::alignr_epi8<(VectorWidth - 1) * EntryTypeSizeof>(v0, v1));
+        case -2: return fixup(SSE::alignr_epi8<(VectorWidth - 2) * EntryTypeSizeof>(v0, v1));
+        case -3: return fixup(SSE::alignr_epi8<(VectorWidth - 3) * EntryTypeSizeof>(v0, v1));
+        case -4: return fixup(SSE::alignr_epi8<(VectorWidth - 4) * EntryTypeSizeof>(v0, v1));
+        case -5: return fixup(SSE::alignr_epi8<(VectorWidth - 5) * EntryTypeSizeof>(v0, v1));
+        case -6: return fixup(SSE::alignr_epi8<(VectorWidth - 6) * EntryTypeSizeof>(v0, v1));
+        case -7: return fixup(SSE::alignr_epi8<(VectorWidth - 7) * EntryTypeSizeof>(v0, v1));
+        case -8: return fixup(SSE::alignr_epi8<(VectorWidth - 8) * EntryTypeSizeof>(v0, v1));
+        case -9: return fixup(SSE::alignr_epi8<(VectorWidth - 9) * EntryTypeSizeof>(v0, v1));
+        case-10: return fixup(SSE::alignr_epi8<(VectorWidth -10) * EntryTypeSizeof>(v0, v1));
+        case-11: return fixup(SSE::alignr_epi8<(VectorWidth -11) * EntryTypeSizeof>(v0, v1));
+        case-12: return fixup(SSE::alignr_epi8<(VectorWidth -12) * EntryTypeSizeof>(v0, v1));
+        case-13: return fixup(SSE::alignr_epi8<(VectorWidth -13) * EntryTypeSizeof>(v0, v1));
+        case-14: return fixup(SSE::alignr_epi8<(VectorWidth -14) * EntryTypeSizeof>(v0, v1));
+        case-15: return fixup(SSE::alignr_epi8<(VectorWidth -15) * EntryTypeSizeof>(v0, v1));
+        case  1: return fixup(SSE::alignr_epi8< 1 * EntryTypeSizeof>(v1, v0));
+        case  2: return fixup(SSE::alignr_epi8< 2 * EntryTypeSizeof>(v1, v0));
+        case  3: return fixup(SSE::alignr_epi8< 3 * EntryTypeSizeof>(v1, v0));
+        case  4: return fixup(SSE::alignr_epi8< 4 * EntryTypeSizeof>(v1, v0));
+        case  5: return fixup(SSE::alignr_epi8< 5 * EntryTypeSizeof>(v1, v0));
+        case  6: return fixup(SSE::alignr_epi8< 6 * EntryTypeSizeof>(v1, v0));
+        case  7: return fixup(SSE::alignr_epi8< 7 * EntryTypeSizeof>(v1, v0));
+        case  8: return fixup(SSE::alignr_epi8< 8 * EntryTypeSizeof>(v1, v0));
+        case  9: return fixup(SSE::alignr_epi8< 9 * EntryTypeSizeof>(v1, v0));
+        case 10: return fixup(SSE::alignr_epi8<10 * EntryTypeSizeof>(v1, v0));
+        case 11: return fixup(SSE::alignr_epi8<11 * EntryTypeSizeof>(v1, v0));
+        case 12: return fixup(SSE::alignr_epi8<12 * EntryTypeSizeof>(v1, v0));
+        case 13: return fixup(SSE::alignr_epi8<13 * EntryTypeSizeof>(v1, v0));
+        case 14: return fixup(SSE::alignr_epi8<14 * EntryTypeSizeof>(v1, v0));
+        case 15: return fixup(SSE::alignr_epi8<15 * EntryTypeSizeof>(v1, v0));
+        }
+    }
+    return shiftIn.shifted(size() + amount);
+}
+template<typename T> Vc_INTRINSIC Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::rotated(int amount) const
+{
+    enum {
+        EntryTypeSizeof = sizeof(EntryType)
+    };
+    const __m128i v = SSE::sse_cast<__m128i>(d.v());
+    switch (static_cast<unsigned int>(amount) % Size) {
+    case  0: return *this;
+    case  1: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<1 * EntryTypeSizeof>(v, v));
+    case  2: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<2 * EntryTypeSizeof>(v, v));
+    case  3: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<3 * EntryTypeSizeof>(v, v));
+             // warning "Immediate parameter to intrinsic call too large" disabled in VcMacros.cmake.
+             // ICC fails to see that the modulo operation (Size == sizeof(VectorType) / sizeof(EntryType))
+             // disables the following four calls unless sizeof(EntryType) == 2.
+    case  4: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<4 * EntryTypeSizeof>(v, v));
+    case  5: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<5 * EntryTypeSizeof>(v, v));
+    case  6: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<6 * EntryTypeSizeof>(v, v));
+    case  7: return SSE::sse_cast<VectorType>(SSE::alignr_epi8<7 * EntryTypeSizeof>(v, v));
+    }
+    return Zero();
+}
+// sorted {{{1
+namespace Detail
+{
+inline Vc_CONST SSE::double_v sorted(Vc_ALIGNED_PARAMETER(SSE::double_v) x_)
+{
+    const __m128d x = x_.data();
+    const __m128d y = _mm_shuffle_pd(x, x, _MM_SHUFFLE2(0, 1));
+    return _mm_unpacklo_pd(_mm_min_sd(x, y), _mm_max_sd(x, y));
+}
+}  // namespace Detail
+template <typename T>
+Vc_ALWAYS_INLINE Vc_PURE Vector<T, VectorAbi::Sse> Vector<T, VectorAbi::Sse>::sorted()
+    const
+{
+    return Detail::sorted(*this);
+}
+// interleaveLow/-High {{{1
+template <> Vc_INTRINSIC SSE::double_v SSE::double_v::interleaveLow (SSE::double_v x) const { return _mm_unpacklo_pd(data(), x.data()); }
+template <> Vc_INTRINSIC SSE::double_v SSE::double_v::interleaveHigh(SSE::double_v x) const { return _mm_unpackhi_pd(data(), x.data()); }
+template <> Vc_INTRINSIC  SSE::float_v  SSE::float_v::interleaveLow ( SSE::float_v x) const { return _mm_unpacklo_ps(data(), x.data()); }
+template <> Vc_INTRINSIC  SSE::float_v  SSE::float_v::interleaveHigh( SSE::float_v x) const { return _mm_unpackhi_ps(data(), x.data()); }
+template <> Vc_INTRINSIC    SSE::int_v    SSE::int_v::interleaveLow (   SSE::int_v x) const { return _mm_unpacklo_epi32(data(), x.data()); }
+template <> Vc_INTRINSIC    SSE::int_v    SSE::int_v::interleaveHigh(   SSE::int_v x) const { return _mm_unpackhi_epi32(data(), x.data()); }
+template <> Vc_INTRINSIC   SSE::uint_v   SSE::uint_v::interleaveLow (  SSE::uint_v x) const { return _mm_unpacklo_epi32(data(), x.data()); }
+template <> Vc_INTRINSIC   SSE::uint_v   SSE::uint_v::interleaveHigh(  SSE::uint_v x) const { return _mm_unpackhi_epi32(data(), x.data()); }
+template <> Vc_INTRINSIC  SSE::short_v  SSE::short_v::interleaveLow ( SSE::short_v x) const { return _mm_unpacklo_epi16(data(), x.data()); }
+template <> Vc_INTRINSIC  SSE::short_v  SSE::short_v::interleaveHigh( SSE::short_v x) const { return _mm_unpackhi_epi16(data(), x.data()); }
+template <> Vc_INTRINSIC SSE::ushort_v SSE::ushort_v::interleaveLow (SSE::ushort_v x) const { return _mm_unpacklo_epi16(data(), x.data()); }
+template <> Vc_INTRINSIC SSE::ushort_v SSE::ushort_v::interleaveHigh(SSE::ushort_v x) const { return _mm_unpackhi_epi16(data(), x.data()); }
+// }}}1
+// generate {{{1
+template <> template <typename G> Vc_INTRINSIC SSE::double_v SSE::double_v::generate(G gen)
+{
+    const auto tmp0 = gen(0);
+    const auto tmp1 = gen(1);
+    return _mm_setr_pd(tmp0, tmp1);
+}
+template <> template <typename G> Vc_INTRINSIC SSE::float_v SSE::float_v::generate(G gen)
+{
+    const auto tmp0 = gen(0);
+    const auto tmp1 = gen(1);
+    const auto tmp2 = gen(2);
+    const auto tmp3 = gen(3);
+    return _mm_setr_ps(tmp0, tmp1, tmp2, tmp3);
+}
+template <> template <typename G> Vc_INTRINSIC SSE::int_v SSE::int_v::generate(G gen)
+{
+    const auto tmp0 = gen(0);
+    const auto tmp1 = gen(1);
+    const auto tmp2 = gen(2);
+    const auto tmp3 = gen(3);
+    return _mm_setr_epi32(tmp0, tmp1, tmp2, tmp3);
+}
+template <> template <typename G> Vc_INTRINSIC SSE::uint_v SSE::uint_v::generate(G gen)
+{
+    const auto tmp0 = gen(0);
+    const auto tmp1 = gen(1);
+    const auto tmp2 = gen(2);
+    const auto tmp3 = gen(3);
+    return _mm_setr_epi32(tmp0, tmp1, tmp2, tmp3);
+}
+template <> template <typename G> Vc_INTRINSIC SSE::short_v SSE::short_v::generate(G gen)
+{
+    const auto tmp0 = gen(0);
+    const auto tmp1 = gen(1);
+    const auto tmp2 = gen(2);
+    const auto tmp3 = gen(3);
+    const auto tmp4 = gen(4);
+    const auto tmp5 = gen(5);
+    const auto tmp6 = gen(6);
+    const auto tmp7 = gen(7);
+    return _mm_setr_epi16(tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7);
+}
+template <> template <typename G> Vc_INTRINSIC SSE::ushort_v SSE::ushort_v::generate(G gen)
+{
+    const auto tmp0 = gen(0);
+    const auto tmp1 = gen(1);
+    const auto tmp2 = gen(2);
+    const auto tmp3 = gen(3);
+    const auto tmp4 = gen(4);
+    const auto tmp5 = gen(5);
+    const auto tmp6 = gen(6);
+    const auto tmp7 = gen(7);
+    return _mm_setr_epi16(tmp0, tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7);
+}
+// }}}1
+// reversed {{{1
+template <> Vc_INTRINSIC Vc_PURE SSE::double_v SSE::double_v::reversed() const
+{
+    return Mem::permute<X1, X0>(d.v());
+}
+template <> Vc_INTRINSIC Vc_PURE SSE::float_v SSE::float_v::reversed() const
+{
+    return Mem::permute<X3, X2, X1, X0>(d.v());
+}
+template <> Vc_INTRINSIC Vc_PURE SSE::int_v SSE::int_v::reversed() const
+{
+    return Mem::permute<X3, X2, X1, X0>(d.v());
+}
+template <> Vc_INTRINSIC Vc_PURE SSE::uint_v SSE::uint_v::reversed() const
+{
+    return Mem::permute<X3, X2, X1, X0>(d.v());
+}
+template <> Vc_INTRINSIC Vc_PURE SSE::short_v SSE::short_v::reversed() const
+{
+    return sse_cast<__m128i>(
+        Mem::shuffle<X1, Y0>(sse_cast<__m128d>(Mem::permuteHi<X7, X6, X5, X4>(d.v())),
+                             sse_cast<__m128d>(Mem::permuteLo<X3, X2, X1, X0>(d.v()))));
+}
+template <> Vc_INTRINSIC Vc_PURE SSE::ushort_v SSE::ushort_v::reversed() const
+{
+    return sse_cast<__m128i>(
+        Mem::shuffle<X1, Y0>(sse_cast<__m128d>(Mem::permuteHi<X7, X6, X5, X4>(d.v())),
+                             sse_cast<__m128d>(Mem::permuteLo<X3, X2, X1, X0>(d.v()))));
+}
+// }}}1
+// permutation via operator[] {{{1
+template <>
+Vc_INTRINSIC SSE::float_v SSE::float_v::operator[](SSE::int_v
+#ifdef Vc_IMPL_AVX
+                                             perm
+#endif
+                                         ) const
+{
+    /*
+    const int_m cross128 = concat(_mm_cmpgt_epi32(lo128(perm.data()), _mm_set1_epi32(3)),
+                                  _mm_cmplt_epi32(hi128(perm.data()), _mm_set1_epi32(4)));
+    if (cross128.isNotEmpty()) {
+    SSE::float_v x = _mm256_permutevar_ps(d.v(), perm.data());
+        x(cross128) = _mm256_permutevar_ps(Mem::permute128<X1, X0>(d.v()), perm.data());
+        return x;
+    } else {
+    */
+#ifdef Vc_IMPL_AVX
+    return _mm_permutevar_ps(d.v(), perm.data());
+#else
+    return *this;//TODO
+#endif
+}
+// broadcast from constexpr index {{{1
+template <> template <int Index> Vc_INTRINSIC SSE::float_v SSE::float_v::broadcast() const
+{
+    constexpr VecPos Inner = static_cast<VecPos>(Index & 0x3);
+    return Mem::permute<Inner, Inner, Inner, Inner>(d.v());
+}
+template <> template <int Index> Vc_INTRINSIC SSE::double_v SSE::double_v::broadcast() const
+{
+    constexpr VecPos Inner = static_cast<VecPos>(Index & 0x1);
+    return Mem::permute<Inner, Inner>(d.v());
+}
+// }}}1
+
+namespace Common
+{
+// transpose_impl {{{1
+template <int L>
+Vc_ALWAYS_INLINE enable_if<L == 4, void> transpose_impl(
+    SSE::float_v *Vc_RESTRICT r[],
+    const TransposeProxy<SSE::float_v, SSE::float_v, SSE::float_v, SSE::float_v> &proxy)
+{
+    const auto in0 = std::get<0>(proxy.in).data();
+    const auto in1 = std::get<1>(proxy.in).data();
+    const auto in2 = std::get<2>(proxy.in).data();
+    const auto in3 = std::get<3>(proxy.in).data();
+    const auto tmp0 = _mm_unpacklo_ps(in0, in2);
+    const auto tmp1 = _mm_unpacklo_ps(in1, in3);
+    const auto tmp2 = _mm_unpackhi_ps(in0, in2);
+    const auto tmp3 = _mm_unpackhi_ps(in1, in3);
+    *r[0] = _mm_unpacklo_ps(tmp0, tmp1);
+    *r[1] = _mm_unpackhi_ps(tmp0, tmp1);
+    *r[2] = _mm_unpacklo_ps(tmp2, tmp3);
+    *r[3] = _mm_unpackhi_ps(tmp2, tmp3);
+}
+// }}}1
+}  // namespace Common
+}
+
+// vim: foldmethod=marker
