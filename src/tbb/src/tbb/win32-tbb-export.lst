@@ -1,20 +1,20 @@
-; Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+; Copyright (c) 2005-2017 Intel Corporation
 ;
-; This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-; you can redistribute it and/or modify it under the terms of the GNU General Public License
-; version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-; distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-; implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-; See  the GNU General Public License for more details.   You should have received a copy of
-; the  GNU General Public License along with Threading Building Blocks; if not, write to the
-; Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+; Licensed under the Apache License, Version 2.0 (the "License");
+; you may not use this file except in compliance with the License.
+; You may obtain a copy of the License at
 ;
-; As a special exception,  you may use this file  as part of a free software library without
-; restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-; functions from this file, or you compile this file and link it with other files to produce
-; an executable,  this file does not by itself cause the resulting executable to be covered
-; by the GNU General Public License. This exception does not however invalidate any other
-; reasons why the executable file might be covered by the GNU General Public License.
+;     http://www.apache.org/licenses/LICENSE-2.0
+;
+; Unless required by applicable law or agreed to in writing, software
+; distributed under the License is distributed on an "AS IS" BASIS,
+; WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+; See the License for the specific language governing permissions and
+; limitations under the License.
+;
+;
+;
+;
 
 #include "tbb/tbb_config.h"
 
@@ -67,19 +67,23 @@ __TBB_SYMBOL( ?default_num_threads@task_scheduler_init@tbb@@SAHXZ )
 __TBB_SYMBOL( ?initialize@task_scheduler_init@tbb@@QAEXHI@Z )
 __TBB_SYMBOL( ?initialize@task_scheduler_init@tbb@@QAEXH@Z )
 __TBB_SYMBOL( ?terminate@task_scheduler_init@tbb@@QAEXXZ )
+__TBB_SYMBOL( ?internal_blocking_terminate@task_scheduler_init@tbb@@AAE_N_N@Z )
 #if __TBB_SCHEDULER_OBSERVER
 __TBB_SYMBOL( ?observe@task_scheduler_observer_v3@internal@tbb@@QAEX_N@Z )
 #endif /* __TBB_SCHEDULER_OBSERVER */
 
-#if __TBB_TASK_ARENA
 /* arena.cpp */
+__TBB_SYMBOL( ?internal_max_concurrency@task_arena_base@internal@interface7@tbb@@KAHPBVtask_arena@34@@Z )
 __TBB_SYMBOL( ?internal_current_slot@task_arena_base@internal@interface7@tbb@@KAHXZ )
 __TBB_SYMBOL( ?internal_initialize@task_arena_base@internal@interface7@tbb@@IAEXXZ )
 __TBB_SYMBOL( ?internal_terminate@task_arena_base@internal@interface7@tbb@@IAEXXZ )
+__TBB_SYMBOL( ?internal_attach@task_arena_base@internal@interface7@tbb@@IAEXXZ )
 __TBB_SYMBOL( ?internal_enqueue@task_arena_base@internal@interface7@tbb@@IBEXAAVtask@4@H@Z )
 __TBB_SYMBOL( ?internal_execute@task_arena_base@internal@interface7@tbb@@IBEXAAVdelegate_base@234@@Z )
 __TBB_SYMBOL( ?internal_wait@task_arena_base@internal@interface7@tbb@@IBEXXZ )
-#endif /* __TBB_TASK_ARENA */
+#if __TBB_TASK_ISOLATION
+__TBB_SYMBOL( ?isolate_within_arena@internal@interface7@tbb@@YAXAAVdelegate_base@123@H@Z )
+#endif /* __TBB_TASK_ISOLATION */
 
 #if !TBB_NO_LEGACY
 // task_v2.cpp
@@ -140,6 +144,8 @@ __TBB_SYMBOL( ?itt_metadata_str_add_v7@internal@tbb@@YAXW4itt_domain_enum@12@PAX
 __TBB_SYMBOL( ?itt_relation_add_v7@internal@tbb@@YAXW4itt_domain_enum@12@PAX_KW4itt_relation@12@12@Z )
 __TBB_SYMBOL( ?itt_task_begin_v7@internal@tbb@@YAXW4itt_domain_enum@12@PAX_K12W4string_index@12@@Z )
 __TBB_SYMBOL( ?itt_task_end_v7@internal@tbb@@YAXW4itt_domain_enum@12@@Z )
+__TBB_SYMBOL( ?itt_region_begin_v9@internal@tbb@@YAXW4itt_domain_enum@12@PAX_K12W4string_index@12@@Z )
+__TBB_SYMBOL( ?itt_region_end_v9@internal@tbb@@YAXW4itt_domain_enum@12@PAX_K@Z )
 #endif
 
 // pipeline.cpp
@@ -329,5 +335,10 @@ __TBB_SYMBOL( ?internal_condition_variable_wait@internal@interface5@tbb@@YA_NAAT
 __TBB_SYMBOL( ?internal_condition_variable_notify_one@internal@interface5@tbb@@YAXAATcondvar_impl_t@123@@Z )
 __TBB_SYMBOL( ?internal_condition_variable_notify_all@internal@interface5@tbb@@YAXAATcondvar_impl_t@123@@Z )
 __TBB_SYMBOL( ?internal_destroy_condition_variable@internal@interface5@tbb@@YAXAATcondvar_impl_t@123@@Z )
+
+// global parameter
+__TBB_SYMBOL( ?active_value@global_control@interface9@tbb@@CAIH@Z )
+__TBB_SYMBOL( ?internal_create@global_control@interface9@tbb@@AAEXXZ )
+__TBB_SYMBOL( ?internal_destroy@global_control@interface9@tbb@@AAEXXZ )
 
 #undef __TBB_SYMBOL

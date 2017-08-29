@@ -1,29 +1,31 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 const unsigned MByte = 1024*1024;
 bool __tbb_test_errno = false;
 
+#define __STDC_LIMIT_MACROS 1 // to get SIZE_MAX from stdint.h
+
 #include "tbb/tbb_config.h"
 
-#if __TBB_WIN8UI_SUPPORT	
+#if __TBB_WIN8UI_SUPPORT
 // testing allocator itself not iterfaces
 // so we can use desktop functions
 #define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP !_M_ARM
@@ -35,11 +37,10 @@ int TestMain() {
 }
 #else /* __TBB_WIN8UI_SUPPORT	 */
 
+#if _WIN32 || _WIN64
 /* _WIN32_WINNT should be defined at the very beginning,
    because other headers might include <windows.h>
 */
-
-#if _WIN32 || _WIN64
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #include "tbb/machine/windows_api.h"
@@ -74,32 +75,40 @@ void limitMem( size_t limit )
     }
 }
 // Do not test errno with static VC runtime
-#else
+#else // _WIN32 || _WIN64
 #include <sys/resource.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>  // uint64_t on FreeBSD, needed for rlim_t
+#include <stdint.h>     // SIZE_MAX
 #include "harness_report.h"
 
 void limitMem( size_t limit )
 {
     rlimit rlim;
-    rlim.rlim_cur = limit? limit*MByte : (rlim_t)RLIM_INFINITY;
-    rlim.rlim_max = (rlim_t)RLIM_INFINITY;
-    int ret = setrlimit(RLIMIT_AS,&rlim);
+    int ret = getrlimit(RLIMIT_AS,&rlim);
+    if (0 != ret) {
+        REPORT("getrlimit() returned an error: errno %d\n", errno);
+        exit(1);
+    }
+    if (rlim.rlim_max==(rlim_t)RLIM_INFINITY)
+        rlim.rlim_cur = (limit > 0) ? limit*MByte : rlim.rlim_max;
+    else rlim.rlim_cur = (limit > 0 && limit<rlim.rlim_max) ? limit*MByte : rlim.rlim_max;
+    ret = setrlimit(RLIMIT_AS,&rlim);
     if (0 != ret) {
         REPORT("Can't set limits: errno %d\n", errno);
         exit(1);
     }
 }
-#endif
+#endif  // _WIN32 || _WIN64
 
 #define ASSERT_ERRNO(cond, msg)  ASSERT( !__tbb_test_errno || (cond), msg )
 #define CHECK_ERRNO(cond) (__tbb_test_errno && (cond))
 
 #include <time.h>
 #include <errno.h>
+#include <limits.h> // for CHAR_BIT
 #define __TBB_NO_IMPLICIT_LINKAGE 1
 #include "tbb/scalable_allocator.h"
 
@@ -134,8 +143,6 @@ extern "C" void *__cdecl _aligned_malloc(size_t,size_t);
     #pragma warning (pop)
 #endif
 
-const size_t COUNT_ELEM_CALLOC = 2;
-const int COUNT_TESTS = 1000;
 const int COUNT_ELEM = 25000;
 const size_t MAX_SIZE = 1000;
 const int COUNTEXPERIMENT = 10000;
@@ -158,26 +165,32 @@ typedef void* TestAlignedMalloc(size_t size, size_t alignment);
 typedef void* TestAlignedRealloc(void* memblock, size_t size, size_t alignment);
 typedef void  TestAlignedFree(void* memblock);
 
-TestMalloc*  Tmalloc;
-TestCalloc*  Tcalloc;
-TestRealloc* Trealloc;
+// pointers to tested functions
+TestMalloc*  Rmalloc;
+TestCalloc*  Rcalloc;
+TestRealloc* Rrealloc;
 TestFree*    Tfree;
+TestPosixMemalign*  Rposix_memalign;
+TestAlignedMalloc*  Raligned_malloc;
+TestAlignedRealloc* Raligned_realloc;
 TestAlignedFree* Taligned_free;
-// call alignment-related function via pointer and check result's alignment
+
+// call functions via pointer and check result's alignment
+void* Tmalloc(size_t size);
+void* Tcalloc(size_t num, size_t size);
+void* Trealloc(void* memblock, size_t size);
 int   Tposix_memalign(void **memptr, size_t alignment, size_t size);
 void* Taligned_malloc(size_t size, size_t alignment);
 void* Taligned_realloc(void* memblock, size_t size, size_t alignment);
 
-// pointers to alignment-related functions used while testing
-TestPosixMemalign*  Rposix_memalign;
-TestAlignedMalloc*  Raligned_malloc;
-TestAlignedRealloc* Raligned_realloc;
 
 bool error_occurred = false;
 
 #if __APPLE__
-// Tests that use the variable are skipped on OS X*
+// Tests that use the variables are skipped on macOS*
 #else
+const size_t COUNT_ELEM_CALLOC = 2;
+const int COUNT_TESTS = 1000;
 static bool perProcessLimits = true;
 #endif
 
@@ -205,9 +218,7 @@ public:
         {
             srand((UINT)time(NULL));
             FullLog=isVerbose;
-            rand();
         }
-    void InvariantDataRealloc(bool aligned); //realloc does not change data
     void NULLReturn(UINT MinSize, UINT MaxSize, int total_threads); // NULL pointer + check errno
     void UniquePointer(); // unique pointer - check with padding
     void AddrArifm(); // unique pointer - check with pointer arithmetic
@@ -245,19 +256,23 @@ struct RoundRobin: NoAssign {
 
 bool CMemTest::firstTime = true;
 
+inline size_t choose_random_alignment() {
+    return sizeof(void*)<<(rand() % POWERS_OF_2);
+}
+
 static void setSystemAllocs()
 {
-    Tmalloc=malloc;
-    Trealloc=realloc;
-    Tcalloc=calloc;
+    Rmalloc=malloc;
+    Rrealloc=realloc;
+    Rcalloc=calloc;
     Tfree=free;
 #if _WIN32 || _WIN64
     Raligned_malloc=_aligned_malloc;
     Raligned_realloc=_aligned_realloc;
     Taligned_free=_aligned_free;
     Rposix_memalign=0;
-#elif  __APPLE__ || __sun || __ANDROID__ 
-// OS X*, Solaris, and Android don't have posix_memalign
+#elif  __APPLE__ || __sun || __ANDROID__
+// macOS, Solaris*, and Android* don't have posix_memalign
     Raligned_malloc=0;
     Raligned_realloc=0;
     Taligned_free=0;
@@ -299,14 +314,127 @@ void ReallocParam()
         Trealloc(bufs[j], 0);
 }
 
+void CheckArgumentsOverflow()
+{
+    void *p;
+    const size_t params[] = {SIZE_MAX, SIZE_MAX-16};
+
+    for (unsigned i=0; i<Harness::array_length(params); i++) {
+        p = Tmalloc(params[i]);
+        ASSERT(!p, NULL);
+        ASSERT_ERRNO(errno==ENOMEM, NULL);
+        p = Trealloc(NULL, params[i]);
+        ASSERT(!p, NULL);
+        ASSERT_ERRNO(errno==ENOMEM, NULL);
+        p = Tcalloc(1, params[i]);
+        ASSERT(!p, NULL);
+        ASSERT_ERRNO(errno==ENOMEM, NULL);
+        p = Tcalloc(params[i], 1);
+        ASSERT(!p, NULL);
+        ASSERT_ERRNO(errno==ENOMEM, NULL);
+    }
+    const size_t max_alignment = size_t(1) << (sizeof(size_t)*CHAR_BIT - 1);
+    if (Rposix_memalign) {
+        int ret = Rposix_memalign(&p, max_alignment, ~max_alignment);
+        ASSERT(ret == ENOMEM, NULL);
+        for (unsigned i=0; i<Harness::array_length(params); i++) {
+            ret = Rposix_memalign(&p, max_alignment, params[i]);
+            ASSERT(ret == ENOMEM, NULL);
+            ret = Rposix_memalign(&p, sizeof(void*), params[i]);
+            ASSERT(ret == ENOMEM, NULL);
+        }
+    }
+    if (Raligned_malloc) {
+        p = Raligned_malloc(~max_alignment, max_alignment);
+        ASSERT(!p, NULL);
+        for (unsigned i=0; i<Harness::array_length(params); i++) {
+            p = Raligned_malloc(params[i], max_alignment);
+            ASSERT(!p, NULL);
+            ASSERT_ERRNO(errno==ENOMEM, NULL);
+            p = Raligned_malloc(params[i], sizeof(void*));
+            ASSERT(!p, NULL);
+            ASSERT_ERRNO(errno==ENOMEM, NULL);
+        }
+    }
+
+    p = Tcalloc(SIZE_MAX/2-16, SIZE_MAX/2-16);
+    ASSERT(!p, NULL);
+    ASSERT_ERRNO(errno==ENOMEM, NULL);
+    p = Tcalloc(SIZE_MAX/2, SIZE_MAX/2);
+    ASSERT(!p, NULL);
+    ASSERT_ERRNO(errno==ENOMEM, NULL);
+}
+
+void InvariantDataRealloc(bool aligned, size_t maxAllocSize, bool checkData)
+{
+    Harness::FastRandom fastRandom(1);
+    size_t size = 0, start = 0;
+    char *ptr = NULL,
+        // master to create copies and compare ralloc result against it
+        *master = (char*)Tmalloc(2*maxAllocSize);
+
+    ASSERT(master, NULL);
+    ASSERT(!(2*maxAllocSize%sizeof(unsigned short)),
+           "The loop below expects that 2*maxAllocSize contains sizeof(unsigned short)");
+    for (size_t k = 0; k<2*maxAllocSize; k+=sizeof(unsigned short))
+        *(unsigned short*)(master+k) = fastRandom.get();
+
+    for (int i=0; i<100; i++) {
+        // don't want sizeNew==0 here
+        const size_t sizeNew = fastRandom.get() % (maxAllocSize-1) + 1;
+        char *ptrNew = aligned?
+            (char*)Taligned_realloc(ptr, sizeNew, choose_random_alignment())
+            : (char*)Trealloc(ptr, sizeNew);
+        ASSERT(ptrNew, NULL);
+        // check that old data not changed
+        if (checkData)
+            ASSERT(!memcmp(ptrNew, master+start, min(size, sizeNew)), "broken data");
+
+        // prepare fresh data, copying them from random position in master
+        size = sizeNew;
+        ptr = ptrNew;
+        if (checkData) {
+            start = fastRandom.get() % maxAllocSize;
+            memcpy(ptr, master+start, size);
+        }
+    }
+    if (aligned)
+        Taligned_realloc(ptr, 0, choose_random_alignment());
+    else
+        Trealloc(ptr, 0);
+    Tfree(master);
+}
+
+#include "harness_memory.h"
+
+void CheckReallocLeak()
+{
+    int i;
+    const int ITER_TO_STABILITY = 10;
+    // do bootstrap
+    for (int k=0; k<3; k++)
+        InvariantDataRealloc(/*aligned=*/false, 128*MByte, /*checkData=*/false);
+    size_t prev = GetMemoryUsage(peakUsage);
+    // expect realloc to not increase peak memory consumption after ITER_TO_STABILITY-1 iterations
+    for (i=0; i<ITER_TO_STABILITY; i++) {
+        for (int k=0; k<3; k++)
+            InvariantDataRealloc(/*aligned=*/false, 128*MByte, /*checkData=*/false);
+        size_t curr = GetMemoryUsage(peakUsage);
+        if (prev == curr)
+            break;
+        prev = curr;
+    }
+    ASSERT(i < ITER_TO_STABILITY, "Can't stabilize memory consumption.");
+}
+
 HARNESS_EXPORT
 int main(int argc, char* argv[]) {
     argC=argc;
     argV=argv;
     MaxThread = MinThread = 1;
-    Tmalloc=scalable_malloc;
-    Trealloc=scalable_realloc;
-    Tcalloc=scalable_calloc;
+    Rmalloc=scalable_malloc;
+    Rrealloc=scalable_realloc;
+    Rcalloc=scalable_calloc;
     Tfree=scalable_free;
     Rposix_memalign=scalable_posix_memalign;
     Raligned_malloc=scalable_aligned_malloc;
@@ -342,7 +470,7 @@ int main(int argc, char* argv[]) {
 #endif
     //-------------------------------------
 #if __APPLE__
-    /* Skip due to lack of memory limit enforcing under OS X*. */
+    /* Skip due to lack of memory limit enforcing under macOS. */
 #else
     limitMem(200);
     ReallocParam();
@@ -377,6 +505,8 @@ int main(int argc, char* argv[]) {
     __tbb_test_errno = true;
 #endif // _MSC_VER
 
+    CheckArgumentsOverflow();
+    CheckReallocLeak();
     for( int p=MaxThread; p>=MinThread; --p ) {
         REMARK("testing with %d threads\n", p );
         for (int limit=0; limit<2; limit++) {
@@ -427,6 +557,36 @@ struct TestStruct
     double field8;
 };
 
+void* Tmalloc(size_t size)
+{
+    // For compatibility, on 64-bit systems malloc should align to 16 bytes
+    size_t alignment = (sizeof(intptr_t)>4 && size>8) ? 16 : 8;
+    void *ret = Rmalloc(size);
+    if (0 != ret)
+        ASSERT(0==((uintptr_t)ret & (alignment-1)),
+               "allocation result should be properly aligned");
+    return ret;
+}
+void* Tcalloc(size_t num, size_t size)
+{
+    // For compatibility, on 64-bit systems calloc should align to 16 bytes
+    size_t alignment = (sizeof(intptr_t)>4 && num && size>8) ? 16 : 8;
+    void *ret = Rcalloc(num, size);
+    if (0 != ret)
+        ASSERT(0==((uintptr_t)ret & (alignment-1)),
+               "allocation result should be properly aligned");
+    return ret;
+}
+void* Trealloc(void* memblock, size_t size)
+{
+    // For compatibility, on 64-bit systems realloc should align to 16 bytes
+    size_t alignment = (sizeof(intptr_t)>4 && size>8) ? 16 : 8;
+    void *ret = Rrealloc(memblock, size);
+    if (0 != ret)
+        ASSERT(0==((uintptr_t)ret & (alignment-1)),
+               "allocation result should be properly aligned");
+    return ret;
+}
 int Tposix_memalign(void **memptr, size_t alignment, size_t size)
 {
     int ret = Rposix_memalign(memptr, alignment, size);
@@ -450,56 +610,6 @@ void* Taligned_realloc(void* memblock, size_t size, size_t alignment)
         ASSERT(0==((uintptr_t)ret & (alignment-1)),
                "allocation result should be aligned");
     return ret;
-}
-
-inline size_t choose_random_alignment() {
-    return sizeof(void*)<<(rand() % POWERS_OF_2);
-}
-
-void CMemTest::InvariantDataRealloc(bool aligned)
-{
-    size_t size, sizeMin;
-    CountErrors=0;
-    if (FullLog) REPORT("\nInvariant data by realloc....");
-    UCHAR* pchar;
-    sizeMin=size=rand()%MAX_SIZE+10;
-    pchar = aligned?
-        (UCHAR*)Taligned_realloc(NULL,size,choose_random_alignment())
-        : (UCHAR*)Trealloc(NULL,size);
-    if (NULL == pchar)
-        return;
-    for (size_t k=0; k<size; k++)
-        pchar[k]=(UCHAR)k%255+1;
-    for (int i=0; i<COUNTEXPERIMENT; i++)
-    {
-        size=rand()%MAX_SIZE+10;
-        UCHAR *pcharNew = aligned?
-            (UCHAR*)Taligned_realloc(pchar,size, choose_random_alignment())
-            : (UCHAR*)Trealloc(pchar,size);
-        if (NULL == pcharNew)
-            continue;
-        pchar = pcharNew;
-        sizeMin=size<sizeMin ? size : sizeMin;
-        for (size_t k=0; k<sizeMin; k++)
-            if (pchar[k] != (UCHAR)k%255+1)
-            {
-                CountErrors++;
-                if (ShouldReportError())
-                {
-                    REPORT("stand '%c', must stand '%c'\n",pchar[k],(UCHAR)k%255+1);
-                    REPORT("error: data changed (at %llu, SizeMin=%llu)\n",
-                           (long long unsigned)k,(long long unsigned)sizeMin);
-                }
-            }
-    }
-    if (aligned)
-        Taligned_realloc(pchar,0,choose_random_alignment());
-    else
-        Trealloc(pchar,0);
-    if (CountErrors) REPORT("%s\n",strError);
-    else if (FullLog) REPORT("%s\n",strOk);
-    error_occurred |= ( CountErrors>0 ) ;
-    //REPORT("end check\n");
 }
 
 struct PtrSize {
@@ -544,7 +654,7 @@ void CMemTest::AddrArifm()
         if (NULL!=tmpAddr) {
             arr[i].ptr = tmpAddr;
             arr[i].size = count;
-        } else if (count==0) { // becasue realloc(..., 0) works as free
+        } else if (count==0) { // because realloc(..., 0) works as free
             arr[i].ptr = NULL;
             arr[i].size = 0;
         }
@@ -656,7 +766,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
 
     /* There is a bug in the specific version of GLIBC (2.5-12) shipped
        with RHEL5 that leads to erroneous working of the test
-       on Intel64 and IPF systems when setrlimit-related part is enabled.
+       on Intel(R) 64 and Itanium(R) architecture when setrlimit-related part is enabled.
        Switching to GLIBC 2.5-18 from RHEL5.1 resolved the issue.
      */
     if (perProcessLimits)
@@ -713,7 +823,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
                 // Technically, if malloc returns a non-NULL pointer, it is allowed to set errno anyway.
                 // However, on most systems it does not set errno.
                 bool known_issue = false;
-#if __linux__
+#if __linux__ || __ANDROID__
                 if( CHECK_ERRNO(errno==ENOMEM) ) known_issue = true;
 #endif /* __linux__ */
                 if ( CHECK_ERRNO(errno != ENOMEM+j+1) && !known_issue) {
@@ -775,19 +885,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
             {
                 errno = 0;
                 tmp=Trealloc(PointerList[i].Pointer,PointerList[i].Size*2);
-                if (PointerList[i].Pointer == tmp) // the same place
-                {
-                    bool known_issue = false;
-#if __linux__
-                    if( errno==ENOMEM ) known_issue = true;
-#endif /* __linux__ */
-                    if (errno != 0 && !known_issue) {
-                        CountErrors++;
-                        if (ShouldReportError()) REPORT("valid pointer returned, error: errno not kept\n");
-                    }
-                    PointerList[i].Size *= 2;
-                }
-                else if (tmp != PointerList[i].Pointer && tmp != NULL) // another place
+                if (tmp != NULL) // same or another place
                 {
                     bool known_issue = false;
 #if __linux__
@@ -801,9 +899,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
                     myMemset((char*)tmp + PointerList[i].Size, 0, PointerList[i].Size);
                     PointerList[i].Pointer = tmp;
                     PointerList[i].Size *= 2;
-                }
-                else if (tmp == NULL)
-                {
+                } else {
                     CountNULL++;
                     if ( CHECK_ERRNO(errno != ENOMEM) )
                     {
@@ -831,7 +927,7 @@ void CMemTest::NULLReturn(UINT MinSize, UINT MaxSize, int total_threads)
     else
         limitMem(0);
 }
-#endif /* #if __APPLE__ */
+#endif /* #if !__APPLE__ */
 
 void CMemTest::UniquePointer()
 {
@@ -936,7 +1032,7 @@ void CMemTest::Free_NULL()
     for (int i=0; i<COUNTEXPERIMENT; i++)
     {
         Tfree(NULL);
-        if (errno != 0)
+        if (CHECK_ERRNO(errno))
         {
             CountErrors++;
             if (ShouldReportError()) REPORT("error is found by a call free with parameter NULL\n");
@@ -1022,14 +1118,14 @@ void CMemTest::RunAllTests(int total_threads)
 {
     Zerofilling();
     Free_NULL();
-    InvariantDataRealloc(/*aligned=*/false);
+    InvariantDataRealloc(/*aligned=*/false, 8*MByte, /*checkData=*/true);
     if (Raligned_realloc)
-        InvariantDataRealloc(/*aligned=*/true);
+        InvariantDataRealloc(/*aligned=*/true, 8*MByte, /*checkData=*/true);
     TestAlignedParameters();
     UniquePointer();
     AddrArifm();
 #if __APPLE__
-    REPORT("Known issue: some tests are skipped on OS X*\n");
+    REPORT("Known issue: some tests are skipped on macOS\n");
 #else
     NULLReturn(1*MByte,100*MByte,total_threads);
 #endif

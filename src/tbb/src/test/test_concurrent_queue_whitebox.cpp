@@ -1,30 +1,32 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
-#define NOMINMAX
-#include "harness_defs.h"
-#include "test_concurrent_queue.h"
+#define HARNESS_DEFINE_PRIVATE_PUBLIC 1
+#include "harness_inject_scheduler.h"
+#define private public
+#define protected public
 #include "tbb/concurrent_queue.h"
-#include "tbb/concurrent_monitor.cpp"
+#include "../tbb/concurrent_queue.cpp"
+#undef protected
+#undef private
 #include "harness.h"
-#include "harness_allocator.h"
 
 #if _MSC_VER==1500 && !__INTEL_COMPILER
     // VS2008/VC9 seems to have an issue; limits pull in math.h
@@ -38,59 +40,58 @@
 
 template <typename Q>
 class FloggerBody : NoAssign {
-    Q *q;
+    Q& q;
+    size_t elem_num;
 public:
-    FloggerBody(Q *q_) : q(q_) {}
+    FloggerBody(Q& q_, size_t elem_num_) : q(q_), elem_num(elem_num_) {}
     void operator()(const int threadID) const {
         typedef typename Q::value_type value_type;
         value_type elem = value_type(threadID);
-        for (size_t i=0; i<275; ++i) {
-            q->push(elem);
-            (void) q->try_pop(elem);
+        for (size_t i = 0; i < elem_num; ++i) {
+            q.push(elem);
+            (void) q.try_pop(elem);
         }
     }
 };
 
-template <typename HackedQRep, typename Q>
-void TestFloggerHelp(HackedQRep* hack_rep, Q* q, size_t items_per_page) {
-    size_t nq = HackedQRep::n_queue;
-    size_t hack_val = std::numeric_limits<std::size_t>::max() & ~( nq * items_per_page - 1 );
-    hack_rep->head_counter = hack_val;
-    hack_rep->tail_counter = hack_val;
-    size_t k = hack_rep->tail_counter & -(ptrdiff_t)nq;
+template <typename Q>
+void TestFloggerHelp(Q& q, size_t items_per_page) {
+    size_t nq = q.my_rep->n_queue;
+    size_t reserved_elem_num = nq * items_per_page - 1;
+    size_t hack_val = std::numeric_limits<std::size_t>::max() & ~reserved_elem_num;
+    q.my_rep->head_counter = hack_val;
+    q.my_rep->tail_counter = hack_val;
+    size_t k = q.my_rep->tail_counter & -(ptrdiff_t)nq;
 
     for (size_t i=0; i<nq; ++i) {
-        hack_rep->array[i].head_counter = k;
-        hack_rep->array[i].tail_counter = k;
+        q.my_rep->array[i].head_counter = k;
+        q.my_rep->array[i].tail_counter = k;
     }
-    NativeParallelFor(MaxThread, FloggerBody<Q>(q));
-    ASSERT(q->empty(), "FAILED flogger/empty test.");
-    delete q;
+    NativeParallelFor(MaxThread, FloggerBody<Q>(q, reserved_elem_num + 20)); // to induce the overflow occurrence
+    ASSERT(q.empty(), "FAILED flogger/empty test.");
+    ASSERT(q.my_rep->head_counter < hack_val, "FAILED wraparound test.");
 }
 
 template <typename T>
-void TestFlogger(T /*max*/) {
+void TestFlogger() {
     {
-        tbb::concurrent_queue<T>* q = new tbb::concurrent_queue<T>;
+        tbb::concurrent_queue<T> q;
         REMARK("Wraparound on strict_ppl::concurrent_queue...");
-        hacked_concurrent_queue_rep* hack_rep = ((hacked_concurrent_queue<T>*)(void*)q)->my_rep;
-        TestFloggerHelp(hack_rep, q, hack_rep->items_per_page);
+        TestFloggerHelp(q, q.my_rep->items_per_page);
         REMARK(" works.\n");
     }
     {
-        tbb::concurrent_bounded_queue<T>* q = new tbb::concurrent_bounded_queue<T>;
+        tbb::concurrent_bounded_queue<T> q;
         REMARK("Wraparound on tbb::concurrent_bounded_queue...");
-        hacked_bounded_concurrent_queue* hack_q = (hacked_bounded_concurrent_queue*)(void*)q;
-        hacked_bounded_concurrent_queue_rep* hack_rep = hack_q->my_rep;
-        TestFloggerHelp(hack_rep, q, hack_q->items_per_page);
+        TestFloggerHelp(q, q.items_per_page);
         REMARK(" works.\n");
     }
 }
 
 void TestWraparound() {
     REMARK("Testing Wraparound...\n");
-    TestFlogger(std::numeric_limits<int>::max());
-    TestFlogger(std::numeric_limits<unsigned char>::max());
+    TestFlogger<int>();
+    TestFlogger<unsigned char>();
     REMARK("Done Testing Wraparound.\n");
 }
 

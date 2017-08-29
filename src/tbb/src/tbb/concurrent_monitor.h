@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #ifndef __TBB_concurrent_monitor_H
@@ -65,6 +65,7 @@ public:
 
     //! remove node 'n'
     inline void remove( node_t& n ) {
+        __TBB_ASSERT( count > 0, "attempt to remove an item from an empty list" );
         __TBB_store_relaxed(count, __TBB_load_relaxed(count) - 1);
         n.prev->next = n.next;
         n.next->prev = n.prev;
@@ -89,7 +90,6 @@ private:
 };
 
 typedef circular_doubly_linked_list_with_sentinel waitset_t;
-typedef circular_doubly_linked_list_with_sentinel dllist_t;
 typedef circular_doubly_linked_list_with_sentinel::node_t waitset_node_t;
 
 //! concurrent_monitor
@@ -129,7 +129,7 @@ public:
     concurrent_monitor() {__TBB_store_relaxed(epoch, 0);}
 
     //! dtor
-    ~concurrent_monitor() ; 
+    ~concurrent_monitor() ;
 
     //! prepare wait by inserting 'thr' into the wait queue
     void prepare_wait( thread_context& thr, uintptr_t ctx = 0 );
@@ -177,7 +177,7 @@ public:
 
     //! Abort any sleeping threads at the time of the call
     void abort_all() {atomic_fence(); abort_all_relaxed(); }
- 
+
     //! Abort any sleeping threads at the time of the call; Relaxed version
     void abort_all_relaxed();
 
@@ -208,7 +208,7 @@ template<typename P>
 void concurrent_monitor::notify_relaxed( const P& predicate ) {
         if( waitset_ec.empty() )
             return;
-        dllist_t temp;
+        waitset_t temp;
         waitset_node_t* nxt;
         const waitset_node_t* end = waitset_ec.end();
         {

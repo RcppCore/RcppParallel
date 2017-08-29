@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness_defs.h"
@@ -51,7 +51,6 @@
 using namespace tbb;
 
 const size_t MAX_ITER = 10000;
-const int MAX_PRIO = 100000000;
 
 tbb::atomic<unsigned int> counter;
 
@@ -83,8 +82,8 @@ class my_throwing_type : public my_data_type {
 public:
     static int throw_flag;
     my_throwing_type() : my_data_type() {}
-    my_throwing_type(const my_throwing_type& src) : my_data_type(src) { 
-        if (my_throwing_type::throw_flag) throw 42; 
+    my_throwing_type(const my_throwing_type& src) : my_data_type(src) {
+        if (my_throwing_type::throw_flag) throw 42;
         priority = src.priority;
     }
 };
@@ -120,7 +119,7 @@ class FillBody : NoAssign {
     T my_max, my_min;
     concurrent_priority_queue<T, C> *q;
     C less_than;
-public:  
+public:
     FillBody(int nThread_, T max_, T min_, concurrent_priority_queue<T, C> *q_) : nThread(nThread_), my_max(max_), my_min(min_), q(q_) {}
     void operator()(const int threadID) const {
         T elem = my_min + T(threadID);
@@ -160,8 +159,8 @@ class FloggerBody : NoAssign {
     int nThread;
     concurrent_priority_queue<T, C> *q;
 public:
-    FloggerBody(int nThread_, concurrent_priority_queue<T, C> *q_) : 
-        nThread(nThread_), q(q_) {}  
+    FloggerBody(int nThread_, concurrent_priority_queue<T, C> *q_) :
+        nThread(nThread_), q(q_) {}
     void operator()(const int threadID) const {
         T elem = T(threadID+1);
         for (size_t i=0; i<MAX_ITER; ++i) {
@@ -290,7 +289,7 @@ void TestAssignmentClearSwap() {
     qo = new cpq_type();
 
     REMARK("Testing assignment (1).\n");
-    *qo = *q; 
+    *qo = *q;
     REMARK("Assignment complete.\n");
     ASSERT(qo->size()==42, "FAILED assignment/size test.");
     ASSERT(!qo->empty(), "FAILED assignment/empty test.");
@@ -347,7 +346,7 @@ void TestSerialPushPop() {
     REMARK("Pushing complete.\n");
     ASSERT(q->size()==MAX_ITER, "FAILED push/size test.");
     ASSERT(!q->empty(), "FAILED push/empty test.");
-    
+
     REMARK("Testing serial pop.\n");
     while (!q->empty()) {
         ASSERT(q->try_pop(e), "FAILED pop test.");
@@ -376,7 +375,7 @@ void TestParallelPushPop(int nThreads, T t_max, T t_min, C /*compare*/) {
     qsize = q->size();
     ASSERT(q->size()==nThreads*MAX_ITER, "FAILED push/size test.");
     ASSERT(!q->empty(), "FAILED push/empty test.");
-    
+
     REMARK("Testing parallel pop.\n");
     NativeParallelFor(nThreads, emptier);
     REMARK("Popping complete.\n");
@@ -397,7 +396,10 @@ void TestExceptions() {
         my_throwing_type::throw_flag = 1;
         cpq_ex_test_type q;
     } catch(...) {
+#if !(_MSC_VER==1900)
         ASSERT(false, "FAILED: allocating empty queue should not throw exception.\n");
+        // VS2015 warns about the code in this catch block being unreachable
+#endif
     }
     // Allocate small queue should not throw for reasonably sized type
     try {
@@ -529,15 +531,15 @@ struct special_member_calls_t {
     size_t move_constructor_called_times;
     size_t copy_assignment_called_times;
     size_t move_assignment_called_times;
-    
+
     bool friend operator==(special_member_calls_t const& lhs, special_member_calls_t const& rhs){
-        return 
-                lhs.copy_constructor_called_times == rhs.copy_constructor_called_times 
+        return
+                lhs.copy_constructor_called_times == rhs.copy_constructor_called_times
              && lhs.move_constructor_called_times == rhs.move_constructor_called_times
              && lhs.copy_assignment_called_times == rhs.copy_assignment_called_times
              && lhs.move_assignment_called_times == rhs.move_assignment_called_times;
     }
-    
+
 };
 #if __TBB_CPP11_RVALUE_REF_PRESENT
 struct MoveOperationTracker {
@@ -555,7 +557,7 @@ struct MoveOperationTracker {
     size_t value;
 
     MoveOperationTracker() : value(++value_counter) {}
-    MoveOperationTracker( const int value_ ) : value( value_ ) {}
+    MoveOperationTracker( const size_t value_ ) : value( value_ ) {}
     ~MoveOperationTracker() __TBB_NOEXCEPT( true ) {
         value = 0;
     }
@@ -599,7 +601,7 @@ size_t MoveOperationTracker::move_assignment_called_times = 0;
 size_t MoveOperationTracker::value_counter = 0;
 
 template<typename allocator = tbb::cache_aligned_allocator<MoveOperationTracker> >
-struct cpq_src_fixture {
+struct cpq_src_fixture : NoAssign {
     enum {default_container_size = 100};
     typedef concurrent_priority_queue<MoveOperationTracker, std::less<MoveOperationTracker>, typename allocator:: template rebind<MoveOperationTracker>::other > cpq_t;
 
@@ -803,9 +805,10 @@ void TestMoveSupportInPushPop() {
     ASSERT(o.value1 == 8 && o.value2 == 8, "Unexpected data popped; possible emplace() failure.");
     ASSERT(!q2.try_pop(o), "The queue should be empty.");
 
+    //TODO: revise this test
     concurrent_priority_queue<ForwardInEmplaceTester> q3;
     ASSERT( ForwardInEmplaceTester::moveCtorCalled == false, NULL );
-    q3.emplace( tbb::internal::move( ForwardInEmplaceTester(5) ), 2 );
+    q3.emplace( ForwardInEmplaceTester(5), 2 );
     ASSERT( ForwardInEmplaceTester::moveCtorCalled == true, "Not used std::forward in emplace()?" );
     ForwardInEmplaceTester obj( 0 );
     q3.try_pop( obj );
@@ -853,44 +856,76 @@ struct SmartPointersCompare {
     template <typename Type> bool operator() (const std::weak_ptr<Type> &t1, const std::weak_ptr<Type> &t2) {
         return *t1.lock().get() < *t2.lock().get();
     }
+    template <typename Type> bool operator() (const std::unique_ptr<Type> &t1, const std::unique_ptr<Type> &t2) {
+        return *t1 < *t2;
+    }
 };
 #endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
 
-template <typename Queue, typename Compare>
-void Examine(const Queue &q, const std::vector<typename Queue::value_type> &vec, Compare comp = Compare()) {
-    typedef typename Queue::value_type value_type;
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+// The helper calls copying or moving push operator if an element has copy constructor.
+// Otherwise it calls only moving push operator.
+template <bool hasCopyCtor>
+struct QueuePushHelper {
+    template <typename Q, typename T>
+    static void push( Q &q, T &&t ) {
+        q.push( std::forward<T>(t) );
+    }
+};
+template <>
+template <typename Q, typename T>
+void QueuePushHelper<false>::push( Q &q, T &&t ) {
+    q.push( std::move(t) );
+}
+#else
+template <bool hasCopyCtor>
+struct QueuePushHelper {
+    template <typename Q, typename T>
+    static void push( Q &q, const T &t ) {
+        q.push( t );
+    }
+};
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
 
-    Queue q1(q);
-    ASSERT(!q1.empty() && q1.size() == vec.size(), NULL);
+template <bool hasCopyCtor, typename Queue>
+void Examine(Queue &q1, Queue &q2, const std::vector<typename Queue::value_type> &vecSorted) {
+    typedef typename Queue::value_type ValueType;
 
-    value_type elem;
+    ASSERT(!q1.empty() && q1.size() == vecSorted.size(), NULL);
 
-    Queue q2(q);
+    ValueType elem;
+
     q2.clear();
     ASSERT(q2.empty() && !q2.size() && !q2.try_pop(elem), NULL);
 
-    std::vector<typename Queue::value_type> vec_sorted(vec);
-    std::sort(vec_sorted.begin(), vec_sorted.end(), comp);
-
-    typename std::vector<value_type>::reverse_iterator it1;
-    for (it1 = vec_sorted.rbegin(); q1.try_pop(elem); it1++) {
+    typename std::vector<ValueType>::const_reverse_iterator it1;
+    for (it1 = vecSorted.rbegin(); q1.try_pop(elem); it1++) {
         ASSERT( Harness::IsEqual()(elem, *it1), NULL );
-        q2.push(elem);
+        if ( std::distance(vecSorted.rbegin(), it1) % 2 )
+            QueuePushHelper<hasCopyCtor>::push(q2,elem);
+        else
+            QueuePushHelper<hasCopyCtor>::push(q2,tbb::internal::move(elem));
     }
-    ASSERT(it1 == vec_sorted.rend(), NULL);
+    ASSERT(it1 == vecSorted.rend(), NULL);
     ASSERT(q1.empty() && !q1.size(), NULL);
-    ASSERT(!q2.empty() && q2.size() == vec.size(), NULL);
+    ASSERT(!q2.empty() && q2.size() == vecSorted.size(), NULL);
 
     q1.swap(q2);
     ASSERT(q2.empty() && !q2.size(), NULL);
-    ASSERT(!q1.empty() && q1.size() == vec.size(), NULL);
-    for (it1 = vec_sorted.rbegin(); q1.try_pop(elem); it1++) ASSERT(Harness::IsEqual()(elem, *it1), NULL);
-    ASSERT(it1 == vec_sorted.rend(), NULL);
+    ASSERT(!q1.empty() && q1.size() == vecSorted.size(), NULL);
+    for (it1 = vecSorted.rbegin(); q1.try_pop(elem); it1++) ASSERT(Harness::IsEqual()(elem, *it1), NULL);
+    ASSERT(it1 == vecSorted.rend(), NULL);
 
     typename Queue::allocator_type a = q1.get_allocator();
-    value_type *ptr = a.allocate(1);
+    ValueType *ptr = a.allocate(1);
     ASSERT(ptr, NULL);
     a.deallocate(ptr, 1);
+}
+
+template <typename Queue>
+void Examine(const Queue &q, const std::vector<typename Queue::value_type> &vecSorted) {
+    Queue q1(q), q2(q);
+    Examine</*hasCopyCtor=*/true>( q1, q2, vecSorted );
 }
 
 template <typename ValueType, typename Compare>
@@ -898,38 +933,89 @@ void TypeTester(const std::vector<ValueType> &vec, Compare comp) {
     typedef tbb::concurrent_priority_queue<ValueType, Compare> Queue;
     typedef tbb::concurrent_priority_queue< ValueType, Compare, debug_allocator<ValueType> > QueueDebugAlloc;
     __TBB_ASSERT(vec.size() >= 5, "Array should have at least 5 elements");
+
+    std::vector<ValueType> vecSorted(vec);
+    std::sort( vecSorted.begin(), vecSorted.end(), comp );
+
     // Construct an empty queue.
     Queue q1;
     q1.assign(vec.begin(), vec.end());
-    Examine(q1, vec, comp);
+    Examine(q1, vecSorted);
 #if __TBB_INITIALIZER_LISTS_PRESENT
     // Constructor from initializer_list.
     Queue q2({ vec[0], vec[1], vec[2] });
     for (typename std::vector<ValueType>::const_iterator it = vec.begin() + 3; it != vec.end(); ++it) q2.push(*it);
-    Examine(q2, vec, comp);
+    Examine(q2, vecSorted);
     Queue q3;
     q3 = { vec[0], vec[1], vec[2] };
     for (typename std::vector<ValueType>::const_iterator it = vec.begin() + 3; it != vec.end(); ++it) q3.push(*it);
-    Examine(q3, vec, comp);
+    Examine(q3, vecSorted);
 #endif
     // Copying constructor.
     Queue q4(q1);
-    Examine(q4, vec, comp);
+    Examine(q4, vecSorted);
     // Construct with non-default allocator.
     QueueDebugAlloc q5;
     q5.assign(vec.begin(), vec.end());
-    Examine(q5, vec, comp);
+    Examine(q5, vecSorted);
     // Copying constructor for vector with different allocator type.
     QueueDebugAlloc q6(q5);
-    Examine(q6, vec, comp);
+    Examine(q6, vecSorted);
     // Construction with copying iteration range and given allocator instance.
     Queue q7(vec.begin(), vec.end());
-    Examine(q7, vec, comp);
+    Examine(q7, vecSorted);
     typename QueueDebugAlloc::allocator_type a;
     QueueDebugAlloc q8(a);
     q8.assign(vec.begin(), vec.end());
-    Examine(q8, vec, comp);
+    Examine(q8, vecSorted);
 }
+
+#if __TBB_CPP11_SMART_POINTERS_PRESENT && __TBB_CPP11_RVALUE_REF_PRESENT && __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT
+template <typename T>
+void TypeTesterUniquePtr(const std::vector<T> &vec) {
+    __TBB_ASSERT(vec.size() >= 5, "Array should have at least 5 elements");
+
+    typedef std::unique_ptr<T> ValueType;
+    typedef tbb::concurrent_priority_queue<ValueType, SmartPointersCompare> Queue;
+    typedef tbb::concurrent_priority_queue< ValueType, SmartPointersCompare, debug_allocator<ValueType> > QueueDebugAlloc;
+
+    std::vector<ValueType> vecSorted;
+    for ( typename std::vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it ) {
+        vecSorted.push_back( ValueType(new T(*it)) );
+    }
+    std::sort( vecSorted.begin(), vecSorted.end(), SmartPointersCompare() );
+
+    Queue q1, q1Copy;
+    QueueDebugAlloc q2, q2Copy;
+    for ( typename std::vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it ) {
+        q1.push( ValueType(new T(*it)) );
+        q1Copy.push( ValueType(new T(*it)) );
+        q2.push( ValueType(new T(*it)) );
+        q2Copy.push( ValueType(new T(*it)) );
+    }
+    Examine</*isCopyCtor=*/false>(q1, q1Copy, vecSorted);
+    Examine</*isCopyCtor=*/false>(q2, q2Copy, vecSorted);
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    Queue q3Copy;
+    QueueDebugAlloc q4Copy;
+
+    q1.clear();
+    q2.clear();
+    for ( typename std::vector<T>::const_iterator it = vec.begin(); it != vec.end(); ++it ) {
+        q1.emplace( new T(*it) );
+        q3Copy.emplace( new T(*it) );
+        q2.emplace( new T(*it) );
+        q4Copy.emplace( new T(*it) );
+    }
+
+    Queue q3( std::move(q1) );
+    QueueDebugAlloc q4( std::move(q2) );
+    Examine</*isCopyCtor=*/false>(q3, q3Copy, vecSorted);
+    Examine</*isCopyCtor=*/false>(q4, q4Copy, vecSorted);
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+}
+#endif /* __TBB_CPP11_SMART_POINTERS_PRESENT && __TBB_CPP11_RVALUE_REF_PRESENT && __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT */
 
 template <typename ValueType>
 void TypeTester(const std::vector<ValueType> &vec) { TypeTester(vec, std::less<ValueType>()); }
@@ -953,11 +1039,22 @@ void TestTypes() {
 
 #if __TBB_CPP11_SMART_POINTERS_PRESENT
     std::vector< std::shared_ptr<int> > arrShr;
-    for (int i = 0; i<NUMBER; ++i) arrShr.push_back(std::make_shared<int>(rnd.get()));
+    for (int i = 0; i<NUMBER; ++i) {
+        const int rnd_get = rnd.get();
+        arrShr.push_back(std::make_shared<int>(rnd_get));
+    }
     std::vector< std::weak_ptr<int> > arrWk;
     std::copy(arrShr.begin(), arrShr.end(), std::back_inserter(arrWk));
     TypeTester(arrShr, SmartPointersCompare());
     TypeTester(arrWk, SmartPointersCompare());
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT && __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT
+#if __TBB_IS_COPY_CONSTRUCTIBLE_BROKEN
+    REPORT( "Known issue: std::is_copy_constructible is broken for move-only types. So the std::unique_ptr test is skipped.\n" );
+#else
+    TypeTesterUniquePtr(arrInt);
+#endif /* __TBB_IS_COPY_CONSTRUCTIBLE_BROKEN */
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT && __TBB_CPP11_IS_COPY_CONSTRUCTIBLE_PRESENT */
 #else
     REPORT( "Known issue: C++11 smart pointer tests are skipped.\n" );
 #endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */

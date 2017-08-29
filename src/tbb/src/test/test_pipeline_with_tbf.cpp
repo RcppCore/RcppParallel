@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "tbb/pipeline.h"
@@ -72,11 +72,11 @@ static unsigned out_of_order_count;
 template<typename T>
 class BaseFilter: public T {
     bool* const my_done;
-    const bool my_is_last;  
+    const bool my_is_last;
     bool my_is_running;
 public:
     tbb::atomic<tbb::internal::Token> current_token;
-    BaseFilter( tbb::filter::mode type, bool done[], bool is_last ) : 
+    BaseFilter( tbb::filter::mode type, bool done[], bool is_last ) :
         T(type),
         my_done(done),
         my_is_last(is_last),
@@ -86,9 +86,9 @@ public:
     virtual Buffer* get_buffer( void* item ) {
         current_token++;
         return static_cast<Buffer*>(item);
-    } 
-    /*override*/void* operator()( void* item ) {
-        // Check if work is done only on one thread when ntokens==1 or 
+    }
+    void* operator()( void* item ) __TBB_override {
+        // Check if work is done only on one thread when ntokens==1 or
         // when pipeline has only one filter that is serial and non-thread-bound
         if( is_serial_execution && !this->is_bound() ) {
             // Get id of current thread
@@ -97,7 +97,7 @@ public:
             // Serialized execution is expected, so there should be no race.
             if( thread_id == id0 )
                 thread_id = id;
-            // Check if work is done on one thread 
+            // Check if work is done on one thread
             ASSERT( thread_id == id, "non-thread-bound stages executed on different threads when must be executed on a single one");
         }
         Harness::ConcurrencyTracker ct;
@@ -118,7 +118,7 @@ public:
                 }
             }
             if( this->is_ordered() ) {
-                if( b->sequence_number == Buffer::unused ) 
+                if( b->sequence_number == Buffer::unused )
                     b->sequence_number = current_token-1;
                 else
                     ASSERT( b->sequence_number==current_token-1, "item arrived out of order" );
@@ -126,8 +126,8 @@ public:
                 if( b->sequence_number != current_token-1 && b->sequence_number != Buffer::unused )
                     out_of_order_count++;
             }
-            ASSERT( b->id < StreamSize, NULL ); 
-            ASSERT( !my_done[b->id], "duplicate processing of token?" ); 
+            ASSERT( b->id < StreamSize, NULL );
+            ASSERT( !my_done[b->id], "duplicate processing of token?" );
             ASSERT( b->is_busy, NULL );
             my_done[b->id] = true;
             if( my_is_last ) {
@@ -137,7 +137,7 @@ public:
             }
         }
         my_is_running = false;
-        return b;  
+        return b;
     }
 };
 
@@ -151,14 +151,14 @@ public:
         BaseFilter<T>(type, done, is_last),
         my_number_of_tokens(ntokens)
     {}
-    /*override*/Buffer* get_buffer( void* ) {
+    Buffer* get_buffer( void* ) __TBB_override {
         unsigned long next_input;
-        unsigned free_buffer = 0; 
+        unsigned free_buffer = 0;
         { // lock protected scope
             tbb::spin_mutex::scoped_lock lock(input_lock);
             if( this->current_token>=StreamSize )
                 return NULL;
-            next_input = this->current_token++; 
+            next_input = this->current_token++;
             // once in a while, emulate waiting for input; this only makes sense for serial input
             if( this->is_serial() && WaitTest.required() )
                 WaitTest.probe( );
@@ -171,9 +171,9 @@ public:
                 }
         }
         ASSERT( free_buffer<my_number_of_tokens, "premature reuse of buffer" );
-        Buffer* b = &buffer[free_buffer]; 
-        ASSERT( &buffer[0] <= b, NULL ); 
-        ASSERT( b <= &buffer[MaxBuffer-1], NULL ); 
+        Buffer* b = &buffer[free_buffer];
+        ASSERT( &buffer[0] <= b, NULL );
+        ASSERT( b <= &buffer[MaxBuffer-1], NULL );
         ASSERT( b->id == Buffer::unused, NULL);
         b->id = next_input;
         ASSERT( b->sequence_number == Buffer::unused, NULL);
@@ -243,10 +243,10 @@ void clear_global_state() {
 
 class PipelineTest {
     // There are 3 non-thread-bound filter types: serial_in_order and serial_out_of_order, parallel
-    static const tbb::filter::mode non_tb_filters_table[3]; // = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order, tbb::filter::parallel}; 
-    // There are 2 thread-bound filter types: serial_in_order and serial_out_of_order 
-    static const tbb::filter::mode tb_filters_table[2]; // = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order }; 
-    
+    static const tbb::filter::mode non_tb_filters_table[3]; // = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order, tbb::filter::parallel};
+    // There are 2 thread-bound filter types: serial_in_order and serial_out_of_order
+    static const tbb::filter::mode tb_filters_table[2]; // = { tbb::filter::serial_in_order, tbb::filter::serial_out_of_order };
+
     static const unsigned number_of_non_tb_filter_types = sizeof(non_tb_filters_table)/sizeof(non_tb_filters_table[0]);
     static const unsigned number_of_tb_filter_types = sizeof(tb_filters_table)/sizeof(tb_filters_table[0]);
     static const unsigned number_of_filter_types = number_of_non_tb_filter_types + number_of_tb_filter_types;
@@ -282,11 +282,11 @@ const tbb::filter::mode PipelineTest::non_tb_filters_table[3] = {
     tbb::filter::serial_in_order,       // 0
     tbb::filter::serial_out_of_order,   // 2
     tbb::filter::parallel               // 4
-}; 
+};
 const tbb::filter::mode PipelineTest::tb_filters_table[2] = {
     tbb::filter::serial_in_order,       // 1
     tbb::filter::serial_out_of_order    // 3
-}; 
+};
 
 #include "harness_cpu.h"
 
@@ -334,7 +334,7 @@ double PipelineTest::TestOneConfiguration(unsigned numeral, unsigned nthread, un
     ASSERT(number_of_tb_filters,NULL);
     clear_global_state();
     // Account for clipping of parallelism.
-    if( parallelism_limit>nthread ) 
+    if( parallelism_limit>nthread )
         parallelism_limit = nthread;
     if( parallelism_limit>ntokens )
         parallelism_limit = (unsigned)ntokens;
@@ -360,7 +360,7 @@ double PipelineTest::TestOneConfiguration(unsigned numeral, unsigned nthread, un
         for( unsigned j=0; j<StreamSize; ++j ) {
             ASSERT( Done[i][j]==(i<number_of_filters), NULL );
         }
-    if( Harness::ConcurrencyTracker::PeakParallelism() < parallelism_limit ) 
+    if( Harness::ConcurrencyTracker::PeakParallelism() < parallelism_limit )
         REMARK( "nthread=%lu ntokens=%lu MaxParallelism=%lu parallelism_limit=%lu\n",
             nthread, ntokens, Harness::ConcurrencyTracker::PeakParallelism(), parallelism_limit );
     for( unsigned i=0; i < number_of_filters; ++i ) {
@@ -379,12 +379,12 @@ void PipelineTest::TestTrivialPipeline( unsigned nthread, unsigned number_of_fil
     ASSERT( number_of_filters<=MaxFilters, "too many filters" );
     tbb::internal::Token max_tokens = nthread < MaxBuffer ? nthread : MaxBuffer;
     // The loop has 1 iteration if max_tokens=1 and 2 iterations if max_tokens>1:
-    // one iteration for ntokens=1 and second for ntokens=max_tokens 
-    // Iteration for ntokens=1 is required in each test case to check if pipeline run only on one thread 
-    unsigned max_iteration = max_tokens > 1 ? 2 : 1; 
+    // one iteration for ntokens=1 and second for ntokens=max_tokens
+    // Iteration for ntokens=1 is required in each test case to check if pipeline run only on one thread
+    unsigned max_iteration = max_tokens > 1 ? 2 : 1;
     tbb::internal::Token ntokens = 1;
     for( unsigned iteration = 0; iteration < max_iteration; iteration++) {
-        if( iteration > 0 ) 
+        if( iteration > 0 )
             ntokens = max_tokens;
         // Count maximum iterations number
         unsigned limit = 1;
@@ -511,8 +511,8 @@ int TestMain () {
 
         // Test pipelines with 1 and maximal number of filters
         for( unsigned n=1; n<=MaxFilters; n*=MaxFilters ) {
-            // Thread-bound stages are serviced by user-created threads; those 
-            // don't run the pipeline and don't service non-thread-bound stages 
+            // Thread-bound stages are serviced by user-created threads; those
+            // don't run the pipeline and don't service non-thread-bound stages
             PipelineTest::TestTrivialPipeline(nthread,n);
         }
 

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "tbb/tbb_config.h"
@@ -28,9 +28,10 @@
 
 // __TBB_RW_MUTEX_DELAY_TEST shifts the point where flags aborting speculation are
 // added to the read-set of the operation.  If 1, will add the test just before
-// the transaction is ended.
+// the transaction is ended; this technique is called lazy subscription.
+// CAUTION: due to proven issues of lazy subscription, use of __TBB_RW_MUTEX_DELAY_TEST is discouraged!
 #ifndef __TBB_RW_MUTEX_DELAY_TEST
-    #define __TBB_RW_MUTEX_DELAY_TEST 1
+    #define __TBB_RW_MUTEX_DELAY_TEST 0
 #endif
 
 #if defined(_MSC_VER) && defined(_Wp64)
@@ -60,6 +61,7 @@ enum {
 };
 
 // maximum number of times to retry
+// TODO: experiment on retry values.
 static const int retry_threshold_read = 10;
 static const int retry_threshold_write = 10;
 
@@ -201,10 +203,18 @@ bool x86_rtm_rw_mutex::internal_upgrade(x86_rtm_rw_mutex::scoped_lock& s)
             return no_release;
         }
     case RTM_transacting_reader:
-        s.transaction_state = RTM_transacting_writer;
-        // don't need to add w_flag to read_set even if __TBB_RW_MUTEX_DELAY_TEST
-        // because the this pointer (the spin_rw_mutex) will be sufficient on release.
-        return true;
+#if !__TBB_RW_MUTEX_DELAY_TEST
+        if(this->state) {  // add spin_rw_mutex to read-set.
+            // Real reader or writer holds the lock; so commit the read and re-acquire for write.
+            internal_release(s);
+            internal_acquire_writer(s);
+            return false;
+        } else
+#endif
+        {
+            s.transaction_state = RTM_transacting_writer;
+            return true;
+        }
     default:
         __TBB_ASSERT(false, "Invalid state for upgrade");
         return false;

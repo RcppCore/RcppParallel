@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // Test whether scalable_allocator complies with the requirements in 20.1.5 of ISO C++ Standard (1998).
@@ -25,9 +25,7 @@
 
 #include "harness_assert.h"
 #if !__TBB_SOURCE_DIRECTLY_INCLUDED
-// harness_allocator.h requires atimics. We do not want dependency 
-// to TBB library to get atomics, so add rudimentary implementation of them.
-#include "harness_tbb_independence.h"
+#include "harness_tbb_independence.h" // because harness_allocator.h requires atomics
 #endif
 #include "tbb/memory_pool.h"
 #include "tbb/scalable_allocator.h"
@@ -74,8 +72,6 @@ public:
     }
 };
 
-#if TBB_USE_EXCEPTIONS
-
 class NullAllocator {
 public:
     typedef char value_type;
@@ -88,19 +84,12 @@ public:
 
 void TestZeroSpaceMemoryPool()
 {
-    try {
-        tbb::memory_pool<NullAllocator> pool;
-        ASSERT(0, "Useless allocator with no memory must not be created");
-    } catch (std::bad_alloc) {
-    } catch (...) {
-        ASSERT(0, "wrong exception type; expected bad_alloc");
-    }
+    tbb::memory_pool<NullAllocator> pool;
+    bool allocated = pool.malloc(16) || pool.malloc(9*1024);
+    ASSERT(!allocated, "Allocator with no memory must not allocate anything.");
 }
 
-#else // TBB_USE_EXCEPTIONS
-
-void TestZeroSpaceMemoryPool() { }
-
+#if !TBB_USE_EXCEPTIONS
 struct FixedPool {
     void  *buf;
     size_t size;
@@ -115,10 +104,9 @@ static void *fixedBufGetMem(intptr_t pool_id, size_t &bytes)
 
     ((FixedPool*)pool_id)->used = true;
     bytes = ((FixedPool*)pool_id)->size;
-    return ((FixedPool*)pool_id)->buf;
+    return bytes? ((FixedPool*)pool_id)->buf : NULL;
 }
-
-#endif // TBB_USE_EXCEPTIONS
+#endif
 
 /* test that pools in small space are either usable or not created
    (i.e., exception raised) */
@@ -137,10 +125,10 @@ void TestSmallFixedSizePool()
    so it requires at least 16KB. Requirement of 9KB allocation is more modest.
 */
             allocated = pool.malloc( 16 ) || pool.malloc( 9*1024 );
-            ASSERT(allocated, "If pool created, it must be useful.");
-        } catch (std::bad_alloc) {
+        } catch (std::invalid_argument) {
+            ASSERT(!sz, "expect std::invalid_argument for zero-sized pool only");
         } catch (...) {
-            ASSERT(0, "wrong exception type; expected bad_alloc");
+            ASSERT(0, "wrong exception type;");
         }
 #else
 /* Do not test high-level pool interface because pool ctor emit exception
@@ -156,7 +144,6 @@ void TestSmallFixedSizePool()
 
         if (ret == rml::POOL_OK) {
             allocated = pool_malloc(pool, 16) || pool_malloc(pool, 9*1024);
-            ASSERT(allocated, "If pool created, it must be useful.");
             pool_destroy(pool);
         } else
             ASSERT(ret == rml::NO_MEMORY, "Expected that pool either valid "
@@ -169,9 +156,9 @@ void TestSmallFixedSizePool()
     try {
         tbb::fixed_pool pool(NULL, 10*1024*1024);
         ASSERT(0, "Useless allocator with no memory must not be created");
-    } catch (std::bad_alloc) {
+    } catch (std::invalid_argument) {
     } catch (...) {
-        ASSERT(0, "wrong exception type; expected bad_alloc");
+        ASSERT(0, "wrong exception type; expected invalid_argument");
     }
 #endif
 }

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #ifndef __TBB__flow_graph_indexer_impl_H
@@ -25,15 +25,15 @@
 #error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
-#include "tbb/internal/_flow_graph_types_impl.h"
+#include "_flow_graph_types_impl.h"
 
 namespace internal {
 
     // Output of the indexer_node is a tbb::flow::tagged_msg, and will be of
     // the form  tagged_msg<tag, result>
     // where the value of tag will indicate which result was put to the
-    // successor.  
-    
+    // successor.
+
     template<typename IndexerNodeBaseType, typename T, size_t K>
     task* do_try_put(const T &v, void *p) {
         typename IndexerNodeBaseType::output_type o(K, v);
@@ -49,11 +49,16 @@ namespace internal {
             tbb::flow::get<N-1>(my_input).set_up(p, indexer_node_put_task);
             indexer_helper<TupleTypes,N-1>::template set_indexer_node_pointer<IndexerNodeBaseType,PortTuple>(my_input, p);
         }
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         template<typename InputTuple>
         static inline void reset_inputs(InputTuple &my_input, reset_flags f) {
-            join_helper<N-1>::reset_inputs(my_input, f);
+            indexer_helper<TupleTypes,N-1>::reset_inputs(my_input, f);
             tbb::flow::get<N-1>(my_input).reset_receiver(f);
+        }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        template<typename InputTuple>
+        static inline void extract(InputTuple &my_input) {
+            indexer_helper<TupleTypes,N-1>::extract(my_input);
+            tbb::flow::get<N-1>(my_input).extract_receiver();
         }
 #endif
     };
@@ -66,10 +71,14 @@ namespace internal {
             task *(*indexer_node_put_task)(const T&, void *) = do_try_put<IndexerNodeBaseType, T, 0>;
             tbb::flow::get<0>(my_input).set_up(p, indexer_node_put_task);
         }
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         template<typename InputTuple>
         static inline void reset_inputs(InputTuple &my_input, reset_flags f) {
             tbb::flow::get<0>(my_input).reset_receiver(f);
+        }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        template<typename InputTuple>
+        static inline void extract(InputTuple &my_input) {
+            tbb::flow::get<0>(my_input).extract_receiver();
         }
 #endif
     };
@@ -82,7 +91,8 @@ namespace internal {
         forward_function_ptr my_try_put_task;
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         spin_mutex my_pred_mutex;
-        edge_container<sender<T> > my_built_predecessors;
+        typedef typename receiver<T>::built_predecessors_type built_predecessors_type;
+        built_predecessors_type my_built_predecessors;
 #endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
     public:
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
@@ -95,41 +105,46 @@ namespace internal {
                 my_try_put_task = f;
             }
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-        typedef std::vector<sender<T> *> predecessor_vector_type;
-        /*override*/size_t predecessor_count() {
+        typedef typename receiver<T>::predecessor_list_type predecessor_list_type;
+        typedef typename receiver<T>::predecessor_type predecessor_type;
+
+        built_predecessors_type &built_predecessors() __TBB_override { return my_built_predecessors; }
+
+        size_t predecessor_count() __TBB_override {
             spin_mutex::scoped_lock l(my_pred_mutex);
             return my_built_predecessors.edge_count();
         }
-        /*override*/void internal_add_built_predecessor(sender<T> &p) {
+        void internal_add_built_predecessor(predecessor_type &p) __TBB_override {
             spin_mutex::scoped_lock l(my_pred_mutex);
             my_built_predecessors.add_edge(p);
         }
-        /*override*/void internal_delete_built_predecessor(sender<T> &p) {
+        void internal_delete_built_predecessor(predecessor_type &p) __TBB_override {
             spin_mutex::scoped_lock l(my_pred_mutex);
             my_built_predecessors.delete_edge(p);
         }
-        /*override*/void copy_predecessors( predecessor_vector_type &v) {
+        void copy_predecessors( predecessor_list_type &v) __TBB_override {
             spin_mutex::scoped_lock l(my_pred_mutex);
-            return my_built_predecessors.copy_edges(v);
+            my_built_predecessors.copy_edges(v);
         }
 #endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
     protected:
         template< typename R, typename B > friend class run_and_put_task;
         template<typename X, typename Y> friend class internal::broadcast_cache;
         template<typename X, typename Y> friend class internal::round_robin_cache;
-        task *try_put_task(const T &v) {
+        task *try_put_task(const T &v) __TBB_override {
             return my_try_put_task(v, my_indexer_ptr);
         }
 
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     public:
-        /*override*/void reset_receiver(__TBB_PFG_RESET_ARG(reset_flags f)) {
-            if(f&rf_extract) my_built_predecessors.receiver_extract(*this);
-        }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        void reset_receiver(reset_flags f) __TBB_override { if(f&rf_clear_edges) my_built_predecessors.clear(); }
 #else
-        /*override*/void reset_receiver(__TBB_PFG_RESET_ARG(reset_flags /*f*/)) { }
+        void reset_receiver(reset_flags /*f*/) __TBB_override { }
 #endif
 
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        void extract_receiver() { my_built_predecessors.receiver_extract(*this); }
+#endif
     };
 
     template<typename InputTuple, typename OutputType, typename StructTypes>
@@ -138,6 +153,9 @@ namespace internal {
         static const int N = tbb::flow::tuple_size<InputTuple>::value;
         typedef OutputType output_type;
         typedef InputTuple input_type;
+
+        // Some versions of Intel C++ compiler fail to generate an implicit constructor for the class which has std::tuple as a member.
+        indexer_node_FE() : my_inputs() {}
 
         input_type &input_ports() { return my_inputs; }
     protected:
@@ -154,10 +172,11 @@ namespace internal {
         static const size_t N = tbb::flow::tuple_size<InputTuple>::value;
         typedef OutputType output_type;
         typedef StructTypes tuple_types;
-        typedef receiver<output_type> successor_type;
+        typedef typename sender<output_type>::successor_type successor_type;
         typedef indexer_node_FE<InputTuple, output_type,StructTypes> input_ports_type;
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-        typedef std::vector<successor_type *> successor_vector_type;
+        typedef typename sender<output_type>::built_successors_type built_successors_type;
+        typedef typename sender<output_type>::successor_list_type successor_list_type;
 #endif
 
     private:
@@ -168,8 +187,7 @@ namespace internal {
              blt_succ_cnt, blt_succ_cpy
 #endif
         };
-        enum op_stat {WAIT=0, SUCCEEDED, FAILED};
-        typedef indexer_node_base<InputTuple,output_type,StructTypes> my_class;
+        typedef indexer_node_base<InputTuple,output_type,StructTypes> class_type;
 
         class indexer_node_base_operation : public aggregated_operation<indexer_node_base_operation> {
         public:
@@ -180,19 +198,19 @@ namespace internal {
                 task *bypass_t;
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
                 size_t cnt_val;
-                successor_vector_type *succv;
+                successor_list_type *succv;
 #endif
             };
             indexer_node_base_operation(const output_type* e, op_type t) :
                 type(char(t)), my_arg(e) {}
-            indexer_node_base_operation(const successor_type &s, op_type t) : type(char(t)), 
+            indexer_node_base_operation(const successor_type &s, op_type t) : type(char(t)),
                 my_succ(const_cast<successor_type *>(&s)) {}
             indexer_node_base_operation(op_type t) : type(char(t)) {}
         };
 
-        typedef internal::aggregating_functor<my_class, indexer_node_base_operation> my_handler;
-        friend class internal::aggregating_functor<my_class, indexer_node_base_operation>;
-        aggregator<my_handler, indexer_node_base_operation> my_aggregator;
+        typedef internal::aggregating_functor<class_type, indexer_node_base_operation> handler_type;
+        friend class internal::aggregating_functor<class_type, indexer_node_base_operation>;
+        aggregator<handler_type, indexer_node_base_operation> my_aggregator;
 
         void handle_operations(indexer_node_base_operation* op_list) {
             indexer_node_base_operation *current;
@@ -241,62 +259,69 @@ namespace internal {
         indexer_node_base(graph& g) : graph_node(g), input_ports_type() {
             indexer_helper<StructTypes,N>::set_indexer_node_pointer(this->my_inputs, this);
             my_successors.set_owner(this);
-            my_aggregator.initialize_handler(my_handler(this));
+            my_aggregator.initialize_handler(handler_type(this));
         }
 
         indexer_node_base(const indexer_node_base& other) : graph_node(other.my_graph), input_ports_type(), sender<output_type>() {
             indexer_helper<StructTypes,N>::set_indexer_node_pointer(this->my_inputs, this);
             my_successors.set_owner(this);
-            my_aggregator.initialize_handler(my_handler(this));
+            my_aggregator.initialize_handler(handler_type(this));
         }
 
-        bool register_successor(successor_type &r) {
+        bool register_successor(successor_type &r) __TBB_override {
             indexer_node_base_operation op_data(r, reg_succ);
             my_aggregator.execute(&op_data);
             return op_data.status == SUCCEEDED;
         }
 
-        bool remove_successor( successor_type &r) {
+        bool remove_successor( successor_type &r) __TBB_override {
             indexer_node_base_operation op_data(r, rem_succ);
             my_aggregator.execute(&op_data);
             return op_data.status == SUCCEEDED;
         }
 
-        task * try_put_task(output_type const *v) {
+        task * try_put_task(output_type const *v) { // not a virtual method in this class
             indexer_node_base_operation op_data(v, try__put_task);
             my_aggregator.execute(&op_data);
             return op_data.bypass_t;
         }
 
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-        void internal_add_built_successor( successor_type &r) {
+
+        built_successors_type &built_successors() __TBB_override { return my_successors.built_successors(); }
+
+        void internal_add_built_successor( successor_type &r) __TBB_override {
             indexer_node_base_operation op_data(r, add_blt_succ);
             my_aggregator.execute(&op_data);
         }
 
-        void internal_delete_built_successor( successor_type &r) {
+        void internal_delete_built_successor( successor_type &r) __TBB_override {
             indexer_node_base_operation op_data(r, del_blt_succ);
             my_aggregator.execute(&op_data);
         }
 
-        size_t successor_count() {
+        size_t successor_count() __TBB_override {
             indexer_node_base_operation op_data(blt_succ_cnt);
             my_aggregator.execute(&op_data);
             return op_data.cnt_val;
         }
 
-        void copy_successors( successor_vector_type &v) {
+        void copy_successors( successor_list_type &v) __TBB_override {
             indexer_node_base_operation op_data(blt_succ_cpy);
             op_data.succv = &v;
             my_aggregator.execute(&op_data);
-        } 
+        }
+        void extract() __TBB_override {
+            my_successors.built_successors().sender_extract(*this);
+            indexer_helper<StructTypes,N>::extract(this->my_inputs);
+        }
 #endif /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
     protected:
-        /*override*/void reset(__TBB_PFG_RESET_ARG(reset_flags f)) {
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-            my_successors.reset(f);
-            indexer_helper<StructTypes,N>::reset_inputs(this->my_inputs, f);
-#endif
+        void reset_node(reset_flags f) __TBB_override {
+            if(f & rf_clear_edges) {
+                my_successors.clear();
+                indexer_helper<StructTypes,N>::reset_inputs(this->my_inputs,f);
+            }
         }
 
     private:
@@ -326,7 +351,7 @@ namespace internal {
         typedef typename tuple_element<2, InputTuple>::type third_type;
         typedef typename internal::tagged_msg<size_t, first_type, second_type, third_type> type;
     };
-    
+
     template<typename InputTuple>
     struct input_types<4, InputTuple> {
         typedef typename tuple_element<0, InputTuple>::type first_type;
@@ -336,7 +361,7 @@ namespace internal {
         typedef typename internal::tagged_msg<size_t, first_type, second_type, third_type,
                                                       fourth_type> type;
     };
-    
+
     template<typename InputTuple>
     struct input_types<5, InputTuple> {
         typedef typename tuple_element<0, InputTuple>::type first_type;
@@ -347,7 +372,7 @@ namespace internal {
         typedef typename internal::tagged_msg<size_t, first_type, second_type, third_type,
                                                       fourth_type, fifth_type> type;
     };
-    
+
     template<typename InputTuple>
     struct input_types<6, InputTuple> {
         typedef typename tuple_element<0, InputTuple>::type first_type;
@@ -359,7 +384,7 @@ namespace internal {
         typedef typename internal::tagged_msg<size_t, first_type, second_type, third_type,
                                                       fourth_type, fifth_type, sixth_type> type;
     };
-    
+
     template<typename InputTuple>
     struct input_types<7, InputTuple> {
         typedef typename tuple_element<0, InputTuple>::type first_type;
@@ -390,7 +415,7 @@ namespace internal {
                                                       seventh_type, eighth_type> type;
     };
 
- 
+
     template<typename InputTuple>
     struct input_types<9, InputTuple> {
         typedef typename tuple_element<0, InputTuple>::type first_type;

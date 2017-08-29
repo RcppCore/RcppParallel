@@ -1,8 +1,9 @@
-RcppParallel 4.3.21 (unreleased)
+RcppParallel 2017.7 (unreleased)
 ------------------------------------------------------------------------
 
 * Allow setting the number of threads to use via RCPP_PARALLEL_NUM_THREADS
   environment variable.
+* Update to TBB 2017 Update 7.
 
 RcppParallel 4.3.20
 ------------------------------------------------------------------------

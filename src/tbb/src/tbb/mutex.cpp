@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #if _WIN32||_WIN64
@@ -23,19 +23,22 @@
 #endif
 #include "tbb/mutex.h"
 #include "itt_notify.h"
+#if __TBB_TSX_AVAILABLE
+#include "governor.h" // for speculation_enabled()
+#endif
 
 namespace tbb {
     void mutex::scoped_lock::internal_acquire( mutex& m ) {
 
 #if _WIN32||_WIN64
         switch( m.state ) {
-        case INITIALIZED: 
+        case INITIALIZED:
         case HELD:
             EnterCriticalSection( &m.impl );
             // If a thread comes here, and another thread holds the lock, it will block
             // in EnterCriticalSection.  When it returns from EnterCriticalSection,
             // m.state must be set to INITIALIZED.  If the same thread tries to acquire a lock it
-            // aleady holds, the lock is in HELD state, thus will cause throwing the exception.
+            // already holds, the lock is in HELD state, thus will cause throwing the exception.
             if (m.state==HELD)
                 tbb::internal::handle_perror(EDEADLK,"mutex::scoped_lock: deadlock caused by attempt to reacquire held mutex");
             m.state = HELD;
@@ -57,19 +60,19 @@ namespace tbb {
 
 void mutex::scoped_lock::internal_release() {
     __TBB_ASSERT( my_mutex, "mutex::scoped_lock: not holding a mutex" );
-#if _WIN32||_WIN64    
+#if _WIN32||_WIN64
      switch( my_mutex->state ) {
-        case INITIALIZED: 
+        case INITIALIZED:
             __TBB_ASSERT(false,"mutex::scoped_lock: try to release the lock without acquisition");
             break;
         case HELD:
             my_mutex->state = INITIALIZED;
             LeaveCriticalSection(&my_mutex->impl);
             break;
-        case DESTROYED: 
-            __TBB_ASSERT(false,"mutex::scoped_lock: mutex already destroyed"); 
+        case DESTROYED:
+            __TBB_ASSERT(false,"mutex::scoped_lock: mutex already destroyed");
             break;
-        default: 
+        default:
             __TBB_ASSERT(false,"mutex::scoped_lock: illegal mutex state");
             break;
     }
@@ -83,13 +86,13 @@ void mutex::scoped_lock::internal_release() {
 bool mutex::scoped_lock::internal_try_acquire( mutex& m ) {
 #if _WIN32||_WIN64
     switch( m.state ) {
-        case INITIALIZED: 
+        case INITIALIZED:
         case HELD:
             break;
-        case DESTROYED: 
-            __TBB_ASSERT(false,"mutex::scoped_lock: mutex already destroyed"); 
+        case DESTROYED:
+            __TBB_ASSERT(false,"mutex::scoped_lock: mutex already destroyed");
             break;
-        default: 
+        default:
             __TBB_ASSERT(false,"mutex::scoped_lock: illegal mutex state");
             break;
     }
@@ -105,7 +108,7 @@ bool mutex::scoped_lock::internal_try_acquire( mutex& m ) {
 #else
     result = pthread_mutex_trylock(&m.impl)==0;
 #endif /* _WIN32||_WIN64 */
-    if( result ) 
+    if( result )
         my_mutex = &m;
     return result;
 }
@@ -113,12 +116,12 @@ bool mutex::scoped_lock::internal_try_acquire( mutex& m ) {
 void mutex::internal_construct() {
 #if _WIN32||_WIN64
     InitializeCriticalSectionEx(&impl, 4000, 0);
-    state = INITIALIZED;  
+    state = INITIALIZED;
 #else
     int error_code = pthread_mutex_init(&impl,NULL);
     if( error_code )
         tbb::internal::handle_perror(error_code,"mutex: pthread_mutex_init failed");
-#endif /* _WIN32||_WIN64*/    
+#endif /* _WIN32||_WIN64*/
     ITT_SYNC_CREATE(&impl, _T("tbb::mutex"), _T(""));
 }
 
@@ -128,16 +131,20 @@ void mutex::internal_destroy() {
       case INITIALIZED:
         DeleteCriticalSection(&impl);
        break;
-      case DESTROYED: 
+      case DESTROYED:
         __TBB_ASSERT(false,"mutex: already destroyed");
         break;
-      default: 
+      default:
         __TBB_ASSERT(false,"mutex: illegal state for destruction");
         break;
     }
     state = DESTROYED;
 #else
-    int error_code = pthread_mutex_destroy(&impl); 
+    int error_code = pthread_mutex_destroy(&impl);
+#if __TBB_TSX_AVAILABLE
+    // For processors with speculative execution, skip the error code check due to glibc bug #16657
+    if( tbb::internal::governor::speculation_enabled() ) return;
+#endif
     __TBB_ASSERT_EX(!error_code,"mutex: pthread_mutex_destroy failed");
 #endif /* _WIN32||_WIN64 */
 }

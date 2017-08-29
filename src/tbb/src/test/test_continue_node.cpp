@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness_graph.h"
@@ -35,14 +35,18 @@ struct empty_no_assign : private NoAssign {
 // A class to use as a fake predecessor of continue_node
 struct fake_continue_sender : public tbb::flow::sender<tbb::flow::continue_msg>
 {
+    typedef tbb::flow::sender<tbb::flow::continue_msg>::successor_type successor_type;
     // Define implementations of virtual methods that are abstract in the base class
-    /*override*/ bool register_successor( successor_type& ) { return false; }
-    /*override*/ bool remove_successor( successor_type& )   { return false; }  
+    bool register_successor( successor_type& ) __TBB_override { return false; }
+    bool remove_successor( successor_type& )   __TBB_override { return false; }
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    /*override*/void internal_add_built_successor( successor_type &) { }
-    /*override*/void internal_delete_built_successor( successor_type &) { }
-    /*override*/void copy_successors(std::vector<successor_type *> &) {}
-    /*override*/size_t successor_count() {return 0;}
+    typedef tbb::flow::sender<tbb::flow::continue_msg>::built_successors_type built_successors_type;
+    built_successors_type bst;
+    built_successors_type &built_successors() __TBB_override { return bst; }
+    void internal_add_built_successor( successor_type &) __TBB_override { }
+    void internal_delete_built_successor( successor_type &) __TBB_override { }
+    void copy_successors(successor_list_type &) __TBB_override {}
+    size_t successor_count() __TBB_override {return 0;}
 #endif
 };
 
@@ -79,7 +83,8 @@ void run_continue_nodes( int p, tbb::flow::graph& g, tbb::flow::continue_node< O
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         ASSERT(n.successor_count() == (size_t)num_receivers, NULL);
         ASSERT(n.predecessor_count() == 0, NULL);
-        typename tbb::flow::continue_node<OutputType>::successor_vector_type my_succs;
+        typename tbb::flow::continue_node<OutputType>::successor_list_type my_succs;
+        typedef typename tbb::flow::continue_node<OutputType>::successor_list_type::iterator sv_iter_type;
         n.copy_successors(my_succs);
         ASSERT(my_succs.size() == num_receivers, NULL);
 #endif
@@ -96,13 +101,16 @@ void run_continue_nodes( int p, tbb::flow::graph& g, tbb::flow::continue_node< O
             ASSERT( (int)c == p, NULL );
         }
 
-        for (size_t r = 0; r < num_receivers; ++r ) {
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-            tbb::flow::remove_edge( n, *(my_succs[r]) );
-#else
-            tbb::flow::remove_edge( n, receivers[r] );
-#endif
+        for(sv_iter_type si=my_succs.begin(); si != my_succs.end(); ++si) {
+            tbb::flow::remove_edge( n, **si );
         }
+#else
+        for (size_t r = 0; r < num_receivers; ++r ) {
+            tbb::flow::remove_edge( n, receivers[r] );
+        }
+#endif
+        delete [] receivers;
     }
 }
 
@@ -168,6 +176,10 @@ void continue_nodes_with_copy( ) {
                 // 3) the nodes will send to multiple successors.
                 ASSERT( (int)c == p, NULL );
             }
+            for (size_t r = 0; r < num_receivers; ++r ) {
+                tbb::flow::remove_edge( exe_node, receivers[r] );
+            }
+            delete [] receivers;
         }
 
         // validate that the local body matches the global execute_count and both are correct
@@ -176,12 +188,10 @@ void continue_nodes_with_copy( ) {
         size_t global_count = global_execute_count;
         size_t inc_count = body_copy.local_execute_count;
         ASSERT( global_count == expected_count && global_count == inc_count, NULL );
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         g.reset(tbb::flow::rf_reset_bodies);
         body_copy = tbb::flow::copy_body< inc_functor<OutputType> >( exe_node );
         inc_count = body_copy.local_execute_count;
         ASSERT( Offset == inc_count, "reset(rf_reset_bodies) did not reset functor" );
-#endif
 
     }
 }
@@ -206,7 +216,7 @@ void test_concurrency(int num_threads) {
 }
 /*
  * Connection of two graphs is not currently supported, but works to some limited extent.
- * This test is included to check for backward compatibility. It checks that a continue_node 
+ * This test is included to check for backward compatibility. It checks that a continue_node
  * with predecessors in two different graphs receives the required
  * number of continue messages before it executes.
  */
@@ -239,7 +249,7 @@ void test_two_graphs(){
     start_h.try_put(continue_msg());
     g.wait_for_all();
     ASSERT(count==1, "Not all continue messages received");
- 
+
     //two try_puts from the graph that doesn't contain the node
     count=0;
     start_h.try_put(continue_msg());
@@ -272,13 +282,13 @@ void test_extract() {
         ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
         ASSERT(c0.predecessor_count() == 2 && c0.successor_count() == 1, "c0 has incorrect counts");
         ASSERT(q0.predecessor_count() == 1 && q0.successor_count() == 0, "q0 has incorrect counts");
-    
+
         /* b0         */
         /*   \        */
         /*    c0 - q0 */
         /*   /        */
         /* b1         */
-    
+
         b0.try_put(tbb::flow::continue_msg());
         g.wait_for_all();
         ASSERT(my_count == 0, "continue_node fired too soon");
@@ -286,15 +296,15 @@ void test_extract() {
         g.wait_for_all();
         ASSERT(my_count == 1, "continue_node didn't fire");
         ASSERT(q0.try_get(cm), "continue_node didn't forward");
-    
+
         b0.extract();
-    
+
         /* b0         */
         /*            */
         /*    c0 - q0 */
         /*   /        */
         /* b1         */
-    
+
         ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
         ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 1, "b1 has incorrect counts");
         ASSERT(c0.predecessor_count() == 1 && c0.successor_count() == 1, "c0 has incorrect counts");
@@ -307,15 +317,15 @@ void test_extract() {
         g.wait_for_all();
         ASSERT(my_count == 2, "continue_node didn't fire though it has only one predecessor");
         ASSERT(q0.try_get(cm), "continue_node didn't forward second time");
-    
+
         c0.extract();
-    
+
         /* b0         */
         /*            */
         /*    c0   q0 */
         /*            */
         /* b1         */
-    
+
         ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 0, "b0 has incorrect counts");
         ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 0, "b1 has incorrect counts");
         ASSERT(c0.predecessor_count() == 0 && c0.successor_count() == 0, "c0 has incorrect counts");
@@ -328,24 +338,24 @@ void test_extract() {
         ASSERT(my_count == 2, "continue didn't fire though it has only one predecessor");
         ASSERT(!q0.try_get(cm), "continue_node forwarded though it shouldn't");
         make_edge(b0, c0);
-    
+
         /* b0         */
         /*   \        */
         /*    c0   q0 */
         /*            */
         /* b1         */
-    
+
         ASSERT(b0.predecessor_count() == 0 && b0.successor_count() == 1, "b0 has incorrect counts");
         ASSERT(b1.predecessor_count() == 0 && b1.successor_count() == 0, "b1 has incorrect counts");
         ASSERT(c0.predecessor_count() == 1 && c0.successor_count() == 0, "c0 has incorrect counts");
         ASSERT(q0.predecessor_count() == 0 && q0.successor_count() == 0, "q0 has incorrect counts");
-    
+
         b0.try_put(tbb::flow::continue_msg());
         g.wait_for_all();
-    
+
         ASSERT(my_count == 3, "continue didn't fire though it has only one predecessor");
         ASSERT(!q0.try_get(cm), "continue_node forwarded though it shouldn't");
-    
+
         tbb::flow::make_edge(b1, c0);
         tbb::flow::make_edge(c0, q0);
         my_count = 0;

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // test critical section
@@ -41,11 +41,11 @@ struct BusyBody : NoAssign {
     bool test_throw;
 
     BusyBody( int nThread_, int workRatiox100_, tbb::enumerable_thread_specific<double> &locals_, int &unprotected_count_, bool test_throw_) :
-        locals(locals_), 
-        nThread(nThread_), 
-        WorkRatiox100(workRatiox100_), 
+        locals(locals_),
+        nThread(nThread_),
+        WorkRatiox100(workRatiox100_),
         unprotected_count(unprotected_count_),
-        test_throw(test_throw_) { 
+        test_throw(test_throw_) {
         sBarrier.initialize(nThread_);
     }
 
@@ -60,7 +60,7 @@ struct BusyBody : NoAssign {
             }
             cs.lock();
             ASSERT( !cs.try_lock(), "recursive try_lock must fail" );
-#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN 
+#if TBB_USE_EXCEPTIONS && !__TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
             if(test_throw && j == (nIters / 2)) {
                 bool was_caught = false,
                      unknown_exception = false;
@@ -96,11 +96,11 @@ struct BusyBodyScoped : NoAssign {
     bool test_throw;
 
     BusyBodyScoped( int nThread_, int workRatiox100_, tbb::enumerable_thread_specific<double> &locals_, int &unprotected_count_, bool test_throw_) :
-        locals(locals_), 
-        nThread(nThread_), 
-        WorkRatiox100(workRatiox100_), 
+        locals(locals_),
+        nThread(nThread_),
+        WorkRatiox100(workRatiox100_),
         unprotected_count(unprotected_count_),
-        test_throw(test_throw_) { 
+        test_throw(test_throw_) {
         sBarrier.initialize(nThread_);
     }
 
@@ -113,7 +113,7 @@ struct BusyBodyScoped : NoAssign {
             for(int i = 0; i < MAX_WORK * (100 - WorkRatiox100); i++) {
                 locals.local() += 1.0;
             }
-            { 
+            {
                 tbb::critical_section::scoped_lock my_lock(cs);
                 for(int i = 0; i < MAX_WORK * WorkRatiox100; i++) {
                     locals.local() += 1.0;
@@ -168,7 +168,7 @@ RunOneCriticalSectionTest(int nThreads, int csWorkRatio, bool test_throw) {
             // amount of time.  If non-zero, the difference is divided by the time, and the
             // negative log is taken.  If > 2, then the difference is on the order of 0.01*t
             // where T is the average time.  We aritrarily define this as "fair."
-            etsSigma = sqrt(etsSigmaSq/double(nThreads)); 
+            etsSigma = sqrt(etsSigmaSq/double(nThreads));
             etsMax -= etsAvg;  // max - a == delta1
             etsMin = etsAvg - etsMin;  // a - min == delta2
             if(etsMax < etsMin) etsMax = etsMin;

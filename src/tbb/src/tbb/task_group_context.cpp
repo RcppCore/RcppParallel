@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "scheduler.h"
@@ -317,7 +317,6 @@ void task_group_context::bind_to ( generic_scheduler *local_sched ) {
     __TBB_store_relaxed(my_kind, binding_completed);
 }
 
-#if __TBB_TASK_GROUP_CONTEXT
 template <typename T>
 void task_group_context::propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state ) {
     if (this->*mptr_state == new_state) {
@@ -379,35 +378,19 @@ bool market::propagate_task_group_state ( T task_group_context::*mptr_state, tas
     // Advance global state propagation epoch
     __TBB_FetchAndAddWrelease(&the_context_state_propagation_epoch, 1);
     // Propagate to all workers and masters and sync up their local epochs with the global one
-    unsigned num_workers = my_num_workers;
+    unsigned num_workers = my_first_unused_worker_idx;
     for ( unsigned i = 0; i < num_workers; ++i ) {
         generic_scheduler *s = my_workers[i];
         // If the worker is only about to be registered, skip it.
         if ( s )
             s->propagate_task_group_state( mptr_state, src, new_state );
     }
-    // Propagate to all master threads (under my_arenas_list_mutex lock)
-    ForEachArena(a) { // uses lock on my_arenas_list_mutex
-        arena_slot &slot = a.my_slots[0];
-        generic_scheduler *s = slot.my_scheduler;
-        // If the master is under construction, skip it. Otherwise make sure that it does not
-        // leave its arena and its scheduler get destroyed while we accessing its data.
-        if ( s && as_atomic(slot.my_scheduler).compare_and_swap(LockedMaster, s) == s ) { //TODO: remove need in lock
-            __TBB_ASSERT( slot.my_scheduler == LockedMaster, NULL );
-            // The whole propagation sequence is locked, thus no contention is expected
-            __TBB_ASSERT( s != LockedMaster, NULL );
-            s->propagate_task_group_state( mptr_state, src, new_state );
-            __TBB_store_with_release( slot.my_scheduler, s );
-        }
-    } EndForEach();
+    // Propagate to all master threads
+    // The whole propagation sequence is locked, thus no contention is expected
+    for( scheduler_list_type::iterator it = my_masters.begin(); it != my_masters.end(); it++  )
+        it->propagate_task_group_state( mptr_state, src, new_state );
     return true;
 }
-
-template <typename T>
-bool arena::propagate_task_group_state ( T task_group_context::*mptr_state, task_group_context& src, T new_state ) {
-    return my_market->propagate_task_group_state( mptr_state, src, new_state );
-}
-#endif /* __TBB_TASK_GROUP_CONTEXT */
 
 bool task_group_context::cancel_group_execution () {
     __TBB_ASSERT ( my_cancellation_requested == 0 || my_cancellation_requested == 1, "Invalid cancellation state");
@@ -417,7 +400,7 @@ bool task_group_context::cancel_group_execution () {
         // not missing out on any cancellation still being propagated, and a context cannot be uncanceled.)
         return false;
     }
-    governor::local_scheduler()->my_arena->propagate_task_group_state( &task_group_context::my_cancellation_requested, *this, (uintptr_t)1 );
+    governor::local_scheduler_weak()->my_market->propagate_task_group_state( &task_group_context::my_cancellation_requested, *this, (uintptr_t)1 );
     return true;
 }
 
@@ -480,15 +463,20 @@ void task_group_context::set_priority ( priority_t prio ) {
         return;
     my_priority = p;
     internal::generic_scheduler* s = governor::local_scheduler_if_initialized();
-    if ( !s || !s->my_arena->propagate_task_group_state(&task_group_context::my_priority, *this, p) )
+    if ( !s || !s->my_arena || !s->my_market->propagate_task_group_state(&task_group_context::my_priority, *this, p) )
         return;
-    // Updating arena priority here does not eliminate necessity of checking each
-    // task priority and updating arena priority if necessary before the task execution.
-    // These checks will be necessary because:
-    // a) set_priority() may be invoked before any tasks from this task group are spawned;
-    // b) all spawned tasks from this task group are retrieved from the task pools.
-    // These cases create a time window when arena priority may be lowered.
-    s->my_market->update_arena_priority( *s->my_arena, p );
+
+    //! TODO: the arena of the calling thread might be unrelated;
+    // need to find out the right arena for priority update.
+    // The executing status check only guarantees being inside some working arena.
+    if ( s->my_innermost_running_task->state() == task::executing )
+        // Updating arena priority here does not eliminate necessity of checking each
+        // task priority and updating arena priority if necessary before the task execution.
+        // These checks will be necessary because:
+        // a) set_priority() may be invoked before any tasks from this task group are spawned;
+        // b) all spawned tasks from this task group are retrieved from the task pools.
+        // These cases create a time window when arena priority may be lowered.
+        s->my_market->update_arena_priority( *s->my_arena, p );
 }
 
 priority_t task_group_context::priority () const {

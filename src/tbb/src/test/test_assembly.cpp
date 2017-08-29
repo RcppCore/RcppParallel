@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // Program for basic correctness testing of assembly-language routines.
@@ -41,7 +41,7 @@ using tbb::internal::reference_count;
 //TODO: remove this function when atomic function __TBB_XXX are dropped
 //! Test __TBB_CompareAndSwapW
 static void TestCompareExchange() {
-    ASSERT( intptr_t(-10)<10, "intptr_t not a signed integral type?" ); 
+    ASSERT( intptr_t(-10)<10, "intptr_t not a signed integral type?" );
     REMARK("testing __TBB_CompareAndSwapW\n");
     for( intptr_t a=-10; a<10; ++a )
         for( intptr_t b=-10; b<10; ++b )
@@ -54,8 +54,8 @@ static void TestCompareExchange() {
                 intptr_t x = a;
 #endif
                 intptr_t y = __TBB_CompareAndSwapW(&x,b,c);
-                ASSERT( y==a, NULL ); 
-                if( a==c ) 
+                ASSERT( y==a, NULL );
+                if( a==c )
                     ASSERT( x==b, NULL );
                 else
                     ASSERT( x==a, NULL );
@@ -121,8 +121,8 @@ static void TestLog2() {
             if( uintptr_t k = i*j ) {
                 uintptr_t actual = __TBB_Log2(k);
                 const uintptr_t ONE = 1; // warning suppression again
-                ASSERT( k >= ONE<<actual, NULL );          
-                ASSERT( k>>1 < ONE<<actual, NULL );        
+                ASSERT( k >= ONE<<actual, NULL );
+                ASSERT( k>>1 < ONE<<actual, NULL );
             }
         }
     }
@@ -133,6 +133,21 @@ static void TestPause() {
     __TBB_Pause(1);
 }
 
+static void TestTimeStamp() {
+    REMARK("testing __TBB_time_stamp");
+#if defined(__TBB_time_stamp)
+    tbb::internal::machine_tsc_t prev = __TBB_time_stamp();
+    for ( int i=0; i<1000; ++i ) {
+        tbb::internal::machine_tsc_t curr = __TBB_time_stamp();
+        ASSERT(curr>prev, "__TBB_time_stamp has returned non-monotonically increasing quantity");
+        prev=curr;
+    }
+    REMARK("\n");
+#else
+    REMARK(" skipped\n");
+#endif
+}
+
 int TestMain () {
     __TBB_TRY {
         TestLog2();
@@ -140,6 +155,7 @@ int TestMain () {
         TestCompareExchange();
         TestAtomicCounter();
         TestPause();
+        TestTimeStamp();
     } __TBB_CATCH(...) {
         ASSERT(0,"unexpected exception");
     }

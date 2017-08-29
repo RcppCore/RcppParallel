@@ -1,38 +1,33 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
-/* Regression test against a bug in TBB allocator manifested when 
+/* Regression test against a bug in TBB allocator manifested when
    dynamic library calls atexit() or registers dtors of static objects.
-   If the allocator is not initialized yet, we can get deadlock, 
+   If the allocator is not initialized yet, we can get deadlock,
    because allocator library has static object dtors as well, they
-   registered during allocator initialization, and atexit() is protected 
+   registered during allocator initialization, and atexit() is protected
    by non-recursive mutex in some versions of GLIBC.
  */
 
 #include <stdlib.h>
-#include "../tbbmalloc/proxy.h" // __TBB_malloc_safer_msize
-#include "tbb/tbb_config.h"     // for __TBB_WIN8UI_SUPPORT
-
-#if !(_WIN32||_WIN64 || MALLOC_UNIXLIKE_OVERLOAD_ENABLED || MALLOC_ZONE_OVERLOAD_ENABLED) || __TBB_WIN8UI_SUPPORT || __MINGW32__ || __MINGW64__
-#define HARNESS_SKIP_TEST 1
-#endif
+#include "harness_allocator_overload.h"
 
 // __TBB_malloc_safer_msize() returns 0 for unknown objects,
 // thus we can detect ownership
@@ -155,9 +150,6 @@ bool dll_isMallocOverloaded();
 int TestMain () {
 #ifdef _PGO_INSTRUMENT
     REPORT("Known issue: test_malloc_atexit hangs if compiled with -prof-genx\n");
-    return Harness::Skipped;
-#elif __TBB_MIC_OFFLOAD
-    REPORT("Known issue: libmalloc_proxy.so is loaded too late in the offload mode on the target when linked via -lmalloc_proxy\n");
     return Harness::Skipped;
 #else
     ASSERT( dll_isMallocOverloaded(), "malloc was not replaced" );

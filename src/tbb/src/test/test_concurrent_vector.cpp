@@ -1,22 +1,26 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
+
+#if _MSC_VER
+#define _SCL_SECURE_NO_WARNINGS
+#endif
 
 #include "tbb/concurrent_vector.h"
 #include "tbb/tbb_allocator.h"
@@ -168,6 +172,9 @@ struct CheckElement {
 #include "tbb/parallel_for.h"
 #include "harness.h"
 
+//! Problem size
+const size_t N = 500000;
+
 //! Test parallel access by iterators
 void TestParallelFor( int nthread ) {
     typedef tbb::concurrent_vector<int> vector_t;
@@ -243,8 +250,8 @@ void CheckIteratorComparison( V& u ) {
             ASSERT( (i>j)==(i_count>j_count), NULL );
             ASSERT( (i<=j)==(i_count<=j_count), NULL );
             ASSERT( (i>=j)==(i_count>=j_count), NULL );
-            ASSERT( !(i==i2), NULL ); 
-            ASSERT( i!=i2, NULL ); 
+            ASSERT( !(i==i2), NULL );
+            ASSERT( i!=i2, NULL );
             ++j;
             ++i2;
         }
@@ -410,8 +417,6 @@ void TestSequentialFor() {
     ASSERT( (v1 <= v) && (v2 >= v), NULL);
 #endif
 }
-
-static const size_t Modulus = 7;
 
 namespace test_grow_to_at_least_helpers {
     template<typename MyVector >
@@ -748,9 +753,9 @@ void test_grow_by_empty_range( Vector &v, typename Vector::value_type* range_beg
     ASSERT( v == v_copy, "grow_by(empty_range) has changed the vector." );
 }
 
-void TestSerialGrowByRange( bool segmented_vector ) {
+void TestSerialGrowByRange( bool fragmented_vector ) {
     tbb::concurrent_vector<int> v;
-    if ( segmented_vector ) {
+    if ( fragmented_vector ) {
         v.reserve( 1 );
     }
     int init_range[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
@@ -917,6 +922,55 @@ void TestSerialGrowByWithMoveIterators(){
 
     fixture.verify_content_deep_moved(dst);
 }
+
+#if __TBB_MOVE_IF_NOEXCEPT_PRESENT
+namespace test_move_in_shrink_to_fit_helpers {
+    struct dummy : Harness::StateTrackable<>{
+        int i;
+        dummy(int an_i) __TBB_NOTHROW : Harness::StateTrackable<>(0), i(an_i) {}
+#if !__TBB_IMPLICIT_MOVE_PRESENT || __TBB_NOTHROW_MOVE_MEMBERS_IMPLICIT_GENERATION_BROKEN
+        dummy(const dummy &src) __TBB_NOTHROW : Harness::StateTrackable<>(src), i(src.i) {}
+        dummy(dummy &&src) __TBB_NOTHROW : Harness::StateTrackable<>(std::move(src)), i(src.i) {}
+
+        dummy& operator=(dummy &&src) __TBB_NOTHROW {
+            Harness::StateTrackable<>::operator=(std::move(src));
+            i = src.i;
+            return *this;
+        }
+
+        //somehow magically this declaration make std::is_nothrow_move_constructible<pod>::value to works correctly on icc14+msvc2013
+        ~dummy() __TBB_NOTHROW {}
+#endif //!__TBB_IMPLICIT_MOVE_PRESENT || __TBB_NOTHROW_MOVE_MEMBERS_IMPLICIT_GENERATION_BROKEN
+        friend bool operator== (const dummy &lhs, const dummy &rhs){ return lhs.i == rhs.i; }
+    };
+}
+void TestSerialMoveInShrinkToFit(){
+    const char* test_name = "TestSerialMoveInShrinkToFit";
+    REMARK("running %s \n", test_name);
+    using test_move_in_shrink_to_fit_helpers::dummy;
+
+    __TBB_STATIC_ASSERT(std::is_nothrow_move_constructible<dummy>::value,"incorrect test setup or broken configuration?");
+    {
+        dummy src(0);
+        ASSERT_IN_TEST(is_state<Harness::StateTrackableBase::MoveInitialized>(dummy(std::move_if_noexcept(src))),"broken configuration ?", test_name);
+    }
+    static const size_t sequence_size = 15;
+    typedef  tbb::concurrent_vector<dummy> c_vector_t;
+    std::vector<dummy> source(sequence_size, 0);
+    std::generate_n(source.begin(), source.size(), std::rand);
+
+    c_vector_t c_vector;
+    c_vector.reserve(1); //make it fragmented
+
+    c_vector.assign(source.begin(), source.end());
+    memory_locations c_vector_before_shrink(c_vector);
+    c_vector.shrink_to_fit();
+
+    ASSERT_IN_TEST(c_vector_before_shrink.content_location_changed(c_vector), "incorrect test setup? shrink_to_fit should cause moving elements to other memory locations while it is not", test_name);
+    ASSERT_IN_TEST(all_of(c_vector, is_state_f<Harness::StateTrackableBase::MoveInitialized>()), "container did not move construct some elements?", test_name);
+    ASSERT_IN_TEST(c_vector == c_vector_t(source.begin(),source.end()),"",test_name);
+}
+#endif //__TBB_MOVE_IF_NOEXCEPT_PRESENT
 #endif //__TBB_CPP11_RVALUE_REF_PRESENT
 // Test the comparison operators
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
@@ -1000,11 +1054,7 @@ void TestFindPrimes() {
     double t2 = TimeFindPrimes( tbb::task_scheduler_init::automatic );
 
     // Time parallel run that is very likely oversubscribed.
-#if _XBOX
-    double t128 = TimeFindPrimes(32);  //XBOX360 can't handle too many threads
-#else
     double t128 = TimeFindPrimes(128);
-#endif
     REMARK("TestFindPrimes: t2==%g t128=%g k=%g\n", t2, t128, t128/t2);
 
     // We allow the 128-thread run a little extra time to allow for thread overhead.
@@ -1086,7 +1136,7 @@ void verify_vector_partially_copied(
         ASSERT_IN_TEST( victim == vector_t(src.begin(), src.begin() + victim.size(), src.get_allocator()), "failed to properly copy of source ?", test_name );
     }else{
         ASSERT_IN_TEST( std::equal(victim.begin(), victim.begin() + planned_victim_size, src.begin()), "failed to properly copy items before the exception?", test_name );
-        ASSERT_IN_TEST( ::all_of( victim.begin() + planned_victim_size, victim.end(), &is_state<Foo::ZeroInitialized> ), "failed to zero-initialize items left not constructed after the exception?", test_name );
+        ASSERT_IN_TEST( ::all_of( victim.begin() + planned_victim_size, victim.end(), is_state_f<Foo::ZeroInitialized>() ), "failed to zero-initialize items left not constructed after the exception?", test_name );
     }
 }
 
@@ -1173,7 +1223,7 @@ void TestExceptions() {
                         int i;
                         for(i = 1; ; ++i)
                             if(!victim[i].zero_bar()) break;
-                            else ASSERT(victim[i].bar() == (m == assign_ir)? i : initial_value_of_bar, NULL);
+                            else ASSERT(victim[i].bar() == (m == assign_ir? i : initial_value_of_bar), NULL);
                         for(; size_t(i) < size; ++i) ASSERT(!victim[i].zero_bar(), NULL);
                         ASSERT(size_t(i) == size, NULL);
                         break;
@@ -1556,8 +1606,9 @@ void Examine( tbb::concurrent_vector<Type, Allocator> c, const std::vector<Type>
     std::copy( c.begin(), c.begin() + 5, std::back_inserter( c2 ) );
 
     c.grow_by( c2.begin(), c2.end() );
-    ASSERT( Harness::IsEqual()(c.front(), *(c2.rend()-1)), NULL );
-    ASSERT( Harness::IsEqual()(c.back(), *c2.rbegin()), NULL);
+    const vector_t& cvcr = c;
+    ASSERT( Harness::IsEqual()(cvcr.front(), *(c2.rend()-1)), NULL );
+    ASSERT( Harness::IsEqual()(cvcr.back(), *c2.rbegin()), NULL);
     ASSERT( Harness::IsEqual()(*c.cbegin(), *(c.crend()-1)), NULL );
     ASSERT( Harness::IsEqual()(*(c.cend()-1), *c.crbegin()), NULL );
     c.swap( c2 );
@@ -1632,14 +1683,14 @@ void TestTypes() {
     for ( int i=0; i<NUMBER; ++i ) intArr.push_back(i);
     TypeTester</*default_construction_present = */true>( intArr );
 
-#if __TBB_CPP11_REFERENCE_WRAPPER_PRESENT
+#if __TBB_CPP11_REFERENCE_WRAPPER_PRESENT && !__TBB_REFERENCE_WRAPPER_COMPILATION_BROKEN
     std::vector< std::reference_wrapper<int> > refArr;
     // The constructor of std::reference_wrapper<T> from T& is explicit in some versions of libstdc++.
     for ( int i=0; i<NUMBER; ++i ) refArr.push_back( std::reference_wrapper<int>(intArr[i]) );
     TypeTester</*default_construction_present = */false>( refArr );
 #else
     REPORT( "Known issue: C++11 reference wrapper tests are skipped.\n" );
-#endif /* __TBB_CPP11_REFERENCE_WRAPPER_PRESENT */
+#endif /* __TBB_CPP11_REFERENCE_WRAPPER_PRESENT && !__TBB_REFERENCE_WRAPPER_COMPILATION_BROKEN */
 
     std::vector< tbb::atomic<int> > tbbIntArr( NUMBER );
     for ( int i=0; i<NUMBER; ++i ) tbbIntArr[i] = i;
@@ -1682,6 +1733,9 @@ int TestMain () {
     TestConstructorWithMoveIterators<c_vector_type>();
     TestAssignWithMoveIterators<c_vector_type>();
     TestSerialGrowByWithMoveIterators();
+#if __TBB_MOVE_IF_NOEXCEPT_PRESENT
+    TestSerialMoveInShrinkToFit();
+#endif // __TBB_MOVE_IF_NOEXCEPT_PRESENT
 #else
     REPORT("Known issue: tests for vector move constructor/assignment operator are skipped.\n");
 #endif
@@ -1725,7 +1779,7 @@ int TestMain () {
     TestExceptionSafetyGuaranteesMoveConstructorWithUnEqualAllocatorExceptionInElementCtor<c_vector_type>();
     TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorMemoryFailure();
     TestExceptionSafetyGuaranteesForMoveAssignOperatorWithUnEqualAllocatorExceptionInElementCtor();
-    TestPushBackMoveExceptionSafety();    
+    TestPushBackMoveExceptionSafety();
 #if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
     TestEmplaceBackExceptionSafety();
 #endif /*__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT */
