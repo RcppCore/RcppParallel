@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 TBB_STRING_RESOURCE(FLOW_BROADCAST_NODE, "broadcast_node")
@@ -27,7 +27,7 @@ TBB_STRING_RESOURCE(FLOW_JOIN_NODE_RESERVING, "join_node (reserving)")
 TBB_STRING_RESOURCE(FLOW_JOIN_NODE_TAG_MATCHING, "join_node (tag_matching)")
 TBB_STRING_RESOURCE(FLOW_LIMITER_NODE, "limiter_node")
 TBB_STRING_RESOURCE(FLOW_MULTIFUNCTION_NODE, "multifunction_node")
-TBB_STRING_RESOURCE(FLOW_OR_NODE, "or_node") //no longer in use, kept for backward compatibilty
+TBB_STRING_RESOURCE(FLOW_OR_NODE, "or_node") //no longer in use, kept for backward compatibility
 TBB_STRING_RESOURCE(FLOW_OVERWRITE_NODE, "overwrite_node")
 TBB_STRING_RESOURCE(FLOW_PRIORITY_QUEUE_NODE, "priority_queue_node")
 TBB_STRING_RESOURCE(FLOW_QUEUE_NODE, "queue_node")
@@ -63,3 +63,5 @@ TBB_STRING_RESOURCE(FLOW_OUTPUT_PORT_9, "output_port_9")
 TBB_STRING_RESOURCE(FLOW_OBJECT_NAME, "object_name")
 TBB_STRING_RESOURCE(FLOW_NULL, "null")
 TBB_STRING_RESOURCE(FLOW_INDEXER_NODE, "indexer_node")
+TBB_STRING_RESOURCE(FLOW_COMPOSITE_NODE, "composite_node")
+TBB_STRING_RESOURCE(FLOW_ASYNC_NODE, "async_node")

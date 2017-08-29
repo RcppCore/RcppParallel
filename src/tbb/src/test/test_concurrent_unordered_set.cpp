@@ -1,25 +1,29 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness_defs.h"
 #if !(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN)
+
+#if _MSC_VER
+#define _SCL_SECURE_NO_WARNINGS
+#endif
 
 #define __TBB_EXTRA_DEBUG 1
 #include "tbb/concurrent_unordered_set.h"
@@ -49,57 +53,12 @@ bool operator==(tbb::concurrent_unordered_multiset<T> const& lhs, tbb::concurren
 #include "test_concurrent_unordered_common.h"
 
 typedef tbb::concurrent_unordered_set<int, tbb::tbb_hash<int>, std::equal_to<int>, MyAllocator> MySet;
+typedef tbb::concurrent_unordered_set<int, degenerate_hash<int>, std::equal_to<int>, MyAllocator> MyDegenerateSet;
 typedef tbb::concurrent_unordered_set<check_type<int>, tbb::tbb_hash<check_type<int> >, std::equal_to<check_type<int> >, MyAllocator> MyCheckedSet;
+typedef tbb::concurrent_unordered_set<FooWithAssign, tbb::tbb_hash<Foo>, std::equal_to<FooWithAssign>, MyAllocator> MyCheckedStateSet;
 typedef tbb::concurrent_unordered_multiset<int, tbb::tbb_hash<int>, std::equal_to<int>, MyAllocator> MyMultiSet;
+typedef tbb::concurrent_unordered_multiset<int, degenerate_hash<int>, std::equal_to<int>, MyAllocator> MyDegenerateMultiSet;
 typedef tbb::concurrent_unordered_multiset<check_type<int>, tbb::tbb_hash<check_type<int> >, std::equal_to<check_type<int> >, MyAllocator> MyCheckedMultiSet;
-
-template<>
-class AssignBody<MySet>: NoAssign{
-    MySet &table;
-public:
-    AssignBody( MySet &t ) : NoAssign( ), table( t ) {}
-    void operator()( int i ) const {
-        table.insert( i );
-    }
-};
-
-template<>
-class AssignBody<MyCheckedSet>: NoAssign{
-    MyCheckedSet &table;
-public:
-    AssignBody( MyCheckedSet &t ) : NoAssign( ), table( t ) {}
-    void operator()( int i ) const {
-        table.insert( check_type<int>( i ) );
-    }
-};
-
-// multiset: for i, inserts i i%3+1 times
-template<>
-class AssignBody<MyMultiSet>: NoAssign{
-    MyMultiSet &table;
-public:
-    AssignBody( MyMultiSet &t ) : NoAssign( ), table( t ) {}
-    void operator()( int i ) const {
-        int num = i % 3 + 1;
-        for ( int j = 0; j < num; ++j ) {
-            table.insert( i );
-        }
-    }
-};
-
-// multiset: for i, inserts i i%3+1 times
-template<>
-class AssignBody<MyCheckedMultiSet>: NoAssign{
-    MyCheckedMultiSet &table;
-public:
-    AssignBody( MyCheckedMultiSet &t ) : NoAssign( ), table( t ) {}
-    void operator()( int i ) const {
-        int num = i % 3 + 1;
-        for ( int j = 0; j < num; ++j ) {
-            table.insert( i );
-        }
-    }
-};
 
 #if __TBB_CPP11_RVALUE_REF_PRESENT
 struct cu_set_type : unordered_move_traits_base {
@@ -141,12 +100,12 @@ void TestTypes( ) {
     for ( std::list< tbb::atomic<int> >::iterator it = arrTbb.begin(); it != arrTbb.end(); ++it, ++seq ) *it = seq;
     TestTypesSet</*defCtorPresent = */true>( arrTbb );
 
-#if __TBB_CPP11_REFERENCE_WRAPPER_PRESENT
+#if __TBB_CPP11_REFERENCE_WRAPPER_PRESENT && !__TBB_REFERENCE_WRAPPER_COMPILATION_BROKEN
     std::list< std::reference_wrapper<int> > arrRef;
     for ( std::list<int>::iterator it = arrInt.begin( ); it != arrInt.end( ); ++it )
         arrRef.push_back( std::reference_wrapper<int>(*it) );
     TestTypesSet</*defCtorPresent = */false>( arrRef );
-#endif /* __TBB_CPP11_REFERENCE_WRAPPER_PRESENT */
+#endif /* __TBB_CPP11_REFERENCE_WRAPPER_PRESENT && !__TBB_REFERENCE_WRAPPER_COMPILATION_BROKEN */
 
 #if __TBB_CPP11_SMART_POINTERS_PRESENT
     std::list< std::shared_ptr<int> > arrShr;
@@ -156,6 +115,17 @@ void TestTypes( ) {
     std::list< std::weak_ptr<int> > arrWk;
     std::copy( arrShr.begin( ), arrShr.end( ), std::back_inserter( arrWk ) );
     TestTypesSet</*defCtorPresent = */true>( arrWk );
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT && __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    // Regression test for a problem with excessive requirements of emplace()
+    test_emplace_insert<tbb::concurrent_unordered_set< test::unique_ptr<int> >,
+                        tbb::internal::false_type>( new int, new int );
+    test_emplace_insert<tbb::concurrent_unordered_multiset< test::unique_ptr<int> >,
+                        tbb::internal::false_type>( new int, new int );
+#endif
+
+#else
+    REPORT( "Known issue: C++11 smart pointer tests are skipped.\n" );
 #endif /* __TBB_CPP11_SMART_POINTERS_PRESENT */
 }
 #endif // __TBB_TEST_SECONDARY
@@ -191,13 +161,19 @@ int TestMain() {
     test_machine( );
 
     test_basic<MySet>( "concurrent unordered Set" );
+    test_basic<MyDegenerateSet>( "concurrent unordered degenerate Set" );
     test_concurrent<MySet>("concurrent unordered Set");
+    test_concurrent<MyDegenerateSet>( "concurrent unordered degenerate Set" );
     test_basic<MyMultiSet>("concurrent unordered MultiSet");
+    test_basic<MyDegenerateMultiSet>("concurrent unordered degenerate MultiSet");
     test_concurrent<MyMultiSet>( "concurrent unordered MultiSet" );
+    test_concurrent<MyDegenerateMultiSet>("concurrent unordered degenerate MultiSet");
     test_concurrent<MyMultiSet>( "concurrent unordered MultiSet asymptotic", true );
 
     { Check<MyCheckedSet::value_type> checkit; test_basic<MyCheckedSet>( "concurrent_unordered_set (checked)" ); }
     { Check<MyCheckedSet::value_type> checkit; test_concurrent<MyCheckedSet>( "concurrent unordered set (checked)" ); }
+    test_basic<MyCheckedStateSet>("concurrent unordered set (checked element state)", tbb::internal::true_type());
+    test_concurrent<MyCheckedStateSet>("concurrent unordered set (checked element state)");
 
     { Check<MyCheckedMultiSet::value_type> checkit; test_basic<MyCheckedMultiSet>("concurrent_unordered_multiset (checked)"); }
     { Check<MyCheckedMultiSet::value_type> checkit; test_concurrent<MyCheckedMultiSet>( "concurrent unordered multiset (checked)" ); }
@@ -224,4 +200,4 @@ int TestMain() {
     return Harness::Done;
 }
 #endif //#if !__TBB_TEST_SECONDARY
-#endif //!(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKING_BROKEN)
+#endif //!(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN)

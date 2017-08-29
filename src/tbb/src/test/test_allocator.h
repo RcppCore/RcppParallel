@@ -1,28 +1,28 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // Basic testing of an allocator
 // Tests against requirements in 20.1.5 of ISO C++ Standard (1998).
 // Does not check for thread safety or false sharing issues.
 //
-// Tests for compatibility with the host's STL are in 
+// Tests for compatibility with the host's STL are in
 // test_Allocator_STL.h.  Those tests are in a separate file
 // because they bring in lots of STL headers, and the tests here
 // are supposed to work in the abscense of STL.
@@ -59,7 +59,34 @@ inline char PseudoRandomValue( size_t j, size_t k ) {
     return char(j*3 ^ j>>4 ^ k);
 }
 
-//! T is type and A is allocator for that type 
+#if __APPLE__
+#include <fcntl.h>
+#include <unistd.h>
+
+// A RAII class to disable stderr in a certain scope. It's not thread-safe.
+class DisableStderr {
+    int stderrCopy;
+    static void dupToStderrAndClose(int fd) {
+        int ret = dup2(fd, STDERR_FILENO); // close current stderr
+        ASSERT(ret != -1, NULL);
+        ret = close(fd);
+        ASSERT(ret != -1, NULL);
+    }
+public:
+    DisableStderr() {
+        int devNull = open("/dev/null", O_WRONLY);
+        ASSERT(devNull != -1, NULL);
+        stderrCopy = dup(STDERR_FILENO);
+        ASSERT(stderrCopy != -1, NULL);
+        dupToStderrAndClose(devNull);
+    }
+    ~DisableStderr() {
+        dupToStderrAndClose(stderrCopy);
+    }
+};
+#endif
+
+//! T is type and A is allocator for that type
 template<typename T, typename A>
 void TestBasic( A& a ) {
     T x;
@@ -87,7 +114,7 @@ void TestBasic( A& a ) {
     --difference;
     ASSERT( difference<0, "not an signed integral type?" );
 
-    // "rebind" tested by our caller 
+    // "rebind" tested by our caller
 
     ASSERT( a.address(rx)==px, NULL );
 
@@ -104,8 +131,8 @@ void TestBasic( A& a ) {
 
     // Test hint argument. This can't be compiled when hint is void*, It should be const void*
     typename A::pointer a_ptr;
-    const void * const_hint = NULL;    
-    a_ptr = a.allocate (1, const_hint);    
+    const void * const_hint = NULL;
+    a_ptr = a.allocate (1, const_hint);
     a.deallocate(a_ptr, 1);
 
     // Test "a.deallocate(p,n)
@@ -118,9 +145,9 @@ void TestBasic( A& a ) {
 
     // Test "a.max_size()"
     AssertSameType( a.max_size(), typename A::size_type(0) );
-    // Following assertion catches case where max_size() is so large that computation of 
+    // Following assertion catches case where max_size() is so large that computation of
     // number of bytes for such an allocation would overflow size_type.
-    ASSERT( a.max_size()*typename A::size_type(sizeof(T))>=a.max_size(), "max_size larger than reasonable" ); 
+    ASSERT( a.max_size()*typename A::size_type(sizeof(T))>=a.max_size(), "max_size larger than reasonable" );
 
     // Test "a.construct(p,t)"
     int n = NumberOfFoo;
@@ -132,6 +159,24 @@ void TestBasic( A& a ) {
     a.destroy( p );
     ASSERT( NumberOfFoo==n, "destructor for Foo not called?" );
     a.deallocate(p,1);
+
+#if TBB_USE_EXCEPTIONS
+    size_t too_big = (~size_t(0) - 1024*1024)/sizeof(T);
+    bool exception_caught = false;
+    typename A::pointer p1 = NULL;
+    try {
+#if __APPLE__
+        // On macOS*, failure to map memory results in messages to stderr;
+        // suppress them.
+        DisableStderr disableStderr;
+#endif
+        p1 = a.allocate(too_big);
+    } catch ( std::bad_alloc ) {
+        exception_caught = true;
+    }
+    ASSERT( exception_caught, "allocate expected to throw bad_alloc" );
+    a.deallocate(p1, too_big);
+#endif // TBB_USE_EXCEPTIONS
 
     #if __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
     {
@@ -214,13 +259,13 @@ void Test(A &a) {
     // thread safety
     NativeParallelFor( 4, Body<A>(a) );
     ASSERT( NumberOfFoo==0, "Allocate/deallocate count mismatched" );
- 
+
     ASSERT( a==b, NULL );
     ASSERT( !(a!=b), NULL );
 }
 
 template<typename Allocator>
-int TestMain(const Allocator &a = Allocator() ) {
+int TestMain(const Allocator &a = Allocator()) {
     NumberOfFoo = 0;
     typename Allocator::template rebind<Foo<char,1> >::other a1(a);
     typename Allocator::template rebind<Foo<double,1> >::other a2(a);
@@ -228,4 +273,3 @@ int TestMain(const Allocator &a = Allocator() ) {
     Test<Foo<float,23> >( a2 );
     return 0;
 }
-

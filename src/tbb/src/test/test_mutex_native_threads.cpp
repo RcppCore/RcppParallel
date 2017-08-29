@@ -1,27 +1,29 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "tbb/spin_mutex.h"
 #include "tbb/queuing_mutex.h"
 #include "tbb/queuing_rw_mutex.h"
 #include "tbb/spin_rw_mutex.h"
+#include "tbb/mutex.h"
+
 #include "tbb/tick_count.h"
 #include "tbb/atomic.h"
 
@@ -34,7 +36,7 @@ template<typename M>
 struct Counter {
     typedef M mutex_type;
     M mutex;
-    volatile long value; 
+    volatile long value;
     void flog_once( size_t mode );
 };
 
@@ -83,7 +85,7 @@ struct Invariant {
     bool is_okay() {
         return value_is( value[0] );
     }
-    void flog_once( size_t mode ); 
+    void flog_once( size_t mode );
 };
 
 template<typename M, long N>
@@ -159,7 +161,7 @@ struct Work: NoAssign {
     void operator()( int ) const {
         size_t step;
         while( (step=Order.fetch_and_add<tbb::acquire>(chunk))<TestSize )
-            for( size_t i=0; i<chunk && step<TestSize; ++i, ++step ) 
+            for( size_t i=0; i<chunk && step<TestSize; ++i, ++step )
                 state.flog_once(step);
     }
 };
@@ -211,6 +213,7 @@ int TestMain () {
         Test<tbb::queuing_mutex>( "queuing_mutex", p );
         Test<tbb::queuing_rw_mutex>( "queuing_rw_mutex", p );
         Test<tbb::spin_rw_mutex>( "spin_rw_mutex", p );
+        Test<tbb::mutex>( "mutex", p );
         TestReaderWriter<tbb::queuing_rw_mutex>( "queuing_rw_mutex", p );
         TestReaderWriter<tbb::spin_rw_mutex>( "spin_rw_mutex", p );
     }

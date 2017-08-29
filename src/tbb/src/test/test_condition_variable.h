@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
@@ -38,11 +38,83 @@
     #pragma warning (pop)
 #endif
 
-
+#if TBB_IMPLEMENT_CPP0X
 // This test deliberately avoids a "using tbb" statement,
 // so that the error of putting types in the wrong namespace will be caught.
-
 using namespace std;
+#else
+using namespace tbb::interface5;
+#endif
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+template<typename M>
+void TestUniqueLockMoveConstructorAndAssignOp(){
+    typedef unique_lock<M> unique_lock_t;
+
+    static const bool locked = true;
+    static const bool unlocked = false;
+
+    struct Locked{
+        bool value;
+        Locked(bool a_value) : value(a_value) {}
+    };
+
+    typedef Locked destination;
+    typedef Locked source;
+
+    struct MutexAndLockFixture{
+        M mutex;
+        unique_lock_t lock;
+        const bool was_locked;
+
+        MutexAndLockFixture(source lckd_src) : lock(mutex), was_locked(lckd_src.value){
+            if (!lckd_src.value) lock.unlock();
+            ASSERT(was_locked == lock.owns_lock(), "unlock did not release the mutex while should?");
+        }
+    };
+
+    struct TestCases{
+        const char* filename;
+        int line;
+
+        TestCases(const char* a_filename, int a_line) : filename(a_filename), line(a_line) {}
+
+        void TestMoveConstructor(source locked_src){
+            MutexAndLockFixture src(locked_src);
+            unique_lock_t dst_lock(std::move(src.lock));
+            AssertOwnershipWasTransfered(dst_lock, src.lock, src.was_locked, &src.mutex);
+        }
+
+        void TestMoveAssignment(source locked_src, destination locked_dest){
+            MutexAndLockFixture src(locked_src);
+            MutexAndLockFixture dst(locked_dest);
+
+            dst.lock = std::move(src.lock);
+            ASSERT_CUSTOM(unique_lock_t(dst.mutex, try_to_lock).owns_lock(), "unique_lock should release owned mutex on assignment", filename, line);
+            AssertOwnershipWasTransfered(dst.lock, src.lock, src.was_locked, &src.mutex);
+        }
+
+        void AssertOwnershipWasTransfered(unique_lock_t const& dest_lock, unique_lock_t const& src_lck, const bool was_locked, const M* mutex) {
+            ASSERT_CUSTOM(dest_lock.owns_lock() == was_locked, "moved to lock object should have the same state as source before move", filename, line);
+            ASSERT_CUSTOM(dest_lock.mutex() == mutex, "moved to lock object should have the same state as source before move", filename, line);
+            ASSERT_CUSTOM(src_lck.owns_lock() == false, "moved from lock object must not left locked", filename, line);
+            ASSERT_CUSTOM(src_lck.mutex() == NULL, "moved from lock object must not has mutex", filename, line);
+        }
+    };
+//TODO: to rework this with an assertion binder
+#define AT_LOCATION() TestCases( __FILE__, __LINE__) \
+
+        AT_LOCATION().TestMoveConstructor(source(locked));
+        AT_LOCATION().TestMoveAssignment (source(locked), destination(locked));
+        AT_LOCATION().TestMoveAssignment (source(locked), destination(unlocked));
+        AT_LOCATION().TestMoveConstructor(source(unlocked));
+        AT_LOCATION().TestMoveAssignment (source(unlocked), destination(locked));
+        AT_LOCATION().TestMoveAssignment (source(unlocked), destination(unlocked));
+
+#undef AT_LOCATION
+
+}
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
 
 template<typename M>
 struct Counter {
@@ -680,6 +752,11 @@ void TestConditionVariableException( const char * name ) {
 template<typename Mutex, typename RecursiveMutex>
 void DoCondVarTest()
 {
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    TestUniqueLockMoveConstructorAndAssignOp<Mutex>();
+    TestUniqueLockMoveConstructorAndAssignOp<RecursiveMutex>();
+#endif
+
     for( int p=MinThread; p<=MaxThread; ++p ) {
         REMARK( "testing with %d threads\n", p );
         TestLocks<Mutex>( "mutex", p );

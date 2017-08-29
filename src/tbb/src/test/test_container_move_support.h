@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #ifndef __TBB_test_container_move_support_H
@@ -27,129 +27,179 @@
 #include "tbb/atomic.h"
 #include "tbb/aligned_space.h"
 #include <stdexcept>
+#include <string>
+#include <functional>
 
+#if __TBB_NOEXCEPT_PRESENT
+#define __TBB_NOTHROW __TBB_NOEXCEPT(true)
+#else
+#define __TBB_NOTHROW throw()
+#endif
+
+namespace Harness{
+    struct StateTrackableBase{
+        enum State{
+            ZeroInitialized     =0,
+            DefaultInitialized  =0xDEFAUL,
+            DirectInitialized   =0xD1111,
+            CopyInitialized     =0xC0314,
+            MoveInitialized     =0xAAAAA,
+            Assigned            =0x11AED,
+            MoveAssigned        =0x22AED,
+            MovedFrom           =0xFFFFF,
+            Destroyed           =0xDEADF00
+        };
+    };
+
+    template<bool allow_zero_initialized_state = false>
+    struct StateTrackable: StateTrackableBase{
+        static const bool is_zero_initialized_state_allowed = allow_zero_initialized_state;
+        State state;
+
+        bool is_valid() const{
+            return state == DefaultInitialized || state == DirectInitialized || state == CopyInitialized
+                || state == MoveInitialized || state == Assigned || state == MoveAssigned || state == MovedFrom
+                || (allow_zero_initialized_state && state == ZeroInitialized)
+                ;
+        }
+
+        StateTrackable (intptr_t)       __TBB_NOTHROW : state (DirectInitialized){}
+        StateTrackable ()               __TBB_NOTHROW : state (DefaultInitialized){}
+        StateTrackable (const StateTrackable & src) __TBB_NOTHROW{
+            ASSERT( src.is_valid(), "bad source for copy" );
+            state = CopyInitialized;
+        }
+    #if __TBB_CPP11_RVALUE_REF_PRESENT
+        StateTrackable (StateTrackable && src) __TBB_NOTHROW{
+            ASSERT( src.is_valid(), "bad source for move?" );
+            state = MoveInitialized;
+            src.state = MovedFrom;
+        }
+        StateTrackable & operator=(StateTrackable && src) __TBB_NOTHROW{
+            ASSERT( src.is_valid(), "bad source for assignment" );
+            ASSERT( is_valid(), "assigning to invalid instance?" );
+
+            src.state = MovedFrom;
+            state = MoveAssigned;
+            return *this;
+        }
+    #endif
+        StateTrackable & operator=(const StateTrackable & src) __TBB_NOTHROW{
+            ASSERT( src.is_valid(), "bad source for assignment?" );
+            ASSERT( is_valid(), "assigning to invalid instance?" );
+
+            state = Assigned;
+            return *this;
+        }
+        ~StateTrackable () __TBB_NOTHROW{
+            ASSERT( is_valid(), "Calling destructor on invalid instance? (twice destructor call?)" );
+            state = Destroyed;
+        }
+    };
+}
 tbb::atomic<size_t> FooCount;
 size_t MaxFooCount = 0;
-
-//! Problem size
-const size_t N = 500000;
 
 //! Exception for concurrent_container
 class Foo_exception : public std::bad_alloc {
 public:
-    virtual const char *what() const throw() { return "out of Foo limit"; }
+    virtual const char *what() const throw() __TBB_override { return "out of Foo limit"; }
     virtual ~Foo_exception() throw() {}
+};
+
+struct FooLimit {
+    FooLimit(){
+        if(MaxFooCount && FooCount >= MaxFooCount)
+            __TBB_THROW( Foo_exception() );
+    }
 };
 
 static const intptr_t initial_value_of_bar = 42;
 
-struct Foo {
+
+struct Foo : FooLimit, Harness::StateTrackable<true>{
+    typedef Harness::StateTrackable<true> StateTrackable;
     intptr_t my_bar;
 public:
-    enum State {
-        ZeroInitialized     =0,
-        DefaultInitialized  =0xDEFAUL,
-        DirectInitialized   =0xD1111,
-        CopyInitialized     =0xC0314,
-        MoveInitialized     =0xAAAAA,
-        Assigned            =0x11AED,
-        MoveAssigned        =0x22AED,
-        MovedFrom           =0xFFFFF,
-        Destroyed           =0xDEADF00
-    } state;
-    bool is_valid() const {
-        return state == DefaultInitialized || state == DirectInitialized || state == CopyInitialized
-            || state == MoveInitialized || state == Assigned || state == MoveAssigned || state == MovedFrom;
-    }
-    bool is_valid_or_zero() const {
+    bool is_valid_or_zero() const{
         return is_valid()||(state==ZeroInitialized && !my_bar);
     }
-    intptr_t& zero_bar() {
+    intptr_t& zero_bar(){
         ASSERT( is_valid_or_zero(), NULL );
         return my_bar;
     }
-    intptr_t zero_bar() const {
+    intptr_t zero_bar() const{
         ASSERT( is_valid_or_zero(), NULL );
         return my_bar;
     }
-    intptr_t& bar() {
+    intptr_t& bar(){
         ASSERT( is_valid(), NULL );
         return my_bar;
     }
-    intptr_t bar() const {
+    intptr_t bar() const{
         ASSERT( is_valid(), NULL );
         return my_bar;
     }
-	operator intptr_t() const{ return this->bar();}    
-    Foo( intptr_t barr ) {
+    operator intptr_t() const{
+        return this->bar();
+    }
+    Foo( intptr_t barr ): StateTrackable(0){
         my_bar = barr;
-        if(MaxFooCount && FooCount >= MaxFooCount)
-            __TBB_THROW( Foo_exception() );
         FooCount++;
-        state = DirectInitialized;
     }
-    Foo() {
+    Foo(){
         my_bar = initial_value_of_bar;
-        if(MaxFooCount && FooCount >= MaxFooCount)
-            __TBB_THROW( Foo_exception() );
         FooCount++;
-        state = DefaultInitialized;
     }
-    Foo( const Foo& foo ) {
+    Foo( const Foo& foo ): FooLimit(), StateTrackable(foo){
         my_bar = foo.my_bar;
-        ASSERT( foo.is_valid_or_zero(), "bad source for copy" );
-        if(MaxFooCount && FooCount >= MaxFooCount)
-            __TBB_THROW( Foo_exception() );
         FooCount++;
-        state = CopyInitialized;
     }
 #if __TBB_CPP11_RVALUE_REF_PRESENT
-    Foo( Foo&& foo ) {
+    Foo( Foo&& foo ): FooLimit(), StateTrackable(std::move(foo)){
         my_bar = foo.my_bar;
-        ASSERT( foo.is_valid_or_zero(), "bad source for move" );
-        if(MaxFooCount && FooCount >= MaxFooCount)
-            __TBB_THROW( Foo_exception() );
-        FooCount++;
-        state = MoveInitialized;
-        foo.state = MovedFrom;
         //TODO: consider not using constant here, instead something like ~my_bar
         foo.my_bar = -1;
+        FooCount++;
     }
 #endif
-    ~Foo() {
-        ASSERT( is_valid_or_zero(), NULL );
+    ~Foo(){
         my_bar = ~initial_value_of_bar;
         if(state != ZeroInitialized) --FooCount;
-        state = Destroyed;
     }
-    bool operator==(const Foo &f) const {
-        ASSERT( is_valid_or_zero(),   "comparing invalid objects ?" );
-        ASSERT( f.is_valid_or_zero(), "comparing invalid objects ?" );
-        return my_bar == f.my_bar;
+    friend bool operator==(const int &lhs, const Foo &rhs) {
+        ASSERT( rhs.is_valid_or_zero(), "comparing invalid objects ?" );
+        return lhs == rhs.my_bar;
     }
-    bool operator<(const Foo &f) const {
-        ASSERT( is_valid_or_zero(),   "comparing invalid objects ?" );
-        ASSERT( f.is_valid_or_zero(), "comparing invalid objects ?" );
-        return my_bar < f.my_bar;
+    friend bool operator==(const Foo &lhs, const int &rhs) {
+        ASSERT( lhs.is_valid_or_zero(),   "comparing invalid objects ?" );
+        return lhs.my_bar == rhs;
+    }
+    friend bool operator==(const Foo &lhs, const Foo &rhs) {
+        ASSERT( lhs.is_valid_or_zero(),   "comparing invalid objects ?" );
+        ASSERT( rhs.is_valid_or_zero(), "comparing invalid objects ?" );
+        return lhs.my_bar == rhs.my_bar;
+    }
+    friend bool operator<(const Foo &lhs, const Foo &rhs) {
+        ASSERT( lhs.is_valid_or_zero(),   "comparing invalid objects ?" );
+        ASSERT( rhs.is_valid_or_zero(), "comparing invalid objects ?" );
+        return lhs.my_bar < rhs.my_bar;
     }
     bool is_const() const {return true;}
     bool is_const() {return false;}
 protected:
     char reserve[1];
     Foo& operator=( const Foo& x ) {
-        ASSERT( x.is_valid_or_zero(), "bad source for assignment" );
-        ASSERT( is_valid_or_zero(), NULL );
+        StateTrackable::operator=(x);
         my_bar = x.my_bar;
-        state = Assigned;
         return *this;
     }
 #if __TBB_CPP11_RVALUE_REF_PRESENT
     Foo& operator=( Foo&& x ) {
         ASSERT( x.is_valid_or_zero(), "bad source for assignment" );
         ASSERT( is_valid_or_zero(), NULL );
+        StateTrackable::operator=(std::move(x));
         my_bar = x.my_bar;
-        x.state = MovedFrom;
-        state = MoveAssigned;
         x.my_bar = -1;
         return *this;
     }
@@ -185,13 +235,13 @@ public:
     FooIteratorType operator++(int) {
         FooIteratorType tmp(as_derived()); x_bar++; return tmp;
     }
-    friend bool operator==(const FooIteratorType & lhs, const FooIteratorType & rhs) { return lhs.x_bar == rhs.x_bar; }
-    friend bool operator!=(const FooIteratorType & lhs, const FooIteratorType & rhs) { return !(lhs == rhs); }
+    friend bool operator==(const FooIteratorType & lhs, const FooIteratorType & rhs){ return lhs.x_bar == rhs.x_bar; }
+    friend bool operator!=(const FooIteratorType & lhs, const FooIteratorType & rhs){ return !(lhs == rhs); }
 };
 
 class FooIterator: public std::iterator<std::input_iterator_tag,FooWithAssign>, public FooIteratorBase<FooIterator> {
 public:
-    FooIterator(intptr_t x) : FooIteratorBase<FooIterator>(x) {}
+    FooIterator(intptr_t x): FooIteratorBase<FooIterator>(x) {}
 
     FooWithAssign operator*() {
         return FooWithAssign(x_bar);
@@ -200,7 +250,7 @@ public:
 
 class FooPairIterator: public std::iterator<std::input_iterator_tag, std::pair<FooWithAssign,FooWithAssign> >,  public FooIteratorBase<FooPairIterator> {
 public:
-    FooPairIterator(intptr_t x) : FooIteratorBase<FooPairIterator>(x) {}
+    FooPairIterator(intptr_t x): FooIteratorBase<FooPairIterator>(x) {}
 
     std::pair<FooWithAssign,FooWithAssign> operator*() {
         FooWithAssign foo; foo.bar() = x_bar;
@@ -222,6 +272,22 @@ namespace FooTests{
         ASSERT(src.state == Foo::DirectInitialized, "incorrect state for direct constructed Foo (derived) ?");
     }
 
+    template<typename Foo_type>
+    void TestCopyConstructor(){
+        Foo_type src;
+        Foo_type dst(src);
+        ASSERT(dst.state == Foo::CopyInitialized, "incorrect state for Copy constructed Foo ?");
+    }
+
+    template<typename Foo_type>
+    void TestAssignOperator(){
+        Foo_type src;
+        Foo_type dst;
+        dst = (src);
+
+        ASSERT(dst.state == Foo::Assigned, "incorrect state for Assigned Foo ?");
+    }
+
 #if __TBB_CPP11_RVALUE_REF_PRESENT
     template<typename Foo_type>
     void TestMoveConstructor(){
@@ -240,8 +306,10 @@ namespace FooTests{
         ASSERT(dst.state == Foo::MoveAssigned, "incorrect state for Move Assigned Foo ?");
         ASSERT(src.state == Foo::MovedFrom, "incorrect state for Moved from Foo ?");
     }
-
-#endif
+#if TBB_USE_EXCEPTIONS
+    void TestMoveConstructorException();
+#endif //TBB_USE_EXCEPTIONS
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
 }
 
 void TestFoo(){
@@ -250,13 +318,18 @@ void TestFoo(){
     TestDefaultConstructor<FooWithAssign>();
     TestDirectConstructor<Foo>();
     TestDirectConstructor<FooWithAssign>();
+    TestCopyConstructor<Foo>();
+    TestCopyConstructor<FooWithAssign>();
+    TestAssignOperator<FooWithAssign>();
 #if __TBB_CPP11_RVALUE_REF_PRESENT
     TestMoveConstructor<Foo>();
     TestMoveConstructor<FooWithAssign>();
     TestMoveAssignOperator<FooWithAssign>();
-#endif
+#if TBB_USE_EXCEPTIONS && !__TBB_CPP11_EXCEPTION_IN_STATIC_TEST_BROKEN
+    TestMoveConstructorException();
+#endif //TBB_USE_EXCEPTIONS
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
 }
-
 
 //TODO: replace _IN_TEST with separately defined macro IN_TEST(msg,test_name)
 #define ASSERT_IN_TEST(p,message,test_name) ASSERT(p, (std::string(test_name) + ": " + message).c_str());
@@ -270,17 +343,16 @@ void TestFoo(){
 
 #define ASSERT_THROWS(expression, exception_type, message)  ASSERT_THROWS_IN_TEST(expression, exception_type, message, "")
 
-template<Foo::State desired_stated>
-bool is_state(Foo const& f){ return f.state == desired_stated;}
+template<Harness::StateTrackableBase::State desired_state, bool allow_zero_initialized_state>
+bool is_state(Harness::StateTrackable<allow_zero_initialized_state> const& f){ return f.state == desired_state;}
 
-template<>
-bool is_state<Foo::ZeroInitialized>(Foo const& f){ return f.state == Foo::ZeroInitialized && !f.zero_bar() ;}
-
-template<Foo::State desired_stated>
+template<Harness::StateTrackableBase::State desired_state>
 struct is_state_f {
-    bool operator()(Foo const& f){ return is_state<desired_stated>(f); }
+    template <bool allow_zero_initialized_state>
+    bool operator()(Harness::StateTrackable<allow_zero_initialized_state> const& f){ return is_state<desired_state>(f); }
     //TODO: cu_map defines key as a const thus by default it is not moved, instead it is copied. Investigate how std::unordered_map behaves
-    bool operator()(std::pair<const FooWithAssign, FooWithAssign> const& p){ return /*is_state<desired_stated>(p.first) && */is_state<desired_stated>(p.second); }
+    template<typename T1, typename T2>
+    bool operator()(std::pair<T1, T2> const& p){ return /*is_state<desired_state>(p.first) && */is_state<desired_state>(p.second); }
 };
 
 template<typename iterator, typename unary_predicate>
@@ -298,8 +370,8 @@ bool all_of(container const& c, unary_predicate p){
 
 void TestAllOf(){
     Foo foos[] = {Foo(), Foo(), Foo()};
-    ASSERT(::all_of(foos, Harness::end(foos), &is_state<Foo::DefaultInitialized>), "all_of returned false while true expected");
-    ASSERT(! ::all_of(foos, Harness::end(foos), &is_state<Foo::CopyInitialized>), "all_of returned true while false expected  ");
+    ASSERT(::all_of(foos, Harness::end(foos), is_state_f<Foo::DefaultInitialized>()), "all_of returned false while true expected");
+    ASSERT(! ::all_of(foos, Harness::end(foos), is_state_f<Foo::CopyInitialized>()), "all_of returned true while false expected  ");
 }
 
 template<typename static_counter_allocator_type>
@@ -308,7 +380,7 @@ struct track_allocator_memory: NoCopy{
 
     counters_t previous_state;
     const char* const test_name;
-    track_allocator_memory(const char* a_test_name): test_name(a_test_name)  { static_counter_allocator_type::init_counters(); }
+    track_allocator_memory(const char* a_test_name): test_name(a_test_name) { static_counter_allocator_type::init_counters(); }
     ~track_allocator_memory(){verify_no_allocator_memory_leaks();}
 
     void verify_no_allocator_memory_leaks() const{
@@ -328,7 +400,7 @@ struct track_foo_count: NoCopy{
     bool active;
     size_t previous_state;
     const char* const test_name;
-    track_foo_count(const char* a_test_name): active(true), previous_state(FooCount), test_name(a_test_name)  { }
+    track_foo_count(const char* a_test_name): active(true), previous_state(FooCount), test_name(a_test_name) { }
     ~track_foo_count(){
         if (active){
             this->verify_no_undestroyed_foo_left_and_dismiss();
@@ -348,7 +420,7 @@ struct track_foo_count: NoCopy{
 struct limit_foo_count_in_scope: NoCopy{
     size_t previous_state;
     bool active;
-    limit_foo_count_in_scope(size_t new_limit, bool an_active = true) : previous_state(MaxFooCount), active(an_active)  {
+    limit_foo_count_in_scope(size_t new_limit, bool an_active = true): previous_state(MaxFooCount), active(an_active) {
         if (active){
             MaxFooCount = new_limit;
         }
@@ -390,17 +462,77 @@ struct default_container_traits{
     }
 };
 
+struct memory_locations {
+    std::vector<const void*> locations;
+
+    template <typename container_type>
+    memory_locations(container_type const& source) : locations(source.size()){
+        for (typename container_type::const_iterator it = source.begin(); it != source.end(); ++it){locations[std::distance(source.begin(), it)] = & *it;}
+    }
+
+    template <typename container_t>
+    bool content_location_unchanged(container_t const& dst){
+        struct is_same_location{
+            static bool compare(typename container_t::value_type const& v,  const void* location){ return &v == location;}
+        };
+
+        return std::equal(dst.begin(), dst.end(), locations.begin(), &is_same_location::compare);
+    }
+
+    template <typename container_t>
+    bool content_location_changed(container_t const& dst){
+        struct is_not_same_location{
+            static bool compare(typename container_t::value_type const& v,  const void* location){ return &v != location;}
+        };
+
+        return std::equal(dst.begin(), dst.end(), locations.begin(), &is_not_same_location::compare);
+    }
+
+};
+
 #if __TBB_CPP11_RVALUE_REF_PRESENT
+#include <algorithm>
+void TestMemoryLocaionsHelper(){
+    const size_t test_sequence_len =  15;
+    std::vector<char> source(test_sequence_len, 0);
+    std::generate_n(source.begin(), source.size(), Harness::FastRandomBody<char>(1));
+
+    memory_locations source_memory_locations((source));
+
+    std::vector<char> copy((source));
+    ASSERT(source_memory_locations.content_location_changed(copy), "");
+
+    std::vector<char> alias(std::move(source));
+    ASSERT(source_memory_locations.content_location_unchanged(alias), "");
+}
+namespace FooTests{
+#if TBB_USE_EXCEPTIONS
+    void TestMoveConstructorException(){
+        Foo src;
+        const Foo::State source_state_before = src.state;
+        ASSERT_THROWS_IN_TEST(
+            {
+                limit_foo_count_in_scope foo_limit(FooCount);
+                Foo f1(std::move(src));
+            },
+            std::bad_alloc, "", "TestLimitInstancesNumber"
+        );
+        ASSERT(source_state_before == src.state, "state of source changed while should not?");
+    }
+#endif //TBB_USE_EXCEPTIONS
+}
+
 template<typename container_traits, typename allocator_t>
 struct move_fixture : NoCopy{
-    typedef  typename container_traits:: template apply<FooWithAssign, allocator_t>::type container_t;
+    typedef  typename allocator_t::value_type element_type;
+    typedef  typename container_traits:: template apply<element_type, allocator_t>::type container_t;
     typedef  typename container_traits::init_iterator_type init_iterator_type;
     enum {default_container_size = 100};
     const size_t  container_size;
     tbb::aligned_space<container_t> source_storage;
     container_t & source;
     //check that location of _all_ elements of container under test is changed/unchanged
-    std::vector<void*> locations;
+    memory_locations locations;
 
     ~move_fixture(){
         source_storage.begin()->~container_t();
@@ -410,7 +542,7 @@ struct move_fixture : NoCopy{
     move_fixture(const char* a_test_name, size_t a_container_size = default_container_size )
     :   container_size(a_container_size)
     ,   source(container_traits::construct_container(source_storage, init_iterator_type(0), init_iterator_type(container_size)))
-    ,   locations(container_size)
+    ,   locations(source)
     ,   test_name(a_test_name)
     {
         init("move_fixture::move_fixture()");
@@ -419,7 +551,7 @@ struct move_fixture : NoCopy{
     move_fixture(const char* a_test_name, allocator_t const& a, size_t a_container_size = default_container_size)
     :   container_size(a_container_size)
     ,   source(container_traits::construct_container(source_storage, init_iterator_type(0), init_iterator_type(container_size), a))
-    ,   locations(container_size)
+    ,   locations(source)
     ,   test_name(a_test_name)
     {
         init("move_fixture::move_fixture(allocator_t const& a)");
@@ -428,24 +560,15 @@ struct move_fixture : NoCopy{
     void init(const std::string& ctor_name){
         verify_size(source, ctor_name.c_str());
         verify_content_equal_to_source(source, "did not properly initialized source? Or can not check container for equality with expected ?: " + ctor_name);
-        verify_size(locations, "move_fixture:init ");
-        for (typename container_t::iterator it = source.begin(); it != source.end(); ++it){locations[std::distance(source.begin(), it)] = & *it;}
+        verify_size(locations.locations, "move_fixture:init ");
     }
 
     bool content_location_unchanged(container_t const& dst){
-        struct is_same_location{
-            static bool compare(typename container_t::value_type const& v,  void* location){ return &v == location;}
-        };
-
-        return std::equal(dst.begin(), dst.end(), locations.begin(), &is_same_location::compare);
+        return locations.content_location_unchanged(dst);
     }
 
     bool content_location_changed(container_t const& dst){
-        struct is_not_same_location{
-            static bool compare(typename container_t::value_type const& v,  void* location){ return &v != location;}
-        };
-
-        return std::equal(dst.begin(), dst.end(), locations.begin(), &is_not_same_location::compare);
+        return locations.content_location_changed(dst);
     }
 
     template<typename container_type>
@@ -485,14 +608,14 @@ struct move_fixture : NoCopy{
 
     void verify_part_of_content_deep_moved(container_t const& dst, size_t number_of_constructed_items){
         ASSERT_IN_TEST(content_location_changed(dst),                "Vector actually did not changed element locations for unequal allocators, while should", test_name);
-        ASSERT_IN_TEST(::all_of(dst.begin(), dst.begin() + number_of_constructed_items, &is_state<Foo::MoveInitialized>), "Vector did not move construct some elements?", test_name);
+        ASSERT_IN_TEST(::all_of(dst.begin(), dst.begin() + number_of_constructed_items, is_state_f<Foo::MoveInitialized>()), "Vector did not move construct some elements?", test_name);
         if (dst.size() != number_of_constructed_items) {
-            ASSERT_IN_TEST(::all_of(dst.begin() + number_of_constructed_items, dst.end(), &is_state<Foo::ZeroInitialized> ), "Failed to zero-initialize items left not constructed after the exception?", test_name );
+            ASSERT_IN_TEST(::all_of(dst.begin() + number_of_constructed_items, dst.end(), is_state_f<Foo::ZeroInitialized>()), "Failed to zero-initialize items left not constructed after the exception?", test_name );
         }
         verify_content_equal_to_source(dst, number_of_constructed_items);
 
-        ASSERT_IN_TEST(::all_of(source.begin(), source.begin() + number_of_constructed_items, &is_state<Foo::MovedFrom>),  "Vector did not move all the elements?", test_name);
-        ASSERT_IN_TEST(::all_of(source.begin() + number_of_constructed_items, source.end(), std::not1(std::ptr_fun(&is_state<Foo::MovedFrom>))),  "Vector changed elements in source after exception point?", test_name);
+        ASSERT_IN_TEST(::all_of(source.begin(), source.begin() + number_of_constructed_items, is_state_f<Foo::MovedFrom>()),  "Vector did not move all the elements?", test_name);
+        ASSERT_IN_TEST(::all_of(source.begin() + number_of_constructed_items, source.end(), std::not1(std::ptr_fun(&is_state<Foo::MovedFrom, element_type::is_zero_initialized_state_allowed>))),  "Vector changed elements in source after exception point?", test_name);
     }
 };
 
@@ -574,10 +697,10 @@ struct std_stateful_allocator : NoCopy {
 
 };
 
-template<typename container_traits, typename pocma = Harness::false_type>
+template<typename container_traits, typename pocma = Harness::false_type, typename T = FooWithAssign>
 struct default_stateful_fixture_make_helper{
 //    typedef std_stateful_allocator<pocma> allocator_fixture_t;
-    typedef two_memory_arenas_fixture<FooWithAssign, pocma> allocator_fixture_t;
+    typedef two_memory_arenas_fixture<T, pocma> allocator_fixture_t;
     typedef static_shared_counting_allocator<Harness::int_to_type<__LINE__>, typename allocator_fixture_t::allocator_t, std::size_t> allocator_t;
 
     typedef move_fixture<container_traits, allocator_t> move_fixture_t;
@@ -826,6 +949,9 @@ struct TestHelperStuff{
         TestArena();
         TestStaticCountingAllocatorRebound<static_shared_counting_allocator<int, arena<int> > >();
         TestStatefulAllocator();
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+        TestMemoryLocaionsHelper();
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
     }
 };
 static TestHelperStuff TestHelperStuff_s;

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 /* to prevent loading dynamic TBBmalloc at startup, that is not needed
@@ -25,10 +25,6 @@
 // According to C99 standard INTPTR_MIN defined for C++
 // iff __STDC_LIMIT_MACROS pre-defined
 #define __STDC_LIMIT_MACROS 1
-
-// To disable exceptions in <vector> and <list> on Windows*
-#undef _HAS_EXCEPTIONS
-#define _HAS_EXCEPTIONS _CPPUNWIND
 
 #define HARNESS_TBBMALLOC_THREAD_SHUTDOWN 1
 
@@ -44,11 +40,21 @@
 // help trigger rare race condition
 #define WhiteboxTestingYield() (__TBB_Yield(), __TBB_Yield(), __TBB_Yield(), __TBB_Yield())
 
+#if __INTEL_COMPILER && __TBB_MIC_OFFLOAD
+// 2571 is variable has not been declared with compatible "target" attribute
+// 3218 is class/struct may fail when offloaded because this field is misaligned
+//         or contains data that is misaligned
+    #pragma warning(push)
+    #pragma warning(disable:2571 3218)
+#endif
 #define protected public
 #define private public
 #include "../tbbmalloc/frontend.cpp"
 #undef protected
 #undef private
+#if __INTEL_COMPILER && __TBB_MIC_OFFLOAD
+    #pragma warning(pop)
+#endif
 #include "../tbbmalloc/backend.cpp"
 #include "../tbbmalloc/backref.cpp"
 
@@ -116,7 +122,7 @@ public:
                 }
             }
         }
-        
+
         barrier.wait();
 
         // check caching correctness
@@ -125,7 +131,7 @@ public:
             for (int j=0; j<LARGE_MEM_SIZES_NUM-1; j++, curr++)
                 new (allocs+curr) AllocInfo(largeMemSizes[j]);
 
-            new (allocs+curr) 
+            new (allocs+curr)
                 AllocInfo((int)(4*minLargeObjectSize +
                                 2*minLargeObjectSize*(1.*rand()/RAND_MAX)));
             curr++;
@@ -143,7 +149,7 @@ int TestLargeObjCache::largeMemSizes[LARGE_MEM_SIZES_NUM];
 void TestLargeObjectCache()
 {
     for (int i=0; i<LARGE_MEM_SIZES_NUM; i++)
-        TestLargeObjCache::largeMemSizes[i] = 
+        TestLargeObjCache::largeMemSizes[i] =
             (int)(minLargeObjectSize + 2*minLargeObjectSize*(1.*rand()/RAND_MAX));
 
     for( int p=MaxThread; p>=MinThread; --p ) {
@@ -170,14 +176,14 @@ public:
         for (int i=0; i<ITERS; i++) {
             blocks1[i].sz = rand() % minLargeObjectSize;
             blocks1[i].ptr = StartupBlock::allocate(blocks1[i].sz);
-            ASSERT(blocks1[i].ptr && StartupBlock::msize(blocks1[i].ptr)>=blocks1[i].sz 
+            ASSERT(blocks1[i].ptr && StartupBlock::msize(blocks1[i].ptr)>=blocks1[i].sz
                    && 0==(uintptr_t)blocks1[i].ptr % sizeof(void*), NULL);
             memset(blocks1[i].ptr, i, blocks1[i].sz);
         }
         for (int i=0; i<ITERS; i++) {
             blocks2[i].sz = rand() % minLargeObjectSize;
             blocks2[i].ptr = StartupBlock::allocate(blocks2[i].sz);
-            ASSERT(blocks2[i].ptr && StartupBlock::msize(blocks2[i].ptr)>=blocks2[i].sz 
+            ASSERT(blocks2[i].ptr && StartupBlock::msize(blocks2[i].ptr)>=blocks2[i].sz
                    && 0==(uintptr_t)blocks2[i].ptr % sizeof(void*), NULL);
             memset(blocks2[i].ptr, i, blocks2[i].sz);
 
@@ -197,24 +203,33 @@ public:
 
 #endif /* MALLOC_CHECK_RECURSION */
 
+#include <deque>
+
+template<int ITERS>
 class BackRefWork: NoAssign {
     struct TestBlock {
-        intptr_t   data;
         BackRefIdx idx;
+        char       data;
+        TestBlock(BackRefIdx idx_) : idx(idx_) {}
     };
-    static const int ITERS = 2*BR_MAX_CNT+2;
 public:
     BackRefWork() {}
     void operator()(int) const {
-        TestBlock blocks[ITERS];
+        size_t cnt;
+        // it's important to not invalidate pointers to the contents of the container
+        std::deque<TestBlock> blocks;
 
-        for (int i=0; i<ITERS; i++) {
-            blocks[i].idx = BackRefIdx::newBackRef(/*largeObj=*/false);
-            setBackRef(blocks[i].idx, &blocks[i].data);
+        // for ITERS==0 consume all available backrefs
+        for (cnt=0; !ITERS || cnt<ITERS; cnt++) {
+            BackRefIdx idx = BackRefIdx::newBackRef(/*largeObj=*/false);
+            if (idx.isInvalid())
+                break;
+            blocks.push_back(TestBlock(idx));
+            setBackRef(blocks.back().idx, &blocks.back().data);
         }
-        for (int i=0; i<ITERS; i++)
+        for (int i=0; i<cnt; i++)
             ASSERT((Block*)&blocks[i].data == getBackRef(blocks[i].idx), NULL);
-        for (int i=ITERS-1; i>=0; i--)
+        for (int i=cnt-1; i>=0; i--)
             removeBackRef(blocks[i].idx);
     }
 };
@@ -237,12 +252,6 @@ public:
             scalable_free(objsSmall[i]);
             scalable_free(objsLarge[i]);
         }
-#ifdef USE_WINTHREAD
-        // Under Windows DllMain is used for mallocThreadShutdownNotification
-        // calling. As DllMain is not used during whitebox testing,
-        // we have to call the callback manually.
-        __TBB_mallocThreadShutdownNotification();
-#endif
     }
 };
 
@@ -306,14 +315,14 @@ void TestBackRef() {
 
     beforeNumBackRef = allocatedBackRefCount();
     for( int p=MaxThread; p>=MinThread; --p )
-        NativeParallelFor( p, BackRefWork() );
+        NativeParallelFor( p, BackRefWork<2*BR_MAX_CNT+2>() );
     afterNumBackRef = allocatedBackRefCount();
     ASSERT(beforeNumBackRef==afterNumBackRef, "backreference leak detected");
 
     // lastUsed marks peak resource consumption. As we allocate below the mark,
     // it must not move up, otherwise there is a resource leak.
     int sustLastUsed = backRefMaster->lastUsed;
-    NativeParallelFor( 1, BackRefWork() );
+    NativeParallelFor( 1, BackRefWork<2*BR_MAX_CNT+2>() );
     ASSERT(sustLastUsed == backRefMaster->lastUsed, "backreference leak detected");
 
     // check leak of back references while per-thread caches are in use
@@ -333,6 +342,10 @@ void TestBackRef() {
     // seems valid BackRefIdx for large objects, and thus trigger the bug.
     TestInvalidBackrefs::initBarrier(MaxThread);
     NativeParallelFor( MaxThread, TestInvalidBackrefs() );
+    // Consume all available backrefs and check they work correctly.
+    // For now test 32-bit machines only, because for 64-bit memory consumption is too high.
+    if (sizeof(uintptr_t) == 4)
+        NativeParallelFor( MaxThread, BackRefWork<0>() );
 }
 
 void *getMem(intptr_t /*pool_id*/, size_t &bytes)
@@ -525,7 +538,7 @@ void TestObjectRecognition() {
     unsigned falseObjectSize = 113; // unsigned is the type expected by getObjectSize
     size_t obtainedSize;
 
-    ASSERT(sizeof(BackRefIdx)==4, "Unexpected size of BackRefIdx");
+    ASSERT(sizeof(BackRefIdx)==sizeof(uintptr_t), "Unexpected size of BackRefIdx");
     ASSERT(getObjectSize(falseObjectSize)!=falseObjectSize, "Error in test: bad choice for false object size");
 
     void* mem = scalable_malloc(2*slabSize);
@@ -537,7 +550,7 @@ void TestObjectRecognition() {
 
     void* bufferLOH = scalable_malloc(2*slabSize + headersSize);
     ASSERT(bufferLOH, "Memory was not allocated");
-    LargeObjectHdr* falseLO = 
+    LargeObjectHdr* falseLO =
         (LargeObjectHdr*)alignUp((uintptr_t)bufferLOH + headersSize, slabSize);
     LargeObjectHdr* headerLO = (LargeObjectHdr*)falseLO-1;
     headerLO->memoryBlock = (LargeMemoryBlock*)bufferLOH;
@@ -555,7 +568,7 @@ void TestObjectRecognition() {
         for (int master = -10; master<10; master++) {
             falseBlock->backRefIdx.master = (uint16_t)master;
             headerLO->backRefIdx.master = (uint16_t)master;
-        
+
             for (int bl = -10; bl<BR_MAX_CNT+10; bl++) {
                 falseBlock->backRefIdx.offset = (uint16_t)bl;
                 headerLO->backRefIdx.offset = (uint16_t)bl;
@@ -761,64 +774,62 @@ void checkNoHugePages()
 }
 
 /*---------------------------------------------------------------------------*/
-// The regression test against a bug in TBBMALLOC_CLEAN_ALL_BUFFERS allocation
-// command. When cleanup is requested the backend should process the queue of
-// postponed coalescing requests otherwise not all unsued memory might be
-// deallocated.
+// The regression test against bugs in TBBMALLOC_CLEAN_ALL_BUFFERS allocation command.
+// The idea is to allocate and deallocate a set of objects randomly in parallel.
+// For large sizes (16K), it forces conflicts in backend during coalescing.
+// For small sizes (4K), it forces cross-thread deallocations and then orphaned slabs.
+// Global cleanup should process orphaned slabs and the queue of postponed coalescing
+// requests, otherwise it will not be able to unmap all unused memory.
 
-const size_t alloc_size = 16*1024;
-const int total_alloc_size = 100 * 1024 * 1024;
-const int num_allocs = total_alloc_size / alloc_size;
+const int num_allocs = 10*1024;
 void *ptrs[num_allocs];
+tbb::atomic<int> alloc_counter;
 
-tbb::atomic<int> deallocs_counter;
-
-struct TestCleanAllBuffersDeallocate : public SimpleBarrier {
+template<int AllocSize>
+struct TestCleanAllBuffersBody : public SimpleBarrier {
     void operator() ( int ) const {
         barrier.wait();
-        for( int i = deallocs_counter++; i < num_allocs; i = deallocs_counter++ )
-           scalable_free( ptrs[i] );
+        for( int i = alloc_counter++; i < num_allocs; i = alloc_counter++ ) {
+           ptrs[i] = scalable_malloc( AllocSize );
+           ASSERT( ptrs[i] != NULL, "scalable_malloc returned zero." );
+        }
+        barrier.wait();
+        for( int i = --alloc_counter; i >= 0; i = --alloc_counter )
+           if (i<num_allocs) scalable_free( ptrs[i] );
     }
 };
 
-// The idea is to allocate a set of objects and then deallocate them in random
-// order in parallel to force occuring conflicts in backend during coalescing.
-// Thus if the backend does not check the queue of postponed coalescing
-// requests it will not be able to unmap all memory and a memory leak will be
-// observed.
+template<int AllocSize>
 void TestCleanAllBuffers() {
     const int num_threads = 8;
     // Clean up if something was allocated before the test
     scalable_allocation_command(TBBMALLOC_CLEAN_ALL_BUFFERS,0);
 
     size_t memory_in_use_before = getMemSize();
-    for ( int i=0; i<num_allocs; ++i ) {
-        ptrs[i] = scalable_malloc( alloc_size );
-        ASSERT( ptrs[i] != NULL, "scalable_malloc has return zero." );
-    }
-    deallocs_counter = 0;
-    TestCleanAllBuffersDeallocate::initBarrier(num_threads);
-    NativeParallelFor(num_threads, TestCleanAllBuffersDeallocate());
-    // TODO: reproduce the conditions for bug reproduction more reliably
+    alloc_counter = 0;
+    TestCleanAllBuffersBody<AllocSize>::initBarrier(num_threads);
+    NativeParallelFor(num_threads, TestCleanAllBuffersBody<AllocSize>());
+    // TODO: reproduce the bug conditions more reliably
     if ( defaultMemPool->extMemPool.backend.coalescQ.blocksToFree == NULL )
         REMARK( "Warning: The queue of postponed coalescing requests is empty. Unable to create the condition for bug reproduction.\n" );
-    ASSERT( scalable_allocation_command(TBBMALLOC_CLEAN_ALL_BUFFERS,0) == TBBMALLOC_OK, "The cleanup request has not cleaned anything." );
+    int result = scalable_allocation_command(TBBMALLOC_CLEAN_ALL_BUFFERS,0);
+    ASSERT( result == TBBMALLOC_OK, "The cleanup request has not cleaned anything." );
     size_t memory_in_use_after = getMemSize();
 
-    REMARK( "memory_in_use_before = %ld\nmemory_in_use_after = %ld\n", memory_in_use_before, memory_in_use_after );
-
     size_t memory_leak = memory_in_use_after - memory_in_use_before;
-    ASSERT( memory_leak == 0, "The backend has not processed the queue of postponed coalescing requests during cleanup." );
+    REMARK( "memory_in_use_before = %ld\nmemory_in_use_after = %ld\n", memory_in_use_before, memory_in_use_after );
+    ASSERT( memory_leak == 0, "Cleanup was unable to release all allocated memory." );
 }
 /*---------------------------------------------------------------------------*/
 /*------------------------- Large Object Cache tests ------------------------*/
 #if _MSC_VER==1600 || _MSC_VER==1500
-  // ignore C4275: non dll-interface class 'stdext::exception' used as
-  // base for dll-interface class 'std::bad_cast'
-  #pragma warning (disable: 4275)
+    // ignore C4275: non dll-interface class 'stdext::exception' used as
+    // base for dll-interface class 'std::bad_cast'
+    #pragma warning (disable: 4275)
 #endif
 #include <vector>
 #include <list>
+#include __TBB_STD_SWAP_HEADER
 
 // default constructor of CacheBin
 template<typename Props>
@@ -959,7 +970,7 @@ void LOCModelTester() {
             defaultMemPool->extMemPool.freeLargeObject(lmb);
             cacheBinModel.putList(num);
         } else {
-            scen.saveLmb(defaultMemPool->extMemPool.mallocLargeObject(allocationSize));
+            scen.saveLmb(defaultMemPool->extMemPool.mallocLargeObject(defaultMemPool, allocationSize));
             cacheBinModel.get();
         }
 
@@ -1035,7 +1046,7 @@ public:
         barrier.wait();
         for ( int i=0; i<NUM_ALLOCS; ++i ) {
             defaultMemPool->extMemPool.freeLargeObject(
-                    defaultMemPool->extMemPool.mallocLargeObject(allocationSize) );
+                defaultMemPool->extMemPool.mallocLargeObject(defaultMemPool, allocationSize) );
         }
     }
 
@@ -1071,7 +1082,7 @@ public:
         barrier.wait();
         rml::internal::LargeMemoryBlock *lmbArray[NUM_ALLOCS];
         for ( int i=0; i<NUM_ALLOCS; ++i )
-            lmbArray[i] = defaultMemPool->extMemPool.mallocLargeObject(allocationSize);
+            lmbArray[i] = defaultMemPool->extMemPool.mallocLargeObject(defaultMemPool, allocationSize);
 
         barrier.wait(CheckNumAllocs(num_threads));
         for ( int i=0; i<NUM_ALLOCS; ++i )
@@ -1112,10 +1123,34 @@ void TestLOC() {
 }
 /*---------------------------------------------------------------------------*/
 
+void *findCacheLine(void *p) {
+    return (void*)alignDown((uintptr_t)p, estimatedCacheLineSize);
+}
+
+// test that internals of Block are at expected cache lines
+void TestSlabAlignment() {
+    const size_t min_sz = 8;
+    const int space = 2*16*1024; // fill at least 2 slabs
+    void *ptrs[space / min_sz];  // the worst case is min_sz byte object
+
+    for (size_t sz = min_sz; sz <= 64; sz *= 2) {
+        for (int i = 0; i < space/sz; i++) {
+            ptrs[i] = scalable_malloc(sz);
+            Block *block = (Block *)alignDown(ptrs[i], slabSize);
+            MALLOC_ASSERT(findCacheLine(&block->isFull) != findCacheLine(ptrs[i]),
+                          "A user object must not share a cache line with slab control structures.");
+            MALLOC_ASSERT(findCacheLine(&block->next) != findCacheLine(&block->nextPrivatizable),
+                          "GlobalBlockFields and LocalBlockFields must be on different cache lines.");
+        }
+        for (int i = 0; i < space/sz; i++)
+            scalable_free(ptrs[i]);
+    }
+}
+
 int TestMain () {
     scalable_allocation_mode(USE_HUGE_PAGES, 0);
-#if !_XBOX && !__TBB_WIN8UI_SUPPORT
-    putenv((char*)"TBB_MALLOC_USE_HUGE_PAGES=yes");
+#if !__TBB_WIN8UI_SUPPORT
+    Harness::SetEnv("TBB_MALLOC_USE_HUGE_PAGES","yes");
 #endif
     checkNoHugePages();
     // backreference requires that initialization was done
@@ -1123,6 +1158,8 @@ int TestMain () {
     checkNoHugePages();
     // to succeed, leak detection must be the 1st memory-intensive test
     TestBackRef();
+    TestCleanAllBuffers<4*1024>();
+    TestCleanAllBuffers<16*1024>();
     TestPools();
     TestBackend();
 
@@ -1138,7 +1175,7 @@ int TestMain () {
     TestObjectRecognition();
     TestBitMask();
     TestHeapLimit();
-    TestCleanAllBuffers();
     TestLOC();
+    TestSlabAlignment();
     return Harness::Done;
 }

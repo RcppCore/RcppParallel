@@ -1,24 +1,24 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
-// Source file for miscellaneous entities that are infrequently referenced by 
+// Source file for miscellaneous entities that are infrequently referenced by
 // an executing program.
 
 #include "tbb/tbb_stddef.h"
@@ -26,6 +26,8 @@
 #include "tbb/tbb_exception.h"
 #include "tbb/tbb_machine.h"
 #include "tbb_misc.h"
+#include "tbb_version.h"
+
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
@@ -44,6 +46,15 @@
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
+#endif
+
+#define __TBB_STD_RETHROW_EXCEPTION_POSSIBLY_BROKEN                             \
+    (__GLIBCXX__ && __TBB_GLIBCXX_VERSION>=40700 && __TBB_GLIBCXX_VERSION<60000 \
+     && TBB_USE_EXCEPTIONS && !TBB_USE_CAPTURED_EXCEPTION)
+
+#if __TBB_STD_RETHROW_EXCEPTION_POSSIBLY_BROKEN
+// GCC ABI declarations necessary for a workaround
+#include <cxxabi.h>
 #endif
 
 using namespace std;
@@ -94,7 +105,7 @@ void handle_perror( int error_code, const char* what ) {
 #endif /* !TBB_USE_EXCEPTIONS */
 }
 
-#if _WIN32||_WIN64 
+#if _WIN32||_WIN64
 void handle_win_error( int error_code ) {
     char buf[512];
 #if !__TBB_WIN8UI_SUPPORT
@@ -139,7 +150,7 @@ void throw_exception_v4 ( exception_id eid ) {
     case eid_user_abort: DO_THROW( user_abort, () );
     case eid_bad_tagged_msg_cast: DO_THROW( runtime_error, ("Illegal tagged_msg cast") );
 #if __TBB_SUPPORTS_WORKERS_WAITING_IN_TERMINATE
-    case eid_blocking_sch_init: DO_THROW( runtime_error, ("Nesting of blocking termination is impossible") );
+    case eid_blocking_thread_join_impossible: DO_THROW( runtime_error, ("Blocking terminate failed") );
 #endif
     default: break;
     }
@@ -151,17 +162,55 @@ void throw_exception_v4 ( exception_id eid ) {
 #endif /* !TBB_USE_EXCEPTIONS && __APPLE__ */
 }
 
-#if _XBOX || __TBB_WIN8UI_SUPPORT
+#if __TBB_STD_RETHROW_EXCEPTION_POSSIBLY_BROKEN
+// Runtime detection and workaround for the GCC bug 62258.
+// The problem is that std::rethrow_exception() does not increment a counter
+// of active exceptions, causing std::uncaught_exception() to return a wrong value.
+// The code is created after, and roughly reflects, the workaround
+// at https://gcc.gnu.org/bugzilla/attachment.cgi?id=34683
+
+void fix_broken_rethrow() {
+    struct gcc_eh_data {
+        void *       caughtExceptions;
+        unsigned int uncaughtExceptions;
+    };
+    gcc_eh_data* eh_data = punned_cast<gcc_eh_data*>( abi::__cxa_get_globals() );
+    ++eh_data->uncaughtExceptions;
+}
+
+bool gcc_rethrow_exception_broken() {
+    bool is_broken;
+    __TBB_ASSERT( !std::uncaught_exception(),
+        "gcc_rethrow_exception_broken() must not be called when an exception is active" );
+    try {
+        // Throw, catch, and rethrow an exception
+        try {
+            throw __TBB_GLIBCXX_VERSION;
+        } catch(...) {
+            std::rethrow_exception( std::current_exception() );
+        }
+    } catch(...) {
+        // Check the bug presence
+        is_broken = std::uncaught_exception();
+    }
+    if( is_broken ) fix_broken_rethrow();
+    __TBB_ASSERT( !std::uncaught_exception(), NULL );
+    return is_broken;
+}
+#else
+void fix_broken_rethrow() {}
+bool gcc_rethrow_exception_broken() { return false; }
+#endif /* __TBB_STD_RETHROW_EXCEPTION_POSSIBLY_BROKEN */
+
+#if __TBB_WIN8UI_SUPPORT
 bool GetBoolEnvironmentVariable( const char * ) { return false;}
-#else  /* _XBOX || __TBB_WIN8UI_SUPPORT */
+#else  /* __TBB_WIN8UI_SUPPORT */
 bool GetBoolEnvironmentVariable( const char * name ) {
     if( const char* s = getenv(name) )
         return strcmp(s,"0") != 0;
     return false;
 }
-#endif /* _XBOX || __TBB_WIN8UI_SUPPORT */
-
-#include "tbb_version.h"
+#endif /* __TBB_WIN8UI_SUPPORT */
 
 /** The leading "\0" is here so that applying "strings" to the binary delivers a clean result. */
 static const char VersionString[] = "\0" TBB_VERSION_STRINGS;
@@ -196,12 +245,12 @@ bool cpu_has_speculation() {
 #if __TBB_TSX_AVAILABLE
 #if (__INTEL_COMPILER || __GNUC__ || _MSC_VER || __SUNPRO_CC)
     bool result = false;
-    const int hle_ebx_mask = 1<<4;
+    const int rtm_ebx_mask = 1<<11;
 #if _MSC_VER
     int info[4] = {0,0,0,0};
     const int reg_ebx = 1;
     __cpuidex(info, 7, 0);
-    result = (info[reg_ebx] & hle_ebx_mask)!=0;
+    result = (info[reg_ebx] & rtm_ebx_mask)!=0;
 #elif __GNUC__ || __SUNPRO_CC
     int32_t reg_ebx = 0;
     int32_t reg_eax = 7;
@@ -210,13 +259,13 @@ bool cpu_has_speculation() {
                            "cpuid\n"
                            "movl %%ebx, %0\n"
                            "movl %%esi, %%ebx\n"
-                           : "=a"(reg_ebx) : "0" (reg_eax), "c" (reg_ecx) : "esi", 
+                           : "=a"(reg_ebx) : "0" (reg_eax), "c" (reg_ecx) : "esi",
 #if __TBB_x86_64
                            "ebx",
 #endif
                            "edx"
                            );
-    result = (reg_ebx & hle_ebx_mask)!=0 ;
+    result = (reg_ebx & rtm_ebx_mask)!=0 ;
 #endif
     return result;
 #else
@@ -251,8 +300,8 @@ extern "C" void __TBB_machine_store8_slow_perf_warning( volatile void *ptr ) {
     const unsigned n = 4;
     static tbb::atomic<void*> cache[n];
     static tbb::atomic<unsigned> k;
-    for( unsigned i=0; i<n; ++i ) 
-        if( ptr==cache[i] ) 
+    for( unsigned i=0; i<n; ++i )
+        if( ptr==cache[i] )
             goto done;
     cache[(k++)%n] = const_cast<void*>(ptr);
     tbb::internal::runtime_warning( "atomic store on misaligned 8-byte location %p is slow", ptr );
@@ -263,7 +312,7 @@ done:;
 extern "C" void __TBB_machine_store8_slow( volatile void *ptr, int64_t value ) {
     for( tbb::internal::atomic_backoff b;;b.pause() ) {
         int64_t tmp = *(int64_t*)ptr;
-        if( __TBB_machine_cmpswp8(ptr,value,tmp)==tmp ) 
+        if( __TBB_machine_cmpswp8(ptr,value,tmp)==tmp )
             break;
     }
 }

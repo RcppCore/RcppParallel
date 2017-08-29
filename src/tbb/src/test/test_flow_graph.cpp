@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness_graph.h"
@@ -66,13 +66,13 @@ bool functor_flag[F];
 
 struct set_functor {
     int my_i;
-    set_functor( int i ) : my_i(i) {} 
+    set_functor( int i ) : my_i(i) {}
     void operator()() { functor_flag[my_i] = true; }
 };
 
 struct return_functor {
     int my_i;
-    return_functor( int i ) : my_i(i) {} 
+    return_functor( int i ) : my_i(i) {}
     int operator()() { return my_i; }
 };
 
@@ -98,12 +98,12 @@ static void test_run() {
 
         for ( int j = 0; j < F; ++j ) {
             #if __TBB_LAMBDAS_PRESENT
-                h.run( [=]() { lambda_flag[j] = true; } );  
-                h.run( lambda_r, [=]() { return j; } );  
+                h.run( [=]() { lambda_flag[j] = true; } );
+                h.run( lambda_r, [=]() { return j; } );
             #endif
             h.run( set_functor(j) );
             h.run( functor_r, return_functor(j) );
-        } 
+        }
         h.wait_for_all();
         for ( int j = 0; j < F; ++j ) {
         #if __TBB_LAMBDAS_PRESENT
@@ -172,8 +172,8 @@ class AddRemoveBody : NoAssign {
     int nThreads;
     Harness::SpinBarrier &barrier;
 public:
-    AddRemoveBody(int nthr, Harness::SpinBarrier &barrier_, tbb::flow::graph& _g) : 
-        g(_g), nThreads(nthr), barrier(barrier_) 
+    AddRemoveBody(int nthr, Harness::SpinBarrier &barrier_, tbb::flow::graph& _g) :
+        g(_g), nThreads(nthr), barrier(barrier_)
     {}
     void operator()(const int /*threadID*/) const {
         my_int_buffer b(g);
@@ -194,7 +194,7 @@ public:
         for (tbb::flow::graph::iterator it = g.begin(); it != g.end(); ++it) {
             count++;
         }
-        ASSERT(count==nThreads, "error in iterator count"); 
+        ASSERT(count==nThreads, "error in iterator count");
         barrier.wait();  // wait until all threads are done counting
     } // initial node gets deleted
 };
@@ -206,7 +206,7 @@ void test_parallel(int nThreads) {
     NativeParallelFor(nThreads, body);
 }
 
-int TestMain() { 
+int TestMain() {
     if( MinThread<1 ) {
         REPORT("number of threads must be positive\n");
         exit(1);

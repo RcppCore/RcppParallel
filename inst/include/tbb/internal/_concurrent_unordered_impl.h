@@ -1,24 +1,24 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
-/* Container implementations in this header are based on PPL implementations 
+/* Container implementations in this header are based on PPL implementations
    provided by Microsoft. */
 
 #ifndef __TBB__concurrent_unordered_impl_H
@@ -40,6 +40,7 @@
 #include <functional>   // Need std::equal_to (in ../concurrent_unordered_*.h)
 #include <string>       // For tbb_hasher
 #include <cstring>      // Need std::memset
+#include __TBB_STD_SWAP_HEADER
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
@@ -52,6 +53,8 @@
 #if __TBB_INITIALIZER_LISTS_PRESENT
     #include <initializer_list>
 #endif
+
+#include "_tbb_hash_compare_impl.h"
 
 namespace tbb {
 namespace interface5 {
@@ -257,44 +260,52 @@ public:
         sokey_t    my_order_key; // Order key for this element
     };
 
-    // Allocate a new node with the given order key and value
-    nodeptr_t create_node(sokey_t order_key, const T &value) {
-        nodeptr_t pnode = my_node_allocator.allocate(1);
-
-        __TBB_TRY {
-            new(static_cast<void*>(&pnode->my_element)) T(value);
-            pnode->init(order_key);
-        } __TBB_CATCH(...) {
-            my_node_allocator.deallocate(pnode, 1);
-            __TBB_RETHROW();
-        }
-
-        return (pnode);
-    }
-
-#if __TBB_CPP11_RVALUE_REF_PRESENT
-    //TODO: try to combine both implementations using poor man forward
-    //TODO: use RAII scoped guard instead of explicit catch
-    // Allocate a new node with the given order key and value
-    nodeptr_t create_node(sokey_t order_key, T &&value) {
-        nodeptr_t pnode = my_node_allocator.allocate(1);
-
-        __TBB_TRY {
-            new(static_cast<void*>(&pnode->my_element)) T(std::move(value));
-            pnode->init(order_key);
-        } __TBB_CATCH(...) {
-            my_node_allocator.deallocate(pnode, 1);
-            __TBB_RETHROW();
-        }
-
-        return (pnode);
-    }
-#endif //__TBB_CPP11_RVALUE_REF_PRESENT
-
     // Allocate a new node with the given order key; used to allocate dummy nodes
     nodeptr_t create_node(sokey_t order_key) {
         nodeptr_t pnode = my_node_allocator.allocate(1);
         pnode->init(order_key);
+        return (pnode);
+    }
+
+    // Allocate a new node with the given order key and value
+    template<typename Arg>
+    nodeptr_t create_node(sokey_t order_key, __TBB_FORWARDING_REF(Arg) t,
+                          /*AllowCreate=*/tbb::internal::true_type=tbb::internal::true_type()){
+        nodeptr_t pnode = my_node_allocator.allocate(1);
+
+        //TODO: use RAII scoped guard instead of explicit catch
+        __TBB_TRY {
+            new(static_cast<void*>(&pnode->my_element)) T(tbb::internal::forward<Arg>(t));
+            pnode->init(order_key);
+        } __TBB_CATCH(...) {
+            my_node_allocator.deallocate(pnode, 1);
+            __TBB_RETHROW();
+        }
+
+        return (pnode);
+    }
+
+    // A helper to avoid excessive requiremens in internal_insert
+    template<typename Arg>
+    nodeptr_t create_node(sokey_t, __TBB_FORWARDING_REF(Arg),
+                          /*AllowCreate=*/tbb::internal::false_type){
+        __TBB_ASSERT(false, "This compile-time helper should never get called");
+        return nodeptr_t();
+    }
+
+    // Allocate a new node with the given parameters for constructing value
+    template<typename __TBB_PARAMETER_PACK Args>
+    nodeptr_t create_node_v( __TBB_FORWARDING_REF(Args) __TBB_PARAMETER_PACK args){
+        nodeptr_t pnode = my_node_allocator.allocate(1);
+
+        //TODO: use RAII scoped guard instead of explicit catch
+        __TBB_TRY {
+            new(static_cast<void*>(&pnode->my_element)) T(__TBB_PACK_EXPANSION(tbb::internal::forward<Args>(args)));
+        } __TBB_CATCH(...) {
+            my_node_allocator.deallocate(pnode, 1);
+            __TBB_RETHROW();
+        }
+
         return (pnode);
     }
 
@@ -303,7 +314,7 @@ public:
     {
         // Immediately allocate a dummy node with order key of 0. This node
         // will always be the head of the list.
-        my_head = create_node(0);
+        my_head = create_node(sokey_t(0));
     }
 
     ~split_ordered_list()
@@ -480,30 +491,27 @@ public:
         my_node_allocator.deallocate(pnode, 1);
     }
 
-    // Try to insert a new element in the list. If insert fails, return the node that
-    // was inserted instead.
-    nodeptr_t try_insert(nodeptr_t previous, nodeptr_t new_node, nodeptr_t current_node) {
+    // Try to insert a new element in the list.
+    // If insert fails, return the node that was inserted instead.
+    static nodeptr_t try_insert_atomic(nodeptr_t previous, nodeptr_t new_node, nodeptr_t current_node) {
         new_node->my_next = current_node;
         return previous->atomic_set_next(new_node, current_node);
     }
 
     // Insert a new element between passed in iterators
-    std::pair<iterator, bool> try_insert(raw_iterator it, raw_iterator next, const value_type &value, sokey_t order_key, size_type *new_count)
+    std::pair<iterator, bool> try_insert(raw_iterator it, raw_iterator next, nodeptr_t pnode, size_type *new_count)
     {
-        nodeptr_t pnode = create_node(order_key, value);
-        nodeptr_t inserted_node = try_insert(it.get_node_ptr(), pnode, next.get_node_ptr());
+        nodeptr_t inserted_node = try_insert_atomic(it.get_node_ptr(), pnode, next.get_node_ptr());
 
         if (inserted_node == pnode)
         {
             // If the insert succeeded, check that the order is correct and increment the element count
-            check_range();
-            *new_count = __TBB_FetchAndAddW((uintptr_t*)&my_element_count, uintptr_t(1));
+            check_range(it, next);
+            *new_count = tbb::internal::as_atomic(my_element_count).fetch_and_increment();
             return std::pair<iterator, bool>(iterator(pnode, this), true);
         }
         else
         {
-            // If the insert failed (element already there), then delete the new one
-            destroy_node(pnode);
             return std::pair<iterator, bool>(end(), false);
         }
     }
@@ -532,12 +540,12 @@ public:
                 __TBB_ASSERT(get_order_key(it) < order_key, "Invalid node order in the list");
 
                 // Try to insert it in the right place
-                nodeptr_t inserted_node = try_insert(it.get_node_ptr(), dummy_node, where.get_node_ptr());
+                nodeptr_t inserted_node = try_insert_atomic(it.get_node_ptr(), dummy_node, where.get_node_ptr());
 
                 if (inserted_node == dummy_node)
                 {
                     // Insertion succeeded, check the list for order violations
-                    check_range();
+                    check_range(it, where);
                     return raw_iterator(dummy_node);
                 }
                 else
@@ -605,7 +613,7 @@ public:
             nodeptr_t pnode = it.get_node_ptr();
 
             nodeptr_t dummy_node = pnode->is_dummy() ? create_node(pnode->get_order_key()) : create_node(pnode->get_order_key(), pnode->my_element);
-            previous_node = try_insert(previous_node, dummy_node, NULL);
+            previous_node = try_insert_atomic(previous_node, dummy_node, NULL);
             __TBB_ASSERT(previous_node != NULL, "Insertion must succeed");
             raw_const_iterator where = it++;
             source.erase_node(get_iterator(begin_iterator), where);
@@ -620,48 +628,30 @@ private:
     friend class concurrent_unordered_base;
 
     // Check the list for order violations
+    void check_range( raw_iterator first, raw_iterator last )
+    {
+#if TBB_USE_ASSERT
+        for (raw_iterator it = first; it != last; ++it)
+        {
+            raw_iterator next = it;
+            ++next;
+
+            __TBB_ASSERT(next == raw_end() || get_order_key(next) >= get_order_key(it), "!!! List order inconsistency !!!");
+        }
+#else
+        tbb::internal::suppress_unused_warning(first, last);
+#endif
+    }
     void check_range()
     {
 #if TBB_USE_ASSERT
-        for (raw_iterator it = raw_begin(); it != raw_end(); ++it)
-        {
-            raw_iterator next_iterator = it;
-            ++next_iterator;
-
-            __TBB_ASSERT(next_iterator == end() || next_iterator.get_node_ptr()->get_order_key() >= it.get_node_ptr()->get_order_key(), "!!! List order inconsistency !!!");
-        }
+        check_range( raw_begin(), raw_end() );
 #endif
     }
 
     typename allocator_type::template rebind<node>::other my_node_allocator;  // allocator object for nodes
     size_type                                             my_element_count;   // Total item count, not counting dummy nodes
     nodeptr_t                                             my_head;            // pointer to head node
-};
-
-// Template class for hash compare
-template<typename Key, typename Hasher, typename Key_equality>
-class hash_compare
-{
-public:
-    typedef Hasher hasher;
-    typedef Key_equality key_equal;
-
-    hash_compare() {}
-
-    hash_compare(Hasher a_hasher) : my_hash_object(a_hasher) {}
-
-    hash_compare(Hasher a_hasher, Key_equality a_keyeq) : my_hash_object(a_hasher), my_key_compare_object(a_keyeq) {}
-
-    size_t operator()(const Key& key) const {
-        return ((size_t)my_hash_object(key));
-    }
-
-    bool operator()(const Key& key1, const Key& key2) const {
-        return (!my_key_compare_object(key1, key2));
-    }
-
-    Hasher       my_hash_object;        // The hash object
-    Key_equality my_key_compare_object; // The equality comparator object
 };
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
@@ -678,7 +668,6 @@ protected:
     typedef typename Traits::value_type value_type;
     typedef typename Traits::key_type key_type;
     typedef typename Traits::hash_compare hash_compare;
-    typedef typename Traits::value_compare value_compare;
     typedef typename Traits::allocator_type allocator_type;
     typedef typename hash_compare::hasher hasher;
     typedef typename hash_compare::key_equal key_equal;
@@ -727,7 +716,7 @@ protected:
           my_allocator(a), my_maximum_bucket_size((float) initial_bucket_load)
     {
         if( n_of_buckets == 0) ++n_of_buckets;
-        my_number_of_buckets = 1<<__TBB_Log2((uintptr_t)n_of_buckets*2-1); // round up to power of 2
+        my_number_of_buckets = size_type(1)<<__TBB_Log2((uintptr_t)n_of_buckets*2-1); // round up to power of 2
         internal_init();
     }
 
@@ -783,7 +772,7 @@ protected:
                         node = my_solist.create_node(pnode->get_order_key(), std::move(pnode->my_element));
                     }
 
-                    previous_node = my_solist.try_insert(previous_node, node, NULL);
+                    previous_node = my_solist.try_insert_atomic(previous_node, node, NULL);
                     __TBB_ASSERT(previous_node != NULL, "Insertion of node failed. Concurrent inserts in constructor ?");
                 }
                 my_solist.check_range();
@@ -793,7 +782,7 @@ protected:
         clear_buckets_on_exception.dismiss();
     }
 
-#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+#endif // __TBB_CPP11_RVALUE_REF_PRESENT
 
     concurrent_unordered_base& operator=(const concurrent_unordered_base& right) {
         if (this != &right)
@@ -823,7 +812,7 @@ protected:
         return *this;
     }
 
-#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+#endif // __TBB_CPP11_RVALUE_REF_PRESENT
 
 #if __TBB_INITIALIZER_LISTS_PRESENT
     //! assignment operator from initializer_list
@@ -833,7 +822,7 @@ protected:
         this->insert(il.begin(),il.end());
         return (*this);
     }
-#endif //# __TBB_INITIALIZER_LISTS_PRESENT
+#endif // __TBB_INITIALIZER_LISTS_PRESENT
 
 
     ~concurrent_unordered_base() {
@@ -859,7 +848,7 @@ public:
         return my_solist.max_size();
     }
 
-    // Iterators 
+    // Iterators
     iterator begin() {
         return my_solist.begin();
     }
@@ -906,7 +895,7 @@ public:
             return my_midpoint_node != my_end_node;
         }
         //! Split range.
-        const_range_type( const_range_type &r, split ) : 
+        const_range_type( const_range_type &r, split ) :
             my_table(r.my_table), my_end_node(r.my_end_node)
         {
             r.my_end_node = my_begin_node = r.my_midpoint_node;
@@ -916,7 +905,7 @@ public:
             r.set_midpoint();
         }
         //! Init range with container and grainsize specified
-        const_range_type( const concurrent_unordered_base &a_table ) : 
+        const_range_type( const concurrent_unordered_base &a_table ) :
             my_table(a_table), my_begin_node(a_table.my_solist.begin()),
             my_end_node(a_table.my_solist.end())
         {
@@ -977,13 +966,43 @@ public:
 
     // Modifiers
     std::pair<iterator, bool> insert(const value_type& value) {
-        return internal_insert(value);
+        return internal_insert</*AllowCreate=*/tbb::internal::true_type>(value);
     }
 
     iterator insert(const_iterator, const value_type& value) {
         // Ignore hint
         return insert(value).first;
     }
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    std::pair<iterator, bool> insert(value_type&& value) {
+        return internal_insert</*AllowCreate=*/tbb::internal::true_type>(std::move(value));
+    }
+
+    iterator insert(const_iterator, value_type&& value) {
+        // Ignore hint
+        return insert(std::move(value)).first;
+    }
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    template<typename... Args>
+    std::pair<iterator, bool> emplace(Args&&... args) {
+        nodeptr_t pnode = my_solist.create_node_v(tbb::internal::forward<Args>(args)...);
+        const sokey_t hashed_element_key = (sokey_t) my_hash_compare(get_key(pnode->my_element));
+        const sokey_t order_key = split_order_key_regular(hashed_element_key);
+        pnode->init(order_key);
+
+        return internal_insert</*AllowCreate=*/tbb::internal::false_type>(pnode->my_element, pnode);
+    }
+
+    template<typename... Args>
+    iterator emplace_hint(const_iterator, Args&&... args) {
+        // Ignore hint
+        return emplace(tbb::internal::forward<Args>(args)...).first;
+    }
+
+#endif // __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif // __TBB_CPP11_RVALUE_REF_PRESENT
 
     template<class Iterator>
     void insert(Iterator first, Iterator last) {
@@ -1074,7 +1093,7 @@ public:
         return const_cast<self_type*>(this)->internal_equal_range(key);
     }
 
-    // Bucket interface - for debugging 
+    // Bucket interface - for debugging
     size_type unsafe_bucket_count() const {
         return my_number_of_buckets;
     }
@@ -1127,7 +1146,7 @@ public:
             return end();
 
         raw_iterator it = get_bucket(bucket);
-    
+
         // Find the end of the bucket, denoted by the dummy element
         do ++it;
         while(it != my_solist.raw_end() && !it.get_node_ptr()->is_dummy());
@@ -1144,7 +1163,7 @@ public:
             return end();
 
         raw_const_iterator it = get_bucket(bucket);
-    
+
         // Find the end of the bucket, denoted by the dummy element
         do ++it;
         while(it != my_solist.raw_end() && !it.get_node_ptr()->is_dummy());
@@ -1183,7 +1202,7 @@ public:
         size_type current_buckets = my_number_of_buckets;
         if (current_buckets >= buckets)
             return;
-        my_number_of_buckets = 1<<__TBB_Log2((uintptr_t)buckets*2-1); // round up to power of 2
+        my_number_of_buckets = size_type(1)<<__TBB_Log2((uintptr_t)buckets*2-1); // round up to power of 2
     }
 
 private:
@@ -1238,7 +1257,7 @@ private:
 
     //TODO: why not use std::distance?
     // Hash APIs
-    size_type internal_distance(const_iterator first, const_iterator last) const
+    static size_type internal_distance(const_iterator first, const_iterator last)
     {
         size_type num = 0;
 
@@ -1249,33 +1268,35 @@ private:
     }
 
     // Insert an element in the hash given its value
-    std::pair<iterator, bool> internal_insert(const value_type& value)
+    template<typename AllowCreate, typename ValueType>
+    std::pair<iterator, bool> internal_insert(__TBB_FORWARDING_REF(ValueType) value, nodeptr_t pnode = NULL)
     {
-        sokey_t order_key = (sokey_t) my_hash_compare(get_key(value));
-        size_type bucket = order_key % my_number_of_buckets;
-
-        // If bucket is empty, initialize it first
-        if (!is_initialized(bucket))
-            init_bucket(bucket);
-
+        const key_type *pkey = &get_key(value);
+        sokey_t hash_key = (sokey_t) my_hash_compare(*pkey);
         size_type new_count = 0;
-        order_key = split_order_key_regular(order_key);
-        raw_iterator it = get_bucket(bucket);
+        sokey_t order_key = split_order_key_regular(hash_key);
+        raw_iterator previous = prepare_bucket(hash_key);
         raw_iterator last = my_solist.raw_end();
-        raw_iterator where = it;
-
-        __TBB_ASSERT(where != last, "Invalid head node");
+        __TBB_ASSERT(previous != last, "Invalid head node");
 
         // First node is a dummy node
-        ++where;
-
-        for (;;)
+        for (raw_iterator where = previous;;)
         {
-            if (where == last || solist_t::get_order_key(where) > order_key)
+            ++where;
+            if (where == last || solist_t::get_order_key(where) > order_key ||
+                // if multimapped, stop at the first item equal to us.
+                (allow_multimapping && solist_t::get_order_key(where) == order_key &&
+                 !my_hash_compare(get_key(*where), *pkey))) // TODO: fix negation
             {
-                // Try to insert it in the right place
-                std::pair<iterator, bool> result = my_solist.try_insert(it, where, value, order_key, &new_count);
-                
+                if (!pnode) {
+                    pnode = my_solist.create_node(order_key, tbb::internal::forward<ValueType>(value), AllowCreate());
+                    // If the value was moved, the known reference to key might be invalid
+                    pkey = &get_key(pnode->my_element);
+                }
+
+                // Try to insert 'pnode' between 'previous' and 'where'
+                std::pair<iterator, bool> result = my_solist.try_insert(previous, where, pnode, &new_count);
+
                 if (result.second)
                 {
                     // Insertion succeeded, adjust the table size, if needed
@@ -1289,37 +1310,30 @@ private:
                     // Proceed with the search from the previous location where order key was
                     // known to be larger (note: this is legal only because there is no safe
                     // concurrent erase operation supported).
-                    where = it;
-                    ++where;
+                    where = previous;
                     continue;
                 }
             }
-            else if (!allow_multimapping && solist_t::get_order_key(where) == order_key && my_hash_compare(get_key(*where), get_key(value)) == 0)
-            {
-                // Element already in the list, return it
+            else if (!allow_multimapping && solist_t::get_order_key(where) == order_key &&
+                     !my_hash_compare(get_key(*where), *pkey)) // TODO: fix negation
+            { // Element already in the list, return it
+                 if (pnode)
+                     my_solist.destroy_node(pnode);
                 return std::pair<iterator, bool>(my_solist.get_iterator(where), false);
             }
-
             // Move the iterator forward
-            it = where;
-            ++where;
+            previous = where;
         }
     }
 
     // Find the element in the split-ordered list
     iterator internal_find(const key_type& key)
     {
-        sokey_t order_key = (sokey_t) my_hash_compare(key);
-        size_type bucket = order_key % my_number_of_buckets;
-
-        // If bucket is empty, initialize it first
-        if (!is_initialized(bucket))
-            init_bucket(bucket);
-
-        order_key = split_order_key_regular(order_key);
+        sokey_t hash_key = (sokey_t) my_hash_compare(key);
+        sokey_t order_key = split_order_key_regular(hash_key);
         raw_iterator last = my_solist.raw_end();
 
-        for (raw_iterator it = get_bucket(bucket); it != last; ++it)
+        for (raw_iterator it = prepare_bucket(hash_key); it != last; ++it)
         {
             if (solist_t::get_order_key(it) > order_key)
             {
@@ -1332,7 +1346,7 @@ private:
                 // The fact that order keys match does not mean that the element is found.
                 // Key function comparison has to be performed to check whether this is the
                 // right element. If not, keep searching while order key is the same.
-                if (!my_hash_compare(get_key(*it), key))
+                if (!my_hash_compare(get_key(*it), key)) // TODO: fix negation
                     return my_solist.get_iterator(it);
             }
         }
@@ -1343,34 +1357,18 @@ private:
     // Erase an element from the list. This is not a concurrency safe function.
     iterator internal_erase(const_iterator it)
     {
-        key_type key = get_key(*it);
-        sokey_t order_key = (sokey_t) my_hash_compare(key);
-        size_type bucket = order_key % my_number_of_buckets;
-
-        // If bucket is empty, initialize it first
-        if (!is_initialized(bucket))
-            init_bucket(bucket);
-
-        order_key = split_order_key_regular(order_key);
-
-        raw_iterator previous = get_bucket(bucket);
+        sokey_t hash_key = (sokey_t) my_hash_compare(get_key(*it));
+        raw_iterator previous = prepare_bucket(hash_key);
         raw_iterator last = my_solist.raw_end();
-        raw_iterator where = previous;
-
-        __TBB_ASSERT(where != last, "Invalid head node");
+        __TBB_ASSERT(previous != last, "Invalid head node");
 
         // First node is a dummy node
-        ++where;
-
-        for (;;) {
+        for (raw_iterator where = previous; ; previous = where) {
+            ++where;
             if (where == last)
                 return end();
             else if (my_solist.get_iterator(where) == it)
                 return my_solist.erase_node(previous, it);
-
-            // Move the iterator forward
-            previous = where;
-            ++where;
         }
     }
 
@@ -1378,24 +1376,19 @@ private:
     // This operation makes sense only if mapping is many-to-one.
     pairii_t internal_equal_range(const key_type& key)
     {
-        sokey_t order_key = (sokey_t) my_hash_compare(key);
-        size_type bucket = order_key % my_number_of_buckets;
-
-        // If bucket is empty, initialize it first
-        if (!is_initialized(bucket))
-            init_bucket(bucket);
-
-        order_key = split_order_key_regular(order_key);
+        sokey_t hash_key = (sokey_t) my_hash_compare(key);
+        sokey_t order_key = split_order_key_regular(hash_key);
         raw_iterator end_it = my_solist.raw_end();
 
-        for (raw_iterator it = get_bucket(bucket); it != end_it; ++it)
+        for (raw_iterator it = prepare_bucket(hash_key); it != end_it; ++it)
         {
             if (solist_t::get_order_key(it) > order_key)
             {
                 // There is no element with the given key
                 return pairii_t(end(), end());
             }
-            else if (solist_t::get_order_key(it) == order_key && !my_hash_compare(get_key(*it), key))
+            else if (solist_t::get_order_key(it) == order_key &&
+                     !my_hash_compare(get_key(*it), key)) // TODO: fix negation; also below
             {
                 iterator first = my_solist.get_iterator(it);
                 iterator last = first;
@@ -1469,6 +1462,15 @@ private:
         return my_buckets[segment][bucket];
     }
 
+    raw_iterator prepare_bucket(sokey_t hash_key) {
+        size_type bucket = hash_key % my_number_of_buckets;
+        size_type segment = segment_index_of(bucket);
+        size_type index = bucket - segment_base(segment);
+        if (my_buckets[segment] == NULL || my_buckets[segment][index].get_node_ptr() == NULL)
+            init_bucket(bucket);
+        return my_buckets[segment][index];
+    }
+
     void set_bucket(size_type bucket, raw_iterator dummy_head) {
         size_type segment = segment_index_of(bucket);
         bucket -= segment_base(segment);
@@ -1519,47 +1521,8 @@ private:
 #pragma warning(pop) // warning 4127 is back
 #endif
 
-//! Hash multiplier
-static const size_t hash_multiplier = tbb::internal::select_size_t_constant<2654435769U, 11400714819323198485ULL>::value;
 } // namespace internal
 //! @endcond
-//! Hasher functions
-template<typename T>
-inline size_t tbb_hasher( const T& t ) {
-    return static_cast<size_t>( t ) * internal::hash_multiplier;
-}
-template<typename P>
-inline size_t tbb_hasher( P* ptr ) {
-    size_t const h = reinterpret_cast<size_t>( ptr );
-    return (h >> 3) ^ h;
-}
-template<typename E, typename S, typename A>
-inline size_t tbb_hasher( const std::basic_string<E,S,A>& s ) {
-    size_t h = 0;
-    for( const E* c = s.c_str(); *c; ++c )
-        h = static_cast<size_t>(*c) ^ (h * internal::hash_multiplier);
-    return h;
-}
-template<typename F, typename S>
-inline size_t tbb_hasher( const std::pair<F,S>& p ) {
-    return tbb_hasher(p.first) ^ tbb_hasher(p.second);
-}
 } // namespace interface5
-using interface5::tbb_hasher;
-
-
-// Template class for hash compare
-template<typename Key>
-class tbb_hash
-{
-public:
-    tbb_hash() {}
-
-    size_t operator()(const Key& key) const
-    {
-        return tbb_hasher(key);
-    }
-};
-
 } // namespace tbb
-#endif// __TBB__concurrent_unordered_impl_H
+#endif // __TBB__concurrent_unordered_impl_H

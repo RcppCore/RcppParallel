@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 /** Before making any changes in the implementation, please emulate algorithmic changes
@@ -248,7 +248,6 @@ bool queuing_rw_mutex::scoped_lock::try_acquire( queuing_rw_mutex& m, bool write
         return false; // Someone already took the lock
     // Force acquire so that user's critical section receives correct values
     // from processor that was previously in the user's critical section.
-    // try_acquire should always have acquire semantic, even if failed.
     __TBB_load_with_acquire(my_going);
     my_mutex = &m;
     ITT_NOTIFY(sync_acquired, my_mutex);
@@ -320,7 +319,7 @@ retry:
             __TBB_store_relaxed(my_prev, pred);
             acquire_internal_lock();
 
-            __TBB_store_with_release(pred->my_next,reinterpret_cast<scoped_lock *>(NULL));
+            __TBB_store_with_release(pred->my_next,static_cast<scoped_lock *>(NULL));
 
             if( !__TBB_load_relaxed(my_next) && this != my_mutex->q_tail.compare_and_swap<tbb::release>(pred, this) ) {
                 spin_wait_while_eq( my_next, (void*)NULL );
@@ -367,20 +366,18 @@ bool queuing_rw_mutex::scoped_lock::downgrade_to_reader()
     __TBB_ASSERT( my_state==STATE_WRITER, "no sense to downgrade a reader" );
 
     ITT_NOTIFY(sync_releasing, my_mutex);
-
-    if( ! __TBB_load_with_acquire(my_next) ) {
-        my_state = STATE_READER;
-        if( this==my_mutex->q_tail ) {
+    my_state = STATE_READER;
+    if( ! __TBB_load_relaxed(my_next) ) {
+        // the following load of q_tail must not be reordered with setting STATE_READER above
+        if( this==my_mutex->q_tail.load<full_fence>() ) {
             unsigned short old_state = my_state.compare_and_swap<tbb::release>(STATE_ACTIVEREADER, STATE_READER);
-            if( old_state==STATE_READER ) {
-                // Downgrade completed
-                return true;
-            }
+            if( old_state==STATE_READER )
+                return true; // Downgrade completed
         }
         /* wait for the next to register */
         spin_wait_while_eq( my_next, (void*)NULL );
     }
-    scoped_lock *const n = __TBB_load_relaxed(my_next);
+    scoped_lock *const n = __TBB_load_with_acquire(my_next);
     __TBB_ASSERT( n, "still no successor at this point!" );
     if( n->my_state & STATE_COMBINED_WAITINGREADER )
         __TBB_store_with_release(n->my_going,1);

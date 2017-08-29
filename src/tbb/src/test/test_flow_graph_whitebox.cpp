@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #define HARNESS_DEFAULT_MIN_THREADS 3
@@ -34,15 +34,13 @@
 #endif
 
 #include "harness.h"
-
-#define TBB_PREVIEW_GRAPH_NODES 1
+#include <string> // merely prevents LNK2001 error to happen (on ICL+VC9 configurations)
 
 // need these to get proper external names for private methods in library.
 #include "tbb/spin_mutex.h"
 #include "tbb/spin_rw_mutex.h"
 #include "tbb/task.h"
-
-#define WAIT_MAX 1000000
+#include "tbb/task_arena.h"
 
 #define private public
 #define protected public
@@ -51,18 +49,6 @@
 #undef private
 #include "tbb/task_scheduler_init.h"
 #include "harness_graph.h"
-
-#define BACKOFF_WAIT(ex,msg) \
-{ \
-    int wait_cnt = 0; \
-    tbb::internal::atomic_backoff backoff; \
-    do { \
-        backoff.pause(); \
-        ++wait_cnt; \
-    } \
-    while( (ex) && (wait_cnt < WAIT_MAX)); \
-    ASSERT(wait_cnt < WAIT_MAX, msg); \
-}
 
 template<typename T>
 struct receiverBody {
@@ -88,10 +74,8 @@ void TestSplitNode() {
     g.wait_for_all();
     g.reset();
     ASSERT(!(tbb::flow::output_port<0>(snode).my_successors.empty()), "after reset(), split_node has no successor.");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    g.reset(tbb::flow::rf_extract);
-    ASSERT(tbb::flow::output_port<0>(snode).my_successors.empty(), "after reset(rf_extract), split_node has a successor.");
-#endif
+    g.reset(tbb::flow::rf_clear_edges);
+    ASSERT(tbb::flow::output_port<0>(snode).my_successors.empty(), "after reset(rf_clear_edges), split_node has a successor.");
 }
 
 // buffering nodes cannot have predecessors
@@ -146,20 +130,18 @@ void TestBufferingNode(const char * name) {
     g.wait_for_all();
     g.reset();  // should be in forward direction again
     ASSERT(!bnode.my_successors.empty(), "buffering node has no successor after reset()");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     REMARK(" remove_edge");
-    g.reset(tbb::flow::rf_extract);
-    ASSERT(bnode.my_successors.empty(), "buffering node has a successor after reset(rf_extract)");
+    g.reset(tbb::flow::rf_clear_edges);
+    ASSERT(bnode.my_successors.empty(), "buffering node has a successor after reset(rf_clear_edges)");
     tbb::flow::make_edge(bnode, tbb::flow::input_port<0>(jnode));  // add edge again
     // reverse edge by adding to buffer.
     bnode.try_put(1);  // the edge should reverse
     g.wait_for_all();
     ASSERT(bnode.my_successors.empty(), "buffering node has a successor after reserving");
     REMARK(" remove_edge(reversed)");
-    g.reset(tbb::flow::rf_extract);
+    g.reset(tbb::flow::rf_clear_edges);
     ASSERT(bnode.my_successors.empty(), "buffering node has no successor after reset()");
     ASSERT(tbb::flow::input_port<0>(jnode).my_predecessors.empty(), "predecessor not reset");
-#endif
     REMARK("  done\n");
     g.wait_for_all();
 }
@@ -219,17 +201,15 @@ void TestContinueNode() {
             ASSERT(!cnode.my_successors.empty(), "Empty successors in built graph (after reset)" );
             ASSERT(cnode.my_predecessor_count == 2, "predecessor_count reset (after reset)");
         }
-        else {  // we're going to see if the rf_extract resets things.
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        else {  // we're going to see if the rf_clear_edges resets things.
             g.wait_for_all();
-            REMARK(" reset(rf_extract)");
+            REMARK(" reset(rf_clear_edges)");
             ASSERT(!cnode.my_successors.empty(), "Empty successors in built graph (before reset)");
             ASSERT(cnode.my_predecessor_count == 2, "predecessor_count reset (before reset)");
-            g.reset(tbb::flow::rf_extract);  // should be in forward direction again
-            ASSERT(cnode.my_current_count == 0, "state of continue_receiver incorrect after reset(rf_extract)");
-            ASSERT(cnode.my_successors.empty(), "buffering node has a successor after reset(rf_extract)");
+            g.reset(tbb::flow::rf_clear_edges);  // should be in forward direction again
+            ASSERT(cnode.my_current_count == 0, "state of continue_receiver incorrect after reset(rf_clear_edges)");
+            ASSERT(cnode.my_successors.empty(), "buffering node has a successor after reset(rf_clear_edges)");
             ASSERT(cnode.my_predecessor_count == cnode.my_initial_predecessor_count, "predecessor count not reset");
-#endif
         }
     }
 
@@ -274,15 +254,19 @@ void TestFunctionNode() {
     tbb::flow::remove_edge(fnode1, qnode1);
 
     // rejecting
+    serial_fn_state0 = 0;
     tbb::flow::make_edge(fnode0, qnode1);
+    tbb::flow::make_edge(qnode0, fnode0);
     REMARK("Testing rejecting function_node:");
     ASSERT(!fnode0.my_queue, "node should have no queue");
     ASSERT(!fnode0.my_successors.empty(), "successor edge not added");
-    REMARK(" add_pred");
-    ASSERT(fnode0.register_predecessor(qnode0), "Cannot register as predecessor");
-    ASSERT(!fnode0.my_predecessors.empty(), "Missing predecessor");
-    REMARK(" reset");
+    qnode0.try_put(1);
+    BACKOFF_WAIT(!serial_fn_state0,"rejecting function_node didn't start");
+    qnode0.try_put(2);   // rejecting node should reject, reverse.
+    BACKOFF_WAIT(fnode0.my_predecessors.empty(), "Missing predecessor ---");
+    serial_fn_state0 = 2;   // release function_node body.
     g.wait_for_all();
+    REMARK(" reset");
     g.reset();  // should reverse the edge from the input to the function node.
     ASSERT(!qnode0.my_successors.empty(), "empty successors after reset()");
     ASSERT(fnode0.my_predecessors.empty(), "predecessor not reversed");
@@ -323,11 +307,9 @@ void TestFunctionNode() {
     serial_fn_state0 = 2;
     g.wait_for_all();
     ASSERT(!fnode0.my_predecessors.empty() && qnode0.my_successors.empty(), "function_node edge not reversed");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    g.reset(tbb::flow::rf_extract);
+    g.reset(tbb::flow::rf_clear_edges);
     ASSERT(fnode0.my_predecessors.empty() && qnode0.my_successors.empty(), "function_node edge not removed");
     ASSERT(fnode0.my_successors.empty(), "successor to fnode not removed");
-#endif
     REMARK(" done\n");
 }
 
@@ -337,19 +319,18 @@ class tag_func {
 public:
     tag_func(TT multiplier) : my_mult(multiplier) { }
     void operator=( const tag_func& other){my_mult = other.my_mult;}
-    // operator() will return [0 .. Count) 
+    // operator() will return [0 .. Count)
     tbb::flow::tag_value operator()( TT v) {
         tbb::flow::tag_value t = tbb::flow::tag_value(v / my_mult);
         return t;
     }
 };
 
-template<tbb::flow::graph_buffer_policy JNODE_TYPE>
+template<typename JNODE_TYPE>
 void
 TestSimpleSuccessorArc(const char *name) {
     tbb::flow::graph g;
     {
-        //tbb::flow::join_node<tbb::flow::tuple<int>, tbb::flow::queueing> qj(g);
         REMARK("Join<%s> successor test ", name);
         tbb::flow::join_node<tbb::flow::tuple<int>, JNODE_TYPE> qj(g);
         tbb::flow::broadcast_node<tbb::flow::tuple<int> > bnode(g);
@@ -357,10 +338,8 @@ TestSimpleSuccessorArc(const char *name) {
         ASSERT(!qj.my_successors.empty(),"successor missing after linking");
         g.reset();
         ASSERT(!qj.my_successors.empty(),"successor missing after reset()");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-        g.reset(tbb::flow::rf_extract);
-        ASSERT(qj.my_successors.empty(), "successors not removed after reset(rf_extract)");
-#endif
+        g.reset(tbb::flow::rf_clear_edges);
+        ASSERT(qj.my_successors.empty(), "successors not removed after reset(rf_clear_edges)");
     }
 }
 
@@ -380,10 +359,8 @@ TestSimpleSuccessorArc<tbb::flow::tag_matching>(const char *name) {
         ASSERT(!qj.my_successors.empty(),"successor missing after linking");
         g.reset();
         ASSERT(!qj.my_successors.empty(),"successor missing after reset()");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-        g.reset(tbb::flow::rf_extract);
-        ASSERT(qj.my_successors.empty(), "successors not removed after reset(rf_extract)");
-#endif
+        g.reset(tbb::flow::rf_clear_edges);
+        ASSERT(qj.my_successors.empty(), "successors not removed after reset(rf_clear_edges)");
     }
 }
 
@@ -417,18 +394,16 @@ TestJoinNode() {
         g.reset();
         ASSERT((tbb::flow::input_port<1>(rj).my_predecessors.empty()),"reversed port has pred after reset()");
         ASSERT((tbb::flow::input_port<0>(rj).my_predecessors.empty()),"non-reversed port has pred after reset()");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         // should reset predecessors just as regular reset.
         q1.try_put(3);
         g.wait_for_all();  // quiesce
         ASSERT(!(tbb::flow::input_port<1>(rj).my_predecessors.empty()),"reversed port missing predecessor");
         ASSERT((tbb::flow::input_port<0>(rj).my_predecessors.empty()),"non-reversed port has pred");
-        g.reset(tbb::flow::rf_extract);
+        g.reset(tbb::flow::rf_clear_edges);
         ASSERT((tbb::flow::input_port<1>(rj).my_predecessors.empty()),"reversed port has pred after reset()");
         ASSERT((tbb::flow::input_port<0>(rj).my_predecessors.empty()),"non-reversed port has pred after reset()");
-        ASSERT(q0.my_successors.empty(), "edge not removed by reset(rf_extract)");
-        ASSERT(q1.my_successors.empty(), "edge not removed by reset(rf_extract)");
-#endif
+        ASSERT(q0.my_successors.empty(), "edge not removed by reset(rf_clear_edges)");
+        ASSERT(q1.my_successors.empty(), "edge not removed by reset(rf_clear_edges)");
     }
     REMARK(" done\n");
 }
@@ -474,31 +449,29 @@ TestLimiterNode() {
     g.wait_for_all();
     ASSERT(outq.try_get(out_int) && out_int == 3, "limiter_node didn't pass third value");
 
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    REMARK(" rf_extract");
+    REMARK(" rf_clear_edges");
     // currently the limiter_node will not pass another message
-    g.reset(tbb::flow::rf_extract);
+    g.reset(tbb::flow::rf_clear_edges);
     ASSERT(ln.decrement.my_predecessor_count == 0, "error in pred count");
     ASSERT(ln.decrement.my_initial_predecessor_count == 0, "error in initial pred count");
     ASSERT(ln.decrement.my_current_count == 0, "error in current count");
     ASSERT(ln.init_decrement_predecessors == 0, "error in decrement predecessors");
     ASSERT(ln.my_threshold == 1, "error in my_threshold");
-    ASSERT(ln.my_predecessors.empty(), "preds not reset(rf_extract)");
-    ASSERT(ln.my_successors.empty(), "preds not reset(rf_extract)");
-    ASSERT(inq.my_successors.empty(), "Arc not removed on reset(rf_extract)");
-    ASSERT(inq.my_successors.empty(), "Arc not removed on reset(rf_extract)");
-    ASSERT(bn.my_successors.empty(), "control edge not removed on reset(rf_extract)");
+    ASSERT(ln.my_predecessors.empty(), "preds not reset(rf_clear_edges)");
+    ASSERT(ln.my_successors.empty(), "preds not reset(rf_clear_edges)");
+    ASSERT(inq.my_successors.empty(), "Arc not removed on reset(rf_clear_edges)");
+    ASSERT(inq.my_successors.empty(), "Arc not removed on reset(rf_clear_edges)");
+    ASSERT(bn.my_successors.empty(), "control edge not removed on reset(rf_clear_edges)");
     tbb::flow::make_edge(inq,ln);
     tbb::flow::make_edge(ln,outq);
     inq.try_put(4);
     inq.try_put(5);
     g.wait_for_all();
-    ASSERT(outq.try_get(out_int),"missing output after reset(rf_extract)");
+    ASSERT(outq.try_get(out_int),"missing output after reset(rf_clear_edges)");
     ASSERT(out_int == 4, "input incorrect (4)");
     bn.try_put(tbb::flow::continue_msg());
     g.wait_for_all();
-    ASSERT(!outq.try_get(out_int),"second output incorrectly passed (rf_extract)");
-#endif
+    ASSERT(!outq.try_get(out_int),"second output incorrectly passed (rf_clear_edges)");
     REMARK(" done\n");
 }
 
@@ -511,13 +484,13 @@ struct mf_body {
             *_flag = 1;
             BACKOFF_WAIT(*_flag == 1, "multifunction_node not released");
         }
- 
+
         if(in & 0x1) tbb::flow::get<1>(outports).try_put(in);
         else         tbb::flow::get<0>(outports).try_put(in);
     }
 };
 
-template<tbb::flow::graph_buffer_policy P, typename T>
+template<typename P, typename T>
 struct test_reversal;
 template<typename T>
 struct test_reversal<tbb::flow::queueing, T> {
@@ -532,7 +505,7 @@ struct test_reversal<tbb::flow::rejecting, T> {
     bool operator()( T &node) { return !node.my_predecessors.empty(); }
 };
 
-template<tbb::flow::graph_buffer_policy P>
+template<typename P>
 void
 TestMultifunctionNode() {
     typedef tbb::flow::multifunction_node<int, tbb::flow::tuple<int, int>, P> multinode_type;
@@ -548,13 +521,7 @@ TestMultifunctionNode() {
     tbb::flow::make_edge(tbb::flow::output_port<0>(mf), qeven_out);
     tbb::flow::make_edge(tbb::flow::output_port<1>(mf), qodd_out);
     g.wait_for_all();
-    for( int ii = 0; ii <
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-            2
-#else
-            1
-#endif
-            ; ++ii) {
+    for( int ii = 0; ii < 2 ; ++ii) {
         serial_fn_state0 = 0;
         if(ii == 0) REMARK(" reset preds"); else REMARK(" 2nd");
         qin.try_put(0);
@@ -568,15 +535,13 @@ TestMultifunctionNode() {
         serial_fn_state0 = 2;
         g.wait_for_all();
         ASSERT(my_test(mf), "fail cancel group test");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
         if( ii == 1) {
-            REMARK(" rf_extract");
-            g.reset(tbb::flow::rf_extract);
-            ASSERT(tbb::flow::output_port<0>(mf).my_successors.empty(), "output_port<0> not reset (rf_extract)");
-            ASSERT(tbb::flow::output_port<1>(mf).my_successors.empty(), "output_port<1> not reset (rf_extract)");
+            REMARK(" rf_clear_edges");
+            g.reset(tbb::flow::rf_clear_edges);
+            ASSERT(tbb::flow::output_port<0>(mf).my_successors.empty(), "output_port<0> not reset (rf_clear_edges)");
+            ASSERT(tbb::flow::output_port<1>(mf).my_successors.empty(), "output_port<1> not reset (rf_clear_edges)");
         }
         else
-#endif
         {
             g.reset();
         }
@@ -600,10 +565,8 @@ TestIndexerNode() {
     ASSERT(!inode.my_successors.empty(), "successor of indexer_node missing");
     g.reset();
     ASSERT(!inode.my_successors.empty(), "successor of indexer_node missing after reset");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    g.reset(tbb::flow::rf_extract);
-    ASSERT(inode.my_successors.empty(), "successor of indexer_node not removed by reset(rf_extract)");
-#endif
+    g.reset(tbb::flow::rf_clear_edges);
+    ASSERT(inode.my_successors.empty(), "successor of indexer_node not removed by reset(rf_clear_edges)");
     REMARK(" done\n");
 }
 
@@ -619,10 +582,8 @@ TestScalarNode(const char *name) {
     ASSERT(!on.my_successors.empty(), "edge not added");
     g.reset();
     ASSERT(!on.my_successors.empty(), "edge improperly removed");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    g.reset(tbb::flow::rf_extract);
-    ASSERT(on.my_successors.empty(), "edge not removed by reset(rf_extract)");
-#endif
+    g.reset(tbb::flow::rf_clear_edges);
+    ASSERT(on.my_successors.empty(), "edge not removed by reset(rf_clear_edges)");
     REMARK(" done\n");
 }
 
@@ -665,12 +626,10 @@ TestSequencerNode() {
     g.wait_for_all();
     g.reset();  // should be in forward direction again
     ASSERT(!bnode.my_successors.empty(), "buffering node has no successor after reset()");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     REMARK(" remove_edge");
-    g.reset(tbb::flow::rf_extract);  // should be in forward direction again
-    ASSERT(bnode.my_successors.empty(), "buffering node has a successor after reset(rf_extract)");
-    ASSERT(fnode.my_predecessors.empty(), "buffering node reversed after reset(rf_extract)");
-#endif
+    g.reset(tbb::flow::rf_clear_edges);  // should be in forward direction again
+    ASSERT(bnode.my_successors.empty(), "buffering node has a successor after reset(rf_clear_edges)");
+    ASSERT(fnode.my_predecessors.empty(), "buffering node reversed after reset(rf_clear_edges)");
     REMARK("  done\n");
     g.wait_for_all();
 }
@@ -694,7 +653,7 @@ TestSourceNode() {
     tbb::flow::queue_node<int> qin(g);
     tbb::flow::join_node<tbb::flow::tuple<int,int>, tbb::flow::reserving> jn(g);
     tbb::flow::queue_node<tbb::flow::tuple<int,int> > qout(g);
-    
+
     REMARK(" make_edges");
     tbb::flow::make_edge(sn, tbb::flow::input_port<0>(jn));
     tbb::flow::make_edge(qin, tbb::flow::input_port<1>(jn));
@@ -703,15 +662,13 @@ TestSourceNode() {
     g.wait_for_all();
     g.reset();
     ASSERT(!sn.my_successors.empty(), "source node has no successor after reset");
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     g.wait_for_all();
-    g.reset(tbb::flow::rf_extract);
-    ASSERT(sn.my_successors.empty(), "source node has successor after reset(rf_extract)");
+    g.reset(tbb::flow::rf_clear_edges);
+    ASSERT(sn.my_successors.empty(), "source node has successor after reset(rf_clear_edges)");
     tbb::flow::make_edge(sn, tbb::flow::input_port<0>(jn));
     tbb::flow::make_edge(qin, tbb::flow::input_port<1>(jn));
     tbb::flow::make_edge(jn,qout);
     g.wait_for_all();
-#endif
     REMARK(" activate");
     sn.activate();  // will forward to the fnode
     REMARK(" wait1");
@@ -729,7 +686,7 @@ int TestMain() {
 
     if(MinThread < 3) MinThread = 3;
     tbb::task_scheduler_init init(MinThread);  // tests presume at least three threads
-    
+
     TestBufferingNode< tbb::flow::buffer_node<int> >("buffer_node");
     TestBufferingNode< tbb::flow::priority_queue_node<int> >("priority_queue_node");
     TestBufferingNode< tbb::flow::queue_node<int> >("queue_node");

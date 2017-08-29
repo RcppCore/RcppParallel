@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness_defs.h"
@@ -63,6 +63,9 @@
 
     typedef unsigned int uint_t;
 
+    // Bug in this ConcRT version results in task_group::wait() rethrowing
+    // internal cancellation exception propagated by the scheduler from the nesting
+    // task group.
     #define __TBB_SILENT_CANCELLATION_BROKEN  (_MSC_VER == 1600)
 
 #endif /* !TBBTEST_USE_TBB */
@@ -71,6 +74,7 @@
 
 #include "tbb/atomic.h"
 #include "tbb/aligned_space.h"
+#include "harness.h"
 #include "harness_concurrency_tracker.h"
 
 unsigned g_MaxConcurrency = 0;
@@ -515,7 +519,7 @@ class test_exception : public std::exception
 public:
     test_exception ( const char* descr ) : m_strDescription(descr) {}
 
-    const char* what() const throw() { return m_strDescription; }
+    const char* what() const throw() __TBB_override { return m_strDescription; }
 };
 
 #if TBB_USE_CAPTURED_EXCEPTION
@@ -806,6 +810,18 @@ void TestStructuredWait () {
     sg.wait();
 }
 
+struct test_functor_t {
+    void operator()() { ASSERT( false, "Non-const operator called" ); }
+    void operator()() const { /* library requires this overload only */ }
+};
+
+void TestConstantFunctorRequirement() {
+    tbb::task_group g;
+    test_functor_t tf;
+    g.run( tf ); g.wait();
+    g.run_and_wait( tf );
+}
+
 int TestMain () {
     REMARK ("Testing %s task_group functionality\n", TBBTEST_USE_TBB ? "TBB" : "PPL");
     for( int p=MinThread; p<=MaxThread; ++p ) {
@@ -841,7 +857,7 @@ int TestMain () {
         TestEh2();
         TestStructuredWait();
         TestStructuredCancellation2<true>();
-#if !__TBB_THROW_FROM_DTOR_BROKEN
+#if !(__TBB_THROW_FROM_DTOR_BROKEN || __TBB_STD_UNCAUGHT_EXCEPTION_BROKEN)
         TestStructuredCancellation2<false>();
 #else
         REPORT("Known issue: TestStructuredCancellation2<false>() is skipped.\n");
@@ -851,6 +867,7 @@ int TestMain () {
         s->Release();
 #endif
     }
+    TestConstantFunctorRequirement();
 #if __TBB_THROW_ACROSS_MODULE_BOUNDARY_BROKEN
     REPORT("Known issue: exception handling tests are skipped.\n");
 #endif

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #if _MSC_VER
@@ -95,7 +95,7 @@ namespace helpers{
     template <typename counter_type = size_t>
     struct object_instances_counting_type{
         counter_type * m_p_count;
-        object_instances_counting_type(): m_p_count (new counter_type){*m_p_count =1; } //to overcome absense of constructor in tbb::atomic
+        object_instances_counting_type(): m_p_count (new counter_type){*m_p_count =1; } //to overcome absence of constructor in tbb::atomic
         ~object_instances_counting_type(){ if (! --(*m_p_count)){delete(m_p_count);}}
         object_instances_counting_type(object_instances_counting_type const& other): m_p_count(other.m_p_count){
             ++(*m_p_count);
@@ -142,16 +142,16 @@ namespace helpers{
 
             };
             TEST_CASE_WITH_FIXTURE(test_object_instances_counting_type_copy,native_for_single_op_repeated_fixture){
-                struct _{ static void copy(object_instances_counting_concurrent_type& source){
-                    object_instances_counting_concurrent_type copy(source);
+                struct _{ static void copy(object_instances_counting_concurrent_type& a_source){
+                    object_instances_counting_concurrent_type copy(a_source);
                     helpers::prevent_optimizing_out(copy);
                 }};
                 run_native_for_and_assert_source_is_unique(&_::copy,"reference counting during copy construction/destruction is not thread safe ?");
             }
             TEST_CASE_WITH_FIXTURE(test_object_instances_counting_type_assignment,native_for_single_op_repeated_fixture){
-                struct _{ static void assign(object_instances_counting_concurrent_type& source){
+                struct _{ static void assign(object_instances_counting_concurrent_type& a_source){
                     object_instances_counting_concurrent_type assigned;
-                    assigned = source;
+                    assigned = a_source;
                     helpers::prevent_optimizing_out(assigned);
                 }};
                 run_native_for_and_assert_source_is_unique(&_::assign,"reference counting during assigning/destruction is not thread safe ?");

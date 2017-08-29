@@ -1,31 +1,32 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #if _WIN32||_WIN64
 #include <process.h>        // _beginthreadex()
 #endif
 #include <errno.h>
-#include "tbb_misc.h"       // handle_win_error(), ThreadStackSize
+#include "tbb_misc.h"       // handle_win_error()
 #include "tbb/tbb_stddef.h"
 #include "tbb/tbb_thread.h"
 #include "tbb/tbb_allocator.h"
+#include "tbb/global_control.h" // thread_stack_size
 #include "governor.h"       // default_num_threads()
 #if __TBB_WIN8UI_SUPPORT
 #include <thread>
@@ -104,8 +105,8 @@ void tbb_thread_v3::internal_start( __TBB_NATIVE_THREAD_ROUTINE_PTR(start_routin
     unsigned thread_id;
     // The return type of _beginthreadex is "uintptr_t" on new MS compilers,
     // and 'unsigned long' on old MS compilers.  uintptr_t works for both.
-    uintptr_t status = _beginthreadex( NULL, ThreadStackSize, start_routine,
-                                     closure, 0, &thread_id );
+    uintptr_t status = _beginthreadex( NULL, (unsigned)global_control::active_value(global_control::thread_stack_size),
+                                       start_routine, closure, 0, &thread_id );
     if( status==0 )
         handle_perror(errno,"__beginthreadex");
     else {
@@ -120,7 +121,7 @@ void tbb_thread_v3::internal_start( __TBB_NATIVE_THREAD_ROUTINE_PTR(start_routin
     status = pthread_attr_init( &stack_size );
     if( status )
         handle_perror( status, "pthread_attr_init" );
-    status = pthread_attr_setstacksize( &stack_size, ThreadStackSize );
+    status = pthread_attr_setstacksize( &stack_size, global_control::active_value(global_control::thread_stack_size) );
     if( status )
         handle_perror( status, "pthread_attr_setstacksize" );
 
@@ -146,7 +147,7 @@ tbb_thread_v3::id thread_get_id_v3() {
     return tbb_thread_v3::id( pthread_self() );
 #endif // _WIN32||_WIN64
 }
-    
+
 void move_v3( tbb_thread_v3& t1, tbb_thread_v3& t2 )
 {
     if (t1.joinable())

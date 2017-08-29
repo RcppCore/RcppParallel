@@ -1,26 +1,26 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // Just the tracing portion of the harness.
 //
-// This header defines TRACE and TRACENL macros, which use REPORT like syntax and 
+// This header defines TRACE and TRACENL macros, which use REPORT like syntax and
 // are useful for duplicating trace output to the standard debug output on Windows.
 // It is possible to add the ability of automatic extending messages with additional
 // info (file, line, function, time, thread ID, ...).
@@ -46,6 +46,7 @@
 
 #include <cstdarg>
 
+// Need to include "tbb/tbb_config.h" to obtain the definition of __TBB_DEFINE_MIC.
 #include "tbb/tbb_config.h"
 
 #if __TBB_DEFINE_MIC
@@ -87,10 +88,12 @@ namespace Harness {
         TbbHarnessReporter m_reporter;
 
     public:
-        enum  { 
+        enum  {
             prefix = 1,
             need_lf = 2
         };
+
+        Tracer(): m_flags(0), m_file(NULL), m_func(NULL), m_line(0) {}
 
         Tracer*  set_trace_info ( int flags, const char *file, size_t line, const char *func ) {
             m_flags = flags;
@@ -112,7 +115,7 @@ namespace Harness {
             va_start (argptr, fmt);
             int len = vsnprintf (msg, MAX_TRACE_SIZE, msg_fmt, argptr);
             va_end (argptr);
-            if ( m_flags & need_lf &&  
+            if ( m_flags & need_lf &&
                  len < MAX_TRACE_SIZE - 1  &&  msg_fmt[len-1] != '\n' )
             {
                 msg[len] = '\n';
@@ -159,7 +162,7 @@ namespace Harness {
 #define REMARK  !Verbose ? (void)0 : TRACENL
 
 //! printf style remark macro
-/** Produces output only when invoked first time. 
+/** Produces output only when invoked first time.
     Only one instance of this macro is allowed per source code line. **/
 #define REMARK_ONCE (!Verbose || Harness::internal::not_the_first_call<__LINE__>()) ? (void)0 : TRACE
 
