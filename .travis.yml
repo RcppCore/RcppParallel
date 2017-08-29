@@ -1,18 +1,11 @@
-language: cpp
-    
-before_install:
-  - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
-  - chmod 755 ./travis-tool.sh
-  - ./travis-tool.sh bootstrap
-  - ./travis-tool.sh install_aptget r-cran-rcpp r-cran-bh r-cran-runit
+# R for travis: see documentation at https://docs.travis-ci.com/user/languages/r
 
-script: 
-  - R CMD INSTALL .
-  - cd tests && Rscript doRUnit.R
+language: R
+sudo: false
+cache: packages
+
 
 notifications:
   email:
     on_success: change
     on_failure: change
-
-
