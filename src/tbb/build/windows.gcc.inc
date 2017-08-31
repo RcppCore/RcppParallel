@@ -60,11 +60,12 @@ PIC_KEY =
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
 TEST_WARNING_KEY = -Wextra -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor -Wno-uninitialized
-WARNING_SUPPRESS = -Wno-parentheses -Wno-uninitialized
+WARNING_SUPPRESS = -Wno-parentheses -Wno-uninitialized -Wno-non-virtual-dtor
 DYLIB_KEY = -shared
 LIBDL =
 EXPORT_KEY = -Wl,--version-script,
 LIBS = -lpsapi
+BIGOBJ_KEY = -Wa,-mbig-obj
 
 #------------------------------------------------------------------------------
 # End of compiler-specific variables
@@ -74,14 +75,17 @@ LIBS = -lpsapi
 
 LINK_FLAGS = -Wl,--enable-auto-import
 LIB_LINK_FLAGS = $(DYLIB_KEY)
-# gcc 4.4 and higher support -std=c++0x
-ifeq (ok,$(call detect_js,/minversion gcc 4.4))
-    CPP11_FLAGS = -std=c++0x -D_TBB_CPP0X
-endif
 
 # gcc 4.8 and later support RTM intrinsics, but require command line switch to enable them
 ifeq (ok,$(call detect_js,/minversion gcc 4.8))
     RTM_KEY = -mrtm
+endif
+
+# gcc 6.0 and later have -flifetime-dse option that controls
+# elimination of stores done outside the object lifetime
+ifeq (ok,$(call detect_js,/minversion gcc 6.0))
+    # keep pre-contruction stores for zero initialization
+    DSE_KEY = -flifetime-dse=1
 endif
 
 ifeq ($(cfg), release)
@@ -89,10 +93,6 @@ ifeq ($(cfg), release)
 endif
 ifeq ($(cfg), debug)
         CPLUS_FLAGS = -g -O0 -DTBB_USE_DEBUG
-endif
-
-ifneq (00,$(lambdas)$(cpp0x))
-    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
 endif
 
 CPLUS_FLAGS += -DUSE_WINTHREAD

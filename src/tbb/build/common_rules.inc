@@ -92,13 +92,13 @@ endef
 LINK_FILES+=$(TEST_LIBS)
 # Rule for generating executable test
 %.$(TEST_EXT): %.$(OBJ) $(TEST_LIBS) $(TEST_PREREQUISITE) $(if $(use_proxy),$(PROXY.LIB))
-	$(call make-test-binary,$@,$< $(LINK_FILES))
+	$(call make-test-binary,$@,$< $(LINK_FILES) $(PIE_FLAG))
 
 # Rules for generating a test DLL
 %_dll.$(DLL): LINK_FLAGS += $(PIC_KEY) $(DYLIB_KEY)
 %_dll.$(DLL): TEST_LIBS := $(subst %_dll.$(DLL),,$(TEST_LIBS))
 %_dll.$(DLL): %_dll.$(OBJ)
-	$(call make-test-binary,$@,$< $(subst %_dll.$(DLL),,$(LINK_FILES)))
+	$(call make-test-binary,$@,$< $(LINK_FILES))
 .PRECIOUS: %_dll.$(OBJ) %_dll.$(DLL)
 
 %.$(OBJ): %.c
@@ -155,7 +155,7 @@ $(TBB.MANIFEST):
 version_string.ver: $(TBB.MANIFEST)
 	$(MAKE_VERSIONS)
 	cmd /C "echo #define TBB_MANIFEST 1 >> version_string.ver"
-# TODO: fix parallel build by writting to a temporary file and rename it when complete
+# TODO: fix parallel build by writing to a temporary file and rename it when complete
 else
 # TODO: make version strings directly representative for all the libraries
 version_string.ver:
