@@ -16,17 +16,40 @@
 #
 #
 
-export SHELL = cmd
-
 ifdef tbb_build_dir
   test_dir:=$(tbb_build_dir)
 else
   test_dir:=.
 endif
 
+ifndef rtools
+  export SHELL = cmd
+  CMD:=cmd /C
+  SLASH=\\
+  RM=cmd /C del /Q /F
+  RD=cmd /C rmdir
+  MD=cmd /c mkdir
+  NUL= nul
+else
+  ifneq ($(COMSPEC), )
+    # Use comspec env var if present
+    # Since it represents a full path, quote in case there are some spaces.
+    CMD:="$(subst \,/,$(COMSPEC))" /C
+  else
+    # otherwise rely on cmd being in the path
+    CMD:=cmd /C
+  endif
+  export SHELL = sh.exe
+  SLASH=/
+  RD=rmdir
+  MD=mkdir
+  RM=rm
+  NUL= /dev/null
+endif
+
 # A convenience wrapper for calls to detect.js.
 # $(1) is the full command line for the script, e.g. /minversion icl 12
-detect_js = $(shell cmd /C "cscript /nologo /E:jscript $(tbb_root)/build/detect.js $(1)")
+detect_js = $(shell $(CMD) "cscript /nologo /E:jscript $(tbb_root)/build/detect.js $(1)")
 
 # TODO give an error if archs doesn't match
 ifndef arch
@@ -41,13 +64,7 @@ native_compiler := cl
 export compiler ?= cl
 debugger ?= devenv /debugexe
 
-CMD=cmd /C
-CWD=$(shell cmd /C echo %CD%)
-RM=cmd /C del /Q /F
-RD=cmd /C rmdir
-MD=cmd /c mkdir
-SLASH=\\
-NUL = nul
+CWD=$(shell $(CMD) echo %CD%)
 
 AR=lib
 AR_OUTPUT_KEY=/out:
@@ -103,8 +120,8 @@ ifneq ($(filter vc8 vc9,$(runtime)),)
 RML.MANIFEST = tbbmanifest.exe.manifest
 endif
 
-MAKE_VERSIONS = cmd /C cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(VERSION_FLAGS)") > version_string.ver
-MAKE_TBBVARS  = cmd /C "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
+MAKE_VERSIONS = $(CMD) cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(VERSION_FLAGS)") > version_string.ver
+MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)
 
