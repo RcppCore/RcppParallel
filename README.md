@@ -1,5 +1,8 @@
 ## RcppParallel Package
 
+[![Travis-CI Build Status](https://travis-ci.org/jolars/RcppParallel.svg?branch=master)](https://travis-ci.org/jolars/RcppParallel)
+[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/jolars/RcppParallel?branch=master&svg=true)](https://ci.appveyor.com/project/jolars/RcppParallel)
+
 High level functions for doing parallel programming with Rcpp. For example, the `parallelFor` function can be used to convert the work of a standard serial "for" loop into a parallel one and the `parallelReduce` function can be used for accumulating aggregate or other values.
 
 The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, OS X, and Linux systems the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
