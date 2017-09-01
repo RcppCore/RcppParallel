@@ -41,6 +41,7 @@
     LIB_LINK_FLAGS =
     LIB_LINK_LIBS =
     LIB_OUTPUT_KEY =
+    DYLIB_KEY =
     ifeq ($(tbb_os),linux)
         ifeq ($(compiler),clang)
             LIBS = -pthread -lrt
@@ -58,7 +59,7 @@
     DLL = a
     LIBEXT = a
     LIBPREF = lib
-    LIBDL = 
+    LIBDL =
 # <= OS specific settings
 
 TBB.DLL = $(LIBPREF)tbb$(DEBUG_SUFFIX).$(LIBEXT)

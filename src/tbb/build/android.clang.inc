@@ -26,6 +26,7 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
+SDL_FLAGS = -fPIE -fPIC -fstack-protector -Wformat -Wformat-security
 TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor -Wextra
 
 WARNING_SUPPRESS = -Wno-parentheses -Wno-non-virtual-dtor
@@ -33,11 +34,11 @@ DYLIB_KEY = -shared
 EXPORT_KEY = -Wl,--version-script,
 LIBDL = -ldl
 
-CPLUS = $(tbb_tool_prefix)g++
-CONLY = $(tbb_tool_prefix)gcc
+CPLUS = $(TARGET_CXX)
+CONLY = $(TARGET_CC)
 
 # -soname is necessary for proper linkage to TBB prebuilt libraries when building application with Android SDK
-LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
+LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY) -z relro -z now
 
 # pie is necessary for test executables to work and might be removed if newer NDK will add it implicitly
 PIE_FLAG = -pie
@@ -49,6 +50,7 @@ LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
 C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
+    SDL_FLAGS += -D_FORTIFY_SOURCE=2
     CPLUS_FLAGS = -O2
 endif
 ifeq ($(cfg), debug)
@@ -65,24 +67,23 @@ ifeq (0, $(dynamic_load))
      CPLUS_FLAGS += $(DEFINE_KEY)__TBB_DYNAMIC_LOAD_ENABLED=0
 endif
 
-
 # Paths to the NDK prebuilt tools and libraries
 CPLUS_FLAGS    += --sysroot=$(SYSROOT)
 LIB_LINK_FLAGS += --sysroot=$(SYSROOT)
-LIBS           = -L$(CPLUS_LIB_PATH) -lgnustl_shared
-
-ifeq (ia32,$(arch))
-    # TODO: Determine best setting of -march and add to CPLUS_FLAGS
-    CPLUS_FLAGS += -m32 
-    LIB_LINK_FLAGS += -m32
-else ifeq (intel64,$(arch))
-    CPLUS_FLAGS += -m64
-    LIB_LINK_FLAGS += -m64
-else ifeq (arm,$(arch))
-    CPLUS_FLAGS += -march=armv7-a $(DEFINE_KEY)TBB_USE_GCC_BUILTINS=1 $(DEFINE_KEY)__TBB_64BIT_ATOMICS=0
-else ifeq (arm64,$(arch))
-    CPLUS_FLAGS += -march=armv8-a
+LIBS           = -L$(CPLUS_LIB_PATH) -lc++_shared
+ifneq (,$(findstring $(ndk_version),r12 r12b r13 r13b r14 r14b))
+    LIBS +=  -lc++abi
+    ifeq (arm,$(arch))
+        LIBS += -lunwind 
+    endif
 endif
+
+ifeq (arm,$(arch))
+    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_64BIT_ATOMICS=0
+endif
+
+CPLUS_FLAGS += $(TARGET_CFLAGS)
+LIB_LINK_FLAGS += $(TARGET_CFLAGS) $(TARGET_LDFLAGS) -L$(CPLUS_LIB_PATH)
 
 #------------------------------------------------------------------------------
 # Setting assembler data.

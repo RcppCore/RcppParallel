@@ -27,18 +27,23 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -w1
+ifneq (,$(shell icc -dumpversion | egrep "1[2-9]\."))
+SDL_FLAGS = -fstack-protector -Wformat -Wformat-security
+endif
+
 DYLIB_KEY = -dynamiclib
 EXPORT_KEY = -Wl,-exported_symbols_list,
 LIBDL = -ldl
 
-OPENMP_FLAG = -openmp
 LIBS = -lpthread
 LINK_FLAGS =
-LIB_LINK_FLAGS = -dynamiclib -i-static
+LIB_LINK_FLAGS = -dynamiclib -static-intel -install_name @rpath/$(BUILDING_LIBRARY)
 C_FLAGS = $(CPLUS_FLAGS)
-# ICC 11.0 and higher support -std=c++0x
-ifneq (,$(shell icc -dumpversion | egrep  "^1[1-9]\."))
-    CPP11_FLAGS = -std=c++0x -D_TBB_CPP0X
+
+ifneq (,$(shell icc -dumpversion | egrep  "^1[6-9]\."))
+OPENMP_FLAG = -qopenmp
+else
+OPENMP_FLAG = -openmp
 endif
 
 # ICC 12.0 and higher provide Intel(R) Cilk(TM) Plus
@@ -47,6 +52,7 @@ ifneq (,$(shell icc -dumpversion | egrep  "^1[2-9]\."))
 endif
 
 ifeq ($(cfg), release)
+    SDL_FLAGS += -D_FORTIFY_SOURCE=2
     CPLUS_FLAGS = -g -O2 -fno-omit-frame-pointer
 else
     CPLUS_FLAGS = -g -O0 -DTBB_USE_DEBUG
@@ -55,20 +61,19 @@ endif
 CPLUS_FLAGS += -DUSE_PTHREAD
 
 ifneq (,$(codecov))
-    CPLUS_FLAGS += -prof-genx
+    CPLUS_FLAGS += -prof-gen=srcpos
 endif
 
-ifneq (00,$(lambdas)$(cpp0x))
-	CXX_ONLY_FLAGS += $(CPP11_FLAGS)
-endif
-
-# ICC 14.0 and higher support clang environment
+# ICC 14.0 and higher support usage of libc++, clang standard library
+# Extending minimal deployment version of official binaries to unsupported 10.8
+# per customer requests. TODO: make a dedicated variable for this
 ifneq (,$(shell icc -dumpversion | egrep  "^1[4-9]\."))
-    ifeq (libc++,$(stdlib))
-        CPLUS_FLAGS    += -use-clang-env -stdlib=libc++
-        LIB_LINK_FLAGS += -use-clang-env -stdlib=libc++
-    endif
+ifneq (,$(stdlib))
+    CPLUS_FLAGS    += -stdlib=$(stdlib) -mmacosx-version-min=10.8
+    LIB_LINK_FLAGS += -stdlib=$(stdlib) -mmacosx-version-min=10.8
 endif
+endif
+
 #------------------------------------------------------------------------------
 # Setting assembler data.
 #------------------------------------------------------------------------------

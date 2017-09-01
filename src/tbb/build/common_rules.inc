@@ -51,7 +51,6 @@ CPLUS_FLAGS += $(DEFINE_KEY)__TBB_CPF_BUILD=1
 endif
 LINK_FLAGS += $(LDFLAGS)
 LIB_LINK_FLAGS += $(LDFLAGS)
-CPLUS_FLAGS_NOSTRICT = $(subst -strict-ansi,-ansi,$(CPLUS_FLAGS))
 
 LIB_LINK_CMD ?= $(CPLUS) $(PIC_KEY)
 ifeq ($(origin LIB_OUTPUT_KEY), undefined)
@@ -111,14 +110,9 @@ LINK_FILES+=$(TEST_LIBS)
 	cpp <$< | grep -v '^#' >$*.tmp
 	$(ASM) $(ASM_FLAGS) -o $@ $*.tmp
 
-ifdef rtools
-# Line 70 doesn't work with rtool's version of make. The symptom being that the asm rule kicks off instead, and these rules are cl only
-%.$(OBJ): %.cpp
-	$(CPLUS) $(OUTPUTOBJ_KEY)$@ $(COMPILE_ONLY) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(CXX_WARN_SUPPRESS) $(INCLUDES) $<
-endif
-
 # Rule for generating .E file if needed for visual inspection
-# Note that due to mapping for ICL all uses of PREPROC_ONLY should be immediately followed by a file name
+# Note that ICL treats an argument after PREPROC_ONLY as a file to open,
+# so all uses of PREPROC_ONLY should be immediately followed by a file name
 %.E: %.cpp
 	$(CPLUS) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDES) $(PREPROC_ONLY) $< >$@
 

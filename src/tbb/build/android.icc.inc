@@ -25,16 +25,16 @@ OUTPUT_KEY = -o #
 OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
-WARNING_KEY = -Wall
-TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor -Wextra
+WARNING_KEY =
+TEST_WARNING_KEY = -Wshadow -Woverloaded-virtual -Wextra
 
 WARNING_SUPPRESS = -Wno-parentheses -Wno-non-virtual-dtor
 DYLIB_KEY = -shared
 EXPORT_KEY = -Wl,--version-script,
 LIBDL = -ldl
 
-CPLUS = $(tbb_tool_prefix)g++
-CONLY = $(tbb_tool_prefix)gcc
+CPLUS = icpc
+CONLY = icc
 
 # -soname is necessary for proper linkage to TBB prebuilt libraries when building application with Android SDK
 LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
@@ -55,7 +55,7 @@ ifeq ($(cfg), debug)
     CPLUS_FLAGS = -g -O0 $(DEFINE_KEY)TBB_USE_DEBUG
 endif
 
-CPLUS_FLAGS += $(DEFINE_KEY)USE_PTHREAD $(DEFINE_KEY)_GLIBCXX_HAVE_FENV_H
+CPLUS_FLAGS += $(DEFINE_KEY)USE_PTHREAD $(DEFINE_KEY)_GLIBCXX_HAVE_FENV_H 
 
 ifneq (,$(findstring $(arch),ia32 intel64))
     CPLUS_FLAGS += $(DEFINE_KEY)DO_ITT_NOTIFY
@@ -69,19 +69,22 @@ endif
 # Paths to the NDK prebuilt tools and libraries
 CPLUS_FLAGS    += --sysroot=$(SYSROOT)
 LIB_LINK_FLAGS += --sysroot=$(SYSROOT)
-LIBS           = -L$(CPLUS_LIB_PATH) -lgnustl_shared
+# the -static-intel flag is to remove the need to copy Intel-specific libs to the device.
+LIBS           = -L$(CPLUS_LIB_PATH) -lgnustl_shared -static-intel
 
 ifeq (ia32,$(arch))
     # TODO: Determine best setting of -march and add to CPLUS_FLAGS
-    CPLUS_FLAGS += -m32 
+    CPLUS_FLAGS += -m32 -march=pentium4 -falign-stack=maintain-16-byte
     LIB_LINK_FLAGS += -m32
-else ifeq (intel64,$(arch))
-    CPLUS_FLAGS += -m64
-    LIB_LINK_FLAGS += -m64
-else ifeq (arm,$(arch))
-    CPLUS_FLAGS += -march=armv7-a $(DEFINE_KEY)TBB_USE_GCC_BUILTINS=1 $(DEFINE_KEY)__TBB_64BIT_ATOMICS=0
-else ifeq (arm64,$(arch))
-    CPLUS_FLAGS += -march=armv8-a
+else
+    ifeq (intel64,$(arch))
+        CPLUS_FLAGS += -m64
+        LIB_LINK_FLAGS += -m64
+    endif
+endif
+
+ifeq (arm,$(findstring arm,$(arch)))
+    $(error "Unsupported architecture $(arch) for icc compiler")
 endif
 
 #------------------------------------------------------------------------------

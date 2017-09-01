@@ -29,17 +29,14 @@ ifeq (64,$(findstring 64,$(arch)))
     def_prefix = lin64
 endif
 
-gcc_version = $(shell $(tbb_tool_prefix)g++ -dumpversion)
-
-ifdef ANDROID_NDK_ROOT
-    $(warning "NDK version $(ANDROID_NDK_ROOT)")
-    ndk_version:= $(lastword $(subst -, ,$(ANDROID_NDK_ROOT)))
+ifdef ndk_version
+    $(warning "NDK version $(ndk_version)")
 else
     $(warning "NDK version not set in environment, using \'unknown\' instead.")
     ndk_version:=unknown
 endif
 
-export runtime:=$(target)_cc$(gcc_version)_NDK$(ndk_version)_version_$(target_os_version)
+export runtime:=$(target)_NDK$(ndk_version)_version_$(target_os_version)
 
 AR = $(tbb_tool_prefix)ar
 MAKE_VERSIONS=sh $(tbb_root)/build/version_info_android.sh $(VERSION_FLAGS) >version_string.ver

@@ -35,7 +35,7 @@ CPLUS = clang++
 CONLY = clang
 LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
 LIBS += -lpthread -lrt
-LINK_FLAGS = -Wl,-rpath-link=.
+LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
 C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
@@ -45,15 +45,14 @@ ifeq ($(cfg), debug)
         CPLUS_FLAGS = -DTBB_USE_DEBUG $(ITT_NOTIFY) -g -O0 -DUSE_PTHREAD
 endif
 
-ifeq (libc++,$(stdlib))
-    CPLUS_FLAGS += -stdlib=libc++
-    LIB_LINK_FLAGS += -stdlib=libc++
+ifneq (,$(stdlib))
+    CPLUS_FLAGS    += -stdlib=$(stdlib)
+    LIB_LINK_FLAGS += -stdlib=$(stdlib)
 endif
 
-CPP11_FLAGS = -std=c++11 -D_TBB_CPP0X
-
-ifneq (00,$(lambdas)$(cpp0x))
-    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
+ifneq (,$(gcc_version))
+    # TODO: do not assume that GCC minor and patchlevel versions are always single-digit.
+    CPLUS_FLAGS += -DTBB_USE_GLIBCXX_VERSION=$(subst .,0,$(gcc_version))
 endif
 
 TBB_ASM.OBJ=

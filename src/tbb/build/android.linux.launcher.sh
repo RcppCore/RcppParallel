@@ -77,18 +77,18 @@ trap do_trap_cleanup INT  # if someone hits control-c, cleanup the device
 # Collect the list of files to transfer to the target device, starting with executable itself.
 fnamelist="$exename" #
 # Add the C++ standard library from the NDK, which is required for all tests on Android.
-if [ ! -z "${LIB_GNU_STL_ANDROID}" ]; then #
-	fnamelist="$fnamelist ${LIB_GNU_STL_ANDROID}/libgnustl_shared.so" #
+if [ ! -z "${LIB_STL_ANDROID}" ]; then #
+	fnamelist="$fnamelist ${LIB_STL_ANDROID}" #
 else #
-	fnamelist="$fnamelist libgnustl_shared.so" #
+	fnamelist="$fnamelist libc++_shared.so" #
 fi #
 # Find the TBB libraries and add them to the list.
 # Add TBB libraries from the current directory that contains libtbb* files
-files="$(/bin/ls libtbb* 2> /dev/null)" #
+files="$(ls libtbb* 2> /dev/null)" #
 [ -z "$files" ] || fnamelist="$fnamelist $files" #
 # Add any libraries built for specific tests.
 exeroot=${exename%\.*} #
-files="$(/bin/ls ${exeroot}*.so ${exeroot}*.so.* 2> /dev/null)" #
+files="$(ls ${exeroot}*.so ${exeroot}*.so.* 2> /dev/null)" #
 [ -z "$files" ] || fnamelist="$fnamelist $files" #
 # TODO: Add extra libraries from the Intel(R) Compiler for certain tests
 # found=$(echo $exename | egrep 'test_malloc_atexit\|test_malloc_lib_unload' 2> /dev/null)
@@ -137,6 +137,7 @@ for fullname in "$@"; do { #
 [ -z "$ldpreload" ] || run_prefix="LD_PRELOAD='$ldpreload' $run_prefix" #
 [ $verbose ] && echo Running $run_prefix ./$exename $* #
 run_env="$run_env cd $targetdir; export LD_LIBRARY_PATH=." #
+[ -z "$VIRTUAL_MACHINE" ] || run_env="$run_env; export VIRTUAL_MACHINE=$VIRTUAL_MACHINE" #
 # The return_code file is the best way found to return the status of the test execution when using adb shell.
 eval 'adb shell "$run_env; $run_prefix ./$exename $* || echo -n \$? >error_code"' "${OUTPUT}" #
 # Capture the return code string and remove the trailing \r from the return_code file contents

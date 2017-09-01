@@ -31,8 +31,10 @@ WARNING_AS_ERROR_KEY = Warning as error
 WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,inlasmpnu
 tbb_strict=0
 
-CPLUS = CC -library=stlport4
+CPLUS = CC
 CONLY = cc
+
+OPENMP_FLAG = -xopenmp
 LIB_LINK_FLAGS = -G -R . -M$(tbb_root)/build/suncc.map.pause
 LINK_FLAGS += -M$(tbb_root)/build/suncc.map.pause
 LIBS = -lpthread -lrt -R .

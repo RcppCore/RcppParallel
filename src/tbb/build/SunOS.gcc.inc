@@ -25,7 +25,7 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
-TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor $(if $(findstring cc4., $(runtime)),-Wextra)
+TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor -Wextra
 WARNING_SUPPRESS = -Wno-parentheses -Wno-non-virtual-dtor
 DYLIB_KEY = -shared
 LIBDL = -ldl
@@ -63,6 +63,7 @@ ifeq (ia32,$(arch))
     LIB_LINK_FLAGS += -m32
 endif 
 
+# for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify)
 ifeq (sparc,$(arch))
     CPLUS_FLAGS    += -mcpu=v9 -m64
     LIB_LINK_FLAGS += -mcpu=v9 -m64

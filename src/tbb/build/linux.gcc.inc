@@ -25,7 +25,7 @@ OUTPUTOBJ_KEY = -o #
 PIC_KEY = -fPIC
 WARNING_AS_ERROR_KEY = -Werror
 WARNING_KEY = -Wall
-TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor $(if $(findstring cc4., $(runtime)),-Wextra)
+TEST_WARNING_KEY = -Wshadow -Wcast-qual -Woverloaded-virtual -Wnon-virtual-dtor
 
 WARNING_SUPPRESS = -Wno-parentheses -Wno-non-virtual-dtor
 DYLIB_KEY = -shared
@@ -38,10 +38,6 @@ LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
 LIBS += -lpthread -lrt
 LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
 C_FLAGS = $(CPLUS_FLAGS)
-# gcc 4.4 and higher support -std=c++0x
-ifneq (,$(shell gcc -dumpversion | egrep  "^(4\.[4-9]|[5-9])"))
-    CPP11_FLAGS = -std=c++0x -D_TBB_CPP0X
-endif
 
 # gcc 4.2 and higher support OpenMP
 ifneq (,$(shell gcc -dumpversion | egrep  "^(4\.[2-9]|[5-9])"))
@@ -49,8 +45,26 @@ ifneq (,$(shell gcc -dumpversion | egrep  "^(4\.[2-9]|[5-9])"))
 endif
 
 # gcc 4.8 and later support RTM intrinsics, but require command line switch to enable them
-ifneq (,$(shell gcc -dumpversion | egrep  "^4\.[8-9]"))
+ifneq (,$(shell gcc -dumpversion | egrep  "^(4\.[8-9]|[5-9])"))
     RTM_KEY = -mrtm
+endif
+
+# gcc 4.0 and later have -Wextra that is used by some our customers.
+ifneq (,$(shell gcc -dumpversion | egrep  "^([4-9])"))
+    TEST_WARNING_KEY += -Wextra
+endif
+
+# gcc 5.0 and later have -Wsuggest-override option
+# enable it via a pre-included header in order to limit to C++11 and above
+ifneq (,$(shell gcc -dumpversion | egrep  "^([5-9])"))
+    INCLUDE_TEST_HEADERS = -include $(tbb_root)/src/test/harness_preload.h
+endif
+
+# gcc 6.0 and later have -flifetime-dse option that controls
+# elimination of stores done outside the object lifetime
+ifneq (,$(shell gcc -dumpversion | egrep  "^([6-9])"))
+    # keep pre-contruction stores for zero initialization
+    DSE_KEY = -flifetime-dse=1
 endif
 
 ifeq ($(cfg), release)
@@ -58,10 +72,6 @@ ifeq ($(cfg), release)
 endif
 ifeq ($(cfg), debug)
         CPLUS_FLAGS = -DTBB_USE_DEBUG $(ITT_NOTIFY) -g -O0 -DUSE_PTHREAD
-endif
-
-ifneq (00,$(lambdas)$(cpp0x))
-    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
 endif
 
 TBB_ASM.OBJ=
@@ -95,8 +105,8 @@ ifeq (ppc32,$(arch))
 endif
 
 ifeq (bg,$(arch))
-    CPLUS = mpicxx
-    CONLY = mpicc
+    CPLUS = $(firstword $(notdir $(shell which powerpc{64,32,}-bg{z..a}-linux-g++ 2>/dev/null)))
+    CONLY = $(firstword $(notdir $(shell which powerpc{64,32,}-bg{z..a}-linux-gcc 2>/dev/null)))
 endif
 
 # for some gcc versions on Solaris, -m64 may imply V9, but perhaps not everywhere (TODO: verify)

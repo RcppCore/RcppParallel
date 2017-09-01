@@ -16,6 +16,9 @@
 #
 #
 
+# TODO: investigate why version_string.ver is not complete when $(RML_SERVER.OBJ) is being compiled.
+.NOTPARALLEL:
+
 tbb_root ?= $(TBBROOT)
 BUILDING_PHASE=1
 TEST_RESOURCE = $(RML.RES)
@@ -78,18 +81,18 @@ R_CPLUS_FLAGS =  $(subst DO_ITT_NOTIFY,DO_ITT_NOTIFY=0,$(CPLUS_FLAGS)) $(WARNING
 		 $(DEFINE_KEY)TBB_USE_THREADING_TOOLS=0 $(DEFINE_KEY)__TBB_RML_STATIC=1 $(DEFINE_KEY)__TBB_NO_IMPLICIT_LINKAGE=1
 
 %.$(OBJ): %.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(R_CPLUS_FLAGS) $(PIC_KEY) $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(R_CPLUS_FLAGS) $(PIC_KEY) $(DSE_KEY) $(INCLUDES) $<
 
 ifeq (linux,$(tbb_os))
 omp_dynamic_link.$(OBJ): CPLUS_FLAGS+=-fno-exceptions
 endif
 
-tbb_misc_rml.$(OBJ): version_string.ver
+tbb_misc_rml.$(OBJ) $(RML_SERVER.OBJ): version_string.ver
 
 RML_TEST.OBJ = test_job_automaton.$(OBJ) test_thread_monitor.$(OBJ) test_rml_tbb.$(OBJ) test_rml_omp.$(OBJ) test_rml_mixed.$(OBJ)
 
 $(RML_TBB_DEP): %_rml.$(OBJ): %.cpp
-	$(CPLUS) $(COMPILE_ONLY) $(OUTPUTOBJ_KEY)$@ $(R_CPLUS_FLAGS) $(PIC_KEY) $(INCLUDES) $<
+	$(CPLUS) $(COMPILE_ONLY) $(OUTPUTOBJ_KEY)$@ $(R_CPLUS_FLAGS) $(PIC_KEY) $(DSE_KEY) $(INCLUDES) $<
 
 $(RML_TEST.OBJ): %.$(OBJ): %.cpp
 	$(CPLUS) $(COMPILE_ONLY) $(R_CPLUS_FLAGS) $(PIC_KEY) $(T_INCLUDES) $<
@@ -102,6 +105,7 @@ LIB_LINK_FLAGS += $(EXPORT_KEY)rml.def
 $(RML.DLL): rml.def
 endif
 
+$(RML.DLL): CPLUS_FLAGS += $(SDL_FLAGS)
 $(RML.DLL): BUILDING_LIBRARY = $(RML.DLL)
 $(RML.DLL): $(RML_TBB_DEP) $(RML_SERVER.OBJ) $(RML.RES) $(RML_NO_VERSION.DLL) $(RML_ASM.OBJ)
 	$(LIB_LINK_CMD) $(LIB_OUTPUT_KEY)$(RML.DLL) $(RML_SERVER.OBJ) $(RML_TBB_DEP) $(RML_ASM.OBJ) $(RML.RES) $(LIB_LINK_LIBS) $(LIB_LINK_FLAGS)
@@ -158,5 +162,5 @@ rml_test: $(call cross_suffix,$(RML.DLL)) $(TEST_PREREQUISITE) $(RML_TESTS) $(RM
 # End of rules for making the TBBMalloc unit tests
 #------------------------------------------------------
 
-# Include automatically generated dependences
+# Include automatically generated dependencies
 -include *.d

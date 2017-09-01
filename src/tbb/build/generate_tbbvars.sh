@@ -67,5 +67,5 @@ ${TBB_CUSTOM_VARS_CSH} #
 EOF
 # Workaround for copying Android* specific stl shared library to "."
 if [ ! -z "${LIB_STL_ANDROID}" ]; then #
-    cp ${LIB_STL_ANDROID} . #
+	cp ${LIB_STL_ANDROID} . #
 fi #

@@ -41,10 +41,8 @@ ifeq ($(arch), ia32)
 	LIB_LINK_FLAGS += /SAFESEH
 endif
 
-
-# ICC 11.0 and higher support -std=c++0x
-ifeq (ok,$(call detect_js,/minversion icl 11))
-    CPP11_FLAGS = /Qstd=c++0x /D_TBB_CPP0X
+ifneq (,$(stdver))
+    CXX_STD_FLAGS = /Qstd=$(stdver) /D_TBB_CPP0X
 endif
 
 # ICC 12.0 and higher provide Intel(R) Cilk(TM) Plus
@@ -83,6 +81,7 @@ DYLIB_KEY = /DLL
 EXPORT_KEY = /DEF:
 NODEFAULTLIB_KEY = /Zl
 NOINTRINSIC_KEY = /Oi-
+BIGOBJ_KEY = /bigobj
 
 
 ifneq (,$(codecov))
@@ -100,11 +99,7 @@ ifeq ($(runtime),vc8)
 endif
 
 
-C_FLAGS = $(CPLUS_FLAGS)
-
-ifneq (00,$(lambdas)$(cpp0x))
-    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
-endif
+C_FLAGS = $(subst $(EH_FLAGS),,$(CPLUS_FLAGS))
 
 VCVERSION:=$(runtime)
 VCCOMPAT_FLAG ?= $(if $(findstring vc7.1, $(VCVERSION)),/Qvc7.1)
@@ -125,6 +120,9 @@ ifeq ($(VCCOMPAT_FLAG),)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
         VCCOMPAT_FLAG := $(if $(findstring vc12, $(VCVERSION)),/Qvc12)
+endif
+ifeq ($(VCCOMPAT_FLAG),)
+        VCCOMPAT_FLAG := $(if $(findstring vc14, $(VCVERSION)),/Qvc14)
 endif
 ifeq ($(VCCOMPAT_FLAG),)
         $(error VC version not detected correctly: $(VCVERSION) )
@@ -158,7 +156,7 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-M_CPLUS_FLAGS = $(subst $(EH_FLAGS),/EHs-,$(CPLUS_FLAGS))
+M_CPLUS_FLAGS = $(CPLUS_FLAGS)
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

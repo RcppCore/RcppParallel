@@ -28,33 +28,34 @@ ifeq (android,$(findstring android,$(tbb_os)))
     $(error TBB only supports cross-compilation for Android. Specify "target=android" instead.)
 endif
 
-ifneq ("command line","$(origin arch)")
-    ifeq (icc,$(compiler))
-        export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
-        ifneq (,$(findstring IA-32, $(COMPILER_VERSION)))
-            export arch:=ia32
-        else
-            $(error "No support for Android in $(COMPILER_VERSION)")
-        endif
-
-    else
-        ifdef ANDROID_SERIAL
-            uname_m:=$(shell adb shell uname -m)
-            ifeq (i686,$(uname_m))
+ifndef BUILDING_PHASE
+    ifneq ("command line","$(origin arch)")
+        ifeq (icc,$(compiler))
+            export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
+            ifneq (,$(findstring running on IA-32, $(COMPILER_VERSION)))
                 export arch:=ia32
+            else ifneq (,$(findstring running on Intel(R) 64, $(COMPILER_VERSION)))
+                export arch:=intel64
             else
-                export arch:=$(uname_m)
+                $(error "No support for Android in $(COMPILER_VERSION)")
             endif
+
         else
-            ifndef arch
-                $(error "No target architecture specified and \'ANDROID_SERIAL\' environment variable specifying target device not set")
+            ifdef ANDROID_SERIAL
+                uname_m:=$(shell adb shell uname -m)
+                ifeq (i686,$(uname_m))
+                    export arch:=ia32
+                else
+                    export arch:=$(uname_m)
+                endif
             endif
         endif
     endif
 endif
 
-# Many OS versions (Android 4.0.[0-3] for example) need workaround for dlopen to avoid non-recursive loader lock hang
-export dlopen_workaround = 1
+ifeq ("$(arch)","")
+    $(error "No target architecture specified and \'ANDROID_SERIAL\' environment variable specifying target device not set")
+endif
 
 # Android platform only supported from TBB 4.1 forward
 NO_LEGACY_TESTS = 1

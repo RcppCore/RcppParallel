@@ -31,7 +31,7 @@ ifndef arch
 endif
 
 ifndef runtime
-        gcc_version:=$(shell gcc -v 2>&1 | grep 'gcc version' | sed -e 's/^gcc version //' | sed -e 's/ .*$$//')
+        gcc_version:=$(shell gcc -dumpversion)
         os_version:=$(shell uname -r)
         os_kernel_version:=$(shell uname -r | sed -e 's/-.*$$//')
         export runtime:=cc$(gcc_version)_kernel$(os_kernel_version)
