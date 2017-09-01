@@ -23,6 +23,7 @@
 tbb_root ?= "$(TBBROOT)"
 BUILDING_PHASE=1
 include $(tbb_root)/build/common.inc
+CPLUS_FLAGS += $(SDL_FLAGS)
 DEBUG_SUFFIX=$(findstring _debug,_$(cfg))
 
 #------------------------------------------------------------
@@ -36,12 +37,7 @@ default_tbb: $(TBB.DLL)
 
 VPATH = $(tbb_root)/src/tbb/$(ASSEMBLY_SOURCE) $(tbb_root)/src/tbb $(tbb_root)/src/old $(tbb_root)/src/rml/client
 
-CPLUS_FLAGS += $(PIC_KEY) $(DEFINE_KEY)__TBB_BUILD=1
-
-# suppress warnings for build of itt_notify by GCC3
-ifneq (,$(findstring gcc_cc3., $(compiler)_$(runtime)))
-KNOWN_WARNINGS += itt_notify.$(OBJ)
-endif
+CPLUS_FLAGS += $(PIC_KEY) $(DSE_KEY) $(DEFINE_KEY)__TBB_BUILD=1
 
 # Object files (that were compiled from C++ code) that gmake up TBB
 TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
@@ -79,7 +75,7 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		tbb_main.$(OBJ)
 
 # OLD/Legacy object files for backward binary compatibility
-ifeq (,$(findstring $(DEFINE_KEY)TBB_NO_LEGACY,$(CXXFLAGS)))
+ifeq (,$(findstring $(DEFINE_KEY)TBB_NO_LEGACY,$(CPLUS_FLAGS)))
 TBB_CPLUS_OLD.OBJ = \
 		concurrent_vector_v2.$(OBJ) \
 		concurrent_queue_v2.$(OBJ) \
@@ -118,5 +114,5 @@ endif
 #clean:
 #	$(RM) *.$(OBJ) *.$(DLL) *.res *.map *.ilk *.pdb *.exp *.manifest *.tmp *.d core core.*[0-9][0-9] *.ver
 
-# Include automatically generated dependences
+# Include automatically generated dependencies
 -include *.d

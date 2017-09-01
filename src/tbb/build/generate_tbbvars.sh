@@ -23,7 +23,7 @@ bin_dir="$PWD"  #
 cd "$tbb_root"  # keep this comments here
 tbb_root="$PWD" # to make it unsensible
 cd "$bin_dir"   # to EOL encoding
-[ -f ./tbbvars.sh ] || cat >./tbbvars.sh <<EOF
+cat >./tbbvars.sh <<EOF
 #!/bin/bash
 export TBBROOT="${tbb_root}" #
 tbb_bin="${bin_dir}" #
@@ -44,7 +44,7 @@ else #
 fi #
 ${TBB_CUSTOM_VARS_SH} #
 EOF
-[ -f ./tbbvars.csh ] || cat >./tbbvars.csh <<EOF
+cat >./tbbvars.csh <<EOF
 #!/bin/csh
 setenv TBBROOT "${tbb_root}" #
 setenv tbb_bin "${bin_dir}" #
@@ -65,7 +65,7 @@ else #
 endif #
 ${TBB_CUSTOM_VARS_CSH} #
 EOF
-# Workaround for copying Android* specific libgnustl_shared.so library to "."
-if [ ! -z "${LIB_GNU_STL_ANDROID}" ]; then #
-	cp ${LIB_GNU_STL_ANDROID}/libgnustl_shared.so . #
+# Workaround for copying Android* specific stl shared library to "."
+if [ ! -z "${LIB_STL_ANDROID}" ]; then #
+    cp ${LIB_STL_ANDROID} . #
 fi #
