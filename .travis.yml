@@ -3,11 +3,11 @@ sudo: false
 cache: packages
 warnings_are_errors: true
 latex: false
-dist: trusty
 
 matrix:
   include:
     - os: linux
+      compiler: gcc
       r: release
       addons:
         apt:
