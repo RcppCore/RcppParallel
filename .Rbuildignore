@@ -10,3 +10,5 @@
 ^doc$
 ^src/.*\.o$
 ^gen/
+^appveyor\.yml$
+^\.travis\.yml$
