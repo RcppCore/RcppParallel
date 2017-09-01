@@ -28,14 +28,18 @@ CPLUS = cl /nologo
 LINK_FLAGS = /link /nologo
 LIB_LINK_FLAGS=/link /nologo /DLL /MAP /DEBUG /fixed:no /INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT
 
+ifneq (,$(stdver))
+    CXX_STD_FLAGS = /std:$(stdver) /D_TBB_CPP0X
+endif
+
 ifeq ($(arch), ia32)
-	LIB_LINK_FLAGS += /SAFESEH
+    LIB_LINK_FLAGS += /SAFESEH
 endif
 
 ifeq ($(runtime), vc_mt)
-	MS_CRT_KEY = /MT$(if $(findstring debug,$(cfg)),d)
+    MS_CRT_KEY = /MT$(if $(findstring debug,$(cfg)),d)
 else
-	MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
+    MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
 endif
 EH_FLAGS = /EHsc /GR
 
@@ -67,6 +71,7 @@ DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
 OUTPUTOBJ_KEY = /Fo
 WARNING_AS_ERROR_KEY = /WX
+BIGOBJ_KEY = /bigobj
 
 ifeq ($(runtime),vc7.1)
         WARNING_KEY = /W3
@@ -91,9 +96,15 @@ ifeq (ok,$(call detect_js,/minversion cl 17))
         CPLUS_FLAGS += /volatile:iso
 endif
 
+# Since VS2013, VC++ uses the same .pdb file for different sources so we need
+# to add /FS (Force Synchronous PDB Writes)
+ifeq (ok,$(call detect_js,/minversion cl 18))
+        CPLUS_FLAGS += /FS
+endif
+
 CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
         /D_WIN32_WINNT=$(_WIN32_WINNT)
-C_FLAGS = $(CPLUS_FLAGS)
+C_FLAGS = $(subst $(EH_FLAGS),,$(CPLUS_FLAGS))
 
 #------------------------------------------------------------------------------
 # End of setting compiler flags.
@@ -127,11 +138,7 @@ endif
 #------------------------------------------------------------------------------
 # Setting tbbmalloc data.
 #------------------------------------------------------------------------------
-ifneq ($(target_ui), win8ui)
-M_CPLUS_FLAGS = $(subst $(EH_FLAGS),/EHs-,$(CPLUS_FLAGS))
-else
 M_CPLUS_FLAGS = $(CPLUS_FLAGS)
-endif
 #------------------------------------------------------------------------------
 # End of setting tbbmalloc data.
 #------------------------------------------------------------------------------

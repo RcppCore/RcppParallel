@@ -78,7 +78,7 @@ ASMEXT = asm
 def_prefix = $(if $(findstring intel64,$(arch)),win64,win32)
 
 # Target Windows version. Do not increase beyond 0x0502 without prior discussion!
-# Used as the value for macro definition opiton in windows.cl.inc etc.
+# Used as the value for macro definition option in windows.cl.inc etc.
 # For tests, we need at least Windows XP SP2 for sake of enabling stack backtraces.
 _WIN32_WINNT=0x0502
 
@@ -124,3 +124,6 @@ MAKE_VERSIONS = $(CMD) cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build
 MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)
+
+OPENCL.LIB = OpenCL.$(LIBEXT)
+
