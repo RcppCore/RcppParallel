@@ -49,7 +49,7 @@ PROXY.LIB =
 # Compiler-specific variables
 #------------------------------------------------------------------------------
 
-CPLUS = g++
+# CPLUS = g++
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
@@ -101,7 +101,7 @@ CPLUS_FLAGS += -D_WIN32_WINNT=$(_WIN32_WINNT)
 # MinGW specific
 CPLUS_FLAGS += -DMINGW_HAS_SECURE_API=1 -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
 
-CONLY = gcc
+# CONLY = gcc
 debugger = gdb
 C_FLAGS = $(CPLUS_FLAGS)
 
