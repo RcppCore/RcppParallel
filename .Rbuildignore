@@ -10,3 +10,4 @@
 ^doc$
 ^src/.*\.o$
 ^gen/
+^appveyor\.yml$
