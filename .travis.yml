@@ -3,7 +3,6 @@ sudo: false
 cache: packages
 warnings_are_errors: true
 latex: false
-dist: trusty
 
 matrix:
   include:
@@ -16,10 +15,6 @@ matrix:
       r_check_args: '--as-cran --use-valgrind'
       env:
         - VALGRIND_OPTS='--leak-check=full --track-origins=yes'
-      r_github_packages:
-        - jimhester/covr
-      after_success:
-        - Rscript -e 'covr::codecov()'
 
     - os: linux
       compiler: clang
