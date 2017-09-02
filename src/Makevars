@@ -74,11 +74,11 @@ tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
-	   $(MAKE_CMD) stdver=c++0x compiler=clang $(MAKE_ARGS); \
+	   $(MAKE_CMD) cpp0x=1 compiler=clang $(MAKE_ARGS); \
 	elif [ -n "$(shell echo $(CC) | grep gcc)" ]; then \
-	   $(MAKE_CMD) stdver=c++0x compiler=gcc $(MAKE_ARGS); \
+	   $(MAKE_CMD) cpp0x=1 compiler=gcc $(MAKE_ARGS); \
 	else \
-	   $(MAKE_CMD) stdver=c++0x $(MAKE_ARGS); \
+	   $(MAKE_CMD) cpp0x=1 $(MAKE_ARGS); \
 	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
