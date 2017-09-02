@@ -97,7 +97,7 @@ LINK_FILES+=$(TEST_LIBS)
 %_dll.$(DLL): LINK_FLAGS += $(PIC_KEY) $(DYLIB_KEY)
 %_dll.$(DLL): TEST_LIBS := $(subst %_dll.$(DLL),,$(TEST_LIBS))
 %_dll.$(DLL): %_dll.$(OBJ)
-	$(call make-test-binary,$@,$< $(LINK_FILES))
+	$(call make-test-binary,$@,$< $(subst %_dll.$(DLL),,$(LINK_FILES)))
 .PRECIOUS: %_dll.$(OBJ) %_dll.$(DLL)
 
 %.$(OBJ): %.c
