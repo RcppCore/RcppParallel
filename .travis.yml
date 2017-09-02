@@ -1,47 +1,21 @@
-language: r
-sudo: false
-cache: packages
-warnings_are_errors: true
-latex: false
+# Run Travis CI for R using https://eddelbuettel.github.io/r-travis/
 
-matrix:
-  include:
-    - os: linux
-      compiler: gcc
-      r: release
-      addons:
-        apt:
-          packages:
-            - valgrind
-      r_check_args: '--as-cran --use-valgrind'
-      env:
-        - VALGRIND_OPTS='--leak-check=full --track-origins=yes'
-        
-    - os: linux
-      compiler: clang
-      r: release
+language: c
+sudo: required
+group: edge
 
-    - os: linux
-      compiler: gcc
-      r: devel
+before_install:
+  - curl -OLs https://eddelbuettel.github.io/r-travis/run.sh && chmod 0755 run.sh
+  - ./run.sh bootstrap
 
-    - os: linux
-      compiler: clang
-      r: devel
+install:
+  - ./run.sh install_aptget  r-cran-rcpp r-cran-bh r-cran-runit r-cran-knitr r-cran-rmarkdown
 
-    - os: linux
-      compiler: gcc
-      r: oldrel
+script:
+  - ./run.sh run_tests
 
-    - os: linux
-      compiler: clang
-      r: oldrel
-
-    - os: osx
-      r: release
-
-    - os: osx
-      r: oldrel
+after_failure:
+  - ./run.sh dump_logs
 
 notifications:
   email:
