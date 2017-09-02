@@ -11,3 +11,4 @@
 ^src/.*\.o$
 ^gen/
 ^appveyor\.yml$
+^revdep$
