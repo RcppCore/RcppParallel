@@ -1,7 +1,7 @@
 # Calls to 'firstword' are used to strip out
 # a possible '-m64' attached to the CC variable
 # (or other compiler arguments)
-PKG_CPPFLAGS += $(CXX11STD) -I../inst/include/
+PKG_CPPFLAGS += $(CXX1XSTD) -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
 
@@ -9,7 +9,7 @@ ifeq ($(OS), Windows_NT)
   TBB_COPY_PATTERN=tbb*.dll
   
   MAKEFLAGS = -j1
-  MAKE_CMD = CONLY="$(CC)" CPLUS="$(CXX11)" make
+  MAKE_CMD = CONLY="$(CC)" CPLUS="$(CXX1X)" make
 
 else
   
