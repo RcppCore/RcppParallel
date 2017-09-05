@@ -1,18 +1,23 @@
-language: cpp
-    
-before_install:
-  - curl -OL http://raw.github.com/craigcitro/r-travis/master/scripts/travis-tool.sh
-  - chmod 755 ./travis-tool.sh
-  - ./travis-tool.sh bootstrap
-  - ./travis-tool.sh install_aptget r-cran-rcpp r-cran-bh r-cran-runit
+# Run Travis CI for R using https://eddelbuettel.github.io/r-travis/
 
-script: 
-  - R CMD INSTALL .
-  - cd tests && Rscript doRUnit.R
+language: c
+sudo: required
+group: edge
+
+before_install:
+  - curl -OLs https://eddelbuettel.github.io/r-travis/run.sh && chmod 0755 run.sh
+  - ./run.sh bootstrap
+
+install:
+  - ./run.sh install_aptget  r-cran-rcpp r-cran-bh r-cran-runit r-cran-knitr r-cran-rmarkdown
+
+script:
+  - ./run.sh run_tests
+
+after_failure:
+  - ./run.sh dump_logs
 
 notifications:
   email:
     on_success: change
     on_failure: change
-
-

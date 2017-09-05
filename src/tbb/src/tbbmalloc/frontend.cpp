@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 
@@ -24,8 +24,8 @@
 #include <new>        /* for placement new */
 #include <string.h>   /* for memset */
 
-//! Define the main synchronization method
-#define FINE_GRAIN_LOCKS
+#include "../tbb/tbb_version.h"
+#include "../tbb/itt_notify.h" // for __TBB_load_ittnotify()
 
 #if USE_PTHREAD
     #define TlsSetValue_func pthread_setspecific
@@ -37,19 +37,21 @@
     #if __sun || __SUNPRO_CC
     #define __asm__ asm
     #endif
-
+    #include <unistd.h> // sysconf(_SC_PAGESIZE)
 #elif USE_WINTHREAD
     #define GetMyTID() GetCurrentThreadId()
 #if __TBB_WIN8UI_SUPPORT
-#include<thread>
+    #include<thread>
     #define TlsSetValue_func FlsSetValue
     #define TlsGetValue_func FlsGetValue
     #define TlsAlloc() FlsAlloc(NULL)
+    #define TLS_ALLOC_FAILURE FLS_OUT_OF_INDEXES
     #define TlsFree FlsFree
     inline void do_yield() {std::this_thread::yield();}
 #else
     #define TlsSetValue_func TlsSetValue
     #define TlsGetValue_func TlsGetValue
+    #define TLS_ALLOC_FAILURE TLS_OUT_OF_INDEXES
     inline void do_yield() {SwitchToThread();}
 #endif
 #else
@@ -85,11 +87,6 @@ bool RecursiveMallocCallProtector::noRecursion() {
 const uint16_t startupAllocObjSizeMark = ~(uint16_t)0;
 
 /*
- * This number of bins in the TLS that leads to blocks that we can allocate in.
- */
-const uint32_t numBlockBinLimit = 31;
-
-/*
  * The following constant is used to define the size of struct Block, the block header.
  * The intent is to have the size of a Block multiple of the cache line size, this allows us to
  * get good alignment at the cost of some overhead equal to the amount of padding included in the Block.
@@ -117,19 +114,18 @@ public:
 #if USE_INTERNAL_TID
 class ThreadId {
     static tls_key_t Tid_key;
-    static intptr_t ThreadIdCount;
+    static intptr_t ThreadCount;
 
     unsigned int id;
 
-    static ThreadId get() {
-        ThreadId result;
-        result.id = reinterpret_cast<intptr_t>(TlsGetValue_func(Tid_key));
-        if( !result.id ) {
+    static unsigned int tlsNumber() {
+        unsigned int result = reinterpret_cast<intptr_t>(TlsGetValue_func(Tid_key));
+        if( !result ) {
             RecursiveMallocCallProtector scoped;
             // Thread-local value is zero -> first call from this thread,
             // need to initialize with next ID value (IDs start from 1)
-            result.id = AtomicIncrement(ThreadIdCount); // returned new value!
-            TlsSetValue_func( Tid_key, reinterpret_cast<void*>(result.id) );
+            result = AtomicIncrement(ThreadCount); // returned new value!
+            TlsSetValue_func( Tid_key, reinterpret_cast<void*>(result) );
         }
         return result;
     }
@@ -148,34 +144,39 @@ public:
     static void destroy() {
         if( Tid_key ) {
 #if USE_WINTHREAD
-            TlsFree( Tid_key );
+            BOOL status = !(TlsFree( Tid_key ));  // fail is zero
 #else
             int status = pthread_key_delete( Tid_key );
+#endif /* USE_WINTHREAD */
             if ( status ) {
                 fprintf (stderr, "The memory manager cannot delete tls key; exiting \n");
                 exit(1);
             }
-#endif /* USE_WINTHREAD */
             Tid_key = 0;
         }
     }
 
-    bool isCurrentThreadId() const { return id == ThreadId::get().id; }
-    void saveCurrentThreadId() { id = ThreadId::get().id; }
+    ThreadId() : id(ThreadId::tlsNumber()) {}
+    bool isCurrentThreadId() const { return id == ThreadId::tlsNumber(); }
 
+#if COLLECT_STATISTICS || MALLOC_TRACE
+    friend unsigned int getThreadId() { return ThreadId::tlsNumber(); }
+#endif
 #if COLLECT_STATISTICS
-    static unsigned getMaxThreadId() { return ThreadIdCount; }
+    static unsigned getMaxThreadId() { return ThreadCount; }
 
-    friend unsigned int getThreadId();
     friend int STAT_increment(ThreadId tid, int bin, int ctr);
 #endif
 };
 
 tls_key_t ThreadId::Tid_key;
-intptr_t ThreadId::ThreadIdCount;
+intptr_t ThreadId::ThreadCount;
 
 #if COLLECT_STATISTICS
-unsigned int getThreadId() { return ThreadId::get().id; }
+int STAT_increment(ThreadId tid, int bin, int ctr)
+{
+    return ::STAT_increment(tid.id, bin, ctr);
+}
 #endif
 
 #else // USE_INTERNAL_TID
@@ -188,7 +189,6 @@ class ThreadId {
 #endif
 public:
     ThreadId() : tid(GetMyTID()) {}
-    void saveCurrentThreadId() { tid = GetMyTID(); }
 #if USE_PTHREAD
     bool isCurrentThreadId() const { return pthread_equal(pthread_self(), tid); }
 #else
@@ -200,39 +200,31 @@ public:
 
 #endif // USE_INTERNAL_TID
 
-#if COLLECT_STATISTICS
-int STAT_increment(ThreadId tid, int bin, int ctr)
-{
-    return ::STAT_increment(tid.id, bin, ctr);
-}
-#endif
-
 /*********** Code to provide thread ID and a thread-local void pointer **********/
 
-TLSKey::TLSKey()
+bool TLSKey::init()
 {
 #if USE_WINTHREAD
     TLS_pointer_key = TlsAlloc();
+    if (TLS_pointer_key == TLS_ALLOC_FAILURE)
+        return false;
 #else
     int status = pthread_key_create( &TLS_pointer_key, mallocThreadShutdownNotification );
-    if ( status ) {
-        fprintf (stderr, "The memory manager cannot create tls key during initialization; exiting \n");
-        exit(1);
-    }
+    if ( status )
+        return false;
 #endif /* USE_WINTHREAD */
+    return true;
 }
 
-TLSKey::~TLSKey()
+bool TLSKey::destroy()
 {
 #if USE_WINTHREAD
-    TlsFree(TLS_pointer_key);
+    BOOL status1 = !(TlsFree(TLS_pointer_key)); // fail is zero
 #else
     int status1 = pthread_key_delete(TLS_pointer_key);
-    if ( status1 ) {
-        fprintf (stderr, "The memory manager cannot delete tls key during; exiting \n");
-        exit(1);
-    }
 #endif /* USE_WINTHREAD */
+    MALLOC_ASSERT(!status1, "The memory manager cannot delete tls key.");
+    return status1==0;
 }
 
 inline TLSData* TLSKey::getThreadMallocTLS() const
@@ -259,36 +251,6 @@ inline void TLSKey::setThreadMallocTLS( TLSData * newvalue ) {
  */
 class Bin;
 class StartupBlock;
-class TLSData;
-
-class LifoList {
-public:
-    inline LifoList();
-    inline void push(Block *block);
-    inline Block *pop();
-
-private:
-    Block *top;
-#ifdef FINE_GRAIN_LOCKS
-    MallocMutex lock;
-#endif /* FINE_GRAIN_LOCKS     */
-};
-
-/*
- * When a block that is not completely free is returned for reuse by other threads
- * this is where the block goes.
- *
- * LifoList assumes zero initialization; so below its constructors are omitted,
- * to avoid linking with C++ libraries on Linux.
- */
-
-class OrphanedBlocks {
-    LifoList bins[numBlockBinLimit];
-public:
-    Block *get(TLSData *tls, unsigned int size);
-    void put(Bin *bin, Block *block);
-    void reset();
-};
 
 class MemoryPool {
     // if no explicit grainsize, expect to see malloc in user's pAlloc
@@ -304,13 +266,12 @@ public:
     MemoryPool    *next,
                   *prev;
     ExtMemoryPool  extMemPool;
-    OrphanedBlocks orphanedBlocks;
     BootStrapBlocks bootStrapBlocks;
 
     bool init(intptr_t poolId, const MemPoolPolicy* memPoolPolicy);
     static void initDefaultPool();
-    void reset();
-    void destroy();
+    bool reset();
+    bool destroy();
     void processThreadShutdown(TLSData *tlsData);
 
     inline TLSData *getTLS(bool create);
@@ -324,14 +285,27 @@ public:
     void putToLLOCache(TLSData *tls, void *object);
 };
 
-static char defaultMemPool_space[sizeof(MemoryPool)];
-static MemoryPool *defaultMemPool = (MemoryPool *)defaultMemPool_space;
+static intptr_t defaultMemPool_space[sizeof(MemoryPool)/sizeof(intptr_t) +
+                                     (sizeof(MemoryPool)%sizeof(intptr_t)? 1 : 0)];
+static MemoryPool *defaultMemPool = (MemoryPool*)defaultMemPool_space;
 const size_t MemoryPool::defaultGranularity;
 // zero-initialized
 MallocMutex  MemoryPool::memPoolListLock;
 // TODO: move huge page status to default pool, because that's its states
 HugePagesStatus hugePages;
-static bool usedBySrcIncluded;
+static bool usedBySrcIncluded = false;
+
+// Padding helpers
+template<size_t padd>
+struct PaddingImpl {
+    size_t       __padding[padd];
+};
+
+template<>
+struct PaddingImpl<0> {};
+
+template<int N>
+struct Padding : PaddingImpl<N/sizeof(size_t)> {};
 
 // Slab block is 16KB-aligned. To prevent false sharing, separate locally-accessed
 // fields and fields commonly accessed by not owner threads.
@@ -339,22 +313,11 @@ class GlobalBlockFields : public BlockI {
 protected:
     FreeObject  *publicFreeList;
     Block       *nextPrivatizable;
+    MemoryPool  *poolPtr;
 };
 
-template<size_t padd>
-struct Padding {
-    size_t       __padding[padd];
-};
-
-template<>
-struct Padding<0> {
-};
-
-class LocalBlockFields : public GlobalBlockFields {
+class LocalBlockFields : public GlobalBlockFields, Padding<blockHeaderAlignment - sizeof(GlobalBlockFields)>  {
 protected:
-    Padding<(blockHeaderAlignment -
-             sizeof(GlobalBlockFields))/sizeof(size_t)> pad_local;
-
     Block       *next;
     Block       *previous;        /* Use double linked list to speed up removal */
     FreeObject  *bumpPtr;         /* Bump pointer moves from the end to the beginning of a block */
@@ -363,22 +326,25 @@ protected:
        when releasing object from a block that current thread owned.
        NULL for orphaned blocks. */
     TLSData     *tlsPtr;
-    ThreadId     ownerTid;
+    ThreadId     ownerTid;        /* the ID of the thread that owns or last owned the block */
     BackRefIdx   backRefIdx;
     uint16_t     allocatedCount;  /* Number of objects allocated (obviously by the owning thread) */
     uint16_t     objectSize;
     bool         isFull;
 
-    friend void *BootStrapBlocks::allocate(MemoryPool *memPool, size_t size);
     friend class FreeBlockPool;
     friend class StartupBlock;
     friend class LifoList;
-    friend Block *MemoryPool::getEmptyBlock(size_t size);
+    friend void *BootStrapBlocks::allocate(MemoryPool *, size_t);
+    friend bool OrphanedBlocks::cleanup(Backend*);
+    friend Block *MemoryPool::getEmptyBlock(size_t);
 };
 
-class Block : public LocalBlockFields {
-    Padding<(2*blockHeaderAlignment -
-             sizeof(LocalBlockFields))/sizeof(size_t)> pad_public;
+// Use inheritance to guarantee that a user data start on next cache line.
+// Can't use member for it, because when LocalBlockFields already on cache line,
+// we must have no additional memory consumption for all compilers.
+class Block : public LocalBlockFields,
+              Padding<2*blockHeaderAlignment - sizeof(LocalBlockFields)> {
 public:
     bool empty() const { return allocatedCount==0 && publicFreeList==NULL; }
     inline FreeObject* allocate();
@@ -386,34 +352,54 @@ public:
     inline bool emptyEnoughToUse();
     bool freeListNonNull() { return freeList; }
     void freePublicObject(FreeObject *objectToFree);
-    inline void freeOwnObject(MemoryPool *memPool, TLSData *tls, void *object);
+    inline void freeOwnObject(void *object);
     void makeEmpty();
-    void privatizePublicFreeList();
+    void privatizePublicFreeList( bool cleanup = false );
     void restoreBumpPtr();
     void privatizeOrphaned(TLSData *tls, unsigned index);
-    void shareOrphaned(const Bin *bin, unsigned index);
+    void shareOrphaned(intptr_t binTag, unsigned index);
     unsigned int getSize() const {
         MALLOC_ASSERT(isStartupAllocObject() || objectSize<minLargeObjectSize,
                       "Invalid object size");
         return isStartupAllocObject()? 0 : objectSize;
     }
     const BackRefIdx *getBackRefIdx() const { return &backRefIdx; }
-    inline TLSData *ownBlock() const;
+    inline bool isOwnedByCurrentThread() const;
     bool isStartupAllocObject() const { return objectSize == startupAllocObjSizeMark; }
-    inline FreeObject *findObjectToFree(void *object) const;
-    bool checkFreePrecond(void *object) const {
-        if (allocatedCount>0) {
-            if (startupAllocObjSizeMark == objectSize) // startup block
-                return object<=bumpPtr;
-            else
-                return allocatedCount <= (slabSize-sizeof(Block))/objectSize
-                       && (!bumpPtr || object>bumpPtr);
+    inline FreeObject *findObjectToFree(const void *object) const;
+    void checkFreePrecond(const void *object) const {
+#if MALLOC_DEBUG
+        const char *msg = "Possible double free or heap corruption.";
+        // small objects are always at least sizeof(size_t) Byte aligned,
+        // try to check this before this dereference as for invalid objects
+        // this may be unreadable
+        MALLOC_ASSERT(isAligned(object, sizeof(size_t)), "Try to free invalid small object");
+        // releasing to free slab
+        MALLOC_ASSERT(allocatedCount>0, msg);
+        // must not point to slab's header
+        MALLOC_ASSERT((uintptr_t)object - (uintptr_t)this >= sizeof(Block), msg);
+        if (startupAllocObjSizeMark == objectSize) // startup block
+            MALLOC_ASSERT(object<=bumpPtr, msg);
+        else {
+            // non-startup objects are 8 Byte aligned
+            MALLOC_ASSERT(isAligned(object, 8), "Try to free invalid small object");
+            MALLOC_ASSERT(allocatedCount <= (slabSize-sizeof(Block))/objectSize
+                          && (!bumpPtr || object>bumpPtr), msg);
+            FreeObject *toFree = findObjectToFree(object);
+            // check against head of freeList, as this is mostly
+            // expected after double free
+            MALLOC_ASSERT(toFree != freeList, msg);
+            // check against head of publicFreeList, to detect double free
+            // involiving foreign thread
+            MALLOC_ASSERT(toFree != publicFreeList, msg);
         }
-        return false;
+#else
+        suppress_unused_warning(object);
+#endif
     }
-    const BackRefIdx *getBackRef() const { return &backRefIdx; }
     void initEmptyBlock(TLSData *tls, size_t size);
     size_t findObjectSize(void *object) const;
+    MemoryPool *getMemPool() const { return poolPtr; } // do not use on the hot path!
 
 protected:
     void cleanBlockHeader();
@@ -424,9 +410,9 @@ private:
     inline FreeObject *allocateFromBumpPtr();
     inline FreeObject *findAllocatedObject(const void *address) const;
     inline bool isProperlyPlaced(const void *object) const;
-    inline bool isOrphaned() const { return !tlsPtr; }
     inline void markOwned(TLSData *tls) {
-        ownerTid.saveCurrentThreadId();
+        MALLOC_ASSERT(!tlsPtr, ASSERT_TEXT);
+        ownerTid = ThreadId(); /* save the ID of the current thread */
         tlsPtr = tls;
     }
     inline void markOrphaned() {
@@ -436,7 +422,7 @@ private:
 
     friend class Bin;
     friend class TLSData;
-    friend void MemoryPool::destroy();
+    friend bool MemoryPool::destroy();
 };
 
 const float Block::emptyEnoughRatio = 1.0 / 4.0;
@@ -457,11 +443,11 @@ public:
     inline void setActiveBlock(Block *block);
     inline Block* setPreviousBlockActive();
     Block* getPublicFreeListBlock();
-    void moveBlockToBinFront(Block *block);
+    void moveBlockToFront(Block *block);
     void processLessUsedBlock(MemoryPool *memPool, Block *block);
 
-    void outofTLSBin (Block* block);
-    void verifyTLSBin (size_t size) const;
+    void outofTLSBin(Block* block);
+    void verifyTLSBin(size_t size) const;
     void pushTLSBin(Block* block);
 
     void verifyInitState() const {
@@ -519,16 +505,6 @@ const uint32_t numBlockBins = minFittingIndex+numFittingBins;
 const uint32_t minLargeObjectSize = fittingSize5 + 1;
 
 /*
- * Default granularity of memory pools
- */
-
-#if USE_WINTHREAD
-const size_t scalableMallocPoolGranularity = 64*1024; // for VirtualAlloc use
-#else
-const size_t scalableMallocPoolGranularity = 4*1024;  // page size, for mmap use
-#endif
-
-/*
  * Per-thread pool of slab blocks. Idea behind it is to not share with other
  * threads memory that are likely in local cache(s) of our CPU.
  */
@@ -580,9 +556,7 @@ public:
 typedef LocalLOCImpl<8,32> LocalLOC; // set production code parameters
 
 class TLSData : public TLSRemote {
-#if USE_PTHREAD
     MemoryPool   *memPool;
-#endif
 public:
     Bin           bin[numBlockBinLimit];
     FreeBlockPool freeSlabBlocks;
@@ -591,12 +565,8 @@ public:
 private:
     bool unused;
 public:
-#if USE_PTHREAD
     TLSData(MemoryPool *mPool, Backend *bknd) : memPool(mPool), freeSlabBlocks(bknd) {}
     MemoryPool *getMemPool() const { return memPool; }
-#else
-    TLSData(MemoryPool * /*memPool*/, Backend *bknd) : freeSlabBlocks(bknd) {}
-#endif
     Bin* getAllocationBin(size_t size);
     void release(MemoryPool *mPool);
     bool externalCleanup(ExtMemoryPool *mPool, bool cleanOnlyUnused) {
@@ -670,6 +640,7 @@ void AllLocalCaches::registerThread(TLSRemote *tls)
 void AllLocalCaches::unregisterThread(TLSRemote *tls)
 {
     MallocMutex::scoped_lock lock(listLock);
+    MALLOC_ASSERT(head, "Can't unregister thread: no threads are registered.");
     if (head == tls)
         head = tls->next;
     if (tls->next)
@@ -716,6 +687,14 @@ bool        RecursiveMallocCallProtector::canUsePthread;
 
 /*********** End code to provide thread ID and a TLS pointer **********/
 
+// Parameter for isLargeObject, keeps our expectations on memory origin.
+// Assertions must use unknownMem to reliably report object invalidity.
+enum MemoryOrigin {
+    ourMem,    // allocated by TBB allocator
+    unknownMem // can be allocated by system allocator or TBB allocator
+};
+
+template<MemoryOrigin> bool isLargeObject(void *object);
 static void *internalMalloc(size_t size);
 static void internalFree(void *object);
 static void *internalPoolMalloc(MemoryPool* mPool, size_t size);
@@ -733,7 +712,7 @@ static bool internalPoolFree(MemoryPool *mPool, void *object, size_t size);
 #define ALWAYSINLINE(decl) decl
 #endif
 
-static NOINLINE( void doInitialization() );
+static NOINLINE( bool doInitialization() );
 ALWAYSINLINE( bool isMallocInitialized() );
 
 #undef ALWAYSINLINE
@@ -786,6 +765,19 @@ static inline unsigned int highestBitPos(unsigned int n)
     return pos;
 }
 
+template<bool Is32Bit>
+unsigned int getSmallObjectIndex(unsigned int size)
+{
+    return (size-1)>>3;
+}
+template<>
+unsigned int getSmallObjectIndex</*Is32Bit=*/false>(unsigned int size)
+{
+    // For 64-bit malloc, 16 byte alignment is needed except for bin 0.
+    unsigned int result = (size-1)>>3;
+    if (result) result |= 1; // 0,1,3,5,7; bins 2,4,6 are not aligned to 16 bytes
+    return result;
+}
 /*
  * Depending on indexRequest, for a given size return either the index into the bin
  * for objects of this size, or the actual size of objects in this bin.
@@ -793,9 +785,10 @@ static inline unsigned int highestBitPos(unsigned int n)
 template<bool indexRequest>
 static unsigned int getIndexOrObjectSize (unsigned int size)
 {
-    if (size <= maxSmallObjectSize) { // selection from 4/8/16/24/32/40/48/56/64
-         /* Index 0 holds up to 8 bytes, Index 1 16 and so forth */
-        return indexRequest ? (size - 1) >> 3 : alignUp(size,8);
+    if (size <= maxSmallObjectSize) { // selection from 8/16/24/32/40/48/56/64
+        unsigned int index = getSmallObjectIndex</*Is32Bit=*/(sizeof(size_t)<=4)>( size );
+         /* Bin 0 is for 8 bytes, bin 1 is for 16, and so forth */
+        return indexRequest ? index : (index+1)<<3;
     }
     else if (size <= maxSegregatedObjectSize ) { // 80/96/112/128 / 160/192/224/256 / 320/384/448/512 / 640/768/896/1024
         unsigned int order = highestBitPos(size-1); // which group of bin sizes?
@@ -833,12 +826,12 @@ static unsigned int getIndexOrObjectSize (unsigned int size)
 
 static unsigned int getIndex (unsigned int size)
 {
-    return getIndexOrObjectSize</*indexRequest*/true>(size);
+    return getIndexOrObjectSize</*indexRequest=*/true>(size);
 }
 
 static unsigned int getObjectSize (unsigned int size)
 {
-    return getIndexOrObjectSize</*indexRequest*/false>(size);
+    return getIndexOrObjectSize</*indexRequest=*/false>(size);
 }
 
 
@@ -906,7 +899,6 @@ inline bool isNotForUse( void* ptr )
 
 /********* End rough utility code  **************/
 
-#ifdef FINE_GRAIN_LOCKS
 /* LifoList assumes zero initialization so a vector of it can be created
  * by just allocating some space with no call to constructor.
  * On Linux, it seems to be necessary to avoid linking with C++ libraries.
@@ -928,18 +920,26 @@ void LifoList::push(Block *block)
 Block *LifoList::pop()
 {
     Block *block=NULL;
-    if (!top) goto done;
-    {
+    if (top) {
         MallocMutex::scoped_lock scoped_cs(lock);
-        if (!top) goto done;
-        block = top;
-        top = block->next;
+        if (top) {
+            block = top;
+            top = block->next;
+        }
     }
-done:
     return block;
 }
 
-#endif /* FINE_GRAIN_LOCKS     */
+Block *LifoList::grab()
+{
+    Block *block = NULL;
+    if (top) {
+        MallocMutex::scoped_lock scoped_cs(lock);
+        block = top;
+        top = NULL;
+    }
+    return block;
+}
 
 /********* Thread and block related code      *************/
 
@@ -965,11 +965,8 @@ template<bool poolDestroy> void AllLargeBlocksList::releaseAll(Backend *backend)
 TLSData* MemoryPool::getTLS(bool create)
 {
     TLSData* tls = extMemPool.tlsPointerKey.getThreadMallocTLS();
-    if( create && !tls ) {
+    if (create && !tls)
         tls = extMemPool.tlsPointerKey.createTLS(this, &extMemPool.backend);
-        MALLOC_ASSERT( tls, ASSERT_TEXT );
-    }
-    if (tls) tls->markUsed();
     return tls;
 }
 
@@ -1021,6 +1018,7 @@ Block *MemoryPool::getEmptyBlock(size_t size)
                 b->backRefIdx = backRefIdx[i];
             }
             b->tlsPtr = tls;
+            b->poolPtr = this;
             // all but first one go to per-thread pool
             if (i > 0) {
                 MALLOC_ASSERT(tls, ASSERT_TEXT);
@@ -1030,7 +1028,7 @@ Block *MemoryPool::getEmptyBlock(size_t size)
     }
     MALLOC_ASSERT(result, ASSERT_TEXT);
     result->initEmptyBlock(tls, size);
-    STAT_increment(result->owner, getIndex(result->objectSize), allocBlockNew);
+    STAT_increment(getThreadId(), getIndex(result->objectSize), allocBlockNew);
     return result;
 }
 
@@ -1059,13 +1057,15 @@ bool ExtMemoryPool::init(intptr_t poolId, rawAllocType rawAlloc,
     this->keepAllMemory = keepAllMemory;
     this->fixedPool = fixedPool;
     this->delayRegsReleasing = false;
-    initTLS();
+    if (! initTLS())
+        return false;
     loc.init(this);
-    // allocate initial region for user's objects placement
-    return backend.bootstrap(this);
+    backend.init(this);
+    MALLOC_ASSERT(isPoolValid(), NULL);
+    return true;
 }
 
-void ExtMemoryPool::initTLS() { new (&tlsPointerKey) TLSKey(); }
+bool ExtMemoryPool::initTLS() { return tlsPointerKey.init(); }
 
 bool MemoryPool::init(intptr_t poolId, const MemPoolPolicy *policy)
 {
@@ -1084,7 +1084,7 @@ bool MemoryPool::init(intptr_t poolId, const MemPoolPolicy *policy)
     return true;
 }
 
-void MemoryPool::reset()
+bool MemoryPool::reset()
 {
     MALLOC_ASSERT(extMemPool.userPool(), "No reset for the system pool.");
     // memory is not releasing during pool reset
@@ -1092,16 +1092,24 @@ void MemoryPool::reset()
     extMemPool.delayRegionsReleasing(true);
 
     bootStrapBlocks.reset();
-    orphanedBlocks.reset();
     extMemPool.lmbList.releaseAll</*poolDestroy=*/false>(&extMemPool.backend);
-    extMemPool.reset();
+    if (!extMemPool.reset())
+        return false;
 
-    extMemPool.initTLS();
+    if (!extMemPool.initTLS())
+        return false;
     extMemPool.delayRegionsReleasing(false);
+    return true;
 }
 
-void MemoryPool::destroy()
+bool MemoryPool::destroy()
 {
+#if __TBB_MALLOC_LOCACHE_STAT
+    extMemPool.loc.reportStat(stdout);
+#endif
+#if __TBB_MALLOC_BACKEND_STAT
+    extMemPool.backend.reportStat(stdout);
+#endif
     {
         MallocMutex::scoped_lock lock(memPoolListLock);
         // remove itself from global pool list
@@ -1110,13 +1118,20 @@ void MemoryPool::destroy()
         if (next)
             next->prev = prev;
     }
-    bootStrapBlocks.reset();
-    orphanedBlocks.reset();
     // slab blocks in non-default pool do not have backreferences,
     // only large objects do
     if (extMemPool.userPool())
         extMemPool.lmbList.releaseAll</*poolDestroy=*/true>(&extMemPool.backend);
-    extMemPool.destroy();
+    else {
+        // only one non-userPool() is supported now
+        MALLOC_ASSERT(this==defaultMemPool, NULL);
+        // There and below in extMemPool.destroy(), do not restore initial state
+        // for user pool, because it's just about to be released. But for system
+        // pool restoring, we do not want to do zeroing of it on subsequent reload.
+        bootStrapBlocks.reset();
+        extMemPool.orphanedBlocks.reset();
+    }
+    return extMemPool.destroy();
 }
 
 void MemoryPool::processThreadShutdown(TLSData *tlsData)
@@ -1133,12 +1148,12 @@ void Bin::verifyTLSBin (size_t size) const
     uint32_t objSize = getObjectSize(size);
 
     if (activeBlk) {
-        MALLOC_ASSERT( activeBlk->ownerTid.isCurrentThreadId(), ASSERT_TEXT );
+        MALLOC_ASSERT( activeBlk->isOwnedByCurrentThread(), ASSERT_TEXT );
         MALLOC_ASSERT( activeBlk->objectSize == objSize, ASSERT_TEXT );
 #if MALLOC_DEBUG>1
         for (Block* temp = activeBlk->next; temp; temp=temp->next) {
             MALLOC_ASSERT( temp!=activeBlk, ASSERT_TEXT );
-            MALLOC_ASSERT( temp->owner.own(), ASSERT_TEXT );
+            MALLOC_ASSERT( temp->isOwnedByCurrentThread(), ASSERT_TEXT );
             MALLOC_ASSERT( temp->objectSize == objSize, ASSERT_TEXT );
             MALLOC_ASSERT( temp->previous->next == temp, ASSERT_TEXT );
             if (temp->next) {
@@ -1147,7 +1162,7 @@ void Bin::verifyTLSBin (size_t size) const
         }
         for (Block* temp = activeBlk->previous; temp; temp=temp->previous) {
             MALLOC_ASSERT( temp!=activeBlk, ASSERT_TEXT );
-            MALLOC_ASSERT( temp->owner.own(), ASSERT_TEXT );
+            MALLOC_ASSERT( temp->isOwnedByCurrentThread(), ASSERT_TEXT );
             MALLOC_ASSERT( temp->objectSize == objSize, ASSERT_TEXT );
             MALLOC_ASSERT( temp->next->previous == temp, ASSERT_TEXT );
             if (temp->previous) {
@@ -1170,7 +1185,7 @@ void Bin::pushTLSBin(Block* block)
        because the function is applied to partially filled blocks as well */
     unsigned int size = block->objectSize;
 
-    MALLOC_ASSERT( block->ownerTid.isCurrentThreadId(), ASSERT_TEXT );
+    MALLOC_ASSERT( block->isOwnedByCurrentThread(), ASSERT_TEXT );
     MALLOC_ASSERT( block->objectSize != 0, ASSERT_TEXT );
     MALLOC_ASSERT( block->next == NULL, ASSERT_TEXT );
     MALLOC_ASSERT( block->previous == NULL, ASSERT_TEXT );
@@ -1198,7 +1213,7 @@ void Bin::outofTLSBin(Block* block)
 {
     unsigned int size = block->objectSize;
 
-    MALLOC_ASSERT( block->ownerTid.isCurrentThreadId(), ASSERT_TEXT );
+    MALLOC_ASSERT( block->isOwnedByCurrentThread(), ASSERT_TEXT );
     MALLOC_ASSERT( block->objectSize != 0, ASSERT_TEXT );
 
     MALLOC_ASSERT( this, ASSERT_TEXT );
@@ -1236,7 +1251,7 @@ Block* Bin::getPublicFreeListBlock()
         MallocMutex::scoped_lock scoped_cs(mailLock);
         block = mailbox;
         if( block ) {
-            MALLOC_ASSERT( block->ownBlock(), ASSERT_TEXT );
+            MALLOC_ASSERT( block->isOwnedByCurrentThread(), ASSERT_TEXT );
             MALLOC_ASSERT( !isNotForUse(block->nextPrivatizable), ASSERT_TEXT );
             mailbox = block->nextPrivatizable;
             block->nextPrivatizable = (Block*) this;
@@ -1255,7 +1270,7 @@ bool Block::emptyEnoughToUse()
 
     if (bumpPtr) {
         /* If we are still using a bump ptr for this block it is empty enough to use. */
-        STAT_increment(owner, getIndex(objectSize), examineEmptyEnough);
+        STAT_increment(getThreadId(), getIndex(objectSize), examineEmptyEnough);
         isFull = false;
         return 1;
     }
@@ -1265,9 +1280,9 @@ bool Block::emptyEnoughToUse()
     isFull = (allocatedCount*objectSize > threshold)? true: false;
 #if COLLECT_STATISTICS
     if (isFull)
-        STAT_increment(owner, getIndex(objectSize), examineNotEmpty);
+        STAT_increment(getThreadId(), getIndex(objectSize), examineNotEmpty);
     else
-        STAT_increment(owner, getIndex(objectSize), examineEmptyEnough);
+        STAT_increment(getThreadId(), getIndex(objectSize), examineEmptyEnough);
 #endif
     return !isFull;
 }
@@ -1277,21 +1292,23 @@ void Block::restoreBumpPtr()
 {
     MALLOC_ASSERT( allocatedCount == 0, ASSERT_TEXT );
     MALLOC_ASSERT( publicFreeList == NULL, ASSERT_TEXT );
-    STAT_increment(owner, getIndex(objectSize), freeRestoreBumpPtr);
+    STAT_increment(getThreadId(), getIndex(objectSize), freeRestoreBumpPtr);
     bumpPtr = (FreeObject *)((uintptr_t)this + slabSize - objectSize);
     freeList = NULL;
     isFull = 0;
 }
 
-void Block::freeOwnObject(MemoryPool *memPool, TLSData *tls, void *object)
+void Block::freeOwnObject(void *object)
 {
+    tlsPtr->markUsed();
     allocatedCount--;
     MALLOC_ASSERT( allocatedCount < (slabSize-sizeof(Block))/objectSize, ASSERT_TEXT );
 #if COLLECT_STATISTICS
-    if (tls->getAllocationBin(objectSize)->getActiveBlock() != this)
-        STAT_increment(owner, getIndex(objectSize), freeToInactiveBlock);
+    // Note that getAllocationBin is not called on the hottest path with statistics off.
+    if (tlsPtr->getAllocationBin(objectSize)->getActiveBlock() != this)
+        STAT_increment(getThreadId(), getIndex(objectSize), freeToInactiveBlock);
     else
-        STAT_increment(owner, getIndex(objectSize), freeToActiveBlock);
+        STAT_increment(getThreadId(), getIndex(objectSize), freeToActiveBlock);
 #endif
     if (allocatedCount==0 && publicFreeList==NULL) {
         // The bump pointer is about to be restored for the block,
@@ -1299,16 +1316,14 @@ void Block::freeOwnObject(MemoryPool *memPool, TLSData *tls, void *object)
 
         // if the last object of a slab is freed, the slab cannot be marked full
         MALLOC_ASSERT(!isFull, ASSERT_TEXT);
-        tls->getAllocationBin(objectSize)->processLessUsedBlock(memPool, this);
+        tlsPtr->getAllocationBin(objectSize)->processLessUsedBlock(poolPtr, this);
     } else {
         FreeObject *objectToFree = findObjectToFree(object);
         objectToFree->next = freeList;
         freeList = objectToFree;
 
-        if (isFull) {
-            if (emptyEnoughToUse())
-                tls->getAllocationBin(objectSize)->moveBlockToBinFront(this);
-        }
+        if (isFull && emptyEnoughToUse())
+            tlsPtr->getAllocationBin(objectSize)->moveBlockToFront(this);
     }
 }
 
@@ -1339,7 +1354,7 @@ void Block::freePublicObject (FreeObject *objectToFree)
         // if the block is abandoned, its nextPrivatizable pointer should be UNUSABLE
         // otherwise, it should point to the bin the block belongs to.
         // reading nextPrivatizable is thread-safe below, because:
-        // 1) the executing thread atomically got localPublicFreeList==NULL and changed it to non-NULL;
+        // 1) the executing thread atomically got publicFreeList==NULL and changed it to non-NULL;
         // 2) only owning thread can change it back to NULL,
         // 3) but it can not be done until the block is put to the mailbox
         // So the executing thread is now the only one that can change nextPrivatizable
@@ -1351,15 +1366,16 @@ void Block::freePublicObject (FreeObject *objectToFree)
             theBin->mailbox = this;
         }
     }
-    STAT_increment(ThreadId::get(), ThreadCommonCounters, freeToOtherThread);
-    STAT_increment(owner, getIndex(objectSize), freeByOtherThread);
+    STAT_increment(getThreadId(), ThreadCommonCounters, freeToOtherThread);
+    STAT_increment(ownerTid, getIndex(objectSize), freeByOtherThread);
 }
 
-void Block::privatizePublicFreeList()
+void Block::privatizePublicFreeList( bool cleanup )
 {
     FreeObject *temp, *localPublicFreeList;
 
-    MALLOC_ASSERT( ownerTid.isCurrentThreadId(), ASSERT_TEXT );
+    // During cleanup of orphaned blocks, the calling thread is not registered as the owner 
+    MALLOC_ASSERT( cleanup || isOwnedByCurrentThread(), ASSERT_TEXT );
 #if FREELIST_NONBLOCKING
     temp = publicFreeList;
     do {
@@ -1370,7 +1386,7 @@ void Block::privatizePublicFreeList()
         // no backoff necessary because trying to make change, not waiting for a change
     } while( temp != localPublicFreeList );
 #else
-    STAT_increment(owner, ThreadCommonCounters, lockPublicFreeList);
+    STAT_increment(getThreadId(), ThreadCommonCounters, lockPublicFreeList);
     {
         MallocMutex::scoped_lock scoped_cs(publicFreeListLock);
         localPublicFreeList = publicFreeList;
@@ -1380,32 +1396,33 @@ void Block::privatizePublicFreeList()
 #endif
     MALLOC_ITT_SYNC_ACQUIRED(&publicFreeList);
 
-    MALLOC_ASSERT( localPublicFreeList && localPublicFreeList==temp, ASSERT_TEXT ); // there should be something in publicFreeList!
-    if( !isNotForUse(temp) ) { // return/getPartialBlock could set it to UNUSABLE
+     // there should be something in publicFreeList, unless called by cleanup of orphaned blocks
+    MALLOC_ASSERT( cleanup || localPublicFreeList, ASSERT_TEXT );
+    MALLOC_ASSERT( localPublicFreeList==temp, ASSERT_TEXT );
+    if( isSolidPtr(temp) ) { // return/getPartialBlock could set it to UNUSABLE
         MALLOC_ASSERT( allocatedCount <= (slabSize-sizeof(Block))/objectSize, ASSERT_TEXT );
         /* other threads did not change the counter freeing our blocks */
         allocatedCount--;
         while( isSolidPtr(temp->next) ){ // the list will end with either NULL or UNUSABLE
             temp = temp->next;
             allocatedCount--;
+            MALLOC_ASSERT( allocatedCount < (slabSize-sizeof(Block))/objectSize, ASSERT_TEXT );
         }
-        MALLOC_ASSERT( allocatedCount < (slabSize-sizeof(Block))/objectSize, ASSERT_TEXT );
         /* merge with local freeList */
         temp->next = freeList;
         freeList = localPublicFreeList;
-        STAT_increment(owner, getIndex(objectSize), allocPrivatized);
+        STAT_increment(getThreadId(), getIndex(objectSize), allocPrivatized);
     }
 }
 
 void Block::privatizeOrphaned(TLSData *tls, unsigned index)
 {
     Bin* bin = tls->bin + index;
-    STAT_increment(owner, index, allocBlockPublic);
+    STAT_increment(getThreadId(), index, allocBlockPublic);
     next = NULL;
     previous = NULL;
     MALLOC_ASSERT( publicFreeList!=NULL, ASSERT_TEXT );
     /* There is not a race here since no other thread owns this block */
-    MALLOC_ASSERT(isOrphaned(), ASSERT_TEXT);
     markOwned(tls);
     // It is safe to change nextPrivatizable, as publicFreeList is not null
     MALLOC_ASSERT( isNotForUse(nextPrivatizable), ASSERT_TEXT );
@@ -1420,19 +1437,19 @@ void Block::privatizeOrphaned(TLSData *tls, unsigned index)
     MALLOC_ASSERT( !isNotForUse(publicFreeList), ASSERT_TEXT );
 }
 
-void Block::shareOrphaned(const Bin *bin, unsigned index)
+void Block::shareOrphaned(intptr_t binTag, unsigned index)
 {
-    MALLOC_ASSERT( bin, ASSERT_TEXT );
-    STAT_increment(owner, index, freeBlockPublic);
+    MALLOC_ASSERT( binTag, ASSERT_TEXT );
+    STAT_increment(getThreadId(), index, freeBlockPublic);
     markOrphaned();
     // need to set publicFreeList to non-zero, so other threads
     // will not change nextPrivatizable and it can be zeroed.
-    if ((intptr_t)nextPrivatizable==(intptr_t)bin) {
+    if ((intptr_t)nextPrivatizable==binTag) {
         void* oldval;
 #if FREELIST_NONBLOCKING
         oldval = (void*)AtomicCompareExchange((intptr_t&)publicFreeList, (intptr_t)UNUSABLE, 0);
 #else
-        STAT_increment(owner, ThreadCommonCounters, lockPublicFreeList);
+        STAT_increment(getThreadId(), ThreadCommonCounters, lockPublicFreeList);
         {
             MallocMutex::scoped_lock scoped_cs(publicFreeListLock);
             if ( (oldval=publicFreeList)==NULL )
@@ -1441,10 +1458,11 @@ void Block::shareOrphaned(const Bin *bin, unsigned index)
 #endif
         if ( oldval!=NULL ) {
             // another thread freed an object; we need to wait until it finishes.
-            // I believe there is no need for exponential backoff, as the wait here is not for a lock;
+            // There is no need for exponential backoff, as the wait here is not for a lock;
             // but need to yield, so the thread we wait has a chance to run.
+            // TODO: add a pause to also be friendly to hyperthreads
             int count = 256;
-            while( (intptr_t)const_cast<Block* volatile &>(nextPrivatizable)==(intptr_t)bin ) {
+            while( (intptr_t)const_cast<Block* volatile &>(nextPrivatizable)==binTag ) {
                 if (--count==0) {
                     do_yield();
                     count = 256;
@@ -1491,8 +1509,8 @@ void Block::initEmptyBlock(TLSData *tls, size_t size)
     // each block should have the address where the head of the list of "privatizable" blocks is kept
     // the only exception is a block for boot strap which is initialized when TLS is yet NULL
     nextPrivatizable = tls? (Block*)(tls->bin + index) : NULL;
-    TRACEF(( "[ScalableMalloc trace] Empty block %p is initialized, owner is %d, objectSize is %d, bumpPtr is %p\n",
-             this, owner, objectSize, bumpPtr ));
+    TRACEF(( "[ScalableMalloc trace] Empty block %p is initialized, owner is %ld, objectSize is %d, bumpPtr is %p\n",
+             this, tlsPtr ? getThreadId() : -1, objectSize, bumpPtr ));
 }
 
 Block *OrphanedBlocks::get(TLSData *tls, unsigned int size)
@@ -1507,10 +1525,10 @@ Block *OrphanedBlocks::get(TLSData *tls, unsigned int size)
     return block;
 }
 
-void OrphanedBlocks::put(Bin* bin, Block *block)
+void OrphanedBlocks::put(intptr_t binTag, Block *block)
 {
     unsigned int index = getIndex(block->getSize());
-    block->shareOrphaned(bin, index);
+    block->shareOrphaned(binTag, index);
     MALLOC_ITT_SYNC_RELEASING(bins+index);
     bins[index].push(block);
 }
@@ -1519,6 +1537,32 @@ void OrphanedBlocks::reset()
 {
     for (uint32_t i=0; i<numBlockBinLimit; i++)
         new (bins+i) LifoList();
+}
+
+bool OrphanedBlocks::cleanup(Backend* backend)
+{
+    bool result = false;
+    for (uint32_t i=0; i<numBlockBinLimit; i++) {
+        Block* block = bins[i].grab();
+        MALLOC_ITT_SYNC_ACQUIRED(bins+i);
+        while (block) {
+            Block* next = block->next;
+            block->privatizePublicFreeList( /*cleanup=*/true );
+            if (block->empty()) {
+                block->makeEmpty();
+                // slab blocks in user's pools do not have valid backRefIdx
+                if (!backend->inUserPool())
+                    removeBackRef(*(block->getBackRefIdx()));
+                backend->putSlabBlock(block);
+                result = true;
+            } else {
+                MALLOC_ITT_SYNC_RELEASING(bins+i);
+                bins[i].push(block);
+            }
+            block = next;
+        }
+    }
+    return result;
 }
 
 FreeBlockPool::ResOfGet FreeBlockPool::getBlock()
@@ -1589,7 +1633,7 @@ void Block::makeEmpty()
     MALLOC_ASSERT( allocatedCount==0, ASSERT_TEXT );
     MALLOC_ASSERT( publicFreeList==NULL, ASSERT_TEXT );
     if (!isStartupAllocObject())
-        STAT_increment(owner, getIndex(objectSize), freeBlockBack);
+        STAT_increment(getThreadId(), getIndex(objectSize), freeBlockBack);
 
     cleanBlockHeader();
 
@@ -1603,7 +1647,7 @@ void Block::makeEmpty()
 inline void Bin::setActiveBlock (Block *block)
 {
 //    MALLOC_ASSERT( bin, ASSERT_TEXT );
-    MALLOC_ASSERT( block->ownBlock(), ASSERT_TEXT );
+    MALLOC_ASSERT( block->isOwnedByCurrentThread(), ASSERT_TEXT );
     // it is the caller responsibility to keep bin consistence (i.e. ensure this block is in the bin list)
     activeBlk = block;
 }
@@ -1619,13 +1663,11 @@ inline Block* Bin::setPreviousBlockActive()
     return temp;
 }
 
-inline TLSData *Block::ownBlock() const {
-    if (!tlsPtr || !ownerTid.isCurrentThreadId()) return NULL;
-    tlsPtr->markUsed();
-    return tlsPtr;
+inline bool Block::isOwnedByCurrentThread() const {
+    return tlsPtr && ownerTid.isCurrentThreadId();
 }
 
-FreeObject *Block::findObjectToFree(void *object) const
+FreeObject *Block::findObjectToFree(const void *object) const
 {
     FreeObject *objectToFree;
     // Due to aligned allocations, a pointer passed to scalable_free
@@ -1666,7 +1708,7 @@ void TLSData::release(MemoryPool *mPool)
                 /* we destroy the thread, so not use its block pool */
                 mPool->returnEmptyBlock(threadlessBlock, /*poolTheBlock=*/false);
             } else {
-                mPool->orphanedBlocks.put(bin+index, threadlessBlock);
+                mPool->extMemPool.orphanedBlocks.put(intptr_t(bin+index), threadlessBlock);
             }
             threadlessBlock = threadBlock;
         }
@@ -1677,7 +1719,7 @@ void TLSData::release(MemoryPool *mPool)
                 /* we destroy the thread, so not use its block pool */
                 mPool->returnEmptyBlock(threadlessBlock, /*poolTheBlock=*/false);
             } else {
-                mPool->orphanedBlocks.put(bin+index, threadlessBlock);
+                mPool->extMemPool.orphanedBlocks.put(intptr_t(bin+index), threadlessBlock);
             }
             threadlessBlock = threadBlock;
         }
@@ -1697,6 +1739,7 @@ void TLSData::release(MemoryPool *mPool)
  * allocations are performed by moving bump pointer and increasing of object counter,
  * releasing is done via counter of objects allocated in the block
  * or moving bump pointer if releasing object is on a bound.
+ * TODO: make bump pointer to grow to the same backward direction as all the others.
  */
 
 class StartupBlock : public Block {
@@ -1827,18 +1870,16 @@ void StartupBlock::free(void *ptr)
 static intptr_t mallocInitialized;   // implicitly initialized to 0
 static MallocMutex initMutex;
 
-#include "../tbb/tbb_version.h"
-
 /** The leading "\0" is here so that applying "strings" to the binary
     delivers a clean result. */
 static char VersionString[] = "\0" TBBMALLOC_VERSION_STRINGS;
 
-#if _XBOX || __TBB_WIN8UI_SUPPORT
+#if __TBB_WIN8UI_SUPPORT
 bool GetBoolEnvironmentVariable(const char *) { return false; }
 #else
 bool GetBoolEnvironmentVariable(const char *name)
 {
-    if( const char* s = getenv(name) )
+    if (const char* s = getenv(name))
         return strcmp(s,"0") != 0;
     return false;
 }
@@ -1847,7 +1888,8 @@ bool GetBoolEnvironmentVariable(const char *name)
 void AllocControlledMode::initReadEnv(const char *envName, intptr_t defaultVal)
 {
     if (!setDone) {
-#if !_XBOX && !__TBB_WIN8UI_SUPPORT
+#if !__TBB_WIN8UI_SUPPORT
+    // TODO: use strtol to get the actual value of the envirable
         const char *envVal = getenv(envName);
         if (envVal && !strcmp(envVal, "1"))
             val = 1;
@@ -1865,8 +1907,8 @@ void MemoryPool::initDefaultPool()
     if (FILE *f = fopen("/proc/meminfo", "r")) {
         const int READ_BUF_SIZE = 100;
         char buf[READ_BUF_SIZE];
-        MALLOC_ASSERT(sizeof(hugePageSize) >= 8,
-                      "At least 64 bits required for keeping page size/numbers.");
+        MALLOC_STATIC_ASSERT(sizeof(hugePageSize) >= 8,
+              "At least 64 bits required for keeping page size/numbers.");
 
         while (fgets(buf, READ_BUF_SIZE, f)) {
             if (1 == sscanf(buf, "Hugepagesize: %llu kB", &hugePageSize)) {
@@ -1936,25 +1978,39 @@ bool isMallocInitializedExt() {
     return isMallocInitialized();
 }
 
+/** Caller is responsible for ensuring this routine is called exactly once. */
+extern "C" void MallocInitializeITT() {
+#if DO_ITT_NOTIFY
+    if (!usedBySrcIncluded)
+        tbb::internal::__TBB_load_ittnotify();
+#endif
+}
+
 /*
  * Allocator initialization routine;
  * it is called lazily on the very first scalable_malloc call.
  */
-static void initMemoryManager()
+static bool initMemoryManager()
 {
     TRACEF(( "[ScalableMalloc trace] sizeof(Block) is %d (expected 128); sizeof(uintptr_t) is %d\n",
              sizeof(Block), sizeof(uintptr_t) ));
     MALLOC_ASSERT( 2*blockHeaderAlignment == sizeof(Block), ASSERT_TEXT );
     MALLOC_ASSERT( sizeof(FreeObject) == sizeof(void*), ASSERT_TEXT );
+    MALLOC_ASSERT( isAligned(defaultMemPool, sizeof(intptr_t)),
+                   "Memory pool must be void*-aligned for atomic to work over aligned arguments.");
 
+#if USE_WINTHREAD
+    const size_t granularity = 64*1024; // granulatity of VirtualAlloc
+#else
+    // POSIX.1-2001-compliant way to get page size
+    const size_t granularity = sysconf(_SC_PAGESIZE);
+#endif
     bool initOk = defaultMemPool->
-        extMemPool.init(0, NULL, NULL, scalableMallocPoolGranularity,
+        extMemPool.init(0, NULL, NULL, granularity,
                         /*keepAllMemory=*/false, /*fixedPool=*/false);
-// TODO: add error handling, and on error do something better than exit(1)
-    if (!initOk || !initBackRefMaster(&defaultMemPool->extMemPool.backend)) {
-        fprintf (stderr, "The memory manager cannot access sufficient memory to initialize; exiting \n");
-        exit(1);
-    }
+// TODO: extMemPool.init() to not allocate memory
+    if (!initOk || !initBackRefMaster(&defaultMemPool->extMemPool.backend))
+        return false;
     ThreadId::init();      // Create keys for thread id
     MemoryPool::initDefaultPool();
     // init() is required iff initMemoryManager() is called
@@ -1963,19 +2019,23 @@ static void initMemoryManager()
 #if COLLECT_STATISTICS
     initStatisticsCollection();
 #endif
+    return true;
 }
 
 //! Ensures that initMemoryManager() is called once and only once.
 /** Does not return until initMemoryManager() has been completed by a thread.
     There is no need to call this routine if mallocInitialized==2 . */
-static void doInitialization()
+static bool doInitialization()
 {
     MallocMutex::scoped_lock lock( initMutex );
     if (mallocInitialized!=2) {
         MALLOC_ASSERT( mallocInitialized==0, ASSERT_TEXT );
         mallocInitialized = 1;
         RecursiveMallocCallProtector scoped;
-        initMemoryManager();
+        if (!initMemoryManager()) {
+            mallocInitialized = 0; // restore and out
+            return false;
+        }
 #ifdef  MALLOC_EXTRA_INITIALIZATION
         MALLOC_EXTRA_INITIALIZATION;
 #endif
@@ -1994,6 +2054,7 @@ static void doInitialization()
     }
     /* It can't be 0 or I would have initialized it */
     MALLOC_ASSERT( mallocInitialized==2, ASSERT_TEXT );
+    return true;
 }
 
 /********* End library initialization *************/
@@ -2013,7 +2074,7 @@ FreeObject *Block::allocateFromFreeList()
     freeList = result->next;
     MALLOC_ASSERT( allocatedCount < (slabSize-sizeof(Block))/objectSize, ASSERT_TEXT );
     allocatedCount++;
-    STAT_increment(owner, getIndex(objectSize), allocFreeListUsed);
+    STAT_increment(getThreadId(), getIndex(objectSize), allocFreeListUsed);
 
     return result;
 }
@@ -2028,14 +2089,14 @@ FreeObject *Block::allocateFromBumpPtr()
         }
         MALLOC_ASSERT( allocatedCount < (slabSize-sizeof(Block))/objectSize, ASSERT_TEXT );
         allocatedCount++;
-        STAT_increment(owner, getIndex(objectSize), allocBumpPtrUsed);
+        STAT_increment(getThreadId(), getIndex(objectSize), allocBumpPtrUsed);
     }
     return result;
 }
 
 inline FreeObject* Block::allocate()
 {
-    MALLOC_ASSERT( ownBlock(), ASSERT_TEXT );
+    MALLOC_ASSERT( isOwnedByCurrentThread(), ASSERT_TEXT );
 
     /* for better cache locality, first looking in the free list. */
     if ( FreeObject *result = allocateFromFreeList() ) {
@@ -2071,7 +2132,7 @@ size_t Block::findObjectSize(void *object) const
     return size;
 }
 
-void Bin::moveBlockToBinFront(Block *block)
+void Bin::moveBlockToFront(Block *block)
 {
     /* move the block to the front of the bin */
     if (block == activeBlk) return;
@@ -2183,11 +2244,14 @@ void *MemoryPool::getFromLLOCache(TLSData* tls, size_t size, size_t alignment)
     size_t allocationSize = LargeObjectCache::alignToBin(size+headersSize+alignment);
     if (allocationSize < size) // allocationSize is wrapped around after alignToBin
         return NULL;
+    MALLOC_ASSERT(allocationSize >= alignment, "Overflow must be checked before.");
 
-    if (tls)
+    if (tls) {
+        tls->markUsed();
         lmb = tls->lloc.get(allocationSize);
+    }
     if (!lmb)
-        lmb = extMemPool.mallocLargeObject(allocationSize);
+        lmb = extMemPool.mallocLargeObject(this, allocationSize);
 
     if (lmb) {
         // doing shuffle we suppose that alignment offset guarantees
@@ -2224,7 +2288,7 @@ void *MemoryPool::getFromLLOCache(TLSData* tls, size_t size, size_t alignment)
 
         lmb->objectSize = size;
 
-        MALLOC_ASSERT( isLargeObject(alignedArea), ASSERT_TEXT );
+        MALLOC_ASSERT( isLargeObject<unknownMem>(alignedArea), ASSERT_TEXT );
         MALLOC_ASSERT( isAligned(alignedArea, alignment), ASSERT_TEXT );
 
         return alignedArea;
@@ -2238,8 +2302,12 @@ void MemoryPool::putToLLOCache(TLSData *tls, void *object)
     // overwrite backRefIdx to simplify double free detection
     header->backRefIdx = BackRefIdx();
 
-    if (!tls || !tls->lloc.put(header->memoryBlock, &extMemPool))
-        extMemPool.freeLargeObject(header->memoryBlock);
+    if (tls) {
+        tls->markUsed();
+        if (tls->lloc.put(header->memoryBlock, &extMemPool))
+            return;
+    }
+    extMemPool.freeLargeObject(header->memoryBlock);
 }
 
 /*
@@ -2258,7 +2326,9 @@ static void *allocateAligned(MemoryPool *memPool, size_t size, size_t alignment)
 {
     MALLOC_ASSERT( isPowerOfTwo(alignment), ASSERT_TEXT );
 
-    if (!isMallocInitialized()) doInitialization();
+    if (!isMallocInitialized())
+        if (!doInitialization())
+            return NULL;
 
     void *result;
     if (size<=maxSegregatedObjectSize && alignment<=maxSegregatedObjectSize)
@@ -2274,9 +2344,6 @@ static void *allocateAligned(MemoryPool *memPool, size_t size, size_t alignment)
             goto LargeObjAlloc;
     } else {
     LargeObjAlloc:
-        /* This can be the first allocation call. */
-        if (!isMallocInitialized())
-            doInitialization();
         TLSData *tls = memPool->getTLS(/*create=*/true);
         // take into account only alignment that are higher then natural
         result =
@@ -2294,7 +2361,7 @@ static void *reallocAligned(MemoryPool *memPool, void *ptr,
     void *result;
     size_t copySize;
 
-    if (isLargeObject(ptr)) {
+    if (isLargeObject<ourMem>(ptr)) {
         LargeMemoryBlock* lmb = ((LargeObjectHdr *)ptr - 1)->memoryBlock;
         copySize = lmb->unalignedSize-((uintptr_t)ptr-(uintptr_t)lmb);
         if (size <= copySize && (0==alignment || isAligned(ptr, alignment))) {
@@ -2302,6 +2369,12 @@ static void *reallocAligned(MemoryPool *memPool, void *ptr,
             return ptr;
         } else {
             copySize = lmb->objectSize;
+#if BACKEND_HAS_MREMAP
+            if (void *r = memPool->extMemPool.remap(ptr, copySize, size,
+                              alignment<largeObjectAlignment?
+                              largeObjectAlignment : alignment))
+                return r;
+#endif
             result = alignment ? allocateAligned(memPool, size, alignment) :
                 internalPoolMalloc(memPool, size);
         }
@@ -2360,14 +2433,18 @@ static inline BackRefIdx safer_dereference (const BackRefIdx *ptr)
     return id;
 }
 
+template<MemoryOrigin memOrigin>
 bool isLargeObject(void *object)
 {
     if (!isAligned(object, largeObjectAlignment))
         return false;
     LargeObjectHdr *header = (LargeObjectHdr*)object - 1;
-    BackRefIdx idx = safer_dereference(&header->backRefIdx);
+    BackRefIdx idx = memOrigin==unknownMem? safer_dereference(&header->backRefIdx) :
+        header->backRefIdx;
 
     return idx.isLargeObject()
+        // in valid LargeObjectHdr memoryBlock is not NULL
+        && header->memoryBlock
         // in valid LargeObjectHdr memoryBlock points somewhere before header
         // TODO: more strict check
         && (uintptr_t)header->memoryBlock < (uintptr_t)header
@@ -2376,24 +2453,27 @@ bool isLargeObject(void *object)
 
 static inline bool isSmallObject (void *ptr)
 {
-    void* expected = alignDown(ptr, slabSize);
-    const BackRefIdx* idx = ((Block*)expected)->getBackRef();
+    Block* expectedBlock = (Block*)alignDown(ptr, slabSize);
+    const BackRefIdx* idx = expectedBlock->getBackRefIdx();
 
-    return expected == getBackRef(safer_dereference(idx));
+    bool isSmall = expectedBlock == getBackRef(safer_dereference(idx));
+    if (isSmall)
+        expectedBlock->checkFreePrecond(ptr);
+    return isSmall;
 }
 
 /**** Check if an object was allocated by scalable_malloc ****/
 static inline bool isRecognized (void* ptr)
 {
-    return isLargeObject(ptr) || isSmallObject(ptr);
+    return defaultMemPool->extMemPool.backend.ptrCanBeValid(ptr) &&
+        (isLargeObject<unknownMem>(ptr) || isSmallObject(ptr));
 }
 
-static inline void freeSmallObject(MemoryPool *memPool, void *object)
+static inline void freeSmallObject(void *object)
 {
     /* mask low bits to get the block */
     Block *block = (Block *)alignDown(object, slabSize);
-    MALLOC_ASSERT( block->checkFreePrecond(object),
-                   "Possible double free or heap corruption." );
+    block->checkFreePrecond(object);
 
 #if MALLOC_CHECK_RECURSION
     if (block->isStartupAllocObject()) {
@@ -2401,9 +2481,9 @@ static inline void freeSmallObject(MemoryPool *memPool, void *object)
         return;
     }
 #endif
-    if (TLSData *tls = block->ownBlock())
-        block->freeOwnObject(memPool, tls, object);
-    else { /* Slower path to add to the shared list, the allocatedCount is updated by the owner thread in malloc. */
+    if (block->isOwnedByCurrentThread()) {
+        block->freeOwnObject(object);
+    } else { /* Slower path to add to the shared list, the allocatedCount is updated by the owner thread in malloc. */
         FreeObject *objectToFree = block->findObjectToFree(object);
         block->freePublicObject(objectToFree);
     }
@@ -2419,12 +2499,14 @@ static void *internalPoolMalloc(MemoryPool* memPool, size_t size)
     if (!size) size = sizeof(size_t);
 
     TLSData *tls = memPool->getTLS(/*create=*/true);
-    /*
-     * Use Large Object Allocation
-     */
+
+    /* Allocate a large object */
     if (size >= minLargeObjectSize)
         return memPool->getFromLLOCache(tls, size, largeObjectAlignment);
 
+    if (!tls) return NULL;
+
+    tls->markUsed();
     /*
      * Get an element in thread-local array corresponding to the given size;
      * It keeps ptr to the active block for allocations of this size
@@ -2446,7 +2528,7 @@ static void *internalPoolMalloc(MemoryPool* memPool, size_t size)
     mallocBlock = bin->getPublicFreeListBlock();
     if (mallocBlock) {
         if (mallocBlock->emptyEnoughToUse()) {
-            bin->moveBlockToBinFront(mallocBlock);
+            bin->moveBlockToFront(mallocBlock);
         }
         MALLOC_ASSERT( mallocBlock->freeListNonNull(), ASSERT_TEXT );
         if ( FreeObject *result = mallocBlock->allocateFromFreeList() )
@@ -2459,13 +2541,13 @@ static void *internalPoolMalloc(MemoryPool* memPool, size_t size)
     /*
      * no suitable own blocks, try to get a partial block that some other thread has discarded.
      */
-    mallocBlock = memPool->orphanedBlocks.get(tls, size);
+    mallocBlock = memPool->extMemPool.orphanedBlocks.get(tls, size);
     while (mallocBlock) {
         bin->pushTLSBin(mallocBlock);
         bin->setActiveBlock(mallocBlock); // TODO: move under the below condition?
         if( FreeObject *result = mallocBlock->allocate() )
             return result;
-        mallocBlock = memPool->orphanedBlocks.get(tls, size);
+        mallocBlock = memPool->extMemPool.orphanedBlocks.get(tls, size);
     }
 
     /*
@@ -2489,6 +2571,9 @@ static void *internalPoolMalloc(MemoryPool* memPool, size_t size)
 }
 
 // When size==0 (i.e. unknown), detect here whether the object is large.
+// For size is known and < minLargeObjectSize, we still need to check
+// if the actual object is large, because large objects might be used
+// for aligned small allocations.
 static bool internalPoolFree(MemoryPool *memPool, void *object, size_t size)
 {
     if (!memPool || !object) return false;
@@ -2499,10 +2584,10 @@ static bool internalPoolFree(MemoryPool *memPool, void *object, size_t size)
     MALLOC_ASSERT(memPool->extMemPool.userPool() || isRecognized(object),
                   "Invalid pointer during object releasing is detected.");
 
-    if (size >= minLargeObjectSize || (!size && isLargeObject(object)))
+    if (size >= minLargeObjectSize || isLargeObject<ourMem>(object))
         memPool->putToLLOCache(memPool->getTLS(/*create=*/false), object);
     else
-        freeSmallObject(memPool, object);
+        freeSmallObject(object);
     return true;
 }
 
@@ -2518,8 +2603,8 @@ static void *internalMalloc(size_t size)
 #endif
 
     if (!isMallocInitialized())
-        doInitialization();
-
+        if (!doInitialization())
+            return NULL;
     return internalPoolMalloc(defaultMemPool, size);
 }
 
@@ -2532,7 +2617,7 @@ static size_t internalMsize(void* ptr)
 {
     if (ptr) {
         MALLOC_ASSERT(isRecognized(ptr), "Invalid pointer in scalable_msize detected.");
-        if (isLargeObject(ptr)) {
+        if (isLargeObject<ourMem>(ptr)) {
             LargeMemoryBlock* lmb = ((LargeObjectHdr*)ptr - 1)->memoryBlock;
             return lmb->objectSize;
         } else
@@ -2576,8 +2661,8 @@ rml::MemPoolError pool_create_v1(intptr_t pool_id, const MemPoolPolicy *policy,
         return UNSUPPORTED_POLICY;
     }
     if (!isMallocInitialized())
-        doInitialization();
-
+        if (!doInitialization())
+            return NO_MEMORY;
     rml::internal::MemoryPool *memPool =
         (rml::internal::MemoryPool*)internalMalloc((sizeof(rml::internal::MemoryPool)));
     if (!memPool) {
@@ -2598,18 +2683,17 @@ rml::MemPoolError pool_create_v1(intptr_t pool_id, const MemPoolPolicy *policy,
 bool pool_destroy(rml::MemoryPool* memPool)
 {
     if (!memPool) return false;
-    ((rml::internal::MemoryPool*)memPool)->destroy();
+    bool ret = ((rml::internal::MemoryPool*)memPool)->destroy();
     internalFree(memPool);
 
-    return true;
+    return ret;
 }
 
 bool pool_reset(rml::MemoryPool* memPool)
 {
     if (!memPool) return false;
 
-    ((rml::internal::MemoryPool*)memPool)->reset();
-    return true;
+    return ((rml::internal::MemoryPool*)memPool)->reset();
 }
 
 void *pool_malloc(rml::MemoryPool* mPool, size_t size)
@@ -2657,6 +2741,22 @@ void *pool_aligned_realloc(rml::MemoryPool* memPool, void *ptr, size_t size, siz
 bool pool_free(rml::MemoryPool *mPool, void *object)
 {
     return internalPoolFree((rml::internal::MemoryPool*)mPool, object, 0);
+}
+
+rml::MemoryPool *pool_identify(void *object)
+{
+    rml::internal::MemoryPool *pool;
+    if (isLargeObject<ourMem>(object)) {
+        LargeObjectHdr *header = (LargeObjectHdr*)object - 1;
+        pool = header->memoryBlock->pool;
+    } else {
+        Block *block = (Block*)alignDown(object, slabSize);
+        pool = block->getMemPool();
+    }
+    // do not return defaultMemPool, as it can't be used in pool_free() etc
+    __TBB_ASSERT_RELEASE(pool!=defaultMemPool,
+        "rml::pool_identify() can't be used for scalable_malloc() etc results.");
+    return (rml::MemoryPool*)pool;
 }
 
 } // namespace rml
@@ -2713,11 +2813,12 @@ extern "C" void __TBB_mallocProcessShutdownNotification()
 {
     if (!isMallocInitialized()) return;
 
-#if __TBB_MALLOC_LOCACHE_STAT
+#if  __TBB_MALLOC_LOCACHE_STAT
     printf("cache hit ratio %f, size hit %f\n",
            1.*cacheHits/mallocCalls, 1.*memHitKB/memAllocKB);
     defaultMemPool->extMemPool.loc.reportStat(stdout);
 #endif
+
     shutdownSync.processExit();
 #if __TBB_SOURCE_DIRECTLY_INCLUDED
 /* Pthread keys must be deleted as soon as possible to not call key dtor
@@ -2776,15 +2877,21 @@ extern "C" void __TBB_malloc_safer_free(void *object, void (*original_free)(void
     if (!object)
         return;
 
-    // must check 1st for large object, because small object check touches 4 pages on left,
-    // and it can be inaccessible
-    if (isLargeObject(object)) {
-        TLSData *tls = defaultMemPool->getTLS(/*create=*/false);
+    // tbbmalloc can allocate object only when tbbmalloc has been initialized
+    if (FencedLoad(mallocInitialized) && defaultMemPool->extMemPool.backend.ptrCanBeValid(object)) {
+        if (isLargeObject<unknownMem>(object)) {
+            // must check 1st for large object, because small object check touches 4 pages on left,
+            // and it can be inaccessible
+            TLSData *tls = defaultMemPool->getTLS(/*create=*/false);
 
-        defaultMemPool->putToLLOCache(tls, object);
-    } else if (isSmallObject(object)) {
-        freeSmallObject(defaultMemPool, object);
-    } else if (original_free)
+            defaultMemPool->putToLLOCache(tls, object);
+            return;
+        } else if (isSmallObject(object)) {
+            freeSmallObject(object);
+            return;
+        }
+    }
+    if (original_free)
         original_free(object);
 }
 
@@ -2826,7 +2933,7 @@ extern "C" void* __TBB_malloc_safer_realloc(void* ptr, size_t sz, void* original
 
     if (!ptr) {
         tmp = internalMalloc(sz);
-    } else if (isRecognized(ptr)) {
+    } else if (FencedLoad(mallocInitialized) && isRecognized(ptr)) {
         if (!sz) {
             internalFree(ptr);
             return NULL;
@@ -2837,13 +2944,13 @@ extern "C" void* __TBB_malloc_safer_realloc(void* ptr, size_t sz, void* original
 #if USE_WINTHREAD
     else if (original_realloc && sz) {
         orig_ptrs *original_ptrs = static_cast<orig_ptrs*>(original_realloc);
-        if ( original_ptrs->orig_msize ){
-            size_t oldSize = original_ptrs->orig_msize(ptr);
+        if ( original_ptrs->msize ){
+            size_t oldSize = original_ptrs->msize(ptr);
             tmp = internalMalloc(sz);
             if (tmp) {
                 memcpy(tmp, ptr, sz<oldSize? sz : oldSize);
-                if ( original_ptrs->orig_free ){
-                    original_ptrs->orig_free( ptr );
+                if ( original_ptrs->free ){
+                    original_ptrs->free( ptr );
                 }
             }
         } else
@@ -2877,7 +2984,16 @@ extern "C" void* __TBB_malloc_safer_realloc(void* ptr, size_t sz, void* original
 
 extern "C" void * scalable_calloc(size_t nobj, size_t size)
 {
-    size_t arraySize = nobj * size;
+    // it's square root of maximal size_t value
+    const size_t mult_not_overflow = size_t(1) << (sizeof(size_t)*CHAR_BIT/2);
+    const size_t arraySize = nobj * size;
+
+    // check for overflow during multiplication:
+    if (nobj>=mult_not_overflow || size>=mult_not_overflow) // 1) heuristic check
+        if (nobj && arraySize / nobj != size) {             // 2) exact check
+            errno = ENOMEM;
+            return NULL;
+        }
     void* result = internalMalloc(arraySize);
     if (result)
         memset(result, 0, arraySize);
@@ -2892,7 +3008,7 @@ extern "C" void * scalable_calloc(size_t nobj, size_t size)
 
 extern "C" int scalable_posix_memalign(void **memptr, size_t alignment, size_t size)
 {
-    if ( !isPowerOfTwoMultiple(alignment, sizeof(void*)) )
+    if ( !isPowerOfTwoAtLeast(alignment, sizeof(void*)) )
         return EINVAL;
     void *result = allocateAligned(defaultMemPool, size, alignment);
     if (!result)
@@ -2943,7 +3059,7 @@ extern "C" void * __TBB_malloc_safer_aligned_realloc(void *ptr, size_t size, siz
 
     if (!ptr) {
         tmp = allocateAligned(defaultMemPool, size, alignment);
-    } else if (isRecognized(ptr)) {
+    } else if (FencedLoad(mallocInitialized) && isRecognized(ptr)) {
         if (!size) {
             internalFree(ptr);
             return NULL;
@@ -2953,23 +3069,24 @@ extern "C" void * __TBB_malloc_safer_aligned_realloc(void *ptr, size_t size, siz
     }
 #if USE_WINTHREAD
     else {
-        orig_ptrs *original_ptrs = static_cast<orig_ptrs*>(orig_function);
+        orig_aligned_ptrs *original_ptrs = static_cast<orig_aligned_ptrs*>(orig_function);
         if (size) {
             // Without orig_msize, we can't do anything with this.
             // Just keeping old pointer.
-            if ( original_ptrs->orig_msize ){
-                size_t oldSize = original_ptrs->orig_msize(ptr);
+            if ( original_ptrs->aligned_msize ){
+                // set alignment and offset to have possibly correct oldSize
+                size_t oldSize = original_ptrs->aligned_msize(ptr, sizeof(void*), 0);
                 tmp = allocateAligned(defaultMemPool, size, alignment);
                 if (tmp) {
                     memcpy(tmp, ptr, size<oldSize? size : oldSize);
-                    if ( original_ptrs->orig_free ){
-                        original_ptrs->orig_free( ptr );
+                    if ( original_ptrs->aligned_free ){
+                        original_ptrs->aligned_free( ptr );
                     }
                 }
             }
         } else {
-            if ( original_ptrs->orig_free ){
-                original_ptrs->orig_free( ptr );
+            if ( original_ptrs->aligned_free ){
+                original_ptrs->aligned_free( ptr );
             }
             return NULL;
         }
@@ -3008,7 +3125,7 @@ extern "C" size_t __TBB_malloc_safer_msize(void *object, size_t (*original_msize
 {
     if (object) {
         // Check if the memory was allocated by scalable_malloc
-        if (isRecognized(object))
+        if (FencedLoad(mallocInitialized) && isRecognized(object))
             return internalMsize(object);
         else if (original_msize)
             return original_msize(object);
@@ -3027,7 +3144,7 @@ extern "C" size_t __TBB_malloc_safer_aligned_msize(void *object, size_t alignmen
 {
     if (object) {
         // Check if the memory was allocated by scalable_malloc
-        if (isRecognized(object))
+        if (FencedLoad(mallocInitialized) && isRecognized(object))
             return internalMsize(object);
         else if (orig_aligned_msize)
             return orig_aligned_msize(object,alignment,offset);

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include <tbb/tbb_config.h>
@@ -36,9 +36,9 @@ int TestMain () {
 // dynamic_link initializes its data structures in a static constructor. But
 // the initialization order of static constructors in different modules is
 // non-deterministic. Thus dynamic_link fails on some systems when the
-// applicaton changes its current directory after the library (TBB/OpenMP/...)
+// application changes its current directory after the library (TBB/OpenMP/...)
 // is loaded but before the static constructors in the library are executed.
-#define CHDIR_SUPPORT_BROKEN ( __GNUC__ == 4 && __GNUC_MINOR__ >= 6 && __GNUC_MINOR__ <= 8 )
+#define CHDIR_SUPPORT_BROKEN ( __TBB_GCC_VERSION >= 40600 || (__linux__ && __TBB_CLANG_VERSION >= 30500) )
 
 const int OMP_ParallelRegionSize = 16;
 int TBB_MaxThread = 4;           // Includes master
@@ -52,22 +52,22 @@ protected:
     typedef typename Client::policy_type policy_type;
 
 private:
-    /*override*/version_type version() const {
+    version_type version() const __TBB_override {
         return 0;
     }
-    /*override*/size_t min_stack_size() const {
+    size_t min_stack_size() const __TBB_override {
         return 1<<20;
     }
-    /*override*/job* create_one_job() {
+    job* create_one_job() __TBB_override {
         return new rml::job;
     }
-    /*override*/policy_type policy() const {
+    policy_type policy() const __TBB_override {
         return Client::turnaround;
     }
-    /*override*/void acknowledge_close_connection() {
+    void acknowledge_close_connection() __TBB_override {
         delete this;
     }
-    /*override*/void cleanup( job& j ) {delete &j;}
+    void cleanup( job& j ) __TBB_override {delete &j;}
 
 public:
     virtual ~ClientBase() {}
@@ -188,18 +188,16 @@ void ThreadLevelRecorder::dump() {
     fclose(f);
 }
 
-ThreadLevelRecorder TotalThreadLevel;
-
 class TBB_Client: public ClientBase<tbb::internal::rml::tbb_client> {
-    /*override*/void process( job& j );
-    /*override*/size_type max_job_count() const {
+    void process( job& j ) __TBB_override;
+    size_type max_job_count() const __TBB_override {
         return TBB_MaxThread-1;
     }
 };
 
 class OMP_Client: public ClientBase<__kmp::rml::omp_client> {
-    /*override*/void process( job&, void* cookie, omp_client::size_type );
-    /*override*/size_type max_job_count() const {
+    void process( job&, void* cookie, omp_client::size_type ) __TBB_override;
+    size_type max_job_count() const __TBB_override {
         return OMP_MaxThread-1;
     }
 };
@@ -211,6 +209,7 @@ ChangeCurrentDir Changer;
 #endif
 RunTime<tbb::internal::rml::tbb_factory, TBB_Client> TBB_RunTime;
 RunTime<__kmp::rml::omp_factory, OMP_Client> OMP_RunTime;
+ThreadLevelRecorder TotalThreadLevel;
 
 template<typename Factory, typename Client>
 void RunTime<Factory,Client>::create_connection() {
@@ -254,7 +253,7 @@ void TBBWork() {
             TBB_RunTime.server->adjust_job_count_estimate(-(TBB_MaxThread-1));
             ++CompletionCount;
         } else if( k>=0 ) {
-            for( int k=0; k<4; ++k ) {
+            for( int j=0; j<4; ++j ) {
                 OMP_Team team( *OMP_RunTime.server );
                 int n = OMP_RunTime.server->try_increase_load( OMP_ParallelRegionSize-1, /*strict=*/false );
                 team.barrier = 0;
@@ -274,13 +273,13 @@ void TBBWork() {
     }
 }
 
-/*override*/void TBB_Client::process( job& ) {
+void TBB_Client::process( job& ) {
     TotalThreadLevel.change_level(1);
     TBBWork();
     TotalThreadLevel.change_level(-1);
-}  
+}
 
-/*override*/void OMP_Client::process( job& /* j */, void* cookie, omp_client::size_type ) {
+void OMP_Client::process( job& /* j */, void* cookie, omp_client::size_type ) {
     TotalThreadLevel.change_level(1);
     ASSERT( OMP_RunTime.server, NULL );
     OMPWork();
@@ -305,7 +304,7 @@ int TestMain () {
 #if CHDIR_SUPPORT_BROKEN
     REPORT("Known issue: dynamic_link does not support current directory changing before its initialization.\n");
 #endif
-    for( int TBB_MaxThread=MinThread; TBB_MaxThread<=MaxThread; ++TBB_MaxThread ) {
+    for( TBB_MaxThread=MinThread; TBB_MaxThread<=MaxThread; ++TBB_MaxThread ) {
         REMARK("Testing with TBB_MaxThread=%d\n", TBB_MaxThread);
         TBB_RunTime.create_connection();
         OMP_RunTime.create_connection();

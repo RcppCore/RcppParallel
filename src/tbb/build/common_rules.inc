@@ -1,20 +1,20 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright (c) 2005-2017 Intel Corporation
 #
-# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-# you can redistribute it and/or modify it under the terms of the GNU General Public License
-# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See  the GNU General Public License for more details.   You should have received a copy of
-# the  GNU General Public License along with Threading Building Blocks; if not, write to the
-# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# As a special exception,  you may use this file  as part of a free software library without
-# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-# functions from this file, or you compile this file and link it with other files to produce
-# an executable,  this file does not by itself cause the resulting executable to be covered
-# by the GNU General Public License. This exception does not however invalidate any other
-# reasons why the executable file might be covered by the GNU General Public License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
+#
 
 
 ifeq ($(tbb_strict),1)
@@ -51,7 +51,6 @@ CPLUS_FLAGS += $(DEFINE_KEY)__TBB_CPF_BUILD=1
 endif
 LINK_FLAGS += $(LDFLAGS)
 LIB_LINK_FLAGS += $(LDFLAGS)
-CPLUS_FLAGS_NOSTRICT = $(subst -strict-ansi,-ansi,$(CPLUS_FLAGS))
 
 LIB_LINK_CMD ?= $(CPLUS) $(PIC_KEY)
 ifeq ($(origin LIB_OUTPUT_KEY), undefined)
@@ -92,7 +91,7 @@ endef
 LINK_FILES+=$(TEST_LIBS)
 # Rule for generating executable test
 %.$(TEST_EXT): %.$(OBJ) $(TEST_LIBS) $(TEST_PREREQUISITE) $(if $(use_proxy),$(PROXY.LIB))
-	$(call make-test-binary,$@,$< $(LINK_FILES))
+	$(call make-test-binary,$@,$< $(LINK_FILES) $(PIE_FLAG))
 
 # Rules for generating a test DLL
 %_dll.$(DLL): LINK_FLAGS += $(PIC_KEY) $(DYLIB_KEY)
@@ -118,7 +117,8 @@ ifdef rtools
 endif
 
 # Rule for generating .E file if needed for visual inspection
-# Note that due to mapping for ICL all uses of PREPROC_ONLY should be immediately followed by a file name
+# Note that ICL treats an argument after PREPROC_ONLY as a file to open,
+# so all uses of PREPROC_ONLY should be immediately followed by a file name
 %.E: %.cpp
 	$(CPLUS) $(CPLUS_FLAGS) $(CXX_ONLY_FLAGS) $(INCLUDES) $(PREPROC_ONLY) $< >$@
 
@@ -155,7 +155,7 @@ $(TBB.MANIFEST):
 version_string.ver: $(TBB.MANIFEST)
 	$(MAKE_VERSIONS)
 	cmd /C "echo #define TBB_MANIFEST 1 >> version_string.ver"
-# TODO: fix parallel build by writting to a temporary file and rename it when complete
+# TODO: fix parallel build by writing to a temporary file and rename it when complete
 else
 # TODO: make version strings directly representative for all the libraries
 version_string.ver:

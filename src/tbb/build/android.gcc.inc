@@ -1,20 +1,20 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright (c) 2005-2017 Intel Corporation
 #
-# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-# you can redistribute it and/or modify it under the terms of the GNU General Public License
-# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See  the GNU General Public License for more details.   You should have received a copy of
-# the  GNU General Public License along with Threading Building Blocks; if not, write to the
-# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# As a special exception,  you may use this file  as part of a free software library without
-# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-# functions from this file, or you compile this file and link it with other files to produce
-# an executable,  this file does not by itself cause the resulting executable to be covered
-# by the GNU General Public License. This exception does not however invalidate any other
-# reasons why the executable file might be covered by the GNU General Public License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
+#
 
 
 COMPILE_ONLY = -c -MMD
@@ -39,14 +39,14 @@ CONLY = $(tbb_tool_prefix)gcc
 # -soname is necessary for proper linkage to TBB prebuilt libraries when building application with Android SDK
 LIB_LINK_FLAGS = $(DYLIB_KEY) -Wl,-soname=$(BUILDING_LIBRARY)
 
-LINK_FLAGS = -Wl,-rpath-link=. -rdynamic
-C_FLAGS = $(CPLUS_FLAGS)
-
-# gcc 4.4 and higher support C++11
-ifneq (,$(shell $(CPLUS) -dumpversion | egrep  "^(4\.[4-9]|[5-9])"))
-    # On Android/gcc 4.4.3, -std=c++0x causes ::int64_t and ::uint64_t to be undefined.
-    CPP11_FLAGS = -std=gnu++0x $(DEFINE_KEY)_TBB_CPP0X
+# pie is necessary for test executables to work and might be removed if newer NDK will add it implicitly
+PIE_FLAG = -pie
+ifeq ($(APP_PIE), false)
+    PIE_FLAG=
 endif
+
+LINK_FLAGS = -Wl,-rpath-link=. -rdynamic 
+C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
     CPLUS_FLAGS = -O2
@@ -61,14 +61,6 @@ ifneq (,$(findstring $(arch),ia32 intel64))
     CPLUS_FLAGS += $(DEFINE_KEY)DO_ITT_NOTIFY
 endif
 
-ifneq (0, $(dlopen_workaround))
-    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_REENTRANCY_WORKAROUND=1
-    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_MAIN_PROGRAM_WORKAROUND=1
-else
-    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_REENTRANCY_WORKAROUND=0
-    CPLUS_FLAGS += $(DEFINE_KEY)__TBB_USE_DLOPEN_MAIN_PROGRAM_WORKAROUND=0
-endif
-
 ifeq (0, $(dynamic_load))
      CPLUS_FLAGS += $(DEFINE_KEY)__TBB_DYNAMIC_LOAD_ENABLED=0
 endif
@@ -79,26 +71,17 @@ CPLUS_FLAGS    += --sysroot=$(SYSROOT)
 LIB_LINK_FLAGS += --sysroot=$(SYSROOT)
 LIBS           = -L$(CPLUS_LIB_PATH) -lgnustl_shared
 
-# This causes CPP11_FLAGS to be issued twice for test_lambda.cpp
-# TODO: Fix this in general for all platforms once the correct strategy is determined.
-ifneq (00,$(lambdas)$(cpp0x))
-    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
-endif
-
 ifeq (ia32,$(arch))
     # TODO: Determine best setting of -march and add to CPLUS_FLAGS
     CPLUS_FLAGS += -m32 
     LIB_LINK_FLAGS += -m32
-endif
-
-# Currently, no intel64 support for Android, but if added later, these flags may suffice
-ifeq (intel64,$(arch))
+else ifeq (intel64,$(arch))
     CPLUS_FLAGS += -m64
     LIB_LINK_FLAGS += -m64
-endif
-
-ifeq (arm,$(findstring arm,$(arch)))
+else ifeq (arm,$(arch))
     CPLUS_FLAGS += -march=armv7-a $(DEFINE_KEY)TBB_USE_GCC_BUILTINS=1 $(DEFINE_KEY)__TBB_64BIT_ATOMICS=0
+else ifeq (arm64,$(arch))
+    CPLUS_FLAGS += -march=armv8-a
 endif
 
 #------------------------------------------------------------------------------

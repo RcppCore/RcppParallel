@@ -1,24 +1,24 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
-// Source file for miscellaneous entities that are infrequently referenced by 
+// Source file for miscellaneous entities that are infrequently referenced by
 // an executing program, and implementation of which requires dynamic linking.
 
 #include "tbb_misc.h"
@@ -56,7 +56,16 @@ namespace internal {
 
 #if __TBB_USE_OS_AFFINITY_SYSCALL
 
-static void set_affinity_mask( size_t maskSize, const basic_mask_t* threadMask ) {
+#if __linux__
+// Handlers for interoperation with libiomp
+static int (*libiomp_try_restoring_original_mask)();
+// Table for mapping to libiomp entry points
+static const dynamic_link_descriptor iompLinkTable[] = {
+    { "kmp_set_thread_affinity_mask_initial", (pointer_to_handler*)(void*)(&libiomp_try_restoring_original_mask) }
+};
+#endif
+
+static void set_thread_affinity_mask( size_t maskSize, const basic_mask_t* threadMask ) {
 #if __linux__
     if( sched_setaffinity( 0, maskSize, threadMask ) )
 #else /* FreeBSD */
@@ -65,7 +74,7 @@ static void set_affinity_mask( size_t maskSize, const basic_mask_t* threadMask )
         runtime_warning( "setaffinity syscall failed" );
 }
 
-static void get_affinity_mask( size_t maskSize, basic_mask_t* threadMask ) {
+static void get_thread_affinity_mask( size_t maskSize, basic_mask_t* threadMask ) {
 #if __linux__
     if( sched_getaffinity( 0, maskSize, threadMask ) )
 #else /* FreeBSD */
@@ -76,34 +85,44 @@ static void get_affinity_mask( size_t maskSize, basic_mask_t* threadMask ) {
 
 static basic_mask_t* process_mask;
 static int num_masks;
-struct process_mask_cleanup_helper {
-    ~process_mask_cleanup_helper() {
-        if( process_mask ) {
-            delete [] process_mask;
-        }
-     }
-};
-static process_mask_cleanup_helper process_mask_cleanup;
+
+void destroy_process_mask() {
+    if( process_mask ) {
+        delete [] process_mask;
+    }
+}
 
 #define curMaskSize sizeof(basic_mask_t) * num_masks
 affinity_helper::~affinity_helper() {
     if( threadMask ) {
         if( is_changed ) {
-            set_affinity_mask( curMaskSize, threadMask );
+            set_thread_affinity_mask( curMaskSize, threadMask );
         }
         delete [] threadMask;
     }
 }
-void affinity_helper::protect_affinity_mask() {
-    if( threadMask == NULL && num_masks && process_mask ) {
+void affinity_helper::protect_affinity_mask( bool restore_process_mask ) {
+    if( threadMask == NULL && num_masks ) { // TODO: assert num_masks validity?
         threadMask = new basic_mask_t [num_masks];
         memset( threadMask, 0, curMaskSize );
-        get_affinity_mask( curMaskSize, threadMask );
-        is_changed = memcmp( process_mask, threadMask, curMaskSize );
-        if( is_changed ) {
-            set_affinity_mask( curMaskSize, process_mask );
+        get_thread_affinity_mask( curMaskSize, threadMask );
+        if( restore_process_mask ) {
+            __TBB_ASSERT( process_mask, "A process mask is requested but not yet stored" );
+            is_changed = memcmp( process_mask, threadMask, curMaskSize );
+            if( is_changed )
+                set_thread_affinity_mask( curMaskSize, process_mask );
+        } else {
+            // Assume that the mask will be changed by the caller.
+            is_changed = 1;
         }
     }
+}
+void affinity_helper::dismiss() {
+    if( threadMask ) {
+        delete [] threadMask;
+        threadMask = NULL;
+    }
+    is_changed = 0;
 }
 #undef curMaskSize
 
@@ -123,26 +142,20 @@ static void initialize_hardware_concurrency_info () {
     int maxProcs = sysconf(_SC_NPROCESSORS_ONLN);
     int pid = getpid();
 #endif
-    cpu_set_t *processMask;
-    const size_t BasicMaskSize =  sizeof(cpu_set_t);
+#else /* FreeBSD >= 7.1 */
+    int maxProcs = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+    basic_mask_t* processMask;
+    const size_t BasicMaskSize =  sizeof(basic_mask_t);
     for (;;) {
-        int curMaskSize = BasicMaskSize * numMasks;
-        processMask = new cpu_set_t[numMasks];
+        const int curMaskSize = BasicMaskSize * numMasks;
+        processMask = new basic_mask_t[numMasks];
         memset( processMask, 0, curMaskSize );
+#if __linux__
         err = sched_getaffinity( pid, curMaskSize, processMask );
         if ( !err || errno != EINVAL || curMaskSize * CHAR_BIT >= 256 * 1024 )
             break;
-        delete[] processMask;
-        numMasks <<= 1;
-    }
 #else /* FreeBSD >= 7.1 */
-    int maxProcs = sysconf(_SC_NPROCESSORS_ONLN);
-    cpuset_t *processMask;
-    const size_t BasicMaskSize = sizeof(cpuset_t);
-    for (;;) {
-        int curMaskSize = BasicMaskSize * numMasks;
-        processMask = new cpuset_t[numMasks];
-        memset( processMask, 0, curMaskSize );
         // CPU_LEVEL_WHICH - anonymous (current) mask, CPU_LEVEL_CPUSET - assigned mask
 #if __TBB_MAIN_THREAD_AFFINITY_BROKEN
         err = cpuset_getaffinity( CPU_LEVEL_WHICH, CPU_WHICH_TID, -1, curMaskSize, processMask );
@@ -151,21 +164,42 @@ static void initialize_hardware_concurrency_info () {
 #endif
         if ( !err || errno != ERANGE || curMaskSize * CHAR_BIT >= 16 * 1024 )
             break;
+#endif /* FreeBSD >= 7.1 */
         delete[] processMask;
         numMasks <<= 1;
     }
-#endif /* FreeBSD >= 7.1 */
     if ( !err ) {
+        // We have found the mask size and captured the process affinity mask into processMask.
+        num_masks = numMasks; // do here because it's needed for affinity_helper to work
+#if __linux__
+        // For better coexistence with libiomp which might have changed the mask already,
+        // check for its presence and ask it to restore the mask.
+        dynamic_link_handle libhandle;
+        if ( dynamic_link( "libiomp5.so", iompLinkTable, 1, &libhandle, DYNAMIC_LINK_GLOBAL ) ) {
+            // We have found the symbol provided by libiomp5 for restoring original thread affinity.
+            affinity_helper affhelp;
+            affhelp.protect_affinity_mask( /*restore_process_mask=*/false );
+            if ( libiomp_try_restoring_original_mask()==0 ) {
+                // Now we have the right mask to capture, restored by libiomp.
+                const int curMaskSize = BasicMaskSize * numMasks;
+                memset( processMask, 0, curMaskSize );
+                get_thread_affinity_mask( curMaskSize, processMask );
+            } else
+                affhelp.dismiss();  // thread mask has not changed
+            dynamic_unlink( libhandle );
+            // Destructor of affinity_helper restores the thread mask (unless dismissed).
+        }
+#endif
         for ( int m = 0; availableProcs < maxProcs && m < numMasks; ++m ) {
             for ( size_t i = 0; (availableProcs < maxProcs) && (i < BasicMaskSize * CHAR_BIT); ++i ) {
                 if ( CPU_ISSET( i, processMask + m ) )
                     ++availableProcs;
             }
         }
-        num_masks = numMasks;
         process_mask = processMask;
     }
     else {
+        // Failed to get the process affinity mask; assume the whole machine can be used.
         availableProcs = (maxProcs == INT_MAX) ? sysconf(_SC_NPROCESSORS_ONLN) : maxProcs;
         delete[] processMask;
     }
@@ -178,7 +212,9 @@ int AvailableHwConcurrency() {
     return theNumProcs;
 }
 
+/* End of __TBB_USE_OS_AFFINITY_SYSCALL implementation */
 #elif __ANDROID__
+
 // Work-around for Android that reads the correct number of available CPUs since system calls are unreliable.
 // Format of "present" file is: ([<int>-<int>|<int>],)+
 int AvailableHwConcurrency() {
@@ -196,6 +232,7 @@ int AvailableHwConcurrency() {
 }
 
 #elif defined(_SC_NPROCESSORS_ONLN)
+
 int AvailableHwConcurrency() {
     int n = sysconf(_SC_NPROCESSORS_ONLN);
     return (n > 0) ? n : 1;
@@ -217,12 +254,12 @@ struct ProcessorGroupInfo {
     int         numProcsRunningTotal;   ///< Subtotal of processors in this and preceding groups
 
     //! Total number of processor groups in the system
-    static int NumGroups; 
+    static int NumGroups;
 
     //! Index of the group with a slot reserved for the first master thread
     /** In the context of multiple processor groups support current implementation
         defines "the first master thread" as the first thread to invoke
-        AvailableHwConcurrency(). 
+        AvailableHwConcurrency().
 
         TODO:   Implement a dynamic scheme remapping workers depending on the pending
                 master threads affinity. **/
@@ -231,7 +268,6 @@ struct ProcessorGroupInfo {
 
 int ProcessorGroupInfo::NumGroups = 1;
 int ProcessorGroupInfo::HoleIndex = 0;
-
 
 ProcessorGroupInfo theProcessorGroups[MaxProcessorGroups];
 
@@ -243,7 +279,7 @@ struct TBB_GROUP_AFFINITY {
 
 static DWORD (WINAPI *TBB_GetActiveProcessorCount)( WORD groupIndex ) = NULL;
 static WORD (WINAPI *TBB_GetActiveProcessorGroupCount)() = NULL;
-static BOOL (WINAPI *TBB_SetThreadGroupAffinity)( HANDLE hThread, 
+static BOOL (WINAPI *TBB_SetThreadGroupAffinity)( HANDLE hThread,
                         const TBB_GROUP_AFFINITY* newAff, TBB_GROUP_AFFINITY *prevAff );
 static BOOL (WINAPI *TBB_GetThreadGroupAffinity)( HANDLE hThread, TBB_GROUP_AFFINITY* );
 
@@ -306,11 +342,6 @@ static void initialize_hardware_concurrency_info () {
             PrintExtraVersionInfo( "----- Group", "%d: size %d", i, theProcessorGroups[i].numProcs);
 }
 
-int AvailableHwConcurrency() {
-    atomic_do_once( &initialize_hardware_concurrency_info, hardware_concurrency_info );
-    return theProcessorGroups[ProcessorGroupInfo::NumGroups - 1].numProcsRunningTotal;
-}
-
 int NumberOfProcessorGroups() {
     __TBB_ASSERT( hardware_concurrency_info == initialization_complete, "NumberOfProcessorGroups is used before AvailableHwConcurrency" );
     return ProcessorGroupInfo::NumGroups;
@@ -358,9 +389,15 @@ void MoveThreadIntoProcessorGroup( void* hThread, int groupIndex ) {
     TBB_SetThreadGroupAffinity( hThread, &ga, NULL );
 }
 
+int AvailableHwConcurrency() {
+    atomic_do_once( &initialize_hardware_concurrency_info, hardware_concurrency_info );
+    return theProcessorGroups[ProcessorGroupInfo::NumGroups - 1].numProcsRunningTotal;
+}
+
+/* End of _WIN32||_WIN64 implementation */
 #else
-    #error AvailableHwConcurrency is not implemented in this OS 
-#endif /* OS */
+    #error AvailableHwConcurrency is not implemented for this OS
+#endif
 
 } // namespace internal
 } // namespace tbb

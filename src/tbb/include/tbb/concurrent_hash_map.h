@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #ifndef __TBB_concurrent_hash_map_H
@@ -32,6 +32,7 @@
 #include <iterator>
 #include <utility>      // Need std::pair
 #include <cstring>      // Need std::memset
+#include __TBB_STD_SWAP_HEADER
 
 #if !TBB_USE_EXCEPTIONS && _MSC_VER
     #pragma warning (pop)
@@ -43,7 +44,7 @@
 #include "atomic.h"
 #include "tbb_exception.h"
 #include "tbb_profiling.h"
-#include "internal/_concurrent_unordered_impl.h" // Need tbb_hasher
+#include "internal/_tbb_hash_compare_impl.h"
 #if __TBB_INITIALIZER_LISTS_PRESENT
 #include <initializer_list>
 #endif
@@ -55,13 +56,6 @@
 #endif
 
 namespace tbb {
-
-//! hash_compare that is default argument for concurrent_hash_map
-template<typename Key>
-struct tbb_hash_compare {
-    static size_t hash( const Key& a ) { return tbb_hasher(a); }
-    static bool equal( const Key& a, const Key& b ) { return a == b; }
-};
 
 namespace interface5 {
 
@@ -339,9 +333,10 @@ namespace interface5 {
 
         void advance_to_next_bucket() { // TODO?: refactor to iterator_base class
             size_t k = my_index+1;
-            while( my_bucket && k <= my_map->my_mask ) {
+            __TBB_ASSERT( my_bucket, "advancing an invalid iterator?");
+            while( k <= my_map->my_mask ) {
                 // Following test uses 2's-complement wizardry
-                if( k& (k-2) ) // not the beginning of a segment
+                if( k&(k-2) ) // not the beginning of a segment
                     ++my_bucket;
                 else my_bucket = my_map->get_bucket( k );
                 my_node = static_cast<node*>( my_bucket->node_list );
@@ -374,7 +369,7 @@ namespace interface5 {
 
     public:
         //! Construct undefined iterator
-        hash_map_iterator() {}
+        hash_map_iterator(): my_map(), my_index(), my_bucket(), my_node() {}
         hash_map_iterator( const hash_map_iterator<Container,typename Container::value_type> &other ) :
             my_map(other.my_map),
             my_index(other.my_index),
@@ -579,7 +574,15 @@ protected:
         node( const Key &key ) : item(key, T()) {}
         node( const Key &key, const T &t ) : item(key, t) {}
 #if __TBB_CPP11_RVALUE_REF_PRESENT
+        node( const Key &key, T &&t ) : item(key, std::move(t)) {}
         node( value_type&& i ) : item(std::move(i)){}
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+        template<typename... Args>
+        node( Args&&... args ) : item(std::forward<Args>(args)...) {}
+#if __TBB_COPY_FROM_NON_CONST_REF_BROKEN
+        node( value_type& i ) : item(const_cast<const value_type&>(i)) {}
+#endif //__TBB_COPY_FROM_NON_CONST_REF_BROKEN
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
 #endif //__TBB_CPP11_RVALUE_REF_PRESENT
         node( const value_type& i ) : item(i) {}
 
@@ -602,6 +605,18 @@ protected:
     static node* allocate_node_copy_construct(node_allocator_type& allocator, const Key &key, const T * t){
         return  new( allocator ) node(key, *t);
     }
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    static node* allocate_node_move_construct(node_allocator_type& allocator, const Key &key, const T * t){
+        return  new( allocator ) node(key, std::move(*const_cast<T*>(t)));
+    }
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    template<typename... Args>
+    static node* allocate_node_emplace_construct(node_allocator_type& allocator, Args&&... args){
+        return  new( allocator ) node(std::forward<Args>(args)...);
+    }
+#endif //#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif
 
     static node* allocate_node_default_construct(node_allocator_type& allocator, const Key &key, const T * ){
         return  new( allocator ) node(key);
@@ -751,7 +766,7 @@ public:
     };
 
     //! Construct empty table.
-    concurrent_hash_map( const allocator_type &a = allocator_type() )
+    explicit concurrent_hash_map( const allocator_type &a = allocator_type() )
         : internal::hash_map_base(), my_allocator(a)
     {}
 
@@ -777,7 +792,7 @@ public:
         swap(table);
     }
 
-    //! Move constructor 
+    //! Move constructor
     concurrent_hash_map( concurrent_hash_map &&table, const allocator_type &a )
         : internal::hash_map_base(), my_allocator(a)
     {
@@ -956,6 +971,49 @@ public:
         return lookup(/*insert*/true, value.first, &value.second, NULL, /*write=*/false, &allocate_node_copy_construct );
     }
 
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    //! Insert item by copying if there is no such key present already and acquire a read lock on the item.
+    /** Returns true if item is new. */
+    bool insert( const_accessor &result, value_type && value ) {
+        return generic_move_insert(result, std::move(value));
+    }
+
+    //! Insert item by copying if there is no such key present already and acquire a write lock on the item.
+    /** Returns true if item is new. */
+    bool insert( accessor &result, value_type && value ) {
+        return generic_move_insert(result, std::move(value));
+    }
+
+    //! Insert item by copying if there is no such key present already
+    /** Returns true if item is inserted. */
+    bool insert( value_type && value ) {
+        return generic_move_insert(accessor_not_used(), std::move(value));
+    }
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    //! Insert item by copying if there is no such key present already and acquire a read lock on the item.
+    /** Returns true if item is new. */
+    template<typename... Args>
+    bool emplace( const_accessor &result, Args&&... args ) {
+        return generic_emplace(result, std::forward<Args>(args)...);
+    }
+
+    //! Insert item by copying if there is no such key present already and acquire a write lock on the item.
+    /** Returns true if item is new. */
+    template<typename... Args>
+    bool emplace( accessor &result, Args&&... args ) {
+        return generic_emplace(result, std::forward<Args>(args)...);
+    }
+
+    //! Insert item by copying if there is no such key present already
+    /** Returns true if item is inserted. */
+    template<typename... Args>
+    bool emplace( Args&&... args ) {
+        return generic_emplace(accessor_not_used(), std::forward<Args>(args)...);
+    }
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
+
     //! Insert range [first, last)
     template<typename I>
     void insert( I first, I last ) {
@@ -988,7 +1046,32 @@ public:
 
 protected:
     //! Insert or find item and optionally acquire a lock on the item.
-    bool lookup(bool op_insert, const Key &key, const T *t, const_accessor *result, bool write,  node* (*allocate_node)(node_allocator_type& ,  const Key &, const T * )  ) ;
+    bool lookup(bool op_insert, const Key &key, const T *t, const_accessor *result, bool write,  node* (*allocate_node)(node_allocator_type& ,  const Key &, const T * ), node *tmp_n = 0  ) ;
+
+    struct accessor_not_used { void release(){}};
+    friend const_accessor* accessor_location( accessor_not_used const& ){ return NULL;}
+    friend const_accessor* accessor_location( const_accessor & a )      { return &a;}
+
+    friend bool is_write_access_needed( accessor const& )           { return true;}
+    friend bool is_write_access_needed( const_accessor const& )     { return false;}
+    friend bool is_write_access_needed( accessor_not_used const& )  { return false;}
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+    template<typename Accessor>
+    bool generic_move_insert( Accessor && result, value_type && value ) {
+        result.release();
+        return lookup(/*insert*/true, value.first, &value.second, accessor_location(result), is_write_access_needed(result), &allocate_node_move_construct );
+    }
+
+#if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+    template<typename Accessor, typename... Args>
+    bool generic_emplace( Accessor && result, Args &&... args ) {
+        result.release();
+        node * node_ptr = allocate_node_emplace_construct(my_allocator, std::forward<Args>(args)...);
+        return lookup(/*insert*/true, node_ptr->item.first, NULL, accessor_location(result), is_write_access_needed(result), &do_not_allocate_node, node_ptr );
+    }
+#endif //__TBB_CPP11_VARIADIC_TEMPLATES_PRESENT
+#endif //__TBB_CPP11_RVALUE_REF_PRESENT
 
     //! delete item by accessor
     bool exclude( const_accessor &item_accessor );
@@ -1034,13 +1117,13 @@ protected:
 };
 
 template<typename Key, typename T, typename HashCompare, typename A>
-bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write, node* (*allocate_node)(node_allocator_type& , const Key&, const T*) ) {
+bool concurrent_hash_map<Key,T,HashCompare,A>::lookup( bool op_insert, const Key &key, const T *t, const_accessor *result, bool write, node* (*allocate_node)(node_allocator_type& , const Key&, const T*), node *tmp_n ) {
     __TBB_ASSERT( !result || !result->my_node, NULL );
     bool return_value;
     hashcode_t const h = my_hash_compare.hash( key );
     hashcode_t m = (hashcode_t) itt_load_word_with_acquire( my_mask );
     segment_index_t grow_segment = 0;
-    node *n, *tmp_n = 0;
+    node *n;
     restart:
     {//lock scope
         __TBB_ASSERT((m&(m+1))==0, "data structure is invalid");
@@ -1267,7 +1350,12 @@ void concurrent_hash_map<Key,T,HashCompare,A>::rehash(size_type sz) {
     if( !reported && buckets >= 512 && ( 2*empty_buckets > current_size || 2*overpopulated_buckets > current_size ) ) {
         tbb::internal::runtime_warning(
             "Performance is not optimal because the hash function produces bad randomness in lower bits in %s.\nSize: %d  Empties: %d  Overlaps: %d",
-            typeid(*this).name(), current_size, empty_buckets, overpopulated_buckets );
+#if __TBB_USE_OPTIONAL_RTTI
+            typeid(*this).name(),
+#else
+            "concurrent_hash_map",
+#endif
+            current_size, empty_buckets, overpopulated_buckets );
         reported = true;
     }
 #endif
@@ -1318,7 +1406,12 @@ void concurrent_hash_map<Key,T,HashCompare,A>::clear() {
     if( !reported && buckets >= 512 && ( 2*empty_buckets > current_size || 2*overpopulated_buckets > current_size ) ) {
         tbb::internal::runtime_warning(
             "Performance is not optimal because the hash function produces bad randomness in lower bits in %s.\nSize: %d  Empties: %d  Overlaps: %d",
-            typeid(*this).name(), current_size, empty_buckets, overpopulated_buckets );
+#if __TBB_USE_OPTIONAL_RTTI
+            typeid(*this).name(),
+#else
+            "concurrent_hash_map",
+#endif
+            current_size, empty_buckets, overpopulated_buckets );
         reported = true;
     }
 #endif

@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness.h"
@@ -29,29 +29,32 @@
 const int L = 10;
 const int N = 1000;
 
+using tbb::flow::internal::SUCCESSFULLY_ENQUEUED;
+
 template< typename T >
 struct serial_receiver : public tbb::flow::receiver<T> {
    T next_value;
 
    serial_receiver() : next_value(T(0)) {}
 
-   /* override */ tbb::task *try_put_task( const T &v ) {
+   tbb::task *try_put_task( const T &v ) __TBB_override {
        ASSERT( next_value++  == v, NULL );
-       return const_cast<tbb::task *>(tbb::flow::interface7::SUCCESSFULLY_ENQUEUED);
+       return const_cast<tbb::task *>(SUCCESSFULLY_ENQUEUED);
    }
 
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    void internal_add_built_predecessor( tbb::flow::sender<T> & ) { }
-    void internal_delete_built_predecessor( tbb::flow::sender<T> & ) { }
-    void copy_predecessors( std::vector<tbb::flow::sender<T>*> & ) { }
-    size_t predecessor_count() { return 0; }
+    typedef typename tbb::flow::receiver<T>::built_predecessors_type built_predecessors_type;
+    typedef typename tbb::flow::receiver<T>::predecessor_list_type predecessor_list_type;
+    typedef typename tbb::flow::receiver<T>::predecessor_type predecessor_type;
+    built_predecessors_type bpt;
+    built_predecessors_type &built_predecessors() __TBB_override { return bpt; }
+    void internal_add_built_predecessor( predecessor_type & ) __TBB_override { }
+    void internal_delete_built_predecessor( predecessor_type & ) __TBB_override { }
+    void copy_predecessors( predecessor_list_type & ) __TBB_override { }
+    size_t predecessor_count() __TBB_override { return 0; }
 #endif
 
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-   /*override*/void reset_receiver(tbb::flow::reset_flags /*f*/) {next_value = T(0);}
-#else
-   /*override*/void reset_receiver() {next_value = T(0);}
-#endif
+   void reset_receiver(tbb::flow::reset_flags /*f*/) __TBB_override {next_value = T(0);}
 };
 
 template< typename T >
@@ -61,33 +64,41 @@ struct parallel_receiver : public tbb::flow::receiver<T> {
 
    parallel_receiver() { my_count = 0; }
 
-   /* override */ tbb::task *try_put_task( const T &/*v*/ ) {
+   tbb::task *try_put_task( const T &/*v*/ ) __TBB_override {
        ++my_count;
-       return const_cast<tbb::task *>(tbb::flow::interface7::SUCCESSFULLY_ENQUEUED);
+       return const_cast<tbb::task *>(tbb::flow::internal::SUCCESSFULLY_ENQUEUED);
    }
 
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-    void internal_add_built_predecessor( tbb::flow::sender<T> & ) { }
-    void internal_delete_built_predecessor( tbb::flow::sender<T> & ) { }
-    void copy_predecessors( std::vector<tbb::flow::sender<T>*> & ) { }
-    size_t predecessor_count( ) { return 0; }
-   /*override*/void reset_receiver(tbb::flow::reset_flags /*f*/) {my_count = 0;}
-#else
-   /*override*/void reset_receiver() {my_count = 0;}
+    typedef typename tbb::flow::receiver<T>::built_predecessors_type built_predecessors_type;
+    typedef typename tbb::flow::receiver<T>::predecessor_list_type predecessor_list_type;
+    typedef typename tbb::flow::receiver<T>::predecessor_type predecessor_type;
+    built_predecessors_type bpt;
+    built_predecessors_type &built_predecessors() __TBB_override { return bpt; }
+    void internal_add_built_predecessor( predecessor_type & ) __TBB_override { }
+    void internal_delete_built_predecessor( predecessor_type & ) __TBB_override { }
+    void copy_predecessors( predecessor_list_type & ) __TBB_override { }
+    size_t predecessor_count( ) __TBB_override { return 0; }
 #endif
+    void reset_receiver(tbb::flow::reset_flags /*f*/) __TBB_override {my_count = 0;}
 };
 
 template< typename T >
 struct empty_sender : public tbb::flow::sender<T> {
-        /* override */ bool register_successor( tbb::flow::receiver<T> & ) { return false; }
-        /* override */ bool remove_successor( tbb::flow::receiver<T> & ) { return false; }
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
-        void    internal_add_built_successor( tbb::flow::receiver<T> & ) { }
-        void internal_delete_built_successor( tbb::flow::receiver<T> & ) { }
-        void copy_successors( std::vector<tbb::flow::receiver<T>*> & ) { }
-        size_t successor_count() { return 0; }
-#endif
+        typedef typename tbb::flow::sender<T>::successor_type successor_type;
 
+        bool register_successor( successor_type & ) __TBB_override { return false; }
+        bool remove_successor( successor_type & ) __TBB_override { return false; }
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+        typedef typename tbb::flow::sender<T>::built_successors_type built_successors_type;
+        typedef typename tbb::flow::sender<T>::successor_list_type successor_list_type;
+        built_successors_type bst;
+        built_successors_type &built_successors() __TBB_override { return bst; }
+        void    internal_add_built_successor( successor_type & ) __TBB_override { }
+        void internal_delete_built_successor( successor_type & ) __TBB_override { }
+        void copy_successors( successor_list_type & ) __TBB_override { }
+        size_t successor_count() __TBB_override { return 0; }
+#endif
 };
 
 
@@ -97,14 +108,14 @@ struct put_body : NoAssign {
     tbb::flow::limiter_node<T> &my_lim;
     tbb::atomic<int> &my_accept_count;
 
-    put_body( tbb::flow::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) : 
+    put_body( tbb::flow::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) :
         my_lim(lim), my_accept_count(accept_count) {}
 
     void operator()( int ) const {
         for ( int i = 0; i < L; ++i ) {
             bool msg = my_lim.try_put( T(i) );
             if ( msg == true )
-               ++my_accept_count; 
+               ++my_accept_count;
         }
     }
 };
@@ -115,7 +126,7 @@ struct put_dec_body : NoAssign {
     tbb::flow::limiter_node<T> &my_lim;
     tbb::atomic<int> &my_accept_count;
 
-    put_dec_body( tbb::flow::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) : 
+    put_dec_body( tbb::flow::limiter_node<T> &lim, tbb::atomic<int> &accept_count ) :
         my_lim(lim), my_accept_count(accept_count) {}
 
     void operator()( int ) const {
@@ -126,7 +137,7 @@ struct put_dec_body : NoAssign {
                 ++local_accept_count;
                 ++my_accept_count;
                 my_lim.decrement.try_put( tbb::flow::continue_msg() );
-            } 
+            }
         }
     }
 
@@ -144,7 +155,7 @@ void test_puts_with_decrements( int num_threads, tbb::flow::limiter_node< T >& l
     ASSERT(lim.decrement.predecessor_count() == 1, NULL);
     ASSERT(lim.successor_count() == 1, NULL);
     ASSERT(lim.predecessor_count() == 0, NULL);
-    std::vector<tbb::flow::sender<tbb::flow::continue_msg> *> dec_preds;
+    typename tbb::flow::interface9::internal::decrementer<tbb::flow::limiter_node<T> >::predecessor_list_type dec_preds;
     lim.decrement.copy_predecessors(dec_preds);
     ASSERT(dec_preds.size() == 1, NULL);
 #endif
@@ -160,11 +171,11 @@ void test_puts_with_decrements( int num_threads, tbb::flow::limiter_node< T >& l
 //
 // limiter only forwards below the limit, multiple parallel senders / single receiver
 // mutiple parallel senders that put to decrement at each accept, limiter accepts new messages
-// 
-// 
+//
+//
 template< typename T >
 int test_parallel(int num_threads) {
- 
+
    // test puts with no decrements
    for ( int i = 0; i < L; ++i ) {
        tbb::flow::graph g;
@@ -197,10 +208,10 @@ int test_parallel(int num_threads) {
 //
 // limiter only forwards below the limit, single sender / single receiver
 // at reject, a put to decrement, will cause next message to be accepted
-// 
+//
 template< typename T >
 int test_serial() {
- 
+
    // test puts with no decrements
    for ( int i = 0; i < L; ++i ) {
        tbb::flow::graph g;
@@ -305,10 +316,10 @@ test_multifunction_to_limiter(int _max, int _nparallel) {
 #if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     REMARK("pred cnt == %d\n",(int)(lim_node.predecessor_count()));
     REMARK("succ cnt == %d\n",(int)(lim_node.successor_count()));
-    tbb::flow::limiter_node<int>::successor_vector_type my_succs;
+    tbb::flow::limiter_node<int>::successor_list_type my_succs;
     lim_node.copy_successors(my_succs);
     REMARK("succ cnt from vector  == %d\n",(int)(my_succs.size()));
-    tbb::flow::limiter_node<int>::predecessor_vector_type my_preds;
+    tbb::flow::limiter_node<int>::predecessor_list_type my_preds;
     lim_node.copy_predecessors(my_preds);
     REMARK("pred cnt from vector  == %d\n",(int)(my_preds.size()));
 #endif
@@ -363,7 +374,7 @@ void test_reserve_release_messages() {
     //edges
     make_edge(input_queue, limit);
     make_edge(limit, output_queue);
-    make_edge(broad,limit.decrement); 
+    make_edge(broad,limit.decrement);
 
     int list[4] = {19, 33, 72, 98}; //list to be put to the input queue
 
@@ -408,7 +419,7 @@ void test_extract() {
     tbb::flow::broadcast_node<tbb::flow::continue_msg> b1(g);
 
     for( int i = 0; i < 2; ++i ) {
-
+        REMARK("At pass %d\n", i);
         ASSERT(node0.predecessor_count() == 0, "incorrect predecessor count at start");
         ASSERT(node0.successor_count() == 0, "incorrect successor count at start");
         ASSERT(node0.decrement.predecessor_count() == 0, "incorrect decrement pred count at start");
@@ -433,7 +444,8 @@ void test_extract() {
         ASSERT(node0.predecessor_count() == 2, "incorrect predecessor count after construction");
         ASSERT(node0.successor_count() == 1, "incorrect successor count after construction");
         ASSERT(node0.decrement.predecessor_count() == 2, "incorrect decrement pred count after construction");
-        ASSERT(q2.try_get(j) && j == i, "improper value forwarded to output queue");
+        ASSERT(q2.try_get(j), "fetch of value forwarded to output queue failed");
+        ASSERT(j == i, "improper value forwarded to output queue");
         q0.try_put(2*i);
         g.wait_for_all();
         ASSERT(!q2.try_get(j), "limiter_node forwarded item improperly");
@@ -444,12 +456,12 @@ void test_extract() {
         g.wait_for_all();
         ASSERT(q2.try_get(j) && j == 2*i, "limiter_node failed to forward item");
 
-        tbb::flow::limiter_node<int>::successor_vector_type sv;
-        tbb::flow::limiter_node<int>::predecessor_vector_type pv;
-        tbb::flow::continue_receiver::predecessor_vector_type dv;
-        std::vector<tbb::flow::receiver<int>*> sv1;
-        std::vector<tbb::flow::sender<int>*> pv1;
-        std::vector<tbb::flow::sender<tbb::flow::continue_msg>*> dv1;
+        tbb::flow::limiter_node<int>::successor_list_type sv;
+        tbb::flow::limiter_node<int>::predecessor_list_type pv;
+        tbb::flow::continue_receiver::predecessor_list_type dv;
+        tbb::flow::limiter_node<int>::successor_list_type sv1;
+        tbb::flow::limiter_node<int>::predecessor_list_type pv1;
+        tbb::flow::continue_receiver::predecessor_list_type dv1;
 
         node0.copy_predecessors(pv);
         node0.copy_successors(sv);
@@ -462,12 +474,15 @@ void test_extract() {
 
         ASSERT(pv.size() == 2, "improper size for predecessors");
         ASSERT(sv.size() == 1, "improper size for successors");
-        ASSERT(lists_match(pv,pv1), "predecesosr lists do not match");
+        ASSERT(lists_match(pv,pv1), "predecessor lists do not match");
         ASSERT(lists_match(sv,sv1), "successor lists do not match");
         ASSERT(lists_match(dv,dv1), "successor lists do not match");
 
         if(i == 0) {
             node0.extract();
+            ASSERT(node0.predecessor_count() == 0, "incorrect predecessor count after extraction");
+            ASSERT(node0.successor_count() == 0, "incorrect successor count after extraction");
+            ASSERT(node0.decrement.predecessor_count() == 0, "incorrect decrement pred count after extraction");
         }
         else {
             q0.extract();
@@ -487,7 +502,7 @@ void test_extract() {
             pv1.push_back(&(q1));
             dv1.push_back(&(b1));
 
-            ASSERT(lists_match(pv,pv1), "predecesosr lists do not match second iter");
+            ASSERT(lists_match(pv,pv1), "predecessor lists do not match second iter");
             ASSERT(lists_match(sv,sv1), "successor lists do not match second iter");
             ASSERT(lists_match(dv,dv1), "successor lists do not match second iter");
 
@@ -503,7 +518,7 @@ void test_extract() {
 }
 #endif  // TBB_PREVIEW_FLOW_GRAPH_FEATURES
 
-int TestMain() { 
+int TestMain() {
     for (int i = 1; i <= 8; ++i) {
         tbb::task_scheduler_init init(i);
         test_serial<int>();

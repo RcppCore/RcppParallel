@@ -1,20 +1,20 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright (c) 2005-2017 Intel Corporation
 #
-# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-# you can redistribute it and/or modify it under the terms of the GNU General Public License
-# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See  the GNU General Public License for more details.   You should have received a copy of
-# the  GNU General Public License along with Threading Building Blocks; if not, write to the
-# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# As a special exception,  you may use this file  as part of a free software library without
-# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-# functions from this file, or you compile this file and link it with other files to produce
-# an executable,  this file does not by itself cause the resulting executable to be covered
-# by the GNU General Public License. This exception does not however invalidate any other
-# reasons why the executable file might be covered by the GNU General Public License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
+#
 
 ifndef tbb_os
 
@@ -42,6 +42,25 @@ endif # !tbb_os
 ifeq ($(tbb_cpf),1)
   export CPF_SUFFIX ?=_preview
 endif
+
+ifdef cpp0x
+    $(warning "Warning: deprecated cpp0x=$(cpp0x) is used, stdver must be used instead. Building in stdver=c++0x mode.")
+    export stdver?=c++0x
+    override cpp0x=
+endif
+
+ifneq (,$(stdver))
+    ifeq (,$(findstring ++, $(stdver)))
+        $(warning "Warning: unexpected stdver=$(stdver) is used.")
+    endif
+
+    CXX_STD_FLAGS=-std=$(stdver) -D_TBB_CPP0X
+endif
+
+# The requested option is added unconditionally.
+# If it is not supported, a compiler warning or error is expected.
+# Note that CXX_STD_FLAGS can be changed in <os>.<compiler>.inc.
+CXX_ONLY_FLAGS+=$(CXX_STD_FLAGS)
 
 ifeq (,$(wildcard $(tbb_root)/build/$(tbb_os).inc))
   $(error "$(tbb_os)" is not supported. Add build/$(tbb_os).inc file with os-specific settings )
@@ -81,27 +100,23 @@ cross_cfg = $(if $(crosstest),$(call flip_cfg,$(1)),$(1))
 # Setting default configuration to release
 cfg?=release
 
+compiler_name=$(notdir $(compiler))
 ifdef BUILDING_PHASE
- # No lambdas or other C++0x extensions by default for compilers that implement them as experimental features
- # TODO: it should become unnecessary when all relevant tests are "moved" to the TEST_TBB_CPP11 set
- lambdas ?= 0
- cpp0x ?= 0
-
  ifndef target
   target:=$(tbb_os)
  endif
  # process host/target compiler-dependent build configuration
- ifeq (,$(wildcard $(tbb_root)/build/$(target).$(compiler).inc))
-  $(error "$(compiler)" is not supported on $(target). Add build/$(target).$(compiler).inc file with compiler-specific settings. )
+ ifeq (,$(wildcard $(tbb_root)/build/$(target).$(compiler_name).inc))
+  $(error "$(compiler_name)" is not supported on $(target). Add build/$(target).$(compiler_name).inc file with compiler-specific settings. )
  endif
- include $(tbb_root)/build/$(target).$(compiler).inc
+ include $(tbb_root)/build/$(target).$(compiler_name).inc
 endif
 
 ifneq ($(BUILDING_PHASE),1)
  # definitions for top-level Makefiles
  origin_build_dir:=$(origin tbb_build_dir)
  tbb_build_dir?=$(tbb_root)$(SLASH)build
- export tbb_build_prefix?=$(tbb_os)_$(arch)_$(compiler)_$(runtime)$(CPF_SUFFIX)
+ export tbb_build_prefix?=$(tbb_os)_$(arch)_$(compiler_name)_$(runtime)$(CPF_SUFFIX)
  work_dir=$(tbb_build_dir)$(SLASH)$(tbb_build_prefix)
 endif  # BUILDING_PHASE != 1
 

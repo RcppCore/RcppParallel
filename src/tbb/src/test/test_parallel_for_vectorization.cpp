@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // The test checks if the vectorization happens when PPL-style parallel_for is
@@ -25,9 +25,9 @@
 // 2. "#pragma ivdep" has a peculiarity which also can be used for detection of
 // successful vectorization. See the comment below.
 
-// For now, only Intel(R) C++ Compiler 12.0 and later is supported. Also, no
+// For now, only Intel(R) C++ Compiler 14.0 and later is supported. Also, no
 // sense to run the test in debug mode.
-#define HARNESS_SKIP_TEST ( __INTEL_COMPILER < 1200  || TBB_USE_DEBUG )
+#define HARNESS_SKIP_TEST ( __INTEL_COMPILER < 1400  || TBB_USE_DEBUG )
 
 // __TBB_ASSERT_ON_VECTORIZATION_FAILURE enables "pragma always assert" for
 // Intel(R) C++ Compiler.
@@ -38,12 +38,14 @@
 #include "harness.h"
 #include "harness_assert.h"
 
+#include <algorithm>
+
 class Body : NoAssign {
-    int &sum;
+    int *out_, *in_;
 public:
-    Body( int& s ) : sum(s) {}
+    Body( int* out, int *in ) : out_(out), in_(in) {}
     void operator() ( int i ) const {
-        sum += i / i;
+        out_[i] = in_[i] + 1;
     }
 };
 
@@ -51,17 +53,23 @@ int TestMain () {
     // Should be big enough that the partitioner generated at least a one range
     // with a size greater than 1. See the comment below.
     const int N = 10000;
-    int sum = 1;
     tbb::task_scheduler_init init(1);
-    tbb::parallel_for( 1, N, Body(sum) );
+    int array1[N];
+    std::fill( array1, array1+N, 0 );
+    // Use the same array (with a shift) for both input and output
+    tbb::parallel_for( 0, N-1, Body(array1+1, array1) );
+
+    int array2[N];
+    std::fill( array2, array2+N, 0 );
+    Body b(array2+1, array2);
+    for ( int i=0; i<N-1; ++i )
+        b(i);
 
     // The ppl-style parallel_for implementation has pragma ivdep before the
-    // range loop. This pragma suppresses the dependency about "sum" in "Body".
-    // Thus the vectorizer should generate code which just add to "sum" only
-    // one iteration of the range (despite the real number of iterations in the
-    // range). So "sum" is just number of calls of "Body". And it should be
-    // less than N if at least one range was greater than 1.
-    ASSERT( sum < N, "The loop was not vectorized." );
+    // range loop. This pragma suppresses the dependency of overlapping arrays
+    // in "Body". Thus the vectorizer should generate code that produces incorrect
+    // results.
+    ASSERT( !std::equal( array1, array1+N, array2 ), "The loop was not vectorized." );
 
     return  Harness::Done;
 }

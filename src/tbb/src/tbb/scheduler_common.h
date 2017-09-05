@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #ifndef _TBB_scheduler_common_H
@@ -63,6 +63,15 @@
     #define __TBB_CONTEXT_ARG1(context)
     #define __TBB_CONTEXT_ARG(arg1, context) arg1
 #endif /* !__TBB_TASK_GROUP_CONTEXT */
+
+#if __TBB_TASK_ISOLATION
+    #define __TBB_ISOLATION_EXPR(isolation) isolation
+    #define __TBB_ISOLATION_ARG(arg1, isolation) arg1, isolation
+#else
+    #define __TBB_ISOLATION_EXPR(isolation)
+    #define __TBB_ISOLATION_ARG(arg1, isolation) arg1
+#endif /* __TBB_TASK_ISOLATION */
+
 
 #if DO_TBB_TRACE
 #include <cstdio>
@@ -120,6 +129,8 @@ inline void assert_priority_valid ( intptr_t p ) {
 inline intptr_t& priority ( task& t ) {
     return t.prefix().context->my_priority;
 }
+#else /* __TBB_TASK_PRIORITY */
+static const intptr_t num_priority_levels = 1;
 #endif /* __TBB_TASK_PRIORITY */
 
 //! Mutex type for global locks in the scheduler
@@ -205,14 +216,14 @@ inline bool is_alive( uintptr_t v ) { return v != venom; }
 
 /** Logically, this method should be a member of class task.
     But we do not want to publish it, so it is here instead. */
-inline void assert_task_valid( const task& task ) {
-    __TBB_ASSERT( &task!=NULL, NULL );
+inline void assert_task_valid( const task* task ) {
+    __TBB_ASSERT( task!=NULL, NULL );
     __TBB_ASSERT( !is_poisoned(&task), NULL );
-    __TBB_ASSERT( (uintptr_t)&task % task_alignment == 0, "misaligned task" );
+    __TBB_ASSERT( (uintptr_t)task % task_alignment == 0, "misaligned task" );
 #if __TBB_RECYCLE_TO_ENQUEUE
-    __TBB_ASSERT( (unsigned)task.state()<=(unsigned)task::to_enqueue, "corrupt task (invalid state)" );
+    __TBB_ASSERT( (unsigned)task->state()<=(unsigned)task::to_enqueue, "corrupt task (invalid state)" );
 #else
-    __TBB_ASSERT( (unsigned)task.state()<=(unsigned)task::recycle, "corrupt task (invalid state)" );
+    __TBB_ASSERT( (unsigned)task->state()<=(unsigned)task::recycle, "corrupt task (invalid state)" );
 #endif
 }
 
@@ -222,7 +233,7 @@ inline void assert_task_valid( const task& task ) {
     the variable used as its argument may be undefined in release builds. **/
 #define poison_value(g) ((void)0)
 
-inline void assert_task_valid( const task& ) {}
+inline void assert_task_valid( const task* ) {}
 
 #endif /* !TBB_USE_ASSERT */
 
@@ -241,7 +252,12 @@ inline bool CancellationInfoPresent ( task& t ) {
 
 #if TBB_USE_CAPTURED_EXCEPTION
     inline tbb_exception* TbbCurrentException( task_group_context*, tbb_exception* src) { return src->move(); }
-    inline tbb_exception* TbbCurrentException( task_group_context*, captured_exception* src) { return src; }
+    inline tbb_exception* TbbCurrentException( task_group_context* c, captured_exception* src) {
+        if( c->my_version_and_traits & task_group_context::exact_exception )
+            runtime_warning( "Exact exception propagation is requested by application but the linked library is built without support for it");
+        return src;
+    }
+    #define TbbRethrowException(TbbCapturedException) (TbbCapturedException)->throw_self()
 #else
     // Using macro instead of an inline function here allows to avoid evaluation of the
     // TbbCapturedException expression when exact propagation is enabled for the context.
@@ -249,6 +265,11 @@ inline bool CancellationInfoPresent ( task& t ) {
         context->my_version_and_traits & task_group_context::exact_exception    \
             ? tbb_exception_ptr::allocate()    \
             : tbb_exception_ptr::allocate( *(TbbCapturedException) );
+    #define TbbRethrowException(TbbCapturedException) \
+        { \
+            if( governor::rethrow_exception_broken() ) fix_broken_rethrow(); \
+            (TbbCapturedException)->throw_self(); \
+        }
 #endif /* !TBB_USE_CAPTURED_EXCEPTION */
 
 #define TbbRegisterCurrentException(context, TbbCapturedException) \
@@ -271,6 +292,35 @@ inline bool CancellationInfoPresent ( task& t ) {
 inline bool ConcurrentWaitsEnabled ( task& t ) { return false; }
 
 #endif /* __TBB_TASK_GROUP_CONTEXT */
+
+inline void prolonged_pause() {
+#if defined(__TBB_time_stamp) && !__TBB_STEALING_PAUSE
+    // Assumption based on practice: 1000-2000 ticks seems to be a suitable invariant for the
+    // majority of platforms. Currently, skip platforms that define __TBB_STEALING_PAUSE
+    // because these platforms require very careful tuning.
+    machine_tsc_t prev = __TBB_time_stamp();
+    const machine_tsc_t finish = prev + 1000;
+    atomic_backoff backoff;
+    do {
+        backoff.bounded_pause();
+        machine_tsc_t curr = __TBB_time_stamp();
+        if ( curr <= prev )
+            // Possibly, the current logical thread is moved to another hardware thread or overflow is occurred.
+            break;
+        prev = curr;
+    } while ( prev < finish );
+#else
+#ifdef __TBB_STEALING_PAUSE
+    static const long PauseTime = __TBB_STEALING_PAUSE;
+#elif __TBB_ipf
+    static const long PauseTime = 1500;
+#else
+    static const long PauseTime = 80;
+#endif
+    // TODO IDEA: Update PauseTime adaptively?
+    __TBB_Pause(PauseTime);
+#endif
+}
 
 //------------------------------------------------------------------------
 // arena_slot
@@ -334,11 +384,8 @@ struct arena_slot : padded<arena_slot_line1>, padded<arena_slot_line2> {
 
     //! Deallocate task pool that was allocated by means of allocate_task_pool.
     void free_task_pool( ) {
-#if !__TBB_TASK_ARENA
-        __TBB_ASSERT( !task_pool /*TODO: == EmptyTaskPool*/, NULL);
-#else
-        //TODO: understand the assertion and modify
-#endif
+        // TODO: understand the assertion and modify
+        // __TBB_ASSERT( !task_pool /*TODO: == EmptyTaskPool*/, NULL);
         if( task_pool_ptr ) {
            __TBB_ASSERT( my_task_pool_size, NULL);
            NFS_Free( task_pool_ptr );

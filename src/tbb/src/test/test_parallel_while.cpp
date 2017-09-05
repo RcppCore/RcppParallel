@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "tbb/parallel_while.h"
@@ -32,7 +32,7 @@ class MinimalArgumentType {
     enum {
         DEAD=0xDEAD,
         LIVE=0x2718,
-        INITIALIZED=0x3141 
+        INITIALIZED=0x3141
     } my_state;
 public:
     ~MinimalArgumentType() {
@@ -50,7 +50,7 @@ public:
     long get_value() const {
         ASSERT( my_state==INITIALIZED, NULL );
         return my_value;
-    } 
+    }
 };
 
 class IntegerStream {
@@ -59,7 +59,7 @@ class IntegerStream {
 public:
     IntegerStream( long n ) : my_limit(n), my_index(0) {}
     bool pop_if_present( MinimalArgumentType& v ) {
-        if( my_index>=my_limit ) 
+        if( my_index>=my_limit )
             return false;
         v.set_value( my_index );
         my_index+=2;
@@ -82,11 +82,11 @@ public:
             value.set_value(i+1);
             my_while.add( value );
         }
-        for( int j=0; j<n; ++j )    
+        for( int j=0; j<n; ++j )
             c[i][j] = 0;
         for( int k=0; k<n; ++k ) {
             Element aik = a[i][k];
-            for( int j=0; j<n; ++j )    
+            for( int j=0; j<n; ++j )
                 c[i][j] += aik*b[k][j];
         }
     }
@@ -110,12 +110,12 @@ using namespace std;
 static long Iterations = 5;
 
 static void SerialMatrixMultiply( Element c[N][N], Element a[N][N], Element b[N][N], int n ) {
-    for( int i=0; i<n; ++i ) {   
-        for( int j=0; j<n; ++j )    
+    for( int i=0; i<n; ++i ) {
+        for( int j=0; j<n; ++j )
             c[i][j] = 0;
         for( int k=0; k<n; ++k ) {
             Element aik = a[i][k];
-            for( int j=0; j<n; ++j )    
+            for( int j=0; j<n; ++j )
                 c[i][j] += aik*b[k][j];
         }
     }
@@ -144,8 +144,8 @@ static void Run( int nthread, int n ) {
     SerialMatrixMultiply( D, A, B, n );
 
     // Check result
-    for( int i=0; i<n; ++i )   
-        for( int j=0; j<n; ++j )    
+    for( int i=0; i<n; ++i )
+        for( int j=0; j<n; ++j )
             ASSERT( C[i][j]==D[i][j], NULL );
     REMARK("time=%g\tnthread=%d\tn=%d\n",(t1-t0).seconds(),nthread,n);
 }

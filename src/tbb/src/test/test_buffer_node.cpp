@@ -1,29 +1,29 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #include "harness.h"
 #include "tbb/flow_graph.h"
 #include "tbb/task_scheduler_init.h"
 #include "tbb/tick_count.h"
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
 #include "harness_graph.h"
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
 #include <vector>
 #include <algorithm>
 #endif
@@ -63,9 +63,9 @@ struct touches {
     int my_num_threads;
 
     touches( int num_threads ) : my_num_threads(num_threads) {
-        my_touches = new bool* [my_num_threads]; 
+        my_touches = new bool* [my_num_threads];
         for ( int p = 0; p < my_num_threads; ++p) {
-            my_touches[p] = new bool[N]; 
+            my_touches[p] = new bool[N];
             for ( int n = 0; n < N; ++n)
                 my_touches[p][n] = false;
         }
@@ -80,7 +80,7 @@ struct touches {
 
     bool check( T v ) {
         ASSERT ( my_touches[v/N][v%N] == false, NULL);
-        my_touches[v/N][v%N] = true; 
+        my_touches[v/N][v%N] = true;
         return true;
     }
 
@@ -123,7 +123,7 @@ struct parallel_put_get : NoAssign {
     void operator()(int tid) const {
 
         for ( int i = 0; i < N; i+=C ) {
-            int j_end = ( N < i + C ) ? N : i + C; 
+            int j_end = ( N < i + C ) ? N : i + C;
             // dump about C values into the buffer
             for ( int j = i; j < j_end; ++j ) {
                 ASSERT( my_b.try_put( T (N*tid + j ) ) == true, NULL );
@@ -155,7 +155,7 @@ int test_reservation() {
     b.try_put(T(1));
     b.try_put(T(2));
     b.try_put(T(3));
- 
+
     T v, vsum;
     ASSERT( b.try_reserve(v) == true, NULL );
     ASSERT( b.try_release() == true, NULL );
@@ -166,12 +166,12 @@ int test_reservation() {
     vsum += v;
     v = bogus_value;
     g.wait_for_all();
- 
+
     ASSERT( b.try_get(v) == true, NULL );
     vsum += v;
     v = bogus_value;
     g.wait_for_all();
-    
+
     ASSERT( b.try_reserve(v) == true, NULL );
     ASSERT( b.try_release() == true, NULL );
     v = bogus_value;
@@ -293,6 +293,7 @@ int test_parallel(int num_threads) {
     ASSERT( b_copy.try_get( j ) == false, NULL );
     ASSERT( j == bogus_value, NULL );
 
+    delete [] next_value;
     return 0;
 }
 
@@ -300,7 +301,7 @@ int test_parallel(int num_threads) {
 // Tests
 //
 // Predecessors cannot be registered
-// Empty buffer rejects item requests 
+// Empty buffer rejects item requests
 // Single serial sender, items in arbitrary order
 // Chained buffers ( 2 & 3 ), single sender, items at last buffer in arbitrary order
 //
@@ -350,10 +351,10 @@ int test_serial() {
     ASSERT( b.predecessor_count() == 0, NULL);
     ASSERT( b2.successor_count() == 0, NULL);
     ASSERT( b2.predecessor_count() == 1, NULL);
-    typename tbb::flow::buffer_node<T>::successor_vector_type my_succs;
+    typename tbb::flow::buffer_node<T>::successor_list_type my_succs;
     b.copy_successors(my_succs);
     ASSERT(my_succs.size() == 1, NULL);
-    typename tbb::flow::buffer_node<T>::predecessor_vector_type my_preds;
+    typename tbb::flow::buffer_node<T>::predecessor_list_type my_preds;
     b.copy_predecessors(my_preds);
     ASSERT(my_preds.size() == 0, NULL);
 #endif
@@ -426,18 +427,18 @@ int test_serial() {
     return 0;
 }
 
-int TestMain() { 
+int TestMain() {
     tbb::tick_count start = tbb::tick_count::now(), stop;
     for (int p = 2; p <= 4; ++p) {
         tbb::task_scheduler_init init(p);
         test_serial<int>();
         test_parallel<int>(p);
-    } 
+    }
     stop = tbb::tick_count::now();
     REMARK("Buffer_Node Time=%6.6f\n", (stop-start).seconds());
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     test_resets<int,tbb::flow::buffer_node<int> >();
     test_resets<float,tbb::flow::buffer_node<float> >();
+#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
     test_buffer_extract<tbb::flow::buffer_node<int> >().run_tests();
 #endif
     return Harness::Done;

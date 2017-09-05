@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // configuration:
@@ -26,19 +26,21 @@ int MAX_TABLE_SIZE = 2000000;
 // Specify list of unique percents (5-30,100) to test against. Max 10 values
 #define UNIQUE_PERCENTS PERCENT(5); PERCENT(10); PERCENT(20); PERCENT(30); PERCENT(100)
 
+#define SECONDS_RATIO 1000000 // microseconds
+
 // enable/disable tests for:
 #define BOX1 "CHMap"
-#define BOX1TEST ValuePerSecond<Uniques<tbb::concurrent_hash_map<int,int> >, 1000000/*ns*/>
+#define BOX1TEST ValuePerSecond<Uniques<tbb::concurrent_hash_map<int,int> >, SECONDS_RATIO>
 #define BOX1HEADER "tbb/concurrent_hash_map.h"
 
 // enable/disable tests for:
 #define BOX2 "CUMap"
-#define BOX2TEST ValuePerSecond<Uniques<tbb::concurrent_unordered_map<int,int> >, 1000000/*ns*/>
+#define BOX2TEST ValuePerSecond<Uniques<tbb::concurrent_unordered_map<int,int> >, SECONDS_RATIO>
 #define BOX2HEADER "tbb/concurrent_unordered_map.h"
 
 // enable/disable tests for:
 //#define BOX3 "OLD"
-#define BOX3TEST ValuePerSecond<Uniques<tbb::concurrent_hash_map<int,int> >, 1000000/*ns*/>
+#define BOX3TEST ValuePerSecond<Uniques<tbb::concurrent_hash_map<int,int> >, SECONDS_RATIO>
 #define BOX3HEADER "tbb/concurrent_hash_map-5468.h"
 
 #define TBB_USE_THREADING_TOOLS 0
@@ -52,7 +54,7 @@ int MAX_TABLE_SIZE = 2000000;
 // needed by hash_maps
 #include <stdexcept>
 #include <iterator>
-#include <algorithm>                 // std::swap
+#include <algorithm>    // Need std::swap
 #include <utility>      // Need std::pair
 #include <cstring>      // Need std::memset
 #include <typeinfo>
@@ -108,8 +110,8 @@ struct Uniques : TesterBase {
     // Executes test mode for a given thread. Return value is ignored when used with timing wrappers.
     /*override*/ double test(int testn, int t)
     {
-        if( testn != 1 ) { // do insertions
-            for(int i = testn*value+t*n_items, e = testn*value+(t+1)*n_items; i < e; i++) {
+        if( testn == 0 ) { // do insertions
+            for(int i = t*n_items, e = (t+1)*n_items; i < e; i++) {
                 Table.insert( std::make_pair(Data[i],t) );
             }
         } else { // do last finds
@@ -138,7 +140,7 @@ void execute_percent(test_sandbox &the_test, int p) {
     int uniques = p==100?std::numeric_limits<int>::max() : MAX_TABLE_SIZE;
     ASSERT(p==100 || p <= 30, "Function is broken for %% > 30 except for 100%%");
     for(int i = 0; i < input_size; i++)
-        Data[i] = rand()%uniques;
+        Data[i] = (rand()*rand())%uniques;
     for(int t = MinThread; t <= MaxThread; t++)
         the_test.factory(input_size, t); // executes the tests specified in BOX-es for given 'value' and threads
     the_test.report.SetRoundTitle(rounds++, "%d%%", p);
@@ -158,7 +160,7 @@ int main(int argc, char* argv[]) {
     test_sandbox the_test("time_hash_map_fill"/*, StatisticsCollector::ByThreads*/);
     srand(10101);
     UNIQUE_PERCENTS; // test the percents
-    the_test.report.SetTitle("Operations per nanosecond");
+    the_test.report.SetTitle("Operations per microsecond");
     the_test.report.SetRunInfo("Items", MAX_TABLE_SIZE);
     the_test.report.Print(StatisticsCollector::HTMLFile|StatisticsCollector::ExcelXML); // Write files
     return 0;

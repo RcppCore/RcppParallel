@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // tbb::flow::tuple (implementation used in tbb::flow)
@@ -68,7 +68,7 @@ void RunOneComparisonTest() {
     ASSERT(!(t_tuple((T1)2,(T2)1,(T3)1) == u_tuple((U1)1,(U2)1,(U3)1)),NULL);
     ASSERT(!(t_tuple((T1)1,(T2)2,(T3)1) == u_tuple((U1)1,(U2)1,(U3)1)),NULL);
     ASSERT(!(t_tuple((T1)1,(T2)1,(T3)2) == u_tuple((U1)1,(U2)1,(U3)1)),NULL);
-    
+
     ASSERT(!(t_tuple((T1)1,(T2)1,(T3)1) <  u_tuple((U1)1,(U2)1,(U3)1)),NULL);
     ASSERT(!(t_tuple((T1)1,(T2)1,(T3)1) >  u_tuple((U1)1,(U2)1,(U3)1)),NULL);
     ASSERT(!(t_tuple((T1)1,(T2)1,(T3)1) !=  u_tuple((U1)1,(U2)1,(U3)1)),NULL);
@@ -77,6 +77,8 @@ void RunOneComparisonTest() {
     ASSERT(t_tuple((T1)1,(T2)1,(T3)1) >= u_tuple((U1)1,(U2)1,(U3)1),NULL);
 
 }
+
+#include "harness_defs.h"
 
 void RunTests() {
 
@@ -158,34 +160,36 @@ void RunTests() {
     ASSERT(int_tuple_type(1,1,1) >= int_tuple_type(1,0,0),NULL);
     ASSERT(int_tuple_type(0,1,1) >= int_tuple_type(0,1,1),NULL);
 
+#if !__TBB_TUPLE_COMPARISON_COMPILATION_BROKEN
     typedef tuple<int,float,double,char> mixed_tuple_left;
     typedef tuple<float,int,char,double> mixed_tuple_right;
 
-    ASSERT(mixed_tuple_left(1,1.f,1,1) == mixed_tuple_right(1.f,1,1,1),NULL);
-    ASSERT(mixed_tuple_left(1,0.f,1,1) <  mixed_tuple_right(1.f,1,1,1),NULL);
-    ASSERT(mixed_tuple_left(1,1.f,1,1) >  mixed_tuple_right(1.f,1,0,1),NULL);
-    ASSERT(mixed_tuple_left(1,1.f,1,0) != mixed_tuple_right(1.f,1,1,1),NULL);
-    ASSERT(mixed_tuple_left(1,0.f,1,1) <= mixed_tuple_right(1.f,1,0,1),NULL);
-    ASSERT(mixed_tuple_left(1,0.f,0,1) <= mixed_tuple_right(1.f,0,0,1),NULL);
-    ASSERT(mixed_tuple_left(1,1.f,1,0) >= mixed_tuple_right(1.f,0,1,1),NULL);
-    ASSERT(mixed_tuple_left(0,1.f,1,0) >= mixed_tuple_right(0.f,1,1,0),NULL);
+    ASSERT(mixed_tuple_left(1,1.f,1,char(1)) == mixed_tuple_right(1.f,1,char(1),1),NULL);
+    ASSERT(mixed_tuple_left(1,0.f,1,char(1)) <  mixed_tuple_right(1.f,1,char(1),1),NULL);
+    ASSERT(mixed_tuple_left(1,1.f,1,char(1)) >  mixed_tuple_right(1.f,1,char(0),1),NULL);
+    ASSERT(mixed_tuple_left(1,1.f,1,char(0)) != mixed_tuple_right(1.f,1,char(1),1),NULL);
+    ASSERT(mixed_tuple_left(1,0.f,1,char(1)) <= mixed_tuple_right(1.f,1,char(0),1),NULL);
+    ASSERT(mixed_tuple_left(1,0.f,0,char(1)) <= mixed_tuple_right(1.f,0,char(0),1),NULL);
+    ASSERT(mixed_tuple_left(1,1.f,1,char(0)) >= mixed_tuple_right(1.f,0,char(1),1),NULL);
+    ASSERT(mixed_tuple_left(0,1.f,1,char(0)) >= mixed_tuple_right(0.f,1,char(1),0),NULL);
 
-    ASSERT(!(mixed_tuple_left(2,1.f,1,1) == mixed_tuple_right(1.f,1,1,1)),NULL);
-    ASSERT(!(mixed_tuple_left(1,2.f,1,1) == mixed_tuple_right(1.f,1,1,1)),NULL);
-    ASSERT(!(mixed_tuple_left(1,1.f,2,1) == mixed_tuple_right(1.f,1,1,1)),NULL);
-    ASSERT(!(mixed_tuple_left(1,1.f,1,2) == mixed_tuple_right(1.f,1,1,1)),NULL);
-    
-    ASSERT(!(mixed_tuple_left(1,1.f,1,1) <  mixed_tuple_right(1.f,1,1,1)),NULL);
-    ASSERT(!(mixed_tuple_left(1,1.f,1,1) >  mixed_tuple_right(1.f,1,1,1)),NULL);
-    ASSERT(!(mixed_tuple_left(1,1.f,1,1) !=  mixed_tuple_right(1.f,1,1,1)),NULL);
+    ASSERT(!(mixed_tuple_left(2,1.f,1,char(1)) == mixed_tuple_right(1.f,1,char(1),1)),NULL);
+    ASSERT(!(mixed_tuple_left(1,2.f,1,char(1)) == mixed_tuple_right(1.f,1,char(1),1)),NULL);
+    ASSERT(!(mixed_tuple_left(1,1.f,2,char(1)) == mixed_tuple_right(1.f,1,char(1),1)),NULL);
+    ASSERT(!(mixed_tuple_left(1,1.f,1,char(2)) == mixed_tuple_right(1.f,1,char(1),1)),NULL);
 
-    ASSERT(mixed_tuple_left(1,1.f,1,1) <= mixed_tuple_right(1.f,1,1,1),NULL);
-    ASSERT(mixed_tuple_left(1,1.f,1,1) >= mixed_tuple_right(1.f,1,1,1),NULL);
+    ASSERT(!(mixed_tuple_left(1,1.f,1,char(1)) <  mixed_tuple_right(1.f,1,char(1),1)),NULL);
+    ASSERT(!(mixed_tuple_left(1,1.f,1,char(1)) >  mixed_tuple_right(1.f,1,char(1),1)),NULL);
+    ASSERT(!(mixed_tuple_left(1,1.f,1,char(1)) != mixed_tuple_right(1.f,1,char(1),1)),NULL);
+
+    ASSERT(mixed_tuple_left(1,1.f,1,char(1)) <= mixed_tuple_right(1.f,1,char(1),1),NULL);
+    ASSERT(mixed_tuple_left(1,1.f,1,char(1)) >= mixed_tuple_right(1.f,1,char(1),1),NULL);
 
     RunOneComparisonTest<int,float,char,float,char,int>();
     RunOneComparisonTest<double,float,char,float,double,int>();
     RunOneComparisonTest<int,float,char,short,char,short>();
     RunOneComparisonTest<double,float,short,float,char,int>();
+#endif /* __TBB_TUPLE_COMPARISON_COMPILATION_BROKEN */
 
 
     // the following should result in a syntax error

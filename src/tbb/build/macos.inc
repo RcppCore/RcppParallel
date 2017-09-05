@@ -1,30 +1,31 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright (c) 2005-2017 Intel Corporation
 #
-# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-# you can redistribute it and/or modify it under the terms of the GNU General Public License
-# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See  the GNU General Public License for more details.   You should have received a copy of
-# the  GNU General Public License along with Threading Building Blocks; if not, write to the
-# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# As a special exception,  you may use this file  as part of a free software library without
-# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-# functions from this file, or you compile this file and link it with other files to produce
-# an executable,  this file does not by itself cause the resulting executable to be covered
-# by the GNU General Public License. This exception does not however invalidate any other
-# reasons why the executable file might be covered by the GNU General Public License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
+#
 
 ####### Detections and Commands ###############################################
 
 ifeq (icc,$(compiler))
   export COMPILER_VERSION := ICC: $(shell icc -V </dev/null 2>&1 | grep 'Version')
-  ifneq (,$(findstring IA-32, $(COMPILER_VERSION)))
+  ifneq (,$(findstring running on IA-32, $(COMPILER_VERSION)))
     export arch:=ia32
-  endif
-  ifneq (,$(findstring Intel(R) 64, $(COMPILER_VERSION)))
-    export arch:=intel64
+  else
+    ifneq (,$(findstring running on Intel(R) 64, $(COMPILER_VERSION)))
+      export arch:=intel64
+    endif
   endif
   ifeq (,$(arch))
     $(warning "Unknown Intel compiler")
@@ -47,28 +48,19 @@ ifndef arch
  endif
 endif
 
-ifeq (ios,$(target))
-  ifneq (armv7, $(arch))
-    $(error $(arch) not supported for target 'ios')
-  endif
-  export SDKROOT?=$(shell xcodebuild -sdk -version | grep -o -E '/.*SDKs/iPhoneOS.*' 2>/dev/null)
-  ifeq (,$(SDKROOT))
-    $(error iOS SDK not found)
-  endif
-  # next, use a single compiler include file for both iOS* and OS X* builds.
-  override target:=macos
-  export target
-endif
-
 ifndef runtime
- gcc_version = $(shell gcc -dumpversion)
- os_version:=$(shell /usr/bin/sw_vers -productVersion)
- export runtime:=cc$(gcc_version)_os$(os_version)
+  clang_version:=$(shell clang -v 2>&1 >/dev/null | grep version | sed -e "s/.*version \(.*[0-9]\) .*/\1/")
+  ifndef os_version
+    os_version:=$(shell /usr/bin/sw_vers -productVersion)
+  endif
+  export runtime:=cc$(clang_version)_os$(os_version)
 endif
 
 native_compiler := clang
 export compiler ?= clang
-debugger ?= gdb
+debugger ?= lldb
+
+export stdlib ?= libc++
 
 CMD=$(SHELL) -c
 CWD=$(shell pwd)
@@ -111,3 +103,5 @@ MALLOCPROXY.LIB = $(MALLOCPROXY.DLL)
 LINK_MALLOCPROXY.LIB = $(MALLOCPROXY.LIB)
 
 TEST_LAUNCHER=sh $(tbb_root)/build/test_launcher.sh $(largs)
+
+OPENCL.LIB = -framework OpenCL

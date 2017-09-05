@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 #if (_MSC_VER)
@@ -130,8 +130,7 @@ public:
         } else {
             ITT_NOTIFY(sync_acquired, &s);
         }
-        if(s.load<relaxed>() != segment_allocated())
-            throw_exception(eid_bad_last_alloc); // throw custom exception, because it's hard to recover correctly after segment_allocation_failed state
+        enforce_segment_allocated(s.load<relaxed>()); //it's hard to recover correctly after segment_allocation_failed state
         return s;
     }
 
@@ -196,8 +195,7 @@ public:
         const void *arg;
         safe_init_body(internal_array_op2 init, const void *src) : func(init), arg(src) {}
         void operator()(segment_t &s, void *begin, size_type n) const {
-            if(s.load<relaxed>() != segment_allocated())
-                throw_exception(eid_bad_last_alloc); // throw custom exception
+            enforce_segment_allocated(s.load<relaxed>());
             func( begin, arg, n );
         }
     };
@@ -280,10 +278,11 @@ concurrent_vector_base_v3::size_type concurrent_vector_base_v3::helper::enable_s
             array0 = s[0].load<acquire>();
         }
         ITT_NOTIFY(sync_acquired, &s[0]);
-        if(array0 != segment_allocated()) { // check for segment_allocation_failed state of initial segment
-            publish_segment(s[k], segment_allocation_failed()); // and assign segment_allocation_failed state here
-            throw_exception(eid_bad_last_alloc); // throw custom exception
-        }
+
+        segment_scope_guard k_segment_guard(s[k], false);
+        enforce_segment_allocated(array0); // initial segment should be allocated
+        k_segment_guard.dismiss();
+
         publish_segment( s[k],
             static_cast<void*>(array0.pointer<char>() + segment_base(k)*element_size )
         );
@@ -399,8 +398,7 @@ void concurrent_vector_base_v3::internal_assign( const concurrent_vector_base_v3
         size_type b=segment_base(k);
         size_type new_end = b>=n ? b : n;
         __TBB_ASSERT( my_early_size>new_end, NULL );
-        if( my_segment[k].load<relaxed>() != segment_allocated()) // check vector was broken before
-            throw_exception(eid_bad_last_alloc); // throw custom exception
+        enforce_segment_allocated(my_segment[k].load<relaxed>()); //if vector was broken before
         // destructors are supposed to not throw any exceptions
         destroy( my_segment[k].load<relaxed>().pointer<char>() + element_size*(new_end-b), my_early_size-new_end );
         my_early_size = new_end;
@@ -417,8 +415,8 @@ void concurrent_vector_base_v3::internal_assign( const concurrent_vector_base_v3
         helper::extend_table_if_necessary(*this, k, 0);
         if( my_segment[k].load<relaxed>() == segment_not_used())
             helper::enable_segment(*this, k, element_size);
-        else if( my_segment[k].load<relaxed>() != segment_allocated() )
-            throw_exception(eid_bad_last_alloc); // throw custom exception
+        else
+            enforce_segment_allocated(my_segment[k].load<relaxed>());
         size_type m = k? segment_size(k) : 2;
         if( m > n-b ) m = n-b;
         size_type a = 0;
@@ -475,8 +473,7 @@ concurrent_vector_base_v3::size_type concurrent_vector_base_v3::internal_grow_to
                 backoff.pause();
             ITT_NOTIFY(sync_acquired, &s);
         }
-        if( my_segment[i].load<relaxed>() != segment_allocated() )
-            throw_exception(eid_bad_last_alloc);
+        enforce_segment_allocated(my_segment[i].load<relaxed>());
     }
 #if TBB_USE_DEBUG
     size_type capacity = internal_capacity();

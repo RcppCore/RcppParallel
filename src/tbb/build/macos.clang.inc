@@ -1,20 +1,20 @@
-# Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+# Copyright (c) 2005-2017 Intel Corporation
 #
-# This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-# you can redistribute it and/or modify it under the terms of the GNU General Public License
-# version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-# distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-# implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See  the GNU General Public License for more details.   You should have received a copy of
-# the  GNU General Public License along with Threading Building Blocks; if not, write to the
-# Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# As a special exception,  you may use this file  as part of a free software library without
-# restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-# functions from this file, or you compile this file and link it with other files to produce
-# an executable,  this file does not by itself cause the resulting executable to be covered
-# by the GNU General Public License. This exception does not however invalidate any other
-# reasons why the executable file might be covered by the GNU General Public License.
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#
+#
+#
 
 CPLUS = clang++
 CONLY = clang
@@ -35,7 +35,7 @@ LIBDL = -ldl
 
 LIBS = -lpthread
 LINK_FLAGS =
-LIB_LINK_FLAGS = -dynamiclib
+LIB_LINK_FLAGS = -dynamiclib -install_name @rpath/$(BUILDING_LIBRARY)
 C_FLAGS = $(CPLUS_FLAGS)
 
 ifeq ($(cfg), release)
@@ -51,15 +51,9 @@ ifneq (,$(shell grep xtest `echo "\#include<immintrin.h>" | clang -E -M - 2>&1 |
     RTM_KEY = -mrtm
 endif
 
-ifeq (libc++,$(stdlib))
-    CPLUS_FLAGS    += -stdlib=libc++
-    LIB_LINK_FLAGS += -stdlib=libc++
-endif
-
-CPP11_FLAGS = -std=c++11 -D_TBB_CPP0X
-    
-ifneq (00,$(lambdas)$(cpp0x))
-    CXX_ONLY_FLAGS += $(CPP11_FLAGS)
+ifneq (,$(stdlib))
+    CPLUS_FLAGS    += -stdlib=$(stdlib)
+    LIB_LINK_FLAGS += -stdlib=$(stdlib)
 endif
 
 ifeq (intel64,$(arch))
@@ -84,6 +78,18 @@ ifeq (ppc32,$(arch))
     CPLUS_FLAGS += -arch ppc
     LINK_FLAGS += -arch ppc
     LIB_LINK_FLAGS += -arch ppc
+endif
+
+ifeq ($(arch),$(filter $(arch),armv7 armv7s arm64))
+    CPLUS_FLAGS += -arch $(arch)
+    LINK_FLAGS += -arch $(arch)
+    LIB_LINK_FLAGS += -arch $(arch)
+endif
+
+ifdef SDKROOT
+    CPLUS_FLAGS += -isysroot $(SDKROOT)
+    LINK_FLAGS += -L$(SDKROOT)/usr/lib/system -L$(SDKROOT)/usr/lib/
+    LIB_LINK_FLAGS += -L$(SDKROOT)/usr/lib/system -L$(SDKROOT)/usr/lib/
 endif
 
 #------------------------------------------------------------------------------
