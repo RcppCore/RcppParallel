@@ -1,9 +1,9 @@
-RcppParallel 2017.7.0 (unreleased)
+RcppParallel 2018.1.0 (unreleased)
 ------------------------------------------------------------------------
 
 * Allow setting the number of threads to use via RCPP_PARALLEL_NUM_THREADS
   environment variable.
-* Update to TBB 2017 Update 7.
+* Update to TBB 2018 Update 1.
 * Add native registration of compiled functions.
 
 RcppParallel 4.3.20

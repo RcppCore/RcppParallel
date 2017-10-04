@@ -78,7 +78,7 @@ public:
         friend class thread_monitor;
         tbb::atomic<size_t> my_epoch;
     };
-    thread_monitor() : spurious(false) {
+    thread_monitor() : spurious(false), my_sema() {
         my_cookie.my_epoch = 0;
         ITT_SYNC_CREATE(&my_sema, SyncType_RML, SyncObj_ThreadMonitor);
         in_wait = false;

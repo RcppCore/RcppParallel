@@ -23,7 +23,7 @@
 
 namespace tbb {
 namespace flow {
-namespace interface9 {
+namespace interface10 {
 
 //! Pure virtual template classes that define interfaces for async communication
 class graph_proxy {
@@ -47,10 +47,10 @@ public:
     virtual bool try_put(const input_type&) = 0;
 };
 
-} //interface9
+} //interfaceX
 
-using interface9::graph_proxy;
-using interface9::receiver_gateway;
+using interface10::graph_proxy;
+using interface10::receiver_gateway;
 
 } //flow
 } //tbb

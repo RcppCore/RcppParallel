@@ -33,18 +33,7 @@ int TestMain() {
 #include "tbb/tbb.h"
 #include "tbb/combinable.h"
 #include <cstdio>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <list>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 using namespace std;
 using namespace tbb;

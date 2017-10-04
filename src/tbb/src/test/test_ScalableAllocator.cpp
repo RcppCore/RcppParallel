@@ -94,7 +94,7 @@ struct FixedPool {
     void  *buf;
     size_t size;
     bool   used;
-    FixedPool(void *buf, size_t size) : buf(buf), size(size), used(false) {}
+    FixedPool(void *a_buf, size_t a_size) : buf(a_buf), size(a_size), used(false) {}
 };
 
 static void *fixedBufGetMem(intptr_t pool_id, size_t &bytes)

@@ -57,21 +57,11 @@ void TestMap(const typename Map::allocator_type &a) {
         ASSERT( m.find(i)->second==i*i, NULL );
 }
 
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <deque>
 #include <list>
 #include <map>
 #include <set>
 #include <vector>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 #if __TBB_CPP11_RVALUE_REF_PRESENT
 struct MoveOperationTracker {
@@ -129,7 +119,7 @@ void TestAllocatorWithSTL(const Allocator &a = Allocator() ) {
     TestMap<std::map     <int, int, std::less<int>, Acii> >(a);
     TestMap<std::multimap<int, int, std::less<int>, Acii> >(a);
 
-#if _MSC_VER
+#if _MSC_VER && _CPPLIB_VER < 650
     // Test compatibility with Microsoft's implementation of std::allocator for some cases that
     // are undefined according to the ISO standard but permitted by Microsoft.
     TestSequence<std::deque <const int,Aci> >(a);

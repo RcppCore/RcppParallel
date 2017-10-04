@@ -25,6 +25,7 @@ set bin_dir=%CD%
 set fslash_bin_dir=%bin_dir:\=/%
 set _INCLUDE=INCLUDE& set _LIB=LIB
 if not x%UNIXMODE%==x set _INCLUDE=CPATH& set _LIB=LIBRARY_PATH
+if not x%USE_INCLUDE_ENV%==x set _INCLUDE=INCLUDE
 
 echo Generating local tbbvars.bat
 echo @echo off>tbbvars.bat

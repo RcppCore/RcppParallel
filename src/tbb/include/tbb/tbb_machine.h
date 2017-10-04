@@ -663,7 +663,15 @@ struct machine_load_store_seq_cst<T,8> {
         return __TBB_machine_cmpswp8( (volatile void*)const_cast<volatile T*>(&location), anyvalue, anyvalue );
     }
     static void store ( volatile T &location, T value ) {
+#if __TBB_GCC_VERSION >= 40702
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+        // An atomic initialization leads to reading of uninitialized memory
         int64_t result = (volatile int64_t&)location;
+#if __TBB_GCC_VERSION >= 40702
+#pragma GCC diagnostic pop
+#endif
         while ( __TBB_machine_cmpswp8((volatile void*)&location, (int64_t)value, result) != result )
             result = (volatile int64_t&)location;
     }

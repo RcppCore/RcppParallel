@@ -18,19 +18,18 @@
 
 */
 
-#ifndef __TBB_annotate_H
-#define __TBB_annotate_H
+//! To disable use of exceptions, include this header before any other header file from the library.
 
-// Macros used by the Intel(R) Parallel Advisor.
-#ifdef __TBB_NORMAL_EXECUTION
-    #define ANNOTATE_SITE_BEGIN( site )
-    #define ANNOTATE_SITE_END( site )
-    #define ANNOTATE_TASK_BEGIN( task )
-    #define ANNOTATE_TASK_END( task )
-    #define ANNOTATE_LOCK_ACQUIRE( lock )
-    #define ANNOTATE_LOCK_RELEASE( lock )
+//! The macro that prevents use of exceptions in the library files
+#undef  TBB_USE_EXCEPTIONS
+#define TBB_USE_EXCEPTIONS 0
+
+//! Prevent compilers from issuing exception related warnings.
+/** Note that the warnings are suppressed for all the code after this header is included. */
+#if _MSC_VER
+#if __INTEL_COMPILER
+    #pragma warning (disable: 583)
 #else
-    #include <advisor-annotate.h>
+    #pragma warning (disable: 4530 4577)
 #endif
-
-#endif /* __TBB_annotate_H */
+#endif

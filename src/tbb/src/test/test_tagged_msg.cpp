@@ -52,7 +52,7 @@ typedef tbb::flow::tagged_msg<size_t, int, char, double, odd_array_type, odder_a
 
 // test base of tagged_msg
 void TestWrapper() {
-    using tbb::flow::interface9::internal::Wrapper;
+    using tbb::flow::interface10::internal::Wrapper;
     Wrapper<int> wi(42);
     Wrapper<int> wic(23);
 

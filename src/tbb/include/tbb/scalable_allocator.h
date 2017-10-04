@@ -193,7 +193,8 @@ void *pool_aligned_realloc(MemoryPool* mPool, void *ptr, size_t size, size_t ali
 bool  pool_reset(MemoryPool* memPool);
 bool  pool_free(MemoryPool *memPool, void *object);
 MemoryPool *pool_identify(void *object);
-}
+
+} // namespace rml
 
 #include <new>      /* To use new with the placement argument */
 

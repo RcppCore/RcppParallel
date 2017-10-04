@@ -26,24 +26,12 @@
 
 #include "tbb/task_scheduler_init.h"
 #include <cstdlib>
-#include "harness_assert.h"
-
 #include <cstdio>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #if TBB_USE_EXCEPTIONS
 #include <stdexcept>
 #endif
 
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
-
+#include "harness_assert.h"
 #if _MSC_VER
 #pragma warning (push)
     // MSVC discovers that ASSERT(false) inside TestBlockingTerminateNS::ExceptionTest2::Body makes the code

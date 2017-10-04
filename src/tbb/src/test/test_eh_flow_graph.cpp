@@ -24,10 +24,6 @@
 
 #if _MSC_VER
     #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
-    #if !TBB_USE_EXCEPTIONS
-        // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-        #pragma warning (disable: 4530)
-    #endif
 #endif
 
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
@@ -300,9 +296,9 @@ struct myLess {
 
 // --------- type for < comparison in priority_queue_node.
 template<class ItemType>
-struct less_body : public std::binary_function<ItemType,ItemType,bool> {
+struct less_body {
     bool operator()(const ItemType &lhs, const ItemType &rhs) {
-        return ((int)lhs % 3) < ((int)rhs % 3);
+        return (int(lhs) % 3) < (int(rhs) % 3);
     }
 };
 

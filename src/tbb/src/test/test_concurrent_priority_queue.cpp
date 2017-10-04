@@ -78,6 +78,7 @@ public:
     }
 };
 
+#if TBB_USE_EXCEPTIONS
 class my_throwing_type : public my_data_type {
 public:
     static int throw_flag;
@@ -87,10 +88,10 @@ public:
         priority = src.priority;
     }
 };
-
 int my_throwing_type::throw_flag = 0;
 
 typedef concurrent_priority_queue<my_throwing_type, my_less > cpq_ex_test_type;
+#endif
 
 #if __TBB_CPP11_VARIADIC_TEMPLATES_PRESENT && __TBB_CPP11_RVALUE_REF_PRESENT
 const size_t push_selector_variants = 3;
@@ -387,6 +388,7 @@ void TestParallelPushPop(int nThreads, T t_max, T t_min, C /*compare*/) {
 }
 
 void TestExceptions() {
+#if TBB_USE_EXCEPTIONS
     const size_t TOO_LARGE_SZ = 1000000000;
     my_throwing_type elem;
 
@@ -502,6 +504,7 @@ void TestExceptions() {
     }
     REMARK("Push exceptions testing complete.\n");
 #endif
+#endif // TBB_USE_EXCEPTIONS
 }
 
 template <typename T, typename C>

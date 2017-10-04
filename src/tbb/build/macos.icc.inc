@@ -65,12 +65,11 @@ ifneq (,$(codecov))
 endif
 
 # ICC 14.0 and higher support usage of libc++, clang standard library
-# Extending minimal deployment version of official binaries to unsupported 10.8
-# per customer requests. TODO: make a dedicated variable for this
+MACOSX_DEPLOYMENT_TARGET ?= 10.11
 ifneq (,$(shell icc -dumpversion | egrep  "^1[4-9]\."))
 ifneq (,$(stdlib))
-    CPLUS_FLAGS    += -stdlib=$(stdlib) -mmacosx-version-min=10.8
-    LIB_LINK_FLAGS += -stdlib=$(stdlib) -mmacosx-version-min=10.8
+    CPLUS_FLAGS    += -stdlib=$(stdlib) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
+    LIB_LINK_FLAGS += -stdlib=$(stdlib) -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
 endif
 endif
 

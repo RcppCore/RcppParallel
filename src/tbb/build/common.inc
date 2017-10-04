@@ -39,8 +39,13 @@ ifndef tbb_os
 
 endif # !tbb_os
 
-ifeq ($(tbb_cpf),1)
+ifeq (1,$(tbb_cpf))
   export CPF_SUFFIX ?=_preview
+endif
+
+ifeq (0,$(exceptions))
+# Inverse the value, for simplicity of use
+  export no_exceptions=1
 endif
 
 ifdef cpp0x
@@ -53,8 +58,7 @@ ifneq (,$(stdver))
     ifeq (,$(findstring ++, $(stdver)))
         $(warning "Warning: unexpected stdver=$(stdver) is used.")
     endif
-
-    CXX_STD_FLAGS=-std=$(stdver) -D_TBB_CPP0X
+    CXX_STD_FLAGS=-std=$(stdver)
 endif
 
 # The requested option is added unconditionally.

@@ -29,7 +29,7 @@ LINK_FLAGS = /link /nologo
 LIB_LINK_FLAGS=/link /nologo /DLL /MAP /DEBUG /fixed:no /INCREMENTAL:NO /DYNAMICBASE /NXCOMPAT
 
 ifneq (,$(stdver))
-    CXX_STD_FLAGS = /std:$(stdver) /D_TBB_CPP0X
+    CXX_STD_FLAGS = /std:$(stdver)
 endif
 
 ifeq ($(arch), ia32)
@@ -41,7 +41,7 @@ ifeq ($(runtime), vc_mt)
 else
     MS_CRT_KEY = /MD$(if $(findstring debug,$(cfg)),d)
 endif
-EH_FLAGS = /EHsc /GR
+EH_FLAGS = $(if $(no_exceptions),/EHs-,/EHsc /GR)
 
 ifeq ($(cfg), release)
         CPLUS_FLAGS = $(MS_CRT_KEY) /O2 /Zi $(EH_FLAGS) /Zc:forScope /Zc:wchar_t /D__TBB_LIB_NAME=$(TBB.LIB)
@@ -52,14 +52,21 @@ ifeq ($(cfg), debug)
         ASM_FLAGS = /DUSE_FRAME_POINTER
 endif
 
-ifeq ($(target_ui), win8ui)
-        CPLUS_FLAGS += /D "_UNICODE" /D "UNICODE"  /D "WINAPI_FAMILY=WINAPI_FAMILY_APP"
-        _WIN32_WINNT=0x0602
-ifeq ($(target_ui_mode), production)
-        LIB_LINK_FLAGS += /APPCONTAINER
-endif
+ZW_KEY = /ZW:nostdlib
+
+ifneq (,$(filter win8ui,$(target_app) $(target_ui)))
+        CPLUS_FLAGS += $(ZW_KEY) /D "_UNICODE" /D "UNICODE" /D "WINAPI_FAMILY=WINAPI_FAMILY_APP"
+        _WIN32_WINNT = 0x0602
+else ifneq (,$(filter uwp,$(target_app) $(target_ui)))
+        CPLUS_FLAGS += $(ZW_KEY) /D "_UNICODE" /D "UNICODE" /D "WINAPI_FAMILY=WINAPI_FAMILY_APP"
+        _WIN32_WINNT = 0x0A00
+        LIB_LINK_FLAGS += /NODEFAULTLIB:kernel32.lib OneCore.lib
 else
         CPLUS_FLAGS += /DDO_ITT_NOTIFY
+endif
+ifneq (,$(filter store,$(target_mode) $(target_ui_mode)))
+#       it is necessary to source vcvars with 'store' argument in production
+        LIB_LINK_FLAGS += /APPCONTAINER
 endif
 
 CPLUS_FLAGS += /GS
@@ -71,6 +78,7 @@ DEFINE_KEY = /D
 OUTPUT_KEY = /Fe
 OUTPUTOBJ_KEY = /Fo
 WARNING_AS_ERROR_KEY = /WX
+WARNING_SUPPRESS = $(if $(no_exceptions),/wd4530 /wd4577)
 BIGOBJ_KEY = /bigobj
 
 ifeq ($(runtime),vc7.1)
@@ -84,6 +92,8 @@ DYLIB_KEY = /DLL
 EXPORT_KEY = /DEF:
 NODEFAULTLIB_KEY = /Zl
 NOINTRINSIC_KEY = /Oi-
+
+INCLUDE_TEST_HEADERS = /FI$(tbb_root)/src/test/harness_preload.h
 
 ifeq ($(runtime),vc8)
         WARNING_KEY += /Wp64
@@ -104,7 +114,7 @@ endif
 
 CPLUS_FLAGS += /DUSE_WINTHREAD /D_CRT_SECURE_NO_DEPRECATE \
         /D_WIN32_WINNT=$(_WIN32_WINNT)
-C_FLAGS = $(subst $(EH_FLAGS),,$(CPLUS_FLAGS))
+C_FLAGS = $(subst $(ZW_KEY),,$(subst $(EH_FLAGS),,$(CPLUS_FLAGS)))
 
 #------------------------------------------------------------------------------
 # End of setting compiler flags.
