@@ -31,7 +31,8 @@ WARNING_AS_ERROR_KEY = Warning as error
 WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,inlasmpnu
 tbb_strict=0
 
-CPLUS = CC
+# RcppParallel patch: -library=stlport4
+CPLUS = CC -library=stlport4
 CONLY = cc
 
 OPENMP_FLAG = -xopenmp

@@ -4,28 +4,28 @@
 
 |setting  |value                        |
 |:--------|:----------------------------|
-|version  |R version 3.4.1 (2017-06-30) |
+|version  |R version 3.4.2 (2017-09-28) |
 |system   |x86_64, mingw32              |
-|ui       |RStudio (1.0.153)            |
+|ui       |RStudio (1.1.379)            |
 |language |(EN)                         |
 |collate  |English_United States.1252   |
 |tz       |Europe/Berlin                |
-|date     |2017-09-03                   |
+|date     |2017-10-05                   |
 
 ## Packages
 
 |package      |*  |version  |date       |source                         |
 |:------------|:--|:--------|:----------|:------------------------------|
 |BH           |   |1.65.0-1 |2017-08-24 |CRAN (R 3.4.1)                 |
-|knitr        |   |1.17     |2017-08-10 |CRAN (R 3.4.1)                 |
-|Rcpp         |   |0.12.12  |2017-07-15 |CRAN (R 3.4.1)                 |
-|RcppParallel |   |2017.7.0 |2017-09-02 |local (jolars/RcppParallel@NA) |
-|rmarkdown    |   |1.6      |2017-06-15 |CRAN (R 3.4.1)                 |
+|knitr        |   |1.17     |2017-08-10 |CRAN (R 3.4.2)                 |
+|Rcpp         |   |0.12.13  |2017-09-28 |CRAN (R 3.4.2)                 |
+|RcppParallel |   |2018.1.0 |2017-10-05 |local (jolars/RcppParallel@NA) |
+|rmarkdown    |   |1.6      |2017-06-15 |CRAN (R 3.4.2)                 |
 |RUnit        |   |0.4.31   |2015-11-06 |CRAN (R 3.4.1)                 |
 
 # Check results
 
-22 packages
+24 packages
 
 |package      |version   | errors| warnings| notes|
 |:------------|:---------|------:|--------:|-----:|
@@ -40,10 +40,12 @@
 |microclass   |1.1       |      0|        0|     2|
 |milr         |0.3.0     |      0|        0|     1|
 |MultiBD      |0.2.0     |      0|        0|     1|
-|parallelDist |0.1.1     |      0|        0|     1|
+|parallelDist |0.2.0     |      0|        0|     1|
 |patternplot  |0.1       |      0|        0|     2|
 |qualpalr     |0.4.2     |      0|        0|     2|
-|quanteda     |0.99      |      0|        0|     1|
+|quanteda     |0.99.9    |      0|        0|     1|
+|re2r         |0.2.0     |      0|        0|     2|
+|rENA         |0.1.0     |      1|        0|     0|
 |roll         |1.0.7     |      0|        0|     2|
 |rPref        |1.2       |      0|        0|     3|
 |skm          |0.1.5.4   |      0|        0|     2|
@@ -248,7 +250,7 @@ search.
 See 'Writing portable packages' in the 'Writing R Extensions' manual.
 ```
 
-## parallelDist (0.1.1)
+## parallelDist (0.2.0)
 Maintainer: Alexander Eckert <info@alexandereckert.com>  
 Bug reports: https://github.com/alexeckert/parallelDist/issues
 
@@ -304,7 +306,7 @@ search.
 See 'Writing portable packages' in the 'Writing R Extensions' manual.
 ```
 
-## quanteda (0.99)
+## quanteda (0.99.9)
 Maintainer: Kenneth Benoit <kbenoit@lse.ac.uk>  
 Bug reports: https://github.com/kbenoit/quanteda/issues
 
@@ -319,6 +321,37 @@ It is good practice to register native routines and to disable symbol
 search.
 
 See 'Writing portable packages' in the 'Writing R Extensions' manual.
+```
+
+## re2r (0.2.0)
+Maintainer: Qin Wenfeng <mail@qinwenfeng.com>  
+Bug reports: https://github.com/qinwf/re2r/issues
+
+0 errors | 0 warnings | 2 notes
+
+```
+checking for GNU extensions in Makefiles ... NOTE
+GNU make is a SystemRequirements.
+
+checking compiled code ... NOTE
+File 're2r/libs/x64/re2r.dll':
+  Found no calls to: 'R_registerRoutines', 'R_useDynamicSymbols'
+
+It is good practice to register native routines and to disable symbol
+search.
+
+See 'Writing portable packages' in the 'Writing R Extensions' manual.
+```
+
+## rENA (0.1.0)
+Maintainer: Cody L Marquart <cody.marquart@wisc.edu>
+
+1 error  | 0 warnings | 0 notes
+
+```
+checking whether package 'rENA' can be installed ... ERROR
+Installation failed.
+See 'C:/Users/johan/Documents/GitHub/RcppParallel/revdep/checks/rENA.Rcheck/00install.out' for details.
 ```
 
 ## roll (1.0.7)

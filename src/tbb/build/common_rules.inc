@@ -46,8 +46,11 @@ endif
 INCLUDES += $(INCLUDE_KEY)$(tbb_root)/src $(INCLUDE_KEY)$(tbb_root)/src/rml/include $(INCLUDE_KEY)$(tbb_root)/include
 
 CPLUS_FLAGS += $(WARNING_KEY) $(CXXFLAGS)
-ifeq ($(tbb_cpf),1)
+ifeq (1,$(tbb_cpf))
 CPLUS_FLAGS += $(DEFINE_KEY)__TBB_CPF_BUILD=1
+endif
+ifeq (0,$(exceptions))
+CPLUS_FLAGS += $(DEFINE_KEY)TBB_USE_EXCEPTIONS=0
 endif
 LINK_FLAGS += $(LDFLAGS)
 LIB_LINK_FLAGS += $(LDFLAGS)

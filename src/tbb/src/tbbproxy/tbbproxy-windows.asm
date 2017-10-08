@@ -16,8 +16,6 @@
 ;
 ;
 
-#include "tbb/tbb_config.h"
-
 // __TBB_STRING macro defined in "tbb_stddef.h". However, we cannot include "tbb_stddef.h"
 // because it contains a lot of C/C++ definitions. So, we have to define __TBB_STRING here:
 #define __TBB_STRING_AUX( x ) #x

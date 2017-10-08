@@ -1,21 +1,21 @@
 /*
-    Copyright 2005-2014 Intel Corporation.  All Rights Reserved.
+    Copyright (c) 2005-2017 Intel Corporation
 
-    This file is part of Threading Building Blocks. Threading Building Blocks is free software;
-    you can redistribute it and/or modify it under the terms of the GNU General Public License
-    version 2  as  published  by  the  Free Software Foundation.  Threading Building Blocks is
-    distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the
-    implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    See  the GNU General Public License for more details.   You should have received a copy of
-    the  GNU General Public License along with Threading Building Blocks; if not, write to the
-    Free Software Foundation, Inc.,  51 Franklin St,  Fifth Floor,  Boston,  MA 02110-1301 USA
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
 
-    As a special exception,  you may use this file  as part of a free software library without
-    restriction.  Specifically,  if other files instantiate templates  or use macros or inline
-    functions from this file, or you compile this file and link it with other files to produce
-    an executable,  this file does not by itself cause the resulting executable to be covered
-    by the GNU General Public License. This exception does not however invalidate any other
-    reasons why the executable file might be covered by the GNU General Public License.
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+
+
+
 */
 
 // Declarations for rock-bottom simple test harness.
@@ -60,15 +60,7 @@ int TestMain ();
     #include <ucontext.h>
 #else /* !__SUNPRO_CC */
     #include <cstdlib>
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
     #include <cstring>
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 #endif /* !__SUNPRO_CC */
 
 #include <new>
@@ -83,12 +75,12 @@ int TestMain ();
 #if _WIN32||_WIN64
     #include "tbb/machine/windows_api.h"
     #if _WIN32_WINNT > 0x0501 && _MSC_VER && !_M_ARM
+        // Suppress "typedef ignored ... when no variable is declared" warning by vc14
+        #pragma warning (push)
+        #pragma warning (disable: 4091)
         #include <dbghelp.h>
+        #pragma warning (pop)
         #pragma comment (lib, "dbghelp.lib")
-    #endif
-    #if _XBOX
-        #undef HARNESS_NO_PARSE_COMMAND_LINE
-        #define HARNESS_NO_PARSE_COMMAND_LINE 1
     #endif
     #if __TBB_WIN8UI_SUPPORT
         #include <thread>
@@ -112,11 +104,51 @@ int TestMain ();
     #define BACKTRACE_FUNCTION_AVAILABLE 1
 #endif
 
+namespace Harness {
+    class NativeMutex {
+#if _WIN32||_WIN64
+        CRITICAL_SECTION my_critical_section;
+      public:
+        NativeMutex() {
+            InitializeCriticalSectionEx(&my_critical_section, 4000, 0);
+        }
+        void lock() {
+            EnterCriticalSection(&my_critical_section);
+        }
+        void unlock() {
+            LeaveCriticalSection(&my_critical_section);
+        }
+        ~NativeMutex() {
+            DeleteCriticalSection(&my_critical_section);
+        }
+#else
+        pthread_mutex_t m_mutex;
+    public:
+        NativeMutex() {
+             pthread_mutex_init(&m_mutex, NULL);
+        }
+        void lock() {
+            pthread_mutex_lock(&m_mutex);
+        }
+        void unlock() {
+            pthread_mutex_unlock(&m_mutex);
+        }
+        ~NativeMutex() {
+            pthread_mutex_destroy(&m_mutex);
+        }
+#endif
+    };
+    namespace internal {
+        static NativeMutex print_stack_mutex;
+    }
+}
+
 #include "harness_runtime_loader.h"
 #include "harness_report.h"
 
 //! Prints current call stack
 void print_call_stack() {
+    Harness::internal::print_stack_mutex.lock();
     fflush(stdout); fflush(stderr);
     #if BACKTRACE_FUNCTION_AVAILABLE
         const int sz = 100; // max number of frames to capture
@@ -127,7 +159,7 @@ void print_call_stack() {
     #elif __SUNPRO_CC
         REPORT("Call stack info:\n");
         printstack(fileno(stdout));
-    #elif _WIN32_WINNT > 0x0501 && _MSC_VER && !__TBB_WIN8UI_SUPPORT
+    #elif _WIN32_WINNT > 0x0501 && _MSC_VER>=1500 && !__TBB_WIN8UI_SUPPORT
         const int sz = 62; // XP limitation for number of frames
         void *buff[sz];
         int n = CaptureStackBackTrace(0, sz, buff, NULL);
@@ -144,9 +176,10 @@ void print_call_stack() {
             if(!SymFromAddr( GetCurrentProcess(), DWORD64(buff[i]), &offset, &sym )) {
                 sym.Address = ULONG64(buff[i]); offset = 0; sym.Name[0] = 0;
             }
-            REPORT("[%d] %016I64LX+%04I64LX: %s\n", i, sym.Address, offset, sym.Name); //TODO: print module name
+            REPORT("[%d] %016I64X+%04I64X: %s\n", i, sym.Address, offset, sym.Name); //TODO: print module name
         }
     #endif /*BACKTRACE_FUNCTION_AVAILABLE*/
+    Harness::internal::print_stack_mutex.unlock();
 }
 
 #if !HARNESS_NO_ASSERT
@@ -331,6 +364,10 @@ static void ParseCommandLine( int argc, char* argv[] ) {
 #include "mpi.h"
 #endif
 
+#if __TBB_MIC_OFFLOAD && __MIC__
+extern "C" int COIProcessProxyFlush();
+#endif
+
 HARNESS_EXPORT
 #if HARNESS_NO_PARSE_COMMAND_LINE
 int main() {
@@ -383,7 +420,16 @@ int main(int argc, char* argv[]) {
     #pragma offload target(mic) out(res) mandatory
 #endif
 #endif
-    res = TestMain ();
+    {
+        res = TestMain();
+#if __TBB_MIC_OFFLOAD && __MIC__
+        // It is recommended not to use the __MIC__ macro directly in the offload block but it is Ok here
+        // since it is not lead to an unexpected difference between host and target compilation phases.
+        // We need to flush internals COI buffers to order output from the offload part before the host part.
+        // Also it is work-around for the issue with missed output.
+        COIProcessProxyFlush();
+#endif
+    }
 
     ASSERT( res==Harness::Done || res==Harness::Skipped, "Wrong return code by TestMain");
 #if __TBB_MPI_INTEROP
@@ -405,10 +451,7 @@ class NoAssign {
     //! Assignment not allowed
     void operator=( const NoAssign& );
 public:
-#if __GNUC__
-    //! Explicitly define default construction, because otherwise gcc issues gratuitous warning.
-    NoAssign() {}
-#endif /* __GNUC__ */
+    NoAssign() {} // explicitly defined to prevent gratuitous warnings
 };
 
 //! Base class for prohibiting compiler-generated copy constructor or operator=
@@ -418,6 +461,45 @@ class NoCopy: NoAssign {
 public:
     NoCopy() {}
 };
+
+#if __TBB_CPP11_RVALUE_REF_PRESENT
+#include <utility>
+
+//! Base class for objects which support move ctors
+class Movable {
+public:
+    Movable() : alive(true) {}
+    void Reset() { alive = true; }
+    Movable(Movable&& other) {
+        ASSERT(other.alive, "Moving from a dead object");
+        alive = true;
+        other.alive = false;
+    }
+    Movable& operator=(Movable&& other) {
+        ASSERT(alive, "Assignment to a dead object");
+        ASSERT(other.alive, "Assignment of a dead object");
+        other.alive = false;
+        return *this;
+    }
+    Movable& operator=(const Movable& other) {
+        ASSERT(alive, "Assignment to a dead object");
+        ASSERT(other.alive, "Assignment of a dead object");
+        return *this;
+    }
+    Movable(const Movable& other) {
+        ASSERT(other.alive, "Const reference to a dead object");
+        alive = true;
+    }
+    ~Movable() { alive = false; }
+    volatile bool alive;
+};
+
+class MoveOnly : Movable, NoCopy {
+public:
+    MoveOnly() : Movable() {}
+    MoveOnly(MoveOnly&& other) : Movable( std::move(other) ) {}
+};
+#endif /* __TBB_CPP11_RVALUE_REF_PRESENT */
 
 #if HARNESS_TBBMALLOC_THREAD_SHUTDOWN && __TBB_SOURCE_DIRECTLY_INCLUDED && (_WIN32||_WIN64)
 #include "../tbbmalloc/tbbmalloc_internal_api.h"
@@ -441,7 +523,11 @@ public:
         thread_handle = thread_tmp->native_handle();
         thread_id = 0;
 #else
-        thread_handle = (HANDLE)_beginthreadex( NULL, 0, thread_function, this, 0, &thread_id );
+        unsigned stack_size = 0;
+#if HARNESS_THREAD_STACK_SIZE
+        stack_size = HARNESS_THREAD_STACK_SIZE;
+#endif
+        thread_handle = (HANDLE)_beginthreadex( NULL, stack_size, thread_function, this, 0, &thread_id );
 #endif
         ASSERT( thread_handle!=0, "NativeParallelFor: _beginthreadex failed" );
 #else
@@ -453,8 +539,7 @@ public:
         // launched by make, the default stack size is set to the hard limit, and
         // calls to pthread_create fail with out-of-memory error.
         // Therefore we set the stack size explicitly (as for TBB worker threads).
-// TODO: make a single definition of MByte used by all tests.
-        const size_t MByte = 1024*1024;
+#if !defined(HARNESS_THREAD_STACK_SIZE)
 #if __i386__||__i386||__arm__
         const size_t stack_size = 1*MByte;
 #elif __x86_64__
@@ -462,6 +547,9 @@ public:
 #else
         const size_t stack_size = 4*MByte;
 #endif
+#else
+        const size_t stack_size = HARNESS_THREAD_STACK_SIZE;
+#endif /* HARNESS_THREAD_STACK_SIZE */
         pthread_attr_t attr_stack;
         int status = pthread_attr_init(&attr_stack);
         ASSERT(0==status, "NativeParallelFor: pthread_attr_init failed");
@@ -584,6 +672,11 @@ T1 max ( const T1& val1, const T2& val2 ) {
 }
 #endif /* !max */
 
+template<typename T>
+static inline bool is_aligned(T arg, size_t alignment) {
+    return 0==((size_t)arg &  (alignment-1));
+}
+
 #if __linux__
 inline unsigned LinuxKernelVersion()
 {
@@ -681,9 +774,61 @@ public:
             x = x*a + 1;
             return r;
         }
-        FastRandom( unsigned seed ) {
+        explicit FastRandom( unsigned seed ) {
             x = seed;
             a = Primes[seed % (sizeof(Primes) / sizeof(Primes[0]))];
+        }
+    };
+    template<typename T>
+    class FastRandomBody {
+        FastRandom r;
+    public:
+        explicit FastRandomBody( unsigned seed ) : r(seed) {}
+        // Depending on the input type T the result distribution formed from this operator()
+        // might possess different characteristics than the original one used in FastRandom instance.
+        T operator()() { return T(r.get()); }
+    };
+
+    int SetEnv( const char *envname, const char *envval ) {
+        ASSERT( envname && envval, "Harness::SetEnv() requires two valid C strings" );
+#if __TBB_WIN8UI_SUPPORT
+        ASSERT( false, "Harness::SetEnv() should not be called in code built for win8ui" );
+        return -1;
+#elif !(_MSC_VER || __MINGW32__ || __MINGW64__)
+        // On POSIX systems use setenv
+        return setenv(envname, envval, /*overwrite=*/1);
+#elif __STDC_SECURE_LIB__>=200411
+        // this macro is set in VC & MinGW if secure API functions are present
+        return _putenv_s(envname, envval);
+#else
+        // If no secure API on Windows, use _putenv
+        size_t namelen = strlen(envname), valuelen = strlen(envval);
+        char* buf = new char[namelen+valuelen+2];
+        strncpy(buf, envname, namelen);
+        buf[namelen] = '=';
+        strncpy(buf+namelen+1, envval, valuelen);
+        buf[namelen+1+valuelen] = char(0);
+        int status = _putenv(buf);
+        delete[] buf;
+        return status;
+#endif
+    }
+
+    char* GetEnv(const char *envname) {
+        ASSERT(envname, "Harness::GetEnv() requires a valid C string");
+#if __TBB_WIN8UI_SUPPORT
+        return NULL;
+#else
+        return std::getenv(envname);
+#endif
+    }
+
+    class DummyBody {
+        int m_numIters;
+    public:
+        explicit DummyBody( int iters ) : m_numIters( iters ) {}
+        void operator()( int ) const {
+            for ( volatile int i = 0; i < m_numIters; ++i ) {}
         }
     };
 } // namespace Harness

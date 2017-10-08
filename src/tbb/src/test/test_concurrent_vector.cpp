@@ -927,19 +927,19 @@ void TestSerialGrowByWithMoveIterators(){
 namespace test_move_in_shrink_to_fit_helpers {
     struct dummy : Harness::StateTrackable<>{
         int i;
-        dummy(int an_i) __TBB_NOTHROW : Harness::StateTrackable<>(0), i(an_i) {}
+        dummy(int an_i) __TBB_NOEXCEPT(true) : Harness::StateTrackable<>(0), i(an_i) {}
 #if !__TBB_IMPLICIT_MOVE_PRESENT || __TBB_NOTHROW_MOVE_MEMBERS_IMPLICIT_GENERATION_BROKEN
-        dummy(const dummy &src) __TBB_NOTHROW : Harness::StateTrackable<>(src), i(src.i) {}
-        dummy(dummy &&src) __TBB_NOTHROW : Harness::StateTrackable<>(std::move(src)), i(src.i) {}
+        dummy(const dummy &src) __TBB_NOEXCEPT(true) : Harness::StateTrackable<>(src), i(src.i) {}
+        dummy(dummy &&src) __TBB_NOEXCEPT(true) : Harness::StateTrackable<>(std::move(src)), i(src.i) {}
 
-        dummy& operator=(dummy &&src) __TBB_NOTHROW {
+        dummy& operator=(dummy &&src) __TBB_NOEXCEPT(true) {
             Harness::StateTrackable<>::operator=(std::move(src));
             i = src.i;
             return *this;
         }
 
         //somehow magically this declaration make std::is_nothrow_move_constructible<pod>::value to works correctly on icc14+msvc2013
-        ~dummy() __TBB_NOTHROW {}
+        ~dummy() __TBB_NOEXCEPT(true) {}
 #endif //!__TBB_IMPLICIT_MOVE_PRESENT || __TBB_NOTHROW_MOVE_MEMBERS_IMPLICIT_GENERATION_BROKEN
         friend bool operator== (const dummy &lhs, const dummy &rhs){ return lhs.i == rhs.i; }
     };
@@ -972,19 +972,10 @@ void TestSerialMoveInShrinkToFit(){
 }
 #endif //__TBB_MOVE_IF_NOEXCEPT_PRESENT
 #endif //__TBB_CPP11_RVALUE_REF_PRESENT
-// Test the comparison operators
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
 
 #include <string>
 
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
-
+// Test the comparison operators
 void TestComparison() {
     std::string str[3]; str[0] = "abc";
     str[1].assign("cba");

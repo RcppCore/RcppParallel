@@ -94,9 +94,8 @@ private:
 
 protected:
     private_worker( private_server& server, tbb_client& client, const size_t i ) :
-        my_server(server),
-        my_client(client),
-        my_index(i)
+        my_server(server), my_client(client), my_index(i),
+        my_thread_monitor(), my_handle(), my_next()
     {
         my_state = st_init;
     }
@@ -331,7 +330,6 @@ private_server::private_server( tbb_client& client ) :
 #endif /* TBB_USE_ASSERT */
     my_asleep_list_root = NULL;
     my_thread_array = tbb::cache_aligned_allocator<padded_private_worker>().allocate( my_n_thread );
-    memset( my_thread_array, 0, sizeof(private_worker)*my_n_thread );
     for( size_t i=0; i<my_n_thread; ++i ) {
         private_worker* t = new( &my_thread_array[i] ) padded_private_worker( *this, client, i );
         t->my_next = my_asleep_list_root;

@@ -66,7 +66,6 @@ namespace tbbmalloc_whitebox {
 #include "../tbbmalloc/tbbmalloc.cpp"
 
 const int LARGE_MEM_SIZES_NUM = 10;
-const size_t MByte = 1024*1024;
 
 class AllocInfo {
     int *p;

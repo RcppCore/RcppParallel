@@ -26,18 +26,7 @@
 #if __TBB_ALLOCATOR_CONSTRUCT_VARIADIC
  #include <utility> // std::forward
 #endif
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <cstring>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 namespace tbb {
 

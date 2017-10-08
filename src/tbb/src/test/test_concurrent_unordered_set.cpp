@@ -18,12 +18,12 @@
 
 */
 
-#include "harness_defs.h"
-#if !(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN)
-
 #if _MSC_VER
 #define _SCL_SECURE_NO_WARNINGS
 #endif
+
+#include "harness_defs.h"
+#if !(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN)
 
 #define __TBB_EXTRA_DEBUG 1
 #include "tbb/concurrent_unordered_set.h"

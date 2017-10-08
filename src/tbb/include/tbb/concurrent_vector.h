@@ -31,19 +31,8 @@
 #include <new>
 #include <cstring>   // for memset()
 #include __TBB_STD_SWAP_HEADER
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <algorithm>
 #include <iterator>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 #if _MSC_VER==1500 && !__INTEL_COMPILER
     // VS2008/VC9 seems to have an issue; limits pull in math.h

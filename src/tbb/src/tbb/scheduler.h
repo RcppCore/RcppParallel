@@ -38,7 +38,6 @@ namespace tbb {
 namespace internal {
 
 template<typename SchedulerTraits> class custom_scheduler;
-struct nested_arena_context;
 
 //------------------------------------------------------------------------
 // generic_scheduler
@@ -294,14 +293,14 @@ public:
 #if TBB_USE_ASSERT > 1
     //! Check that internal data structures are in consistent state.
     /** Raises __TBB_ASSERT failure if inconsistency is found. */
-    void assert_task_pool_valid () const;
+    void assert_task_pool_valid() const;
 #else
     void assert_task_pool_valid() const {}
 #endif /* TBB_USE_ASSERT <= 1 */
 
     void attach_arena( arena*, size_t index, bool is_master );
-    void nested_arena_entry( arena*, size_t, nested_arena_context &, bool );
-    void nested_arena_exit( nested_arena_context & );
+    void nested_arena_entry( arena*, size_t );
+    void nested_arena_exit();
     void wait_until_empty();
 
     void spawn( task& first, task*& next ) __TBB_override;

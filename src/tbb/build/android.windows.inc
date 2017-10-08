@@ -73,3 +73,6 @@ DLL = so
 
 TEST_LAUNCHER=
 run_cmd ?= -sh $(tbb_root)/build/android.linux.launcher.sh $(largs)
+export UNIXMODE = 1
+# Clang for Android* uses the INCLUDE variable (instead of CPATH)
+export USE_INCLUDE_ENV = 1

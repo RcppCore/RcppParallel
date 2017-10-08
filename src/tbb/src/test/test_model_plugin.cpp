@@ -53,18 +53,7 @@ int TestMain() {
 
 #include <stdlib.h>
 #include <stdio.h>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <stdexcept>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 #if TBB_USE_EXCEPTIONS
     #include "harness_report.h"

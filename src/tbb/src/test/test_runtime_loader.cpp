@@ -18,12 +18,6 @@
 
 */
 
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #if !(_WIN32||_WIN64) || (__MINGW64__||__MINGW32__)
 
 #include "harness.h"
@@ -53,10 +47,6 @@ int TestMain () {
     #undef HARNESS_USE_RUNTIME_LOADER    // We do not want harness to preload tbb.
 #endif
 #include "harness.h"
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 static int errors = 0;
 

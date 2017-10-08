@@ -36,4 +36,12 @@
 #endif
 // TODO: consider adding a similar option for clang
 
+#if __TBB_TEST_NO_EXCEPTIONS
+// This code breaks our own recommendations above, and it's deliberate:
+// it includes another file, but that file should only have macros and pragmas;
+// it does not check for compiler, as that is checked in the included file.
+// The file also defines TBB_USE_EXCEPTIONS=0, which is set for all tests via makefiles anyway.
+#include "tbb/tbb_disable_exceptions.h"
+#endif
+
 #endif /* harness_preload_H */

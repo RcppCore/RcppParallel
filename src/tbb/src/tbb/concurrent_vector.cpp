@@ -30,18 +30,8 @@
 #include "tbb_misc.h"
 #include "itt_notify.h"
 
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <cstring>
 #include <memory> //for uninitialized_fill_n
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode

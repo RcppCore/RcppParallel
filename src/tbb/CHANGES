@@ -2,6 +2,90 @@
 The list of most significant changes made over time in
 Intel(R) Threading Building Blocks (Intel(R) TBB).
 
+Intel TBB 2018 Update 1
+TBB_INTERFACE_VERSION == 10001
+
+Changes (w.r.t. Intel TBB 2018):
+
+- Added lambda-friendly overloads for parallel_scan.
+- Added support of static and simple partitioners in
+    parallel_deterministic_reduce.
+
+Preview Features:
+
+- Added initial support for Flow Graph Analyzer to parallel_for.
+- Added reservation support in overwrite_node and write_once_node.
+
+Bugs fixed:
+
+- Fixed a potential deadlock scenario in the flow graph that affected
+    Intel TBB 2018.
+
+------------------------------------------------------------------------
+Intel TBB 2018
+TBB_INTERFACE_VERSION == 10000
+
+Changes (w.r.t. Intel TBB 2017 Update 7):
+
+- Introduced Parallel STL, an implementation of the C++ standard
+    library algorithms with support for execution policies. For more
+    information, see Getting Started with Parallel STL
+    (https://software.intel.com/en-us/get-started-with-pstl).
+- this_task_arena::isolate() function is now a fully supported feature.
+- this_task_arena::isolate() function and task_arena::execute() method
+    were extended to pass on the value returned by the executed functor
+    (requires C++11).
+- task_arena::enqueue() and task_group::run() methods extended to accept
+    move-only functors.
+- A flow graph now spawns all tasks into the same task arena,
+    and waiting for graph completion also happens in that arena.
+- Improved support for Flow Graph Analyzer in async_node, opencl_node,
+    and composite_node.
+- Added support for Android* NDK r15, r15b.
+- Added support for Universal Windows Platform.
+- Increased minimally supported version of macOS*
+    (MACOSX_DEPLOYMENT_TARGET) to 10.11.
+
+Changes affecting backward compatibility:
+
+- Internal layout changes in some flow graph classes;
+- Several undocumented methods are removed from class graph,
+    including set_active() and is_active().
+- Due to incompatible changes, the namespace version is updated
+    for the flow graph; recompilation is recommended for all
+    binaries that use the flow graph classes.
+
+Preview Features:
+
+- opencl_node can be used with any graph object; class opencl_graph
+    is removed.
+- graph::wait_for_all() now automatically waits for all not yet consumed
+    async_msg objects.
+- Improved concurrent_lru_cache::handle_object to support C++11 move
+    semantics, default construction, and conversion to bool.
+
+Bugs fixed:
+
+- Fixed a bug preventing use of streaming_node and opencl_node with
+    Clang; inspired by a contribution from Francisco Facioni.
+- Fixed this_task_arena::isolate() function to work correctly with
+    parallel_invoke and parallel_do algorithms.
+- Fixed a memory leak in composite_node.
+- Fixed an assertion failure in debug tbbmalloc binaries when
+    TBBMALLOC_CLEAN_ALL_BUFFERS is used.
+
+------------------------------------------------------------------------
+Intel TBB 2017 Update 8
+TBB_INTERFACE_VERSION == 9108
+
+Changes (w.r.t. Intel TBB 2017 Update 7):
+
+Bugs fixed:
+
+- Fixed an assertion failure in debug tbbmalloc binaries when
+    TBBMALLOC_CLEAN_ALL_BUFFERS is used.
+
+------------------------------------------------------------------------
 Intel TBB 2017 Update 7
 TBB_INTERFACE_VERSION == 9107
 

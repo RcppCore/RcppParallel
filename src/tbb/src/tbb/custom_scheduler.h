@@ -423,8 +423,16 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
     }
 
     cpu_ctl_env_helper cpu_ctl_helper;
-    if ( t )
+    if ( t ) {
         cpu_ctl_helper.set_env( __TBB_CONTEXT_ARG1(t->prefix().context) );
+#if __TBB_TASK_ISOLATION
+        if ( isolation != no_isolation ) {
+            __TBB_ASSERT( t->prefix().isolation == no_isolation, NULL );
+            // Propagate the isolation to the task executed without spawn.
+            t->prefix().isolation = isolation;
+        }
+#endif /* __TBB_TASK_ISOLATION */
+    }
 
 #if TBB_USE_EXCEPTIONS
     // Infinite safeguard EH loop
@@ -522,6 +530,7 @@ void custom_scheduler<SchedulerTraits>::local_wait_for_all( task& parent, task* 
                         if( s )
                             tally_completion_of_predecessor( *s, __TBB_ISOLATION_ARG( t_next, t->prefix().isolation ) );
                         free_task<no_hint>( *t );
+                        poison_pointer( my_innermost_running_task );
                         assert_task_pool_valid();
                         break;
                     }
