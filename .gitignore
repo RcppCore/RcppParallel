@@ -1,8 +1,11 @@
+.Rprofile
 .Rproj.user
 .Rhistory
 .RData
 .DS_Store
+config.log
+config.status
+autom4te.cache/
 src-i386/
 src-x64/
-.Rprofile
 inst/doc
