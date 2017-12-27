@@ -6,12 +6,10 @@ if test -z "${R_HOME}"; then
 fi
 
 R_VERSION=`"${R_HOME}/bin/R" --vanilla --slave -e "cat(as.character(getRversion()))"`
-if test "${R_VERSION}" \< "3.4.0"; then
-  R_CXX11_PREFIX="CXX1X"
-else
-  R_CXX11_PREFIX="CXX11"
-fi
-
+AS_VERSION_COMPARE("${R_VERSION}", "3.4.0",
+                   [R_CXX11_PREFIX="CXX1X"],
+                   [R_CXX11_PREFIX="CXX11"],
+                   [R_CXX11_PREFIX="CXX11"])
 AC_SUBST(R_CXX11_PREFIX)
 AC_CONFIG_FILES([src/Makevars])
 AC_OUTPUT
