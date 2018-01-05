@@ -130,6 +130,7 @@ enumerate <- function(x, f, ...) {
 read_file <- function(path) {
     paste(readLines(path, warn = FALSE), collapse = "\n")
 }
+
 trim_whitespace <- function(x) {
     gsub("^[[:space:]]*|[[:space:]]*$", "", x)
 }
@@ -145,6 +146,10 @@ trim_whitespace <- function(x) {
 #' @export
 use_configure <- function(package = ".") {
 
+    # preserve working directory
+    owd <- getwd()
+    on.exit(setwd(owd), add = TRUE)
+
     # find resources
     package <- normalizePath(package, winslash = "/")
     resources <- system.file("resources", package = "configure")
@@ -157,12 +162,20 @@ use_configure <- function(package = ".") {
     file.copy(resources, dir, recursive = TRUE)
 
     # rename resources directory
-    owd <- setwd(dir)
-    on.exit(setwd(owd), add = TRUE)
+    setwd(dir)
     file.rename(basename(resources), basename(package))
 
     # now, copy these files back into the target directory
     file.copy(basename(package), dirname(package), recursive = TRUE)
+
+    # ensure DESCRIPTION contains 'Biarch: TRUE' for Windows
+    setwd(package)
+    DESCRIPTION <- read_file("DESCRIPTION")
+    if (!grepl("(?:^|\n)Biarch:", DESCRIPTION)) {
+        DESCRIPTION <- paste(DESCRIPTION, "Biarch: TRUE", sep = "\n")
+        DESCRIPTION <- gsub("\n{2,}", "\n", DESCRIPTION)
+        cat(DESCRIPTION, file = "DESCRIPTION", sep = "\n")
+    }
 }
 
 
@@ -189,13 +202,6 @@ if (exists("configure", envir = envir, inherits = FALSE)) {
     message("** executing user-defined configure script")
     config <- configure()
 }
-
-# configure .in files
-inputs <- getOption("configure.inputs", default = {
-    list.files(c("R", "src"), pattern = "[.]in$", full.names = TRUE)
-})
-for (input in inputs)
-    configure_file(input, config = config, verbose = TRUE)
 
 fmt <- "* successfully configured package '%s'"
 message(sprintf(fmt, DESCRIPTION$Package))

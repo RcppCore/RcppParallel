@@ -1,5 +1,11 @@
 configure <- function() {
    
+   if (Sys.info()[["sysname"]] == "Windows") {
+      configure_file("src/Makevars.in", "src/Makevars.win")
+   } else {
+      configure_file("src/Makevars.in", "src/Makevars")
+   }
+   
    if (getRversion() < "3.4.0") {
       config <- list(
          CC            = "$(CC)",
