@@ -1,2 +1,3 @@
+#!/usr/bin/env sh
 : ${R_HOME=`R RHOME`}
-"${R_HOME}/bin/R" --vanilla --slave -f R/config/configure.R
+"${R_HOME}/bin/R" --vanilla --slave -f tools/config/configure.R

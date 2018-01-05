@@ -1,0 +1,2 @@
+#!/usr/bin/env sh
+"${R_HOME}/bin${R_ARCH_BIN}/R.exe" --vanilla --slave -f tools/config/cleanup.R

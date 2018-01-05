@@ -15,7 +15,7 @@
 configure_file <- function(
     source,
     target = sub("[.]in$", "", source),
-    config = read_config(),
+    config = NULL,
     verbose = getOption("configure.verbose", TRUE))
 {
     contents <- readLines(source, warn = FALSE)
@@ -131,55 +131,28 @@ read_file <- function(path) {
     paste(readLines(path, warn = FALSE), collapse = "\n")
 }
 
+remove_file <- function(
+    path,
+    verbose = getOption("configure.verbose", TRUE))
+{
+    info <- file.info(path)
+    if (!is.na(info$isdir)) {
+        unlink(path, recursive = isTRUE(info$isdir))
+        if (verbose) {
+            fmt <- "** removed file '%s'"
+            message(sprintf(fmt, path))
+        }
+    }
+
+    TRUE
+}
+
 trim_whitespace <- function(x) {
     gsub("^[[:space:]]*|[[:space:]]*$", "", x)
 }
 
 
-# use-configure.R ----
-
-#' Add Configure Infrastructure to an R Package
-#'
-#' Add the infrastructure needed to configure an R package.
-#'
-#' @param package The path to the top-level directory of an \R package.
-#' @export
-use_configure <- function(package = ".") {
-
-    # preserve working directory
-    owd <- getwd()
-    on.exit(setwd(owd), add = TRUE)
-
-    # find resources
-    package <- normalizePath(package, winslash = "/")
-    resources <- system.file("resources", package = "configure")
-
-    # copy into temporary directory
-    dir <- tempfile("configure-")
-    on.exit(unlink(dir, recursive = TRUE), add = TRUE)
-
-    dir.create(dir)
-    file.copy(resources, dir, recursive = TRUE)
-
-    # rename resources directory
-    setwd(dir)
-    file.rename(basename(resources), basename(package))
-
-    # now, copy these files back into the target directory
-    file.copy(basename(package), dirname(package), recursive = TRUE)
-
-    # ensure DESCRIPTION contains 'Biarch: TRUE' for Windows
-    setwd(package)
-    DESCRIPTION <- read_file("DESCRIPTION")
-    if (!grepl("(?:^|\n)Biarch:", DESCRIPTION)) {
-        DESCRIPTION <- paste(DESCRIPTION, "Biarch: TRUE", sep = "\n")
-        DESCRIPTION <- gsub("\n{2,}", "\n", DESCRIPTION)
-        cat(DESCRIPTION, file = "DESCRIPTION", sep = "\n")
-    }
-}
-
-
-# run-configure.R ----
+# run-cleanup.R ----
 
 # figure out the current package's name
 DESCRIPTION <- read.dcf("DESCRIPTION", all = TRUE)
@@ -188,22 +161,21 @@ message(sprintf(fmt, DESCRIPTION$Package))
 
 # overlay user configuration
 envir <- new.env(parent = globalenv())
-files <- list.files("R/config/scripts", pattern = "[.][rR]$", full.names = TRUE)
+files <- list.files("tools/config/cleanup", pattern = "[.][rR]$", full.names = TRUE)
 for (file in files) {
     fmt <- "** sourcing '%s'"
     message(sprintf(fmt, file))
     source(file, local = envir)
 }
 
-# apply configure script (if any)
-config <- list()
-if (exists("configure", envir = envir, inherits = FALSE)) {
-    configure <- get("configure", envir = envir, inherits = FALSE)
-    message("** executing user-defined configure script")
-    config <- configure()
+# apply cleanup script (if any)
+if (exists("cleanup", envir = envir, inherits = FALSE)) {
+    cleanup <- get("cleanup", envir = envir, inherits = FALSE)
+    message("** executing user-defined cleanup script")
+    cleanup()
 }
 
-fmt <- "* successfully configured package '%s'"
+fmt <- "* successfully cleaned package '%s'"
 message(sprintf(fmt, DESCRIPTION$Package))
 
 
