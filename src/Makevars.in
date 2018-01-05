@@ -1,7 +1,7 @@
 # Calls to 'firstword' are used to strip out
 # a possible '-m64' attached to the CC variable
 # (or other compiler arguments)
-PKG_CPPFLAGS += $(@R_CXX11_PREFIX@STD) -I../inst/include/
+PKG_CPPFLAGS += @CXX11STD@ -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
 
@@ -9,7 +9,8 @@ ifeq ($(OS), Windows_NT)
   TBB_COPY_PATTERN=tbb*.dll
   
   MAKEFLAGS = -j1
-  MAKE_CMD = CONLY="$(CC)" CPLUS="$(@R_CXX11_PREFIX@)" make
+  MAKE = make -e
+  MAKE_CMD = CONLY="@CC@" CPLUS="@CXX11@" PIC_KEY="@CXX11PICFLAGS@" $(MAKE)
 
 else
   
@@ -28,7 +29,8 @@ else
     endif
   endif
 
-  MAKE_CMD=$(MAKE)
+  MAKE += -e
+  MAKE_CMD = CONLY="@CC@" CPLUS="@CXX11@" PIC_KEY="@CXX11PICFLAGS@" $(MAKE)
   
 endif
 
@@ -74,11 +76,11 @@ tbb:
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
-	   $(MAKE_CMD) stdver=c++0x compiler=clang $(MAKE_ARGS); \
+	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
 	elif [ -n "$(shell echo $(CC) | grep gcc)" ]; then \
-	   $(MAKE_CMD) stdver=c++0x compiler=gcc $(MAKE_ARGS); \
+	   $(MAKE_CMD) stdver=@STDVER@ compiler=gcc $(MAKE_ARGS); \
 	else \
-	   $(MAKE_CMD) stdver=c++0x $(MAKE_ARGS); \
+	   $(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS); \
 	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)

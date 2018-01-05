@@ -643,7 +643,11 @@ PACKAGE_URL=''
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
-R_CXX11_PREFIX
+STDVER
+CXX11PICFLAGS
+CXX11STD
+CXX11
+CC
 target_alias
 host_alias
 build_alias
@@ -1734,14 +1738,39 @@ as_arg_v2="3.4.0"
 awk "$as_awk_strverscmp" v1="$as_arg_v1" v2="$as_arg_v2" /dev/null
 case $? in #(
   1) :
-    R_CXX11_PREFIX="CXX1X" ;; #(
+    USE_CXX11="no" ;; #(
   0) :
-    R_CXX11_PREFIX="CXX11" ;; #(
+    USE_CXX11="yes" ;; #(
   2) :
-    R_CXX11_PREFIX="CXX11" ;; #(
+    USE_CXX11="yes" ;; #(
   *) :
      ;;
 esac
+
+if test "${USE_CXX11}" = "yes"
+then
+   { $as_echo "$as_me:${as_lineno-$LINENO}: R >= 3.4.0 detected" >&5
+$as_echo "$as_me: R >= 3.4.0 detected" >&6;}
+   CC=`"${R_HOME}/bin/R" CMD config CC`
+   CXX11=`"${R_HOME}/bin/R" CMD config CXX11`
+   CXX11STD=`"${R_HOME}/bin/R" CMD config CXX11STD`
+   CXX11PICFLAGS=`"${R_HOME}/bin/R" CMD config CXX11PICFLAGS`
+   STDVER=c++11
+else
+   { $as_echo "$as_me:${as_lineno-$LINENO}: R < 3.4.0 detected" >&5
+$as_echo "$as_me: R < 3.4.0 detected" >&6;}
+   CC=`"${R_HOME}/bin/R" CMD config CC`
+   CXX11=`"${R_HOME}/bin/R" CMD config CXX1X`
+   CXX11STD=`"${R_HOME}/bin/R" CMD config CXX1XSTD`
+   CXX11PICFLAGS=`"${R_HOME}/bin/R" CMD config CXX1XPICFLAGS`
+   STDVER=c++0x
+fi
+
+
+
+
+
+
 
 ac_config_files="$ac_config_files src/Makevars"
 
