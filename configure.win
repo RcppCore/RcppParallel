@@ -1,0 +1,2 @@
+: ${R_HOME=`R RHOME`}
+"${R_HOME}/bin/R.exe" --vanilla --slave -f R/config/configure.R
