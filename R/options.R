@@ -12,7 +12,7 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    
    # validate and resolve stackSize
    if (identical(stackSize, "auto"))
-      stackSize = 0L
+      stackSize <- 0L
    else if (!is.numeric(stackSize))
       stop("stackSize must be an integer")
    else
@@ -24,7 +24,9 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
                       PACKAGE = "RcppParallel"))
    } 
    
-   if (numThreads != -1)
+   if (numThreads == -1L)
+      Sys.unsetenv("RCPP_PARALLEL_NUM_THREADS")
+   else
       Sys.setenv(RCPP_PARALLEL_NUM_THREADS = numThreads)
 }
 
