@@ -149,6 +149,13 @@ read_r_config <- function(
     on.exit(setwd(owd), add = TRUE)
     R <- file.path(R.home("bin"), "R")
 
+    # suppress cygwin path warnings for windows
+    if (Sys.info()[["sysname"]] == "Windows") {
+        CYGWIN <- Sys.getenv("CYGWIN")
+        Sys.setenv(CYGWIN = "nodosfilewarning")
+        on.exit(Sys.setenv(CYGWIN = CYGWIN), add = TRUE)
+    }
+
     values <- unlist(list(...), recursive = TRUE)
     if (length(values) == 0) {
         if (verbose)
@@ -167,6 +174,9 @@ read_r_config <- function(
         })
         names(config) <- values
     }
+
+    if (is.null(envir))
+        return(config)
 
     list2env(config, envir = envir)
 }
