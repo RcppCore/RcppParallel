@@ -23,3 +23,4 @@ if (Sys.info()[["sysname"]] == "Windows" && getRversion() < "3.1.0") {
 
 # use c++0x for compatibility with older compilers
 define(STDVER = "c++0x")
+
