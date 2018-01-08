@@ -1,4 +1,11 @@
-if (getRversion() < "3.4.0") {
+if (Sys.info()[["sysname"]] == "Windows" && getRversion() < "3.1.0") {
+   define(
+      CC            = "$(CC)",
+      CXX11         = "$(CXX)",
+      CXX11STD      = "-std=c++0x",
+      CXX11PICFLAGS = "-fPIC"
+   )
+} else if (getRversion() < "3.4.0") {
    define(
       CC            = "$(CC)",
       CXX11         = "$(CXX1X)",
@@ -14,4 +21,5 @@ if (getRversion() < "3.4.0") {
    )
 }
 
-define(STDVER = "c++11")
+# use c++0x for compatibility with older compilers
+define(STDVER = "c++0x")
