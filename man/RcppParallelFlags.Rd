@@ -17,7 +17,7 @@ RcppParallelLibs()
 \details{
 These functions are typically called from \code{Makevars} as follows:
 
-\code{PKG_LIBS += $(shell "${R_HOME}/bin/Rscript" --vanilla -e "RcppParallel::LdFlags()")}
+\code{PKG_LIBS += $(shell "${R_HOME}/bin/Rscript" -e "RcppParallel::LdFlags()")}
 
 }
 
