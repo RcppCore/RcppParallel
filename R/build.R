@@ -4,7 +4,7 @@
 # inlineCxxPlugin (defined below) and to packages via a line in Makevars[.win]
 # like this:
 #
-#  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::CxxFlags()")
+#  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla -e "RcppParallel::CxxFlags()")
 #
 CxxFlags <- function() {
    cat(tbbCxxFlags())
@@ -15,7 +15,7 @@ CxxFlags <- function() {
 # to sourceCpp via the inlineCxxPlugin (defined below) and to packages 
 # via a line in Makevars[.win] like this:
 #
-#   PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
+#   PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" --vanilla -e "RcppParallel::LdFlags()")
 #
 LdFlags <- function() {
    cat(tbbLdFlags())
