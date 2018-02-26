@@ -1128,7 +1128,7 @@ private:
                 // Suppress "declared deprecated" warning for the next line.
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+// #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 #if _MSC_VER || __INTEL_COMPILER
 #pragma warning( push )

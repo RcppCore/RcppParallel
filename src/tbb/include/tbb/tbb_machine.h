@@ -665,7 +665,7 @@ struct machine_load_store_seq_cst<T,8> {
     static void store ( volatile T &location, T value ) {
 #if __TBB_GCC_VERSION >= 40702
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+// #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
         // An atomic initialization leads to reading of uninitialized memory
         int64_t result = (volatile int64_t&)location;

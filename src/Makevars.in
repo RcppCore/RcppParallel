@@ -1,6 +1,3 @@
-# Calls to 'firstword' are used to strip out
-# a possible '-m64' attached to the CC variable
-# (or other compiler arguments)
 PKG_CPPFLAGS += @CXX11STD@ -I../inst/include/
 
 ifeq ($(OS), Windows_NT)

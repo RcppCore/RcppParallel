@@ -1,6 +1,8 @@
-RcppParallel 2018.1.0 (unreleased)
+RcppParallel 4.4.0
 ------------------------------------------------------------------------
 
+* Respect user-defined compiler settings (e.g. from ~/.R/Makevars).
+* Remove TBB's attempts to suppress compiler diagnostics.
 * Allow setting the number of threads to use via RCPP_PARALLEL_NUM_THREADS
   environment variable.
 * Update to TBB 2018 Update 1.
