@@ -74,15 +74,6 @@ TBB_CPLUS.OBJ = concurrent_hash_map.$(OBJ) \
 		tbb_statistics.$(OBJ) \
 		tbb_main.$(OBJ)
 
-# OLD/Legacy object files for backward binary compatibility
-ifeq (,$(findstring $(DEFINE_KEY)TBB_NO_LEGACY,$(CXXFLAGS)))
-TBB_CPLUS_OLD.OBJ = \
-		concurrent_vector_v2.$(OBJ) \
-		concurrent_queue_v2.$(OBJ) \
-		spin_rw_mutex_v2.$(OBJ) \
-		task_v2.$(OBJ)
-endif
-
 # Object files that gmake up TBB (TBB_ASM.OBJ is platform-specific)
 TBB.OBJ = $(TBB_CPLUS.OBJ) $(TBB_CPLUS_OLD.OBJ) $(TBB_ASM.OBJ)
 

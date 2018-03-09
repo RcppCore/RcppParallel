@@ -85,11 +85,6 @@ __TBB_SYMBOL( ?internal_wait@task_arena_base@internal@interface7@tbb@@IBEXXZ )
 __TBB_SYMBOL( ?isolate_within_arena@internal@interface7@tbb@@YAXAAVdelegate_base@123@H@Z )
 #endif /* __TBB_TASK_ISOLATION */
 
-#if !TBB_NO_LEGACY
-// task_v2.cpp
-__TBB_SYMBOL( ?destroy@task@tbb@@QAEXAAV12@@Z )
-#endif
-
 // exception handling support
 #if __TBB_TASK_GROUP_CONTEXT
 __TBB_SYMBOL( ?allocate@allocate_root_with_context_proxy@internal@tbb@@QBEAAVtask@3@I@Z )
@@ -185,19 +180,6 @@ __TBB_SYMBOL( ?internal_destroy@scoped_lock@reader_writer_lock@interface5@tbb@@A
 __TBB_SYMBOL( ?internal_construct@scoped_lock_read@reader_writer_lock@interface5@tbb@@AAEXAAV234@@Z )
 __TBB_SYMBOL( ?internal_destroy@scoped_lock_read@reader_writer_lock@interface5@tbb@@AAEXXZ )
 
-#if !TBB_NO_LEGACY
-// spin_rw_mutex.cpp v2
-__TBB_SYMBOL( ?internal_acquire_reader@spin_rw_mutex@tbb@@CAXPAV12@@Z )
-__TBB_SYMBOL( ?internal_acquire_writer@spin_rw_mutex@tbb@@CA_NPAV12@@Z )
-__TBB_SYMBOL( ?internal_downgrade@spin_rw_mutex@tbb@@CAXPAV12@@Z )
-__TBB_SYMBOL( ?internal_itt_releasing@spin_rw_mutex@tbb@@CAXPAV12@@Z )
-__TBB_SYMBOL( ?internal_release_reader@spin_rw_mutex@tbb@@CAXPAV12@@Z )
-__TBB_SYMBOL( ?internal_release_writer@spin_rw_mutex@tbb@@CAXPAV12@@Z )
-__TBB_SYMBOL( ?internal_upgrade@spin_rw_mutex@tbb@@CA_NPAV12@@Z )
-__TBB_SYMBOL( ?internal_try_acquire_writer@spin_rw_mutex@tbb@@CA_NPAV12@@Z )
-__TBB_SYMBOL( ?internal_try_acquire_reader@spin_rw_mutex@tbb@@CA_NPAV12@@Z )
-#endif
-
 // spin_rw_mutex v3
 __TBB_SYMBOL( ?internal_construct@spin_rw_mutex_v3@tbb@@AAEXXZ )
 __TBB_SYMBOL( ?internal_upgrade@spin_rw_mutex_v3@tbb@@AAE_NXZ )
@@ -247,25 +229,6 @@ __TBB_SYMBOL( ?try_acquire@scoped_lock@queuing_mutex@tbb@@QAE_NAAV23@@Z )
 // critical_section.cpp
 __TBB_SYMBOL( ?internal_construct@critical_section_v4@internal@tbb@@QAEXXZ )
 
-#if !TBB_NO_LEGACY
-// concurrent_hash_map.cpp
-__TBB_SYMBOL( ?internal_grow_predicate@hash_map_segment_base@internal@tbb@@QBE_NXZ )
-
-// concurrent_queue.cpp v2
-__TBB_SYMBOL( ?advance@concurrent_queue_iterator_base@internal@tbb@@IAEXXZ )
-__TBB_SYMBOL( ?assign@concurrent_queue_iterator_base@internal@tbb@@IAEXABV123@@Z )
-__TBB_SYMBOL( ?internal_size@concurrent_queue_base@internal@tbb@@IBEHXZ )
-__TBB_SYMBOL( ??0concurrent_queue_base@internal@tbb@@IAE@I@Z )
-__TBB_SYMBOL( ??0concurrent_queue_iterator_base@internal@tbb@@IAE@ABVconcurrent_queue_base@12@@Z )
-__TBB_SYMBOL( ??1concurrent_queue_base@internal@tbb@@MAE@XZ )
-__TBB_SYMBOL( ??1concurrent_queue_iterator_base@internal@tbb@@IAE@XZ )
-__TBB_SYMBOL( ?internal_pop@concurrent_queue_base@internal@tbb@@IAEXPAX@Z )
-__TBB_SYMBOL( ?internal_pop_if_present@concurrent_queue_base@internal@tbb@@IAE_NPAX@Z )
-__TBB_SYMBOL( ?internal_push@concurrent_queue_base@internal@tbb@@IAEXPBX@Z )
-__TBB_SYMBOL( ?internal_push_if_not_full@concurrent_queue_base@internal@tbb@@IAE_NPBX@Z )
-__TBB_SYMBOL( ?internal_set_capacity@concurrent_queue_base@internal@tbb@@IAEXHI@Z )
-#endif
-
 // concurrent_queue v3
 __TBB_SYMBOL( ??1concurrent_queue_iterator_base_v3@internal@tbb@@IAE@XZ )
 __TBB_SYMBOL( ??0concurrent_queue_iterator_base_v3@internal@tbb@@IAE@ABVconcurrent_queue_base_v3@12@@Z )
@@ -288,18 +251,6 @@ __TBB_SYMBOL( ?internal_finish_clear@concurrent_queue_base_v3@internal@tbb@@IAEX
 __TBB_SYMBOL( ?internal_throw_exception@concurrent_queue_base_v3@internal@tbb@@IBEXXZ )
 __TBB_SYMBOL( ?assign@concurrent_queue_base_v3@internal@tbb@@IAEXABV123@@Z )
 __TBB_SYMBOL( ?move_content@concurrent_queue_base_v8@internal@tbb@@IAEXAAV123@@Z )
-
-#if !TBB_NO_LEGACY
-// concurrent_vector.cpp v2
-__TBB_SYMBOL( ?internal_assign@concurrent_vector_base@internal@tbb@@IAEXABV123@IP6AXPAXI@ZP6AX1PBXI@Z4@Z )
-__TBB_SYMBOL( ?internal_capacity@concurrent_vector_base@internal@tbb@@IBEIXZ )
-__TBB_SYMBOL( ?internal_clear@concurrent_vector_base@internal@tbb@@IAEXP6AXPAXI@Z_N@Z )
-__TBB_SYMBOL( ?internal_copy@concurrent_vector_base@internal@tbb@@IAEXABV123@IP6AXPAXPBXI@Z@Z )
-__TBB_SYMBOL( ?internal_grow_by@concurrent_vector_base@internal@tbb@@IAEIIIP6AXPAXI@Z@Z )
-__TBB_SYMBOL( ?internal_grow_to_at_least@concurrent_vector_base@internal@tbb@@IAEXIIP6AXPAXI@Z@Z )
-__TBB_SYMBOL( ?internal_push_back@concurrent_vector_base@internal@tbb@@IAEPAXIAAI@Z )
-__TBB_SYMBOL( ?internal_reserve@concurrent_vector_base@internal@tbb@@IAEXIII@Z )
-#endif
 
 // concurrent_vector v3
 __TBB_SYMBOL( ??1concurrent_vector_base_v3@internal@tbb@@IAE@XZ )
