@@ -1,3 +1,4 @@
+CXX_STD = @CXX_STD@
 PKG_CPPFLAGS += @CXX11STD@ -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
