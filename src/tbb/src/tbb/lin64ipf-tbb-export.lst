@@ -76,11 +76,6 @@ __TBB_SYMBOL( _ZN3tbb10interface78internal15task_arena_base24internal_max_concur
 __TBB_SYMBOL( _ZN3tbb10interface78internal20isolate_within_arenaERNS1_13delegate_baseEl )
 #endif
 
-#if !TBB_NO_LEGACY
-/* task_v2.cpp */
-__TBB_SYMBOL( _ZN3tbb4task7destroyERS0_ )
-#endif /* !TBB_NO_LEGACY */
-
 /* Exception handling in task scheduler */
 #if __TBB_TASK_GROUP_CONTEXT
 __TBB_SYMBOL( _ZNK3tbb8internal32allocate_root_with_context_proxy8allocateEm )
@@ -213,19 +208,6 @@ __TBB_SYMBOL( _ZN3tbb10interface518reader_writer_lock6unlockEv )
 __TBB_SYMBOL( _ZN3tbb10interface518reader_writer_lock8try_lockEv )
 __TBB_SYMBOL( _ZN3tbb10interface518reader_writer_lock9lock_readEv )
 
-#if !TBB_NO_LEGACY
-/* spin_rw_mutex.cpp v2 */
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex16internal_upgradeEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex22internal_itt_releasingEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex23internal_acquire_readerEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex23internal_acquire_writerEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex18internal_downgradeEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex23internal_release_readerEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex23internal_release_writerEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex27internal_try_acquire_readerEPS0_ )
-__TBB_SYMBOL( _ZN3tbb13spin_rw_mutex27internal_try_acquire_writerEPS0_ )
-#endif
-
 /* spin_rw_mutex v3 */
 __TBB_SYMBOL( _ZN3tbb16spin_rw_mutex_v318internal_constructEv )
 __TBB_SYMBOL( _ZN3tbb16spin_rw_mutex_v316internal_upgradeEv )
@@ -265,10 +247,6 @@ __TBB_SYMBOL( _ZN3tbb13queuing_mutex11scoped_lock11try_acquireERS0_ )
 
 /* critical_section.cpp */
 __TBB_SYMBOL( _ZN3tbb8internal19critical_section_v418internal_constructEv )
-
-#if !TBB_NO_LEGACY
-/* concurrent_hash_map */
-__TBB_SYMBOL( _ZNK3tbb8internal21hash_map_segment_base23internal_grow_predicateEv )
 
 /* concurrent_queue.cpp v2 */
 __TBB_SYMBOL( _ZN3tbb8internal21concurrent_queue_base12internal_popEPv )
@@ -318,18 +296,6 @@ __TBB_SYMBOL( _ZNK3tbb8internal24concurrent_queue_base_v314internal_emptyEv )
 __TBB_SYMBOL( _ZNK3tbb8internal24concurrent_queue_base_v324internal_throw_exceptionEv )
 __TBB_SYMBOL( _ZN3tbb8internal24concurrent_queue_base_v36assignERKS1_ )
 __TBB_SYMBOL( _ZN3tbb8internal24concurrent_queue_base_v812move_contentERS1_ )
-
-#if !TBB_NO_LEGACY
-/* concurrent_vector.cpp v2 */
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base13internal_copyERKS1_mPFvPvPKvmE )
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base14internal_clearEPFvPvmEb )
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base15internal_assignERKS1_mPFvPvmEPFvS4_PKvmESA_ )
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base16internal_grow_byEmmPFvPvmE )
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base16internal_reserveEmmm )
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base18internal_push_backEmRm )
-__TBB_SYMBOL( _ZN3tbb8internal22concurrent_vector_base25internal_grow_to_at_leastEmmPFvPvmE )
-__TBB_SYMBOL( _ZNK3tbb8internal22concurrent_vector_base17internal_capacityEv )
-#endif
 
 /* concurrent_vector v3 */
 __TBB_SYMBOL( _ZN3tbb8internal25concurrent_vector_base_v313internal_copyERKS1_mPFvPvPKvmE )

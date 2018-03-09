@@ -1,3 +1,4 @@
+CXX_STD = @CXX_STD@
 PKG_CPPFLAGS += @CXX11STD@ -I../inst/include/
 
 ifeq ($(OS), Windows_NT)
@@ -35,7 +36,7 @@ ifdef USE_TBB
 
 PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
-MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbbmalloc_release tbb_build_prefix=lib
+MAKE_ARGS = CXXFLAGS="@CXX11FLAGS@" tbb_release tbbmalloc_release tbb_build_prefix=lib
 
 ifeq ($(USE_TBB),  Windows)
 
