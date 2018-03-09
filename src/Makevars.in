@@ -8,7 +8,7 @@ ifeq ($(OS), Windows_NT)
   
   MAKEFLAGS = -j1
   MAKE = make -e
-  MAKE_CMD = CYGWIN=nodosfilewarning CONLY="@CC@" CPLUS="@CXX11@" CXXFLAGS="@CXX11FLAGS@" PIC_KEY="@CXX11PICFLAGS@" WARNING_SUPPRESS="" $(MAKE)
+  MAKE_CMD = CYGWIN=nodosfilewarning CONLY="@CC@" CPLUS="@CXX11@" PIC_KEY="@CXX11PICFLAGS@" WARNING_SUPPRESS="" $(MAKE)
 
 else
   
@@ -28,7 +28,7 @@ else
   endif
 
   MAKE += -e
-  MAKE_CMD = CONLY="@CC@" CPLUS="@CXX11@" CXXFLAGS="@CXX11FLAGS@" PIC_KEY="@CXX11PICFLAGS@" WARNING_SUPPRESS="" $(MAKE)
+  MAKE_CMD = CONLY="@CC@" CPLUS="@CXX11@" PIC_KEY="@CXX11PICFLAGS@" WARNING_SUPPRESS="" $(MAKE)
   
 endif
 
@@ -36,7 +36,7 @@ ifdef USE_TBB
 
 PKG_CPPFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
-MAKE_ARGS := CXXFLAGS=-DTBB_NO_LEGACY=1 tbb_release tbbmalloc_release tbb_build_prefix=lib
+MAKE_ARGS = CXXFLAGS="@CXX11FLAGS@" tbb_release tbbmalloc_release tbb_build_prefix=lib
 
 ifeq ($(USE_TBB),  Windows)
 
