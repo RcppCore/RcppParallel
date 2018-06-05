@@ -170,6 +170,7 @@ For example, here's a `Worker` object that takes the square root of it's input a
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
 using namespace RcppParallel;
+using namespace Rcpp;
 
 struct SquareRoot : public Worker
 {
@@ -232,6 +233,7 @@ For example, here's a `Worker` object that is used to sum a vector:
 // [[Rcpp::depends(RcppParallel)]]
 #include <RcppParallel.h>
 using namespace RcppParallel;
+using namespace Rcpp;
 
 struct Sum : public Worker
 {   
