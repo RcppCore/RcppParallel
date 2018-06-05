@@ -373,7 +373,7 @@ OPEN_INTERNAL_NAMESPACE
         size_t full_len = name_len+ap_data._len;
         if ( full_len < len ) {
             strncpy( path, ap_data._path, ap_data._len );
-            strncpy( path+ap_data._len, name, name_len );
+            memcpy( path+ap_data._len, name, name_len );
             path[full_len] = 0;
         }
         return full_len;
