@@ -120,7 +120,7 @@ ifneq ($(filter vc8 vc9,$(runtime)),)
 RML.MANIFEST = tbbmanifest.exe.manifest
 endif
 
-MAKE_VERSIONS = $(CMD) cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(compiler) $(arch) $(subst \,/,"$(VERSION_FLAGS)") > version_string.ver
+MAKE_VERSIONS = $(CMD) "cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(CONLY) $(arch) $(subst \,/,$(VERSION_FLAGS))" > version_string.ver
 MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)
