@@ -294,7 +294,7 @@ ITT_INLINE long __itt_interlocked_increment(volatile long* ptr)
 #ifdef SDL_STRNCPY_S
 #define __itt_fstrcpyn(s1, b, s2, l) SDL_STRNCPY_S(s1, b, s2, l)
 #else
-#define __itt_fstrcpyn(s1, b, s2, l) strncpy(s1, s2, l)
+#define __itt_fstrcpyn(s1, b, s2, l) memcpy(s1, s2, l)
 #endif /* SDL_STRNCPY_S */
 
 #define __itt_fstrdup(s)          strdup(s)
