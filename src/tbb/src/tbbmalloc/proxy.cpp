@@ -439,12 +439,12 @@ __TBB_ORIG_ALLOCATOR_REPLACEMENT_WRAPPER(ucrtbase);
 #pragma warning( disable : 4290 )
 #endif
 
-void * operator_new(size_t sz) throw (std::bad_alloc) {
+void * operator_new(size_t sz) {
     void *res = scalable_malloc(sz);
     if (NULL == res) throw std::bad_alloc();
     return res;
 }
-void* operator_new_arr(size_t sz) throw (std::bad_alloc) {
+void* operator_new_arr(size_t sz) {
     void *res = scalable_malloc(sz);
     if (NULL == res) throw std::bad_alloc();
     return res;
