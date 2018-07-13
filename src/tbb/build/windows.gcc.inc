@@ -50,7 +50,7 @@ PROXY.LIB =
 #------------------------------------------------------------------------------
 
 # CPLUS = g++
-COMPILE_ONLY = -c -MMD
+COMPILE_ONLY = -c -MMD -flifetime-dse=1
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
 DEFINE_KEY = -D
