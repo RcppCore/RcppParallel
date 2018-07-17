@@ -7,7 +7,14 @@ ifeq ($(OS), Windows_NT)
   
   MAKEFLAGS = -j1
   MAKE = make -e
-  MAKE_CMD = CYGWIN=nodosfilewarning CONLY="@CC@" CPLUS="@CXX11@" CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" PIC_KEY="@CXX11PICFLAGS@" WARNING_SUPPRESS="" $(MAKE)
+  MAKE_CMD =                                  \
+    CYGWIN=nodosfilewarning                   \
+    CONLY="$(shell cygpath -m "@CC@")"        \
+    CPLUS="$(shell cygpath -m "@CXX11@")"     \
+    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
+    PIC_KEY="@CXX11PICFLAGS@"                 \
+    WARNING_SUPPRESS=""                       \
+    $(MAKE)
 
 else
   
