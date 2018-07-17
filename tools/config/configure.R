@@ -12,6 +12,16 @@ for (candidate in candidates) {
    }
 }
 
+# work around issue with '-Werror=format-security' being specified without
+# a prior '-Wformat', which makes gcc angry
+cxxflags <- read_r_config(sprintf("%sFLAGS", cxx), envir = NULL)[[1]]
+broken <-
+   grepl(" -Werror=format-security ", cxxflags) &&
+   !grepl(" -Wformat ", cxxflags)
+
+if (broken)
+   cxxflags <- gsub("-Werror=format-security", "-Wformat -Werror=format-security", cxxflags)
+
 # define the set of flags appropriate to the current
 # configuration of R
 switch(
@@ -20,7 +30,7 @@ switch(
    CXX11 = define(
       CC            = "$(CC)",
       CXX11         = "$(CXX11)",
-      CXX11FLAGS    = "$(CXX11FLAGS)",
+      CXX11FLAGS    = cxxflags,
       CXX11STD      = "$(CXX11STD)",
       CXX11PICFLAGS = "$(CXX11PICFLAGS)"
    ),
@@ -28,7 +38,7 @@ switch(
    CXX1X = define(
       CC            = "$(CC)",
       CXX11         = "$(CXX1X)",
-      CXX11FLAGS    = "$(CXX1XFLAGS)",
+      CXX11FLAGS    = cxxflags,
       CXX11STD      = "$(CXX1XSTD)",
       CXX11PICFLAGS = "$(CXX1XPICFLAGS)"
    ),
@@ -36,7 +46,7 @@ switch(
    CXX = define(
       CC            = "$(CC)",
       CXX11         = "$(CXX)",
-      CXX11FLAGS    = "$(CXXFLAGS)",
+      CXX11FLAGS    = cxxflags,
       CXX11STD      = "-std=c++0x",
       CXX11PICFLAGS = "-fPIC"
    ),

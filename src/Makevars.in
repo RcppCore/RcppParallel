@@ -34,8 +34,14 @@ else
   endif
 
   MAKE += -e
-  MAKE_CMD = CONLY="@CC@" CPLUS="@CXX11@" CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" PIC_KEY="@CXX11PICFLAGS@" WARNING_SUPPRESS="" $(MAKE)
-  
+  MAKE_CMD =                                  \
+    CONLY="@CC@"                              \
+    CPLUS="@CXX11@"                           \
+    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
+    PIC_KEY="@CXX11PICFLAGS@"                 \
+    WARNING_SUPPRESS=""                       \
+    $(MAKE)
+
 endif
 
 ifdef USE_TBB
