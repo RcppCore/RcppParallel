@@ -9,8 +9,8 @@ ifeq ($(OS), Windows_NT)
   MAKE = make -e
   MAKE_CMD =                                  \
     CYGWIN=nodosfilewarning                   \
-    CONLY="$(shell cygpath -m "@CC@")"        \
-    CPLUS="$(shell cygpath -m "@CXX11@")"     \
+    CONLY="@WINDOWS_CC@"                      \
+    CPLUS="@WINDOWS_CXX11@"                   \
     CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
     PIC_KEY="@CXX11PICFLAGS@"                 \
     WARNING_SUPPRESS=""                       \

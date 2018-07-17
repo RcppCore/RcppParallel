@@ -54,6 +54,19 @@ switch(
    stop("Failed to infer C / C++ compilation flags")
 )
 
+# define special flags for Windows
+db <- configure_database()
+if (Sys.info()[["sysname"]] == "Windows") {
+   
+   cygpath <- nzchar(Sys.which("cygpath"))
+   fmt <- if (cygpath) "$(shell cygpath -m \"%s\")" else "%s"
+   define(
+      WINDOWS_CC    = sprintf(fmt, db$CC),
+      WINDOWS_CXX11 = sprintf(fmt, db$CXX11)
+   )
+
+}
+
 # use c++0x for compatibility with older compilers
 define(STDVER = "c++0x")
 
