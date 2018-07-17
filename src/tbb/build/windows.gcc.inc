@@ -16,6 +16,10 @@
 #
 #
 
+# Set by R
+R_COMPILED_BY ?= 4.9.3
+GCC_VERSION=${subst gcc ,,${R_COMPILED_BY}}
+
 #------------------------------------------------------------------------------
 # Overriding settings from windows.inc
 #------------------------------------------------------------------------------
@@ -77,15 +81,16 @@ LINK_FLAGS = -Wl,--enable-auto-import
 LIB_LINK_FLAGS = $(DYLIB_KEY)
 
 # gcc 4.8 and later support RTM intrinsics, but require command line switch to enable them
-ifeq (ok,$(call detect_js,/minversion gcc 4.8))
+ifeq ($(shell expr $(GCC_VERSION) \>= 4.8), 1)
     RTM_KEY = -mrtm
 endif
 
 # gcc 6.0 and later have -flifetime-dse option that controls
 # elimination of stores done outside the object lifetime
-ifeq (ok,$(call detect_js,/minversion gcc 6.0))
+ifeq ($(shell expr $(GCC_VERSION) \>= 6.0), 1)
     # keep pre-contruction stores for zero initialization
     DSE_KEY = -flifetime-dse=1
+    COMPILE_ONLY += -flifetime-dse=1
 endif
 
 ifeq ($(cfg), release)
