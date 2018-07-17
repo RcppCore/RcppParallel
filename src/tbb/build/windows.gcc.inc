@@ -90,7 +90,6 @@ endif
 ifeq ($(shell expr $(GCC_VERSION) \>= 6.0), 1)
     # keep pre-contruction stores for zero initialization
     DSE_KEY = -flifetime-dse=1
-    COMPILE_ONLY += -flifetime-dse=1
 endif
 
 ifeq ($(cfg), release)
