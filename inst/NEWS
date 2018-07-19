@@ -1,6 +1,7 @@
-RcppParallel 4.4.1 (UNRELEASED)
+RcppParallel 4.4.1
 ------------------------------------------------------------------------
 
+* Ensure user-specified R configuration passed to TBB
 * Work around warnings emitted by gcc 8
 
 RcppParallel 4.4.0
