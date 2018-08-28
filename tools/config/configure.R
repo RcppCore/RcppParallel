@@ -6,7 +6,7 @@ candidates <- c("CXX11", "CXX1X", "CXX")
 for (candidate in candidates) {
    config <- read_r_config(candidate, envir = NULL)
    value <- config[[candidate]]
-   if (!is.null(value)) {
+   if (!is.null(value) && !(startsWith(value, "ERROR:"))) {
       cxx <- candidate
       break
    }
@@ -26,7 +26,7 @@ if (broken)
 # configuration of R
 switch(
    cxx,
-   
+
    CXX11 = define(
       CC            = "$(CC)",
       CXX11         = "$(CXX11)",
@@ -34,7 +34,7 @@ switch(
       CXX11STD      = "$(CXX11STD)",
       CXX11PICFLAGS = "$(CXX11PICFLAGS)"
    ),
-   
+
    CXX1X = define(
       CC            = "$(CC)",
       CXX11         = "$(CXX1X)",
@@ -42,7 +42,7 @@ switch(
       CXX11STD      = "$(CXX1XSTD)",
       CXX11PICFLAGS = "$(CXX1XPICFLAGS)"
    ),
-   
+
    CXX = define(
       CC            = "$(CC)",
       CXX11         = "$(CXX)",
@@ -50,14 +50,14 @@ switch(
       CXX11STD      = "-std=c++0x",
       CXX11PICFLAGS = "-fPIC"
    ),
-   
+
    stop("Failed to infer C / C++ compilation flags")
 )
 
 # define special flags for Windows
 db <- configure_database()
 if (Sys.info()[["sysname"]] == "Windows") {
-   
+
    cygpath <- nzchar(Sys.which("cygpath"))
    fmt <- if (cygpath) "$(shell cygpath -m \"%s\")" else "%s"
    define(
