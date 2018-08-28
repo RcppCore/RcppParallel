@@ -4,8 +4,7 @@
 cxx <- NULL
 candidates <- c("CXX11", "CXX1X", "CXX")
 for (candidate in candidates) {
-   config <- read_r_config(candidate, envir = NULL)
-   value <- config[[candidate]]
+   value <- r_cmd_config(candidate)
    if (!is.null(value)) {
       cxx <- candidate
       break
