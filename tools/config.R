@@ -1,26 +1,40 @@
-# configure-database.R ----
+# configure-database.R -------------------------------------------------------
 
 #' Retrieve the Global Configuration Database
 #'
-#' Retrieve the global configuration database (as an \R environment).
-#'
-#' @family configure-db
+#' Retrieve the global configuration database.
+#' `db` is a helper alias for the database
+#' returned by `configure_database()`.
 #'
 #' @export
 configure_database <- local({
     database <- new.env(parent = emptyenv())
+    class(database) <- "configure_database"
     function() database
 })
+
+#' @export
+print.configure_database <- function(x, ...) {
+    str.configure_database(x, ...)
+}
+
+#' @export
+str.configure_database <- function(object, ...) {
+    writeLines("<configure database>")
+    objects <- mget(ls(envir = object, all.names = TRUE), object)
+    output <- utils::capture.output(utils::str(objects, ...))
+    writeLines(output[-1])
+    invisible(output)
+}
 
 #' Define Variables for the Configuration Database
 #'
 #' Define variables to be used as part of the default configuration database.
 #' These will be used by [configure_file()] when no configuration database
-#' is explicitly supplied.
+#' is explicitly supplied. [define()] is provided as a shorter alias for the
+#' same function.
 #'
 #' @param ... A set of named arguments, mapping configuration names to values.
-#'
-#' @family configure-db
 #'
 #' @export
 configure_define <- function(...) {
@@ -28,21 +42,28 @@ configure_define <- function(...) {
     list2env(list(...), envir = envir)
 }
 
+#' @rdname configure_define
 #' @export
 define <- configure_define
 
+#' @rdname configure_database
+#' @export
+db <- configure_database()
 
-# utils.R ----
+
+# utils.R --------------------------------------------------------------------
 
 #' Configure a File
 #'
-#' Configure a file, replacing any instances of `@`-delimited variables, e.g.
-#' `@VAR@`, with the value of the variable called `VAR` in the associated
-#' `config` environment.
+#' Configure a file, replacing (by default) any instances of `@`-delimited
+#' variables, e.g. `@VAR@`, with the value of the variable called `VAR` in the
+#' associated `config` environment.
 #'
 #' @param source The file to be configured.
 #' @param target The file to be generated.
 #' @param config The configuration database.
+#' @param lhs The left-hand side marker; defaults to `@`.
+#' @param rhs The right-hand side marker; defaults to `@`.
 #' @param verbose Boolean; report files as they are configured?
 #'
 #' @family configure
@@ -52,13 +73,15 @@ configure_file <- function(
     source,
     target = sub("[.]in$", "", source),
     config = configure_database(),
+    lhs = "@",
+    rhs = "@",
     verbose = configure_verbose())
 {
     contents <- readLines(source, warn = FALSE)
     enumerate(config, function(key, val) {
-        needle <- paste("@", key, "@", sep = "")
+        needle <- paste(lhs, key, rhs, sep = "")
         replacement <- val
-        contents <<- gsub(needle, replacement, contents)
+        contents <<- gsub(needle, replacement, contents, fixed = TRUE)
     })
 
     ensure_directory(dirname(target))
@@ -68,7 +91,7 @@ configure_file <- function(
     Sys.chmod(target, mode = info$mode)
 
     if (isTRUE(verbose)) {
-        fmt <- "** configured file: '%s' => '%s'"
+        fmt <- "*** configured file: '%s' => '%s'"
         message(sprintf(fmt, source, target))
     }
 }
@@ -93,19 +116,26 @@ configure_directory <- function(
     files <- list.files(
         path = path,
         pattern = "[.]in$",
-        full.names = TRUE)
+        full.names = TRUE
+    )
 
     lapply(files, configure_file, config = config, verbose = verbose)
 }
 
 configure_auto <- function(type) {
-    configure_common(type = type)
+
+    if (!isTRUE(getOption("configure.auto", default = TRUE)))
+        return(invisible(FALSE))
+
+    if (isTRUE(getOption("configure.common", default = TRUE)))
+        configure_common(type = type)
+
+    if (isTRUE(getOption("configure.platform", default = TRUE)))
+        configure_platform(type = type)
+
 }
 
 configure_common <- function(type) {
-
-    if (!isTRUE(getOption("configure.common", default = TRUE)))
-        return(invisible(FALSE))
 
     sources <- list.files(
         path = c("R", "src"),
@@ -123,6 +153,104 @@ configure_common <- function(type) {
     }
 
     invisible(TRUE)
+}
+
+configure_platform <- function(type) {
+
+    sysname <- Sys.info()[["sysname"]]
+    switch(
+        sysname,
+        "Windows" = configure_platform_windows(type),
+        "Darwin"  = configure_platform_darwin(type),
+        "Linux"   = configure_platform_linux(type),
+        "SunOS"   = configure_platform_solaris(type),
+        stop("unrecognized platform '", sysname, "'")
+    )
+}
+
+configure_platform_common <- function(subdirs, type) {
+
+    dirs <- c("R", "src")
+    for (dir in dirs) {
+
+        # list files (take care to remove directories)
+        sources <- Filter(
+            function(file) identical(file.info(file)$isdir, FALSE),
+            list.files(file.path(dir, subdirs), full.names = TRUE)
+        )
+
+        # configure all discovered sources
+        for (source in sources) {
+            target <- file.path(dir, basename(source))
+            switch(type,
+                   configure = configure_file(source, target),
+                   cleanup   = remove_file(target))
+        }
+    }
+}
+
+configure_platform_windows <- function(type) {
+    subdirs <- c("windows", bitness("windows/win"))
+    configure_platform_common(subdirs, type)
+}
+
+configure_platform_darwin <- function(type) {
+    subdirs <- c("unix", "darwin", bitness("darwin/darwin"))
+    configure_platform_common(subdirs, type)
+}
+
+configure_platform_linux <- function(type) {
+    subdirs <- c("unix", "linux", bitness("linux/linux"))
+    configure_platform_common(subdirs, type)
+}
+
+configure_platform_solaris <- function(type) {
+    subdirs <- c("unix", "sunos", bitness("sunos/sunos"))
+    configure_platform_common(subdirs, type)
+}
+
+#' Execute R CMD config
+#'
+#' Read information about how \R is configured as through `R CMD config`.
+#'
+#' @param ... The names of potential configuration values.
+#' @param simplify Boolean; simplify in the case where a single value was
+#'   requested?
+#'
+#' @export
+r_cmd_config <- function(..., simplify = TRUE) {
+    R <- file.path(R.home("bin"), "R")
+
+    # suppress cygwin path warnings for windows
+    if (Sys.info()[["sysname"]] == "Windows") {
+        CYGWIN <- Sys.getenv("CYGWIN")
+        Sys.setenv(CYGWIN = "nodosfilewarning")
+        on.exit(Sys.setenv(CYGWIN = CYGWIN), add = TRUE)
+    }
+
+    # loop through requested values and call R CMD config
+    values <- unlist(list(...), recursive = TRUE)
+    config <- lapply(values, function(value) {
+
+        # execute it
+        stdout <- tempfile("r-cmd-config-", fileext = ".txt")
+        on.exit(unlink(stdout), add = TRUE)
+        status <- system2(R, c("CMD", "config", value), stdout = stdout)
+
+        # report failures as NULL (distinct from empty string)
+        if (status)
+            return(NULL)
+
+        readLines(stdout)
+
+    })
+
+    names(config) <- values
+
+    if (simplify && length(config) == 1)
+        return(config[[1]])
+
+    config
 }
 
 #' Read R Configuration for a Package
@@ -158,19 +286,48 @@ read_r_config <- function(
 
     values <- unlist(list(...), recursive = TRUE)
     if (length(values) == 0) {
+
+        # R CMD config --all only available since R 3.4.0
+        if (getRversion() < "3.4.0") {
+            fmt <- "'R CMD config --all' not available in R version '%s'"
+            stop(sprintf(fmt, getRversion()))
+        }
+
+        # notify user
         if (verbose)
-            message("** executing 'R CMD config --all'")
-        output <- system2(R, c("CMD", "config", "--all"), stdout = TRUE)
-        equalsIndex <- regexpr("=", output, fixed = TRUE)
-        keys <- trim_whitespace(substring(output, 1, equalsIndex - 1))
-        config <- as.list(trim_whitespace(substring(output, equalsIndex + 1)))
-        names(config) <- keys
+            message("*** executing 'R CMD config --all'")
+
+        # execute action
+        stdout <- tempfile("r-cmd-config-", fileext = ".txt")
+        on.exit(unlink(stdout), add = TRUE)
+        status <- system2(R, c("CMD", "config", "--all"), stdout = stdout)
+        if (status)
+            stop("failed to execute 'R CMD config --all'")
+
+        # read and parse output
+        output <- readLines(stdout, warn = FALSE)
+        config <- parse_key_value(output)
 
     } else {
+
+        # notify user
         if (verbose)
-            message("** executing 'R CMD config'")
+            message("*** executing 'R CMD config'")
+
+        # loop through requested values and call R CMD config
         config <- lapply(values, function(value) {
-            system2(R, c("CMD", "config", value), stdout = TRUE)
+
+            # execute it
+            stdout <- tempfile("r-cmd-config-", fileext = ".txt")
+            on.exit(unlink(stdout), add = TRUE)
+            status <- system2(R, c("CMD", "config", value), stdout = stdout)
+
+            # report failures as NULL (distinct from empty string)
+            if (status)
+                return(NULL)
+
+            readLines(stdout)
+
         })
         names(config) <- values
     }
@@ -197,7 +354,7 @@ read_r_config <- function(
 concatenate_files <- function(
     sources,
     target,
-    headers = sprintf("# %s ----", basename(sources)),
+    headers = section_header(basename(sources)),
     preamble = NULL,
     postamble = NULL,
     verbose = configure_verbose())
@@ -215,7 +372,7 @@ concatenate_files <- function(
     writeLines(all, con = target)
 
     if (verbose) {
-        fmt <- "** created file '%s'"
+        fmt <- "*** created file '%s'"
         message(sprintf(fmt, target))
     }
 
@@ -260,6 +417,48 @@ use_configure <- function(package = ".") {
         DESCRIPTION <- gsub("\n{2,}", "\n", DESCRIPTION)
         cat(DESCRIPTION, file = "DESCRIPTION", sep = "\n")
     }
+
+    # write placeholders for 'configure.R', 'cleanup.R' if none exist
+    ensure_directory("tools/config")
+    configure <- "tools/config/configure.R"
+    if (!file.exists("tools/config/configure.R")) {
+        text <- c(
+            "# Prepare your package for installation here.",
+            "# Use 'define()' to define configuration variables.",
+            "# Use 'configure_file()' to substitute configuration values.",
+            "",
+            ""
+        )
+        writeLines(text, con = configure)
+    }
+
+    cleanup <- "tools/config/cleanup.R"
+    if (!file.exists("tools/config/cleanup.R")) {
+        text <- c(
+            "# Clean up files generated during configuration here.",
+            "# Use 'remove_file()' to remove files generated during configuration.",
+            "",
+            ""
+        )
+        writeLines(text, con = cleanup)
+    }
+
+    # notify the user what we did
+    message("* Copied 'configure{.win}' and 'cleanup{.win}'.")
+    message("* Updated 'tools/config.R'.")
+
+    # open 'configure.R', 'cleanup.R' for editing if in RStudio
+    rstudio <-
+        !is.na(Sys.getenv("RSTUDIO", unset = NA)) &&
+        requireNamespace("rstudioapi", quietly = TRUE)
+
+    if (rstudio) {
+        rstudioapi::navigateToFile("tools/config/configure.R", 5, 1)
+        rstudioapi::navigateToFile("tools/config/cleanup.R", 4, 1)
+    } else {
+        message("* Use 'tools/config/configure.R' for package configuration.")
+        message("* Use 'tools/config/cleanup.R' for package cleanup.")
+    }
 }
 
 ensure_directory <- function(dir) {
@@ -267,7 +466,7 @@ ensure_directory <- function(dir) {
 
     # no file exists at this location; try to make it
     if (is.na(info$isdir)) {
-        dir.create(info$isdir, recursive = TRUE, showWarnings = FALSE)
+        dir.create(dir, recursive = TRUE, showWarnings = FALSE)
         if (!file.exists(dir))
             stop("failed to create directory '", dir, "'")
         return(TRUE)
@@ -297,12 +496,20 @@ remove_file <- function(
     verbose = configure_verbose())
 {
     info <- file.info(path)
-    if (!is.na(info$isdir)) {
-        unlink(path, recursive = isTRUE(info$isdir))
-        if (verbose) {
-            fmt <- "** removed file '%s'"
-            message(sprintf(fmt, path))
-        }
+    if (is.na(info$isdir))
+        return(TRUE)
+
+    name <- if (info$isdir) "directory" else "file"
+
+    unlink(path, recursive = isTRUE(info$isdir))
+    if (file.exists(path)) {
+        fmt <- "failed to remove %s '%s' (insufficient permissions?)"
+        stop(sprintf(fmt, name, path))
+    }
+
+    if (verbose) {
+        fmt <- "*** removed %s '%s'"
+        message(sprintf(fmt, name, path))
     }
 
     TRUE
@@ -324,10 +531,83 @@ configure_verbose <- function() {
     getOption("configure.verbose", !interactive())
 }
 
+named <- function(object, nm) {
+    names(object) <- nm
+    object
+}
 
-# run.R ----
+parse_key_value <- function(
+    text,
+    separator = "=",
+    trim = TRUE)
+{
+    # find the separator
+    index <- regexpr(separator, text, fixed = TRUE)
 
-local({
+    # split into parts
+    keys <- substring(text, 1, index - 1)
+    vals <- substring(text, index + 1)
+
+    # trim if requested
+    if (trim) {
+        keys <- trim_whitespace(keys)
+        vals <- trim_whitespace(vals)
+    }
+
+    # put together into R list
+    named(as.list(vals), keys)
+}
+
+bitness <- function(prefix = "") {
+    paste(prefix, .Machine$sizeof.pointer * 8, sep = "")
+}
+
+move_directory <- function(source, target) {
+
+    # ensure we're trying to move a directory
+    info <- file.info(source)
+    if (is.na(info$isdir)) {
+        fmt <- "no directory exists at path '%s'"
+        stop(sprintf(fmt, source), call. = FALSE)
+    }
+
+    if (!info$isdir) {
+        fmt <- "'%s' exists but is not a directory"
+        stop(sprintf(fmt, source), call. = FALSE)
+    }
+
+    # good to go -- let's move it
+    unlink(target, recursive = TRUE)
+    file.rename(source, target)
+    unlink(source, recursive = TRUE)
+
+}
+
+section_header <- function(
+    label,
+    prefix = "#",
+    suffix = "-",
+    length = 78L)
+{
+
+    # figure out length of full header
+    n <- length - nchar(label) - nchar(prefix) - 2L
+    n[n < 0] <- 0
+
+    # generate '-' suffixes
+    tail <- vapply(n, function(i) {
+        paste(rep(suffix, i), collapse = "")
+    }, character(1))
+
+    # join it all together
+    paste(prefix, label, tail)
+
+}
+
+
+# run.R ----------------------------------------------------------------------
+
+if (!interactive()) {
 
     # extract path to install script
     args <- commandArgs(TRUE)
@@ -335,7 +615,7 @@ local({
 
     # report start of execution
     package <- Sys.getenv("R_PACKAGE_NAME", unset = "<unknown>")
-    fmt <- "* preparing to %s package '%s' ..."
+    fmt <- "** preparing to %s package '%s' ..."
     message(sprintf(fmt, type, package))
 
     # execute the requested script
@@ -346,8 +626,9 @@ local({
     configure_auto(type = type)
 
     # report end of execution
-    fmt <- "* finished %s for package '%s'"
+    fmt <- "** finished %s for package '%s'"
     message(sprintf(fmt, type, package))
-})
+
+}
 
 
