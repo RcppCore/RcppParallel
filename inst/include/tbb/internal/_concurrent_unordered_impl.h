@@ -1210,7 +1210,7 @@ private:
     // Initialize the hash and keep the first bucket open
     void internal_init() {
         // Allocate an array of segment pointers
-        memset(my_buckets, 0, pointers_per_table * sizeof(void *));
+        memset((void*) my_buckets, 0, pointers_per_table * sizeof(void *));
 
         // Initialize bucket 0
         raw_iterator dummy_node = my_solist.raw_begin();
@@ -1478,7 +1478,7 @@ private:
         if (my_buckets[segment] == NULL) {
             size_type sz = segment_size(segment);
             raw_iterator * new_segment = my_allocator.allocate(sz);
-            std::memset(new_segment, 0, sz*sizeof(raw_iterator));
+            std::memset((void*) new_segment, 0, sz*sizeof(raw_iterator));
 
             if (my_buckets[segment].compare_and_swap( new_segment, NULL) != NULL)
                 my_allocator.deallocate(new_segment, sz);
