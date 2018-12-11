@@ -1,3 +1,10 @@
+RcppParallel 4.4.2
+------------------------------------------------------------------------
+
+* Suppress gcc-8 warnings related to -Wclass-memaccess
+* Use PKG_CXXFLAGS rather than PKG_CPPFLAGS
+* Remove unused dependency on the BH package
+
 RcppParallel 4.4.1
 ------------------------------------------------------------------------
 
