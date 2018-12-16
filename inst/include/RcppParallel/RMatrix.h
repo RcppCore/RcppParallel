@@ -23,7 +23,7 @@ public:
          {
          }
          
-         inline row_iterator(std::size_t start, std::size_t parentNrow, std::size_t index)
+         inline row_iterator(V* start, std::size_t parentNrow, std::size_t index)
             : start_(start), parentNrow_(parentNrow), index_(index)
          {      
          }
