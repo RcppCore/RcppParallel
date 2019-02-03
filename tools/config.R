@@ -157,18 +157,11 @@ configure_common <- function(type) {
 
 configure_platform <- function(type) {
 
-    sysname <- Sys.info()[["sysname"]]
-    switch(
-        sysname,
-        "Windows" = configure_platform_windows(type),
-        "Darwin"  = configure_platform_darwin(type),
-        "Linux"   = configure_platform_linux(type),
-        "SunOS"   = configure_platform_solaris(type),
-        stop("unrecognized platform '", sysname, "'")
-    )
-}
+    sysname <- tolower(Sys.info()[["sysname"]])
 
-configure_platform_common <- function(subdirs, type) {
+    subdirs <- sysname
+    if (sysname != "windows")
+        subdirs <- c("unix", subdirs)
 
     dirs <- c("R", "src")
     for (dir in dirs) {
@@ -187,26 +180,6 @@ configure_platform_common <- function(subdirs, type) {
                    cleanup   = remove_file(target))
         }
     }
-}
-
-configure_platform_windows <- function(type) {
-    subdirs <- c("windows", bitness("windows/win"))
-    configure_platform_common(subdirs, type)
-}
-
-configure_platform_darwin <- function(type) {
-    subdirs <- c("unix", "darwin", bitness("darwin/darwin"))
-    configure_platform_common(subdirs, type)
-}
-
-configure_platform_linux <- function(type) {
-    subdirs <- c("unix", "linux", bitness("linux/linux"))
-    configure_platform_common(subdirs, type)
-}
-
-configure_platform_solaris <- function(type) {
-    subdirs <- c("unix", "sunos", bitness("sunos/sunos"))
-    configure_platform_common(subdirs, type)
 }
 
 #' Execute R CMD config
@@ -556,10 +529,6 @@ parse_key_value <- function(
 
     # put together into R list
     named(as.list(vals), keys)
-}
-
-bitness <- function(prefix = "") {
-    paste(prefix, .Machine$sizeof.pointer * 8, sep = "")
 }
 
 move_directory <- function(source, target) {
