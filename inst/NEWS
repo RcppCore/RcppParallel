@@ -1,6 +1,9 @@
 RcppParallel 4.4.3 (UNRELEASED)
 ------------------------------------------------------------------------
 
+* Suppress gcc-9 warnings related -Wclass-memaccess
+* Added TBB headers for serial TBB operations (#90, @mikejiang)
+* Fixed row iterator constructor (#87, @wtianyi)
 * Fixed compilation on FreeBSD
 
 RcppParallel 4.4.2
