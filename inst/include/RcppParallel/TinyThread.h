@@ -105,16 +105,14 @@ std::vector<IndexRange> splitInputRange(const IndexRange& range,
 inline void ttParallelFor(std::size_t begin, std::size_t end, 
                           Worker& worker, std::size_t grainSize = 1) {
   
-   using namespace tthread;
-   
    // split the work
    IndexRange inputRange(begin, end);
    std::vector<IndexRange> ranges = splitInputRange(inputRange, grainSize);
    
    // create threads
-   std::vector<thread*> threads;
+   std::vector<tthread::thread*> threads;
    for (std::size_t i = 0; i<ranges.size(); ++i) {
-      threads.push_back(new thread(workerThread, new Work(ranges[i], worker)));   
+      threads.push_back(new tthread::thread(workerThread, new Work(ranges[i], worker)));
    }
    
    // join and delete them
@@ -129,19 +127,17 @@ template <typename Reducer>
 inline void ttParallelReduce(std::size_t begin, std::size_t end, 
                              Reducer& reducer, std::size_t grainSize = 1) {
   
-   using namespace tthread;
-   
    // split the work
    IndexRange inputRange(begin, end);
    std::vector<IndexRange> ranges = splitInputRange(inputRange, grainSize);
    
    // create threads (split for each thread and track the allocated workers)
-   std::vector<thread*> threads;
+   std::vector<tthread::thread*> threads;
    std::vector<Worker*> workers;
    for (std::size_t i = 0; i<ranges.size(); ++i) {
       Reducer* pReducer = new Reducer(reducer, RcppParallel::Split());
       workers.push_back(pReducer);
-      threads.push_back(new thread(workerThread, new Work(ranges[i], *pReducer)));  
+      threads.push_back(new tthread::thread(workerThread, new Work(ranges[i], *pReducer)));
    }
    
    // wait for each thread, join it's results, then delete the worker & thread
