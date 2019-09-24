@@ -1,3 +1,7 @@
+RcppParallel 4.4.4
+------------------------------------------------------------------------
+* Fixed an issue when compiling RcppParallel with clang-9 on Fedora
+
 RcppParallel 4.4.3
 ------------------------------------------------------------------------
 

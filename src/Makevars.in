@@ -6,7 +6,7 @@ ifeq ($(OS), Windows_NT)
   TBB_COPY_PATTERN=tbb*.dll
   
   MAKEFLAGS = -j1
-  MAKE = make -e
+  MAKE = make -e -s
   MAKE_CMD =                                  \
     CYGWIN=nodosfilewarning                   \
     CONLY="@WINDOWS_CC@"                      \
@@ -33,7 +33,7 @@ else
     endif
   endif
 
-  MAKE += -e
+  MAKE += -e -s
   MAKE_CMD =                                  \
     CONLY="@CC@"                              \
     CPLUS="@CXX11@"                           \
