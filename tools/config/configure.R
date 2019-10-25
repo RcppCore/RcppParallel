@@ -28,6 +28,7 @@ switch(
    
    CXX11 = define(
       CC            = "$(CC)",
+      CPPFLAGS      = "$(CPPFLAGS)",
       CXX11         = "$(CXX11)",
       CXX11FLAGS    = cxxflags,
       CXX11STD      = "$(CXX11STD)",
@@ -36,6 +37,7 @@ switch(
    
    CXX1X = define(
       CC            = "$(CC)",
+      CPPFLAGS      = "$(CPPFLAGS)",
       CXX11         = "$(CXX1X)",
       CXX11FLAGS    = cxxflags,
       CXX11STD      = "$(CXX1XSTD)",
@@ -44,6 +46,7 @@ switch(
    
    CXX = define(
       CC            = "$(CC)",
+      CPPFLAGS      = "$(CPPFLAGS)",
       CXX11         = "$(CXX)",
       CXX11FLAGS    = cxxflags,
       CXX11STD      = "-std=c++0x",

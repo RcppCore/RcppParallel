@@ -35,8 +35,8 @@ else
 
   MAKE += -e -s
   MAKE_CMD =                                  \
-    CONLY="@CC@"                              \
-    CPLUS="@CXX11@"                           \
+    CONLY="@CC@ @CPPFLAGS@"                   \
+    CPLUS="@CXX11@ @CPPFLAGS@"                \
     CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
     PIC_KEY="@CXX11PICFLAGS@"                 \
     WARNING_SUPPRESS=""                       \
