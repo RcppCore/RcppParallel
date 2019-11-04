@@ -56,10 +56,10 @@ ifeq ($(USE_TBB),  Windows)
   # compiler: overwrite default (which is cl = MS compiler)
   MAKE_ARGS += rtools=true compiler=gcc
   ifeq ("$(WIN)", "64")
-    MAKE_ARGS += arch=intel64
+    MAKE_ARGS += arch=intel64 runtime=mingw
     ARCH_DIR=x64/
   else
-    MAKE_ARGS += arch=ia32
+    MAKE_ARGS += arch=ia32 runtime=mingw
     ARCH_DIR=i386/
   endif
 

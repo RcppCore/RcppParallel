@@ -49,7 +49,7 @@ endif
 
 # A convenience wrapper for calls to detect.js.
 # $(1) is the full command line for the script, e.g. /minversion icl 12
-detect_js = $(shell $(CMD) "cscript /nologo /E:jscript $(tbb_root)/build/detect.js $(1)")
+detect_js = $(shell $(CMD) "cscript //NoLogo //E:jscript $(tbb_root)/build/detect.js $(1)")
 
 # TODO give an error if archs doesn't match
 ifndef arch
@@ -120,8 +120,8 @@ ifneq ($(filter vc8 vc9,$(runtime)),)
 RML.MANIFEST = tbbmanifest.exe.manifest
 endif
 
-MAKE_VERSIONS = $(CMD) "cscript /nologo /E:jscript $(subst \,/,$(tbb_root))/build/version_info_windows.js $(CONLY) $(arch) $(subst \,/,$(VERSION_FLAGS))" > version_string.ver
-MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root))\build\generate_tbbvars.bat"
+MAKE_VERSIONS = $(shell cscript "//NoLogo" "//E:jscript" "$(subst \,/,$(tbb_root)/build/version_info_windows.js)" "$(subst \,/,$(CONLY))" "$(arch)" "$(subst \,/,$(VERSION_FLAGS))" > version_string.ver)
+MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root)/build/generate_tbbvars.bat)"
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)
 
