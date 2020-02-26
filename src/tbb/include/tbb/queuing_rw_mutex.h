@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,14 +12,13 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB_queuing_rw_mutex_H
 #define __TBB_queuing_rw_mutex_H
+
+#define __TBB_queuing_rw_mutex_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include <cstring>
 #include "atomic.h"
@@ -55,6 +54,8 @@ public:
         //! Initialize fields to mean "no lock held".
         void initialize() {
             my_mutex = NULL;
+            my_internal_lock = 0;
+            my_going = 0;
 #if TBB_USE_ASSERT
             my_state = 0xFF; // Set to invalid state
             internal::poison_pointer(my_next);
@@ -146,5 +147,8 @@ private:
 __TBB_DEFINE_PROFILING_SET_NAME(queuing_rw_mutex)
 
 } // namespace tbb
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_queuing_rw_mutex_H_include_area
 
 #endif /* __TBB_queuing_rw_mutex_H */

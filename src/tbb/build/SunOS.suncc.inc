@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2017 Intel Corporation
+# Copyright (c) 2005-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-#
-#
 
 COMPILE_ONLY = -c -xMMD -errtags
 PREPROC_ONLY = -E -xMMD
@@ -31,8 +27,7 @@ WARNING_AS_ERROR_KEY = Warning as error
 WARNING_SUPPRESS = -erroff=unassigned,attrskipunsup,badargtype2w,badbinaryopw,wbadasg,wvarhidemem,inlasmpnu
 tbb_strict=0
 
-# RcppParallel patch: -library=stlport4
-CPLUS = CC -library=stlport4
+CPLUS = CC
 CONLY = cc
 
 OPENMP_FLAG = -xopenmp

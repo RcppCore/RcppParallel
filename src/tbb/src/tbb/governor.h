@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef _TBB_governor_H
@@ -60,6 +56,9 @@ private:
     //! Caches the maximal level of parallelism supported by the hardware
     static unsigned DefaultNumberOfThreads;
 
+    //! Caches the size of OS regular memory page
+    static size_t DefaultPageSize;
+
     static rml::tbb_factory theRMLServerFactory;
 
     static bool UsePrivateRML;
@@ -87,6 +86,10 @@ public:
         return DefaultNumberOfThreads ? DefaultNumberOfThreads :
                                         DefaultNumberOfThreads = AvailableHwConcurrency();
     }
+    static size_t default_page_size () {
+        return DefaultPageSize ? DefaultPageSize :
+                                 DefaultPageSize = DefaultSystemPageSize();
+    }
     static void one_time_init();
     //! Processes scheduler initialization request (possibly nested) in a master thread
     /** If necessary creates new instance of arena and/or local scheduler.
@@ -97,7 +100,7 @@ public:
     static generic_scheduler* init_scheduler_weak();
 
     //! Processes scheduler termination request (possibly nested) in a master thread
-    static bool terminate_scheduler( generic_scheduler* s, const task_scheduler_init *tsi_ptr, bool blocking );
+    static bool terminate_scheduler( generic_scheduler* s, bool blocking );
 
     //! Register TBB scheduler instance in thread-local storage.
     static void sign_on( generic_scheduler* s );
