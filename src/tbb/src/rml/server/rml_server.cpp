@@ -3278,7 +3278,7 @@ extern "C" void __KMP_call_with_my_server_info( ::rml::server_info_callback_t cb
 #include "version_string.ver"
 
 #ifndef __TBB_VERSION_STRINGS
-#pragma message("Warning: version_string.ver isn't generated properly by version_info.sh script!")
+// #pragma message("Warning: version_string.ver isn't generated properly by version_info.sh script!")
 #endif
 
 // We use the build time as the RML server info. TBB is required to build RML, so we make it the same as the TBB build time.

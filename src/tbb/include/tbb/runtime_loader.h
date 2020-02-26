@@ -18,7 +18,7 @@
 
 #if !defined(__TBB_show_deprecation_message_runtime_loader_H) && defined(__TBB_show_deprecated_header_message)
 #define  __TBB_show_deprecation_message_runtime_loader_H
-#pragma message("TBB Warning: tbb/runtime_loader.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
+// #pragma message("TBB Warning: tbb/runtime_loader.h is deprecated. For details, please see Deprecated Features appendix in the TBB reference manual.")
 #endif
 
 #if defined(__TBB_show_deprecated_header_message)
