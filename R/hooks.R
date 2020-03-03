@@ -25,13 +25,6 @@ mallocDllInfo <- NULL
    # load the package library
    library.dynam("RcppParallel", pkgname, libname)
    
-   # set default thread options
-   numThreads <- "auto"
-   numThreadsEnv <- Sys.getenv("RCPP_PARALLEL_NUM_THREADS", unset = NA)
-   if (!is.na(numThreadsEnv))
-      setThreadOptions(numThreads = as.integer(numThreadsEnv))
-   else
-      setThreadOptions(numThreads = "auto")
 }
 
 .onUnload <- function(libpath) {

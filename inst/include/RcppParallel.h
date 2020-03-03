@@ -10,44 +10,53 @@
 // compatibility with CRAN packages not previously configured
 // to link to TBB in Makevars.win)
 #ifndef RCPP_PARALLEL_USE_TBB
-#if defined(__APPLE__) || defined(__gnu_linux__) || ((defined(__sun) && defined(__SVR4) && !defined(__sparc)))
-#define RCPP_PARALLEL_USE_TBB 1
-#include "RcppParallel/TBB.h"
-#else
-#define RCPP_PARALLEL_USE_TBB 0
-#endif
+# if defined(__APPLE__) || defined(__gnu_linux__) || (defined(__sun) && defined(__SVR4) && !defined(__sparc))
+#  define RCPP_PARALLEL_USE_TBB 1
+# else
+#  define RCPP_PARALLEL_USE_TBB 0
+# endif
 #endif
 
 #if RCPP_PARALLEL_USE_TBB
-  #include "RcppParallel/TBB.h"
+# include "RcppParallel/TBB.h"
 #endif
+
+#include "RcppParallel/Backend.h"
 
 #include "RcppParallel/RVector.h"
 #include "RcppParallel/RMatrix.h"
 
 namespace RcppParallel {
 
-inline void parallelFor(std::size_t begin, std::size_t end, 
-                        Worker& worker, std::size_t grainSize = 1) {
-                           
+inline void parallelFor(std::size_t begin,
+                        std::size_t end, 
+                        Worker& worker,
+                        std::size_t grainSize = 1)
+{
 #if RCPP_PARALLEL_USE_TBB
-   tbbParallelFor(begin, end, worker, grainSize);
+   if (internal::backend() == internal::BACKEND_TBB)
+      tbbParallelFor(begin, end, worker, grainSize);
+   else
+      ttParallelFor(begin, end, worker, grainSize);
 #else
    ttParallelFor(begin, end, worker, grainSize);
 #endif
-
 }
 
 template <typename Reducer>
-inline void parallelReduce(std::size_t begin, std::size_t end, 
-                           Reducer& reducer, std::size_t grainSize = 1) {
-                              
+inline void parallelReduce(std::size_t begin,
+                           std::size_t end, 
+                           Reducer& reducer,
+                           std::size_t grainSize = 1)
+{
 #if RCPP_PARALLEL_USE_TBB
-   tbbParallelReduce(begin, end, reducer, grainSize);
+   if (internal::backend() == internal::BACKEND_TBB)
+      tbbParallelReduce(begin, end, reducer, grainSize);
+   else
+      ttParallelReduce(begin, end, reducer, grainSize);
 #else
    ttParallelReduce(begin, end, reducer, grainSize);
 #endif
-
 }
 
 } // namespace RcppParallel

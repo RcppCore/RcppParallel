@@ -1,5 +1,7 @@
-RcppParallel 4.4.5 (UNRELEASED)
+RcppParallel 5.0.0 (UNRELEASED)
 ------------------------------------------------------------------------
+* RcppParallel backend can now be customized with RCPP_PARALLEL_BACKEND
+  environment variable (supported values are 'tbb' and 'tinythread')
 * Fixed issue when compiling RcppParallel on macOS Catalina
 * Fixed issue when compiling RcppParallel with Rtools40
 

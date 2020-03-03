@@ -2,12 +2,12 @@
 #define __RCPP_PARALLEL_TINYTHREAD__
 
 #include <cstdlib>
+#include <cstdio>
 
 #include "Common.h"
 
 #include <tthread/tinythread.h>
 
-#include <stdio.h>
 
 #include <vector>
 
