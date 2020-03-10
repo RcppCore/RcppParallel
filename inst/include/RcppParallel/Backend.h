@@ -41,8 +41,6 @@ inline const char* backendToString(backend_type backend)
       return "tbb";
    case BACKEND_TINYTHREAD:
       return "tinythread";
-   default:
-      return "tbb";
    }
 }
 
