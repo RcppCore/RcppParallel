@@ -6,7 +6,7 @@
 #include <cstring>
 
 extern "C" {
-   void REprintf(const char*, ...);
+void REprintf(const char*, ...);
 }
 
 namespace RcppParallel {
@@ -33,14 +33,16 @@ inline backend_type defaultBackend()
 
 #endif
 
-
-
 inline const char* backendToString(backend_type backend)
 {
    switch (backend)
    {
-   case BACKEND_TBB:        return "tbb";
-   case BACKEND_TINYTHREAD: return "tinythread";
+   case BACKEND_TBB:
+      return "tbb";
+   case BACKEND_TINYTHREAD:
+      return "tinythread";
+   default:
+      return "tbb";
    }
 }
 
@@ -56,7 +58,10 @@ inline backend_type backend()
 #if RCPP_PARALLEL_USE_TBB
       return BACKEND_TBB;
 #else
-      REprintf("tbb backend is not available; using tinythread instead\n");
+      const char* msg =
+         "tbb backend is not available; using tinythread instead";
+      
+      REprintf("%s\n", msg);
       return BACKEND_TINYTHREAD;
 #endif
    }
