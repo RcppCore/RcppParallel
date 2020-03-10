@@ -1,4 +1,8 @@
 
+isUsingTbb <- function() {
+   backend <- Sys.getenv("RCPP_PARALLEL_BACKEND", "tbb")
+   identical(backend, "tbb")
+}
 
 setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    
@@ -19,10 +23,8 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
       stackSize <- as.integer(stackSize)
    
    # Call setThreadOptions if using tbb
-   if (!is.null(dllInfo)) {
-      invisible(.Call("setThreadOptions", numThreads, stackSize, 
-                      PACKAGE = "RcppParallel"))
-   } 
+   if (!is.null(dllInfo) && isUsingTbb())
+      setTbbThreadOptions(numThreads, stackSize)
    
    if (numThreads == -1L)
       Sys.unsetenv("RCPP_PARALLEL_NUM_THREADS")
@@ -30,7 +32,18 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
       Sys.setenv(RCPP_PARALLEL_NUM_THREADS = numThreads)
 }
 
-defaultNumThreads <- function() {
-   .Call("defaultNumThreads", PACKAGE = "RcppParallel")
+setTbbThreadOptions <- function(numThreads, stackSize) {
+   .Call(
+      "setThreadOptions",
+      as.integer(numThreads),
+      as.integer(stackSize),
+      PACKAGE = "RcppParallel"
+   )
 }
 
+defaultNumThreads <- function() {
+   .Call(
+      "defaultNumThreads",
+      PACKAGE = "RcppParallel"
+   )
+}
