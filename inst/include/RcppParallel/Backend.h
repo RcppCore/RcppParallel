@@ -42,6 +42,9 @@ inline const char* backendToString(backend_type backend)
    case BACKEND_TINYTHREAD:
       return "tinythread";
    }
+
+   // shouldn't be reached but need to silence compiler warnings
+   return "tbb";
 }
 
 inline backend_type backend()
