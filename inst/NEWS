@@ -1,4 +1,4 @@
-RcppParallel 5.0.0 (UNRELEASED)
+RcppParallel 5.0.0
 ------------------------------------------------------------------------
 * RcppParallel backend can now be customized with RCPP_PARALLEL_BACKEND
   environment variable (supported values are 'tbb' and 'tinythread')
