@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB_shared_utils_H
@@ -60,6 +56,14 @@ inline size_t arrayLength(const T(&)[N]) {
     return N;
 }
 
+/*
+ * Compile time Log2 calculation
+ */
+template <size_t NUM>
+struct Log2 { static const int value = 1 + Log2<(NUM >> 1)>::value; };
+template <>
+struct Log2<1> { static const int value = 0; };
+
 #if defined(min)
 #undef min
 #endif
@@ -67,6 +71,61 @@ inline size_t arrayLength(const T(&)[N]) {
 template<typename T>
 T min ( const T& val1, const T& val2 ) {
     return val1 < val2 ? val1 : val2;
+}
+
+/*
+ * Functions to parse files information (system files for example)
+ */
+
+#include <stdio.h>
+
+#if defined(_MSC_VER) && (_MSC_VER<1900) && !defined(__INTEL_COMPILER)
+    // Suppress overzealous compiler warnings that default ctor and assignment
+    // operator cannot be generated and object 'class' can never be instantiated.
+    #pragma warning(push)
+    #pragma warning(disable:4510 4512 4610)
+#endif
+
+#if __SUNPRO_CC
+    // Suppress overzealous compiler warnings that a class with a reference member
+    // lacks a user-defined constructor, which can lead to errors
+    #pragma error_messages (off, refmemnoconstr)
+#endif
+
+// TODO: add a constructor to remove warnings suppression
+struct parseFileItem {
+    const char* format;
+    unsigned long long& value;
+};
+
+#if defined(_MSC_VER) && (_MSC_VER<1900) && !defined(__INTEL_COMPILER)
+    #pragma warning(pop)
+#endif
+
+#if __SUNPRO_CC
+    #pragma error_messages (on, refmemnoconstr)
+#endif
+
+template <int BUF_LINE_SIZE, int N>
+void parseFile(const char* file, const parseFileItem (&items)[N]) {
+    // Tries to find all items in each line
+    int found[N] = { 0 };
+    // If all items found, stop forward file reading
+    int numFound = 0;
+    // Line storage
+    char buf[BUF_LINE_SIZE];
+
+    if (FILE *f = fopen(file, "r")) {
+        while (numFound < N && fgets(buf, BUF_LINE_SIZE, f)) {
+            for (int i = 0; i < N; ++i) {
+                if (!found[i] && 1 == sscanf(buf, items[i].format, &items[i].value)) {
+                    ++numFound;
+                    found[i] = 1;
+                }
+            }
+        }
+        fclose(f);
+    }
 }
 
 namespace rml {
@@ -85,5 +144,8 @@ const uint32_t estimatedCacheLineSize = 128;
 const uint32_t estimatedCacheLineSize =  64;
 #endif
 
-}} // namespaces
+} // namespace internal
+} // namespace rml
+
 #endif /* __TBB_shared_utils_H */
+

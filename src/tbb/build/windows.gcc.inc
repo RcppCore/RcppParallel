@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2017 Intel Corporation
+# Copyright (c) 2005-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,14 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-#
-#
-
-# Set by R
-R_COMPILED_BY ?= 4.9.3
-GCC_VERSION=${subst gcc ,,${R_COMPILED_BY}}
 
 #------------------------------------------------------------------------------
 # Overriding settings from windows.inc
@@ -53,7 +45,7 @@ PROXY.LIB =
 # Compiler-specific variables
 #------------------------------------------------------------------------------
 
-# CPLUS = g++
+CPLUS ?= g++
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
@@ -81,13 +73,13 @@ LINK_FLAGS = -Wl,--enable-auto-import
 LIB_LINK_FLAGS = $(DYLIB_KEY)
 
 # gcc 4.8 and later support RTM intrinsics, but require command line switch to enable them
-ifeq ($(shell expr $(GCC_VERSION) \>= 4.8), 1)
+ifeq (ok,$(call detect_js,/minversion gcc 4.8))
     RTM_KEY = -mrtm
 endif
 
 # gcc 6.0 and later have -flifetime-dse option that controls
 # elimination of stores done outside the object lifetime
-ifeq ($(shell expr $(GCC_VERSION) \>= 6.0), 1)
+ifeq (ok,$(call detect_js,/minversion gcc 6.0))
     # keep pre-contruction stores for zero initialization
     DSE_KEY = -flifetime-dse=1
 endif
@@ -105,7 +97,7 @@ CPLUS_FLAGS += -D_WIN32_WINNT=$(_WIN32_WINNT)
 # MinGW specific
 CPLUS_FLAGS += -DMINGW_HAS_SECURE_API=1 -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
 
-# CONLY = gcc
+CONLY = gcc
 debugger = gdb
 C_FLAGS = $(CPLUS_FLAGS)
 

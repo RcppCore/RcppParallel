@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,14 +12,13 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB_flow_graph_opencl_node_H
 #define __TBB_flow_graph_opencl_node_H
+
+#define __TBB_flow_graph_opencl_node_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include "tbb/tbb_config.h"
 #if __TBB_PREVIEW_OPENCL_NODE
@@ -43,7 +42,7 @@
 namespace tbb {
 namespace flow {
 
-namespace interface10 {
+namespace interface11 {
 
 template <typename DeviceFilter>
 class opencl_factory;
@@ -121,19 +120,19 @@ public:
     opencl_device( cl_device_id cl_d_id, device_id_type device_id ) : my_device_id( device_id ), my_cl_device_id( cl_d_id ), my_cl_command_queue( NULL ) {}
 
     std::string platform_profile() const {
-        return platform_info<std::string>( platform(), CL_PLATFORM_PROFILE );
+        return platform_info<std::string>( platform_id(), CL_PLATFORM_PROFILE );
     }
     std::string platform_version() const {
-        return platform_info<std::string>( platform(), CL_PLATFORM_VERSION );
+        return platform_info<std::string>( platform_id(), CL_PLATFORM_VERSION );
     }
     std::string platform_name() const {
-        return platform_info<std::string>( platform(), CL_PLATFORM_NAME );
+        return platform_info<std::string>( platform_id(), CL_PLATFORM_NAME );
     }
     std::string platform_vendor() const {
-        return platform_info<std::string>( platform(), CL_PLATFORM_VENDOR );
+        return platform_info<std::string>( platform_id(), CL_PLATFORM_VENDOR );
     }
     std::string platform_extensions() const {
-        return platform_info<std::string>( platform(), CL_PLATFORM_EXTENSIONS );
+        return platform_info<std::string>( platform_id(), CL_PLATFORM_EXTENSIONS );
     }
 
     template <typename T>
@@ -229,11 +228,11 @@ public:
         my_cl_command_queue = cmd_queue;
     }
 
-private:
-
-    cl_platform_id platform() const {
+    cl_platform_id platform_id() const {
         return device_info<cl_platform_id>( my_cl_device_id, CL_DEVICE_PLATFORM );
     }
+
+private:
 
     device_id_type my_device_id;
     cl_device_id my_cl_device_id;
@@ -457,7 +456,7 @@ public:
     operator const T&() const { return data(); }
 
 protected:
-    // Overridden in this derived class to inform that 
+    // Overridden in this derived class to inform that
     // async calculation chain is over
     void finalize() const __TBB_override {
         receive_if_memory_object(*this);
@@ -508,7 +507,7 @@ public:
         my_curr_device_id = my_factory->devices().begin()->my_device_id;
     }
 
-    ~opencl_memory() {
+    virtual ~opencl_memory() {
         if ( my_sending_event_present ) enforce_cl_retcode( clReleaseEvent( my_sending_event ), "Failed to release an event for the OpenCL buffer" );
         enforce_cl_retcode( clReleaseMemObject( my_cl_mem ), "Failed to release an memory object" );
     }
@@ -530,10 +529,10 @@ public:
 
     opencl_async_msg<void*, Factory> receive(const cl_event *e) {
         opencl_async_msg<void*, Factory> d;
-        if (e) { 
+        if (e) {
             d = opencl_async_msg<void*, Factory>(my_host_ptr, *e);
-        } else { 
-            d = opencl_async_msg<void*, Factory>(my_host_ptr); 
+        } else {
+            d = opencl_async_msg<void*, Factory>(my_host_ptr);
         }
 
         // Concurrent receives are prohibited so we do not worry about synchronization.
@@ -790,7 +789,7 @@ public:
     opencl_range(G&& global_work = std::initializer_list<int>({ 0 }), L&& local_work = std::initializer_list<int>({ 0, 0, 0 })) {
         auto g_it = global_work.begin();
         auto l_it = local_work.begin();
-        my_global_work_size = { size_t(-1), size_t(-1), size_t(-1) };
+        my_global_work_size = { {size_t(-1), size_t(-1), size_t(-1)} };
         // my_local_work_size is still uninitialized
         for (int s = 0; s < 3 && g_it != global_work.end(); ++g_it, ++l_it, ++s) {
             __TBB_ASSERT(l_it != local_work.end(), "global_work & local_work must have same size");
@@ -1089,9 +1088,9 @@ private:
         }
 
         enforce_cl_retcode(my_devices.size() ? CL_SUCCESS : CL_INVALID_DEVICE, "No devices in the device list");
-        cl_platform_id platform_id = my_devices.begin()->platform();
+        cl_platform_id platform_id = my_devices.begin()->platform_id();
         for (opencl_device_list::iterator it = ++my_devices.begin(); it != my_devices.end(); ++it)
-            enforce_cl_retcode(it->platform() == platform_id ? CL_SUCCESS : CL_INVALID_PLATFORM, "All devices should be in the same platform");
+            enforce_cl_retcode(it->platform_id() == platform_id ? CL_SUCCESS : CL_INVALID_PLATFORM, "All devices should be in the same platform");
 
         std::vector<cl_device_id> cl_device_ids;
         for (auto d = my_devices.begin(); d != my_devices.end(); ++d) {
@@ -1128,7 +1127,7 @@ private:
                 // Suppress "declared deprecated" warning for the next line.
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
 #pragma GCC diagnostic push
-// #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 #if _MSC_VER || __INTEL_COMPILER
 #pragma warning( push )
@@ -1181,7 +1180,12 @@ struct default_device_selector {
 struct default_device_filter {
     opencl_device_list operator()(const opencl_device_list &devices) {
         opencl_device_list dl;
-        dl.add(*devices.begin());
+        cl_platform_id platform_id = devices.begin()->platform_id();
+        for (opencl_device_list::const_iterator it = devices.cbegin(); it != devices.cend(); ++it) {
+            if (it->platform_id() == platform_id) {
+                dl.add(*it);
+            }
+        }
         return dl;
     }
 };
@@ -1393,8 +1397,7 @@ private:
     template <typename DeviceFilter>
     friend class opencl_factory;
 
-    template <typename DeviceFilter>
-    friend class opencl_factory<DeviceFilter>::kernel;
+    friend class Factory::kernel;
 };
 
 template<typename... Args>
@@ -1409,20 +1412,20 @@ public:
     opencl_node( graph &g, const kernel_type& kernel )
         : base_type( g, kernel, opencl_info::default_device_selector< opencl_info::default_opencl_factory >(), opencl_info::default_factory() )
     {
-        tbb::internal::fgt_multiinput_multioutput_node( tbb::internal::FLOW_OPENCL_NODE, this, &this->my_graph );
+        tbb::internal::fgt_multiinput_multioutput_node( CODEPTR(), tbb::internal::FLOW_OPENCL_NODE, this, &this->my_graph );
     }
 
     opencl_node( graph &g, const kernel_type& kernel, Factory &f )
         : base_type( g, kernel, opencl_info::default_device_selector <Factory >(), f )
     {
-        tbb::internal::fgt_multiinput_multioutput_node( tbb::internal::FLOW_OPENCL_NODE, this, &this->my_graph );
+        tbb::internal::fgt_multiinput_multioutput_node( CODEPTR(), tbb::internal::FLOW_OPENCL_NODE, this, &this->my_graph );
     }
 
     template <typename DeviceSelector>
     opencl_node( graph &g, const kernel_type& kernel, DeviceSelector d, Factory &f)
         : base_type( g, kernel, d, f)
     {
-        tbb::internal::fgt_multiinput_multioutput_node( tbb::internal::FLOW_OPENCL_NODE, this, &this->my_graph );
+        tbb::internal::fgt_multiinput_multioutput_node( CODEPTR(), tbb::internal::FLOW_OPENCL_NODE, this, &this->my_graph );
     }
 };
 
@@ -1458,24 +1461,27 @@ public:
     {}
 };
 
-} // namespace interface10
+} // namespace interfaceX
 
-using interface10::opencl_node;
-using interface10::read_only;
-using interface10::read_write;
-using interface10::write_only;
-using interface10::opencl_buffer;
-using interface10::opencl_subbuffer;
-using interface10::opencl_device;
-using interface10::opencl_device_list;
-using interface10::opencl_program;
-using interface10::opencl_program_type;
-using interface10::opencl_async_msg;
-using interface10::opencl_factory;
-using interface10::opencl_range;
+using interface11::opencl_node;
+using interface11::read_only;
+using interface11::read_write;
+using interface11::write_only;
+using interface11::opencl_buffer;
+using interface11::opencl_subbuffer;
+using interface11::opencl_device;
+using interface11::opencl_device_list;
+using interface11::opencl_program;
+using interface11::opencl_program_type;
+using interface11::opencl_async_msg;
+using interface11::opencl_factory;
+using interface11::opencl_range;
 
 } // namespace flow
 } // namespace tbb
 #endif /* __TBB_PREVIEW_OPENCL_NODE */
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_flow_graph_opencl_node_H_include_area
 
 #endif // __TBB_flow_graph_opencl_node_H

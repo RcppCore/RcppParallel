@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB__concurrent_queue_impl_H
@@ -34,18 +30,7 @@
 #include "../tbb_profiling.h"
 #include <new>
 #include __TBB_STD_SWAP_HEADER
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    // Suppress "C++ exception handler used, but unwind semantics are not enabled" warning in STL headers
-    #pragma warning (push)
-    #pragma warning (disable: 4530)
-#endif
-
 #include <iterator>
-
-#if !TBB_USE_EXCEPTIONS && _MSC_VER
-    #pragma warning (pop)
-#endif
 
 namespace tbb {
 
@@ -525,7 +510,7 @@ concurrent_queue_base_v3<T>::concurrent_queue_base_v3() {
     __TBB_ASSERT( (size_t)&my_rep->head_counter % NFS_GetLineSize()==0, "alignment error" );
     __TBB_ASSERT( (size_t)&my_rep->tail_counter % NFS_GetLineSize()==0, "alignment error" );
     __TBB_ASSERT( (size_t)&my_rep->array % NFS_GetLineSize()==0, "alignment error" );
-    memset(my_rep,0,sizeof(concurrent_queue_rep<T>));
+    memset(static_cast<void*>(my_rep),0,sizeof(concurrent_queue_rep<T>));
     my_rep->item_size = item_size;
     my_rep->items_per_page = item_size<=  8 ? 32 :
                              item_size<= 16 ? 16 :
@@ -658,7 +643,7 @@ bool concurrent_queue_iterator_rep<T>::get_item( T*& item, size_t k ) {
 //! Constness-independent portion of concurrent_queue_iterator.
 /** @ingroup containers */
 template<typename Value>
-class concurrent_queue_iterator_base_v3 : no_assign {
+class concurrent_queue_iterator_base_v3 {
     //! Represents concurrent_queue over which we are iterating.
     /** NULL if one past last element in queue. */
     concurrent_queue_iterator_rep<Value>* my_rep;
@@ -681,8 +666,13 @@ protected:
 
     //! Copy constructor
     concurrent_queue_iterator_base_v3( const concurrent_queue_iterator_base_v3& i )
-    : no_assign(), my_rep(NULL), my_item(NULL) {
+    : my_rep(NULL), my_item(NULL) {
         assign(i);
+    }
+
+    concurrent_queue_iterator_base_v3& operator=( const concurrent_queue_iterator_base_v3& i ) {
+        assign(i);
+        return *this;
     }
 
     //! Construct iterator pointing to head of queue.
@@ -779,8 +769,8 @@ public:
     {}
 
     //! Iterator assignment
-    concurrent_queue_iterator& operator=( const concurrent_queue_iterator& other ) {
-        this->assign(other);
+    concurrent_queue_iterator& operator=( const concurrent_queue_iterator<Container,typename Container::value_type>& other ) {
+        concurrent_queue_iterator_base_v3<typename tbb_remove_cv<Value>::type>::operator=(other);
         return *this;
     }
 
@@ -900,7 +890,7 @@ protected:
     //! Get size of queue
     ptrdiff_t __TBB_EXPORTED_METHOD internal_size() const;
 
-    //! Check if the queue is emtpy
+    //! Check if the queue is empty
     bool __TBB_EXPORTED_METHOD internal_empty() const;
 
     //! Set the queue capacity
@@ -991,6 +981,11 @@ protected:
         assign(i);
     }
 
+    concurrent_queue_iterator_base_v3& operator=( const concurrent_queue_iterator_base_v3& i ) {
+        assign(i);
+        return *this;
+    }
+
     //! Obsolete entry point for constructing iterator pointing to head of queue.
     /** Does not work correctly for SSE types. */
     __TBB_EXPORTED_METHOD concurrent_queue_iterator_base_v3( const concurrent_queue_base_v3& queue );
@@ -1040,8 +1035,8 @@ public:
     {}
 
     //! Iterator assignment
-    concurrent_queue_iterator& operator=( const concurrent_queue_iterator& other ) {
-        assign(other);
+    concurrent_queue_iterator& operator=( const concurrent_queue_iterator<Container,typename Container::value_type>& other ) {
+        concurrent_queue_iterator_base_v3::operator=(other);
         return *this;
     }
 
