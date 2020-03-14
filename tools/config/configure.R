@@ -21,6 +21,12 @@ broken <-
 if (broken)
    cxxflags <- gsub("-Werror=format-security", "-Wformat -Werror=format-security", cxxflags)
 
+# avoid including /usr/local/include, as this can cause
+# RcppParallel to find and use a version of libtbb installed
+# there as opposed to the bundled version
+cppflags <- read_r_config("CPPFLAGS", envir = NULL)[[1]]
+cppflags <- sub("(?: )?-I/usr/local/include", "", cppflags)
+
 # define the set of flags appropriate to the current
 # configuration of R
 switch(
@@ -28,7 +34,7 @@ switch(
    
    CXX11 = define(
       CC            = "$(CC)",
-      CPPFLAGS      = "$(CPPFLAGS)",
+      CPPFLAGS      = cppflags,
       CXX11         = "$(CXX11)",
       CXX11FLAGS    = cxxflags,
       CXX11STD      = "$(CXX11STD)",
@@ -37,7 +43,7 @@ switch(
    
    CXX1X = define(
       CC            = "$(CC)",
-      CPPFLAGS      = "$(CPPFLAGS)",
+      CPPFLAGS      = cppflags,
       CXX11         = "$(CXX1X)",
       CXX11FLAGS    = cxxflags,
       CXX11STD      = "$(CXX1XSTD)",
@@ -46,7 +52,7 @@ switch(
    
    CXX = define(
       CC            = "$(CC)",
-      CPPFLAGS      = "$(CPPFLAGS)",
+      CPPFLAGS      = cppflags,
       CXX11         = "$(CXX)",
       CXX11FLAGS    = cxxflags,
       CXX11STD      = "-std=c++0x",
