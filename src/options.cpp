@@ -8,23 +8,34 @@
 #include <string>
 #include <exception>
 
-#include <tbb/task_scheduler_init.h>
+#include <tbb/global_control.h>
 
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
 
-   static tbb::task_scheduler_init* s_pTaskScheduler = NULL;
-
-   int numThreads = Rf_asInteger(numThreadsSEXP);
+   static tbb::global_control* threadControl = nullptr;
+   static tbb::global_control* stackControl = nullptr;
    
+   int numThreads = Rf_asInteger(numThreadsSEXP);
    int stackSize = Rf_asInteger(stackSizeSEXP);
    
    try
    {
-      if (!s_pTaskScheduler) {
-         s_pTaskScheduler = new tbb::task_scheduler_init(numThreads, stackSize);
-      } else {
-         s_pTaskScheduler->terminate();
-         s_pTaskScheduler->initialize(numThreads, stackSize); 
+      delete threadControl;
+      if (numThreads > 0)
+      {
+         threadControl = new tbb::global_control(
+            tbb::global_control::max_allowed_parallelism,
+            numThreads
+         );
+      }
+      
+      delete stackControl;
+      if (stackSize > 0)
+      {
+         stackControl = new tbb::global_control(
+            tbb::global_control::thread_stack_size,
+            stackSize
+         );
       }
    }
    catch(const std::exception& e)
