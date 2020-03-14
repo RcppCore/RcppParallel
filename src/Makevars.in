@@ -36,12 +36,12 @@ else
   endif
 
   MAKE += -e -s
-  MAKE_CMD =                                  \
-    CONLY="@CC@ @CPPFLAGS@"                   \
-    CPLUS="@CXX11@ @CPPFLAGS@"                \
-    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
-    PIC_KEY="@CXX11PICFLAGS@"                 \
-    WARNING_SUPPRESS=""                       \
+  MAKE_CMD =                                   \
+    CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
+    CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
+    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1"  \
+    PIC_KEY="@CXX11PICFLAGS@"                  \
+    WARNING_SUPPRESS=""                        \
     $(MAKE)
 
 endif
