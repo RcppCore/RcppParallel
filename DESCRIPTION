@@ -27,6 +27,7 @@ Suggests:
 SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL-2
 URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
+BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
 Collate: 
    'build.R'
