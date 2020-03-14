@@ -7,7 +7,7 @@
 #  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::CxxFlags()")
 #
 CxxFlags <- function() {
-   cat(tbbCxxFlags())
+   writeLines(tbbCxxFlags(), sep = " ")
 }
 
 
@@ -18,7 +18,7 @@ CxxFlags <- function() {
 #   PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
 #
 LdFlags <- function() {
-   cat(tbbLdFlags())
+   writeLines(tbbLdFlags(), sep = " ")
 }
 
 # alias for backward compatibility
@@ -42,13 +42,12 @@ inlineCxxPlugin <- function() {
 
 tbbCxxFlags <- function() {
    
-   flags <- c()
+   c(
+      "-DTBB_SUPPRESS_DEPRECATED_MESSAGES",
+      if (Sys.info()[["sysname"]] == "Windows")
+         "-DRCPP_PARALLEL_USE_TBB=1"
+   )
    
-   # opt-in to TBB on Windows
-   if (Sys.info()['sysname'] == "Windows")
-      flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
-   
-   flags
 }
 
 # Return the linker flags requried for TBB on this platform

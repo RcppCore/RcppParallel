@@ -1,4 +1,6 @@
-PKG_CXXFLAGS += @CXX11STD@ -I../inst/include/
+
+PKG_CPPFLAGS = -I../inst/include
+PKG_CXXFLAGS += @CXX11STD@
 
 ifeq ($(OS), Windows_NT)
 
@@ -46,7 +48,9 @@ endif
 
 ifdef USE_TBB
 
-PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+PKG_CXXFLAGS +=                         \
+	-DRCPP_PARALLEL_USE_TBB=1            \
+	-DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
 MAKE_ARGS := tbb_release tbbmalloc_release tbb_build_prefix=lib
 
