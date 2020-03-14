@@ -21,3 +21,7 @@ unlink("inst/include/tbb", recursive = TRUE)
 tbbInclude <- paste(tbb, "include/", sep = "/")
 args <- c("-R", shQuote(tbbInclude), "inst/include")
 system2("cp", args)
+
+# remove examples
+unlink("src/tbb/examples")
+
