@@ -121,7 +121,8 @@ RML.MANIFEST = tbbmanifest.exe.manifest
 endif
 
 MAKE_VERSIONS = $(shell cscript "//NoLogo" "//E:jscript" "$(subst \,/,$(tbb_root)/build/version_info_windows.js)" "$(subst \,/,$(CONLY))" "$(arch)" "$(subst \,/,$(VERSION_FLAGS))" > version_string.ver)
-MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root)/build/generate_tbbvars.bat)"
+#MAKE_TBBVARS  = $(CMD) "$(subst /,\,$(tbb_root)/build/generate_tbbvars.bat)"
+MAKE_TBBVARS =
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)
 
