@@ -31,6 +31,7 @@ inlineCxxPlugin <- function() {
    list(
       env = list(
          PKG_CXXFLAGS = tbbCxxFlags(),
+         LOCAL_LIBS = tbbLdFlags(), # Temporary workaround for sourceCpp on R 4.0
          PKG_LIBS = tbbLdFlags()
       ),
       includes = "#include <RcppParallel.h>",
