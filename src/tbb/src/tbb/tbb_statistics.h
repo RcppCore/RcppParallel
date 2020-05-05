@@ -208,7 +208,7 @@ struct statistics_counters {
 
     statistics_counters() { reset(); }
 
-    void reset () { memset( this, 0, sizeof(statistics_counters) ); }
+    void reset () { memset( (void*) this, 0, sizeof(statistics_counters) ); }
 
     counter_type& field ( size_t index ) { return reinterpret_cast<counter_type*>(this)[index]; }
 
