@@ -2,15 +2,13 @@
 PKG_CPPFLAGS = -I../inst/include
 PKG_CXXFLAGS = @CXX11STD@
 
-override LDFLAGS = @LDFLAGS@
-
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
   
-  MAKEFLAGS = -j1
-  MAKE = make -e -s
+  MAKE = make
+  MAKEFLAGS = -e -s -j1
   MAKE_CMD =                                  \
     CYGWIN=nodosfilewarning                   \
     CONLY="@WINDOWS_CC@"                      \
@@ -37,7 +35,7 @@ else
     endif
   endif
 
-  MAKE += -e -s
+  MAKEFLAGS += -e -s
   MAKE_CMD =                                   \
     CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
     CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \

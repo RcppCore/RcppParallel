@@ -75,11 +75,6 @@ if (Sys.info()[["sysname"]] == "Windows") {
 
 }
 
-# override LDFLAGS (disable LTO on OpenSUSE)
-ldflags <- read_r_config("LDFLAGS", envir = NULL)[[1]]
-ldflags <- gsub("-flto=auto", "", ldflags, fixed = TRUE)
-define(LDFLAGS = ldflags)
-
 # use c++0x for compatibility with older compilers
 define(STDVER = "c++0x")
 
