@@ -2,6 +2,8 @@
 PKG_CPPFLAGS = -I../inst/include
 PKG_CXXFLAGS = @CXX11STD@
 
+override LDFLAGS = @LDFLAGS@
+
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
