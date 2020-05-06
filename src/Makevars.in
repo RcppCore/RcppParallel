@@ -10,6 +10,7 @@ ifeq ($(OS), Windows_NT)
   MAKE = make
   MAKEFLAGS = -e -s -j1
   MAKE_CMD =                                  \
+    MSYS2_ARG_CONV_EXCL="*"                   \
     CYGWIN=nodosfilewarning                   \
     CONLY="@WINDOWS_CC@"                      \
     CPLUS="@WINDOWS_CXX11@"                   \
