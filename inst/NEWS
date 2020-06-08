@@ -1,5 +1,6 @@
-RcppParallel 5.0.1 (UNRELEASED)
+RcppParallel 5.0.1
 ------------------------------------------------------------------------
+* Fixed compilation issue on OpenSUSE Tumbleweed with -flto=auto
 * Fixed compilation when CPPFLAGS = -I/usr/local/include and a version
   of libtbb is installed there
 

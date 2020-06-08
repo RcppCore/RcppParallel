@@ -266,10 +266,6 @@ read_r_config <- function(
             stop(sprintf(fmt, getRversion()))
         }
 
-        # notify user
-        if (verbose)
-            message("*** executing 'R CMD config --all'")
-
         # execute action
         stdout <- tempfile("r-cmd-config-", fileext = ".txt")
         on.exit(unlink(stdout), add = TRUE)
@@ -282,10 +278,6 @@ read_r_config <- function(
         config <- parse_key_value(output)
 
     } else {
-
-        # notify user
-        if (verbose)
-            message("*** executing 'R CMD config'")
 
         # loop through requested values and call R CMD config
         config <- lapply(values, function(value) {

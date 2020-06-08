@@ -1,15 +1,16 @@
 
 PKG_CPPFLAGS = -I../inst/include
-PKG_CXXFLAGS += @CXX11STD@
+PKG_CXXFLAGS = @CXX11STD@
 
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
-  
-  MAKEFLAGS = -j1
-  MAKE = make -e -s
+
+  MAKE = make
+  MAKEFLAGS = -e -s -j1
   MAKE_CMD =                                  \
+    MSYS2_ARG_CONV_EXCL="*"                   \
     CYGWIN=nodosfilewarning                   \
     CONLY="@WINDOWS_CC@"                      \
     CPLUS="@WINDOWS_CXX11@"                   \
@@ -19,7 +20,7 @@ ifeq ($(OS), Windows_NT)
     $(MAKE)
 
 else
-  
+
   UNAME := $(shell uname)
   TBB_COPY_PATTERN=libtbb*.*
   ifeq ($(UNAME), Darwin)
@@ -35,13 +36,13 @@ else
     endif
   endif
 
-  MAKE += -e -s
-  MAKE_CMD =                                  \
-    CONLY="@CC@ @CPPFLAGS@"                   \
-    CPLUS="@CXX11@ @CPPFLAGS@"                \
-    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
-    PIC_KEY="@CXX11PICFLAGS@"                 \
-    WARNING_SUPPRESS=""                       \
+  MAKEFLAGS += -e -s
+  MAKE_CMD =                                   \
+    CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
+    CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
+    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1"  \
+    PIC_KEY="@CXX11PICFLAGS@"                  \
+    WARNING_SUPPRESS=""                        \
     $(MAKE)
 
 endif
@@ -103,4 +104,3 @@ clean:
 	(cd tbb/src; make clean)
 
 endif
-
