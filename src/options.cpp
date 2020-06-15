@@ -13,30 +13,28 @@
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
 
    static tbb::task_scheduler_init* s_pTaskScheduler = NULL;
+   if (s_pTaskScheduler != NULL)
+      return Rf_ScalarLogical(0);
 
    int numThreads = Rf_asInteger(numThreadsSEXP);
-   
    int stackSize = Rf_asInteger(stackSizeSEXP);
-   
+
    try
    {
-      if (!s_pTaskScheduler) {
-         s_pTaskScheduler = new tbb::task_scheduler_init(numThreads, stackSize);
-      } else {
-         s_pTaskScheduler->terminate();
-         s_pTaskScheduler->initialize(numThreads, stackSize); 
-      }
+      s_pTaskScheduler = new tbb::task_scheduler_init(numThreads, stackSize);
    }
    catch(const std::exception& e)
    {
-      Rf_error(("Error loading TBB: " + std::string(e.what())).c_str());
+      const char* fmt = "Error loading TBB: %s\n";
+      Rf_error(fmt, e.what());
    }
    catch(...)
    {
-      Rf_error("Error loading TBB: (Unknown error)");
+      const char* fmt = "Error loading TBB: %s\n";
+      Rf_error(fmt, "(Unknown error)");
    }
-   
-   return R_NilValue;
+
+   return Rf_ScalarLogical(1);
 }
 
 extern "C" SEXP defaultNumThreads() {

@@ -1,3 +1,8 @@
+RcppParallel 5.0.2 (UNRELEASED)
+------------------------------------------------------------------------
+* Subsequent calls to setThreadOptions(...) are now ignored, to avoid
+  segfaults when compiling RcppParallel / TBB with gcc 10.1.
+
 RcppParallel 5.0.1
 ------------------------------------------------------------------------
 * Fixed compilation issue on OpenSUSE Tumbleweed with -flto=auto
