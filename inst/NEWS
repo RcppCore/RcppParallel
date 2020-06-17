@@ -1,7 +1,8 @@
-RcppParallel 5.0.2 (UNRELEASED)
+RcppParallel 5.0.2
 ------------------------------------------------------------------------
-* Subsequent calls to setThreadOptions(...) are now ignored, to avoid
-  segfaults when compiling RcppParallel / TBB with gcc 10.1.
+* setThreadOptions(...) can now only be called once per session, to avoid
+  segfaults when compiling RcppParallel / TBB with gcc 10.1. Subsequent
+  calls to setThreadOptions(...) are ignored.
 
 RcppParallel 5.0.1
 ------------------------------------------------------------------------
