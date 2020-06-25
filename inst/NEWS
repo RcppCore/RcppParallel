@@ -1,3 +1,13 @@
+RcppParallel 5.0.3 (UNRELEASED)
+------------------------------------------------------------------------
+
+
+RcppParallel 5.0.2
+------------------------------------------------------------------------
+* setThreadOptions(...) can now only be called once per session, to avoid
+  segfaults when compiling RcppParallel / TBB with gcc 10.1. Subsequent
+  calls to setThreadOptions(...) are ignored.
+
 RcppParallel 5.0.1
 ------------------------------------------------------------------------
 * Fixed compilation issue on OpenSUSE Tumbleweed with -flto=auto

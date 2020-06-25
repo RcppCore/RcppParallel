@@ -12,42 +12,29 @@
 
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
 
-   static tbb::global_control* threadControl = nullptr;
-   static tbb::global_control* stackControl = nullptr;
-   
+   static tbb::task_scheduler_init* s_pTaskScheduler = NULL;
+   if (s_pTaskScheduler != NULL)
+      return Rf_ScalarLogical(0);
+
    int numThreads = Rf_asInteger(numThreadsSEXP);
    int stackSize = Rf_asInteger(stackSizeSEXP);
-   
+
    try
    {
-      delete threadControl;
-      if (numThreads > 0)
-      {
-         threadControl = new tbb::global_control(
-            tbb::global_control::max_allowed_parallelism,
-            numThreads
-         );
-      }
-      
-      delete stackControl;
-      if (stackSize > 0)
-      {
-         stackControl = new tbb::global_control(
-            tbb::global_control::thread_stack_size,
-            stackSize
-         );
-      }
+      s_pTaskScheduler = new tbb::task_scheduler_init(numThreads, stackSize);
    }
    catch(const std::exception& e)
    {
-      Rf_error(("Error loading TBB: " + std::string(e.what())).c_str());
+      const char* fmt = "Error loading TBB: %s\n";
+      Rf_error(fmt, e.what());
    }
    catch(...)
    {
-      Rf_error("Error loading TBB: (Unknown error)");
+      const char* fmt = "Error loading TBB: %s\n";
+      Rf_error(fmt, "(Unknown error)");
    }
-   
-   return R_NilValue;
+
+   return Rf_ScalarLogical(1);
 }
 
 extern "C" SEXP defaultNumThreads() {
@@ -61,7 +48,7 @@ extern "C" SEXP defaultNumThreads() {
 #include <tthread/tinythread.h>
 
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
-   return R_NilValue;   
+   return R_NilValue;
 }
 
 extern "C" SEXP defaultNumThreads() {
