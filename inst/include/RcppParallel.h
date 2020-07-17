@@ -32,7 +32,7 @@ inline void parallelFor(std::size_t begin,
                         std::size_t end, 
                         Worker& worker,
                         std::size_t grainSize = 1,
-                        std::size_t numThreads = -1)
+                        int numThreads = -1)
 {
 #if RCPP_PARALLEL_USE_TBB
    if (internal::backend() == internal::BACKEND_TBB)
@@ -49,7 +49,7 @@ inline void parallelReduce(std::size_t begin,
                            std::size_t end, 
                            Reducer& reducer,
                            std::size_t grainSize = 1,
-                           std::size_t numThreads = -1)
+                           int numThreads = -1)
 {
 #if RCPP_PARALLEL_USE_TBB
    if (internal::backend() == internal::BACKEND_TBB)

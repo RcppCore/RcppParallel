@@ -186,7 +186,7 @@ inline void tbbParallelFor(std::size_t begin,
                            std::size_t end, 
                            Worker& worker,
                            std::size_t grainSize = 1,
-                           std::size_t numThreads = -1)
+                           int numThreads = -1)
 {
    tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
    tbb::task_group group;
@@ -200,7 +200,7 @@ inline void tbbParallelReduce(std::size_t begin,
                               std::size_t end, 
                               Reducer& reducer,
                               std::size_t grainSize = 1,
-                              std::size_t numThreads = -1)
+                              int numThreads = -1)
 {
    tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
    tbb::task_group group;
