@@ -6,11 +6,9 @@
 
 /* .Call calls */
 extern "C" SEXP defaultNumThreads();
-extern "C" SEXP setThreadOptions(SEXP, SEXP);
 
 static const R_CallMethodDef CallEntries[] = {
    {"defaultNumThreads", (DL_FUNC) &defaultNumThreads, 0},
-   {"setThreadOptions",  (DL_FUNC) &setThreadOptions,  2},
    {NULL, NULL, 0}
 };
 

@@ -178,6 +178,31 @@ private:
    std::size_t end_;
    std::size_t grainSize_;
 };
+
+int tbbResolveNumThreads(int numThreads)
+{
+   // if the user has explicitly set the value away from the default,
+   // then we can just honor their request
+   if (numThreads != -1)
+      return numThreads;
+   
+   // otherwise, try reading the default from RCPP_PARALLEL_NUM_THREADS.
+   // if that is unset, we'll let tbb decide
+   const char* var = getenv("RCPP_PARALLEL_NUM_THREADS");
+   if (var == NULL)
+      return tbb::task_arena::automatic;
+   
+   // try to convert the string to a number
+   errno = 0;
+   char* end;
+   long threads = strtol(var, &end, 10);
+   
+   // if an error occurred during conversion, just use default
+   if (errno != 0)
+      threads = tbb::task_arena::automatic;
+   
+   return threads;
+}
    
 } // anonymous namespace
 
@@ -188,7 +213,7 @@ inline void tbbParallelFor(std::size_t begin,
                            std::size_t grainSize = 1,
                            int numThreads = -1)
 {
-   tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
+   tbb::task_arena arena(tbbResolveNumThreads(numThreads));
    tbb::task_group group;
    
    TBBArenaParallelForExecutor executor(group, worker, begin, end, grainSize);
@@ -202,7 +227,7 @@ inline void tbbParallelReduce(std::size_t begin,
                               std::size_t grainSize = 1,
                               int numThreads = -1)
 {
-   tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
+   tbb::task_arena arena(tbbResolveNumThreads(numThreads));
    tbb::task_group group;
    
    TBBArenaParallelReduceExecutor<Reducer> executor(group, reducer, begin, end, grainSize);
