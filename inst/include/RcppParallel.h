@@ -28,37 +28,6 @@
 
 namespace RcppParallel {
 
-namespace {
-
-template <typename T, typename U>
-int resolveValue(const char* envvar,
-                 T requestedValue,
-                 U defaultValue)
-{
-   // if the requested value is non-zero and not the default, we can use it
-   if (requestedValue != defaultValue && requestedValue > 0)
-      return requestedValue;
-   
-   // otherwise, try reading the default from associated envvar
-   // if the environment variable is unset, use the default
-   const char* var = getenv(envvar);
-   if (var == NULL)
-      return defaultValue;
-   
-   // try to convert the string to a number
-   // if an error occurs during conversion, just use default
-   errno = 0;
-   char* end;
-   long value = strtol(var, &end, 10);
-   if (errno != 0)
-      return defaultValue;
-
-   // okay, return the parsed environment variable value   
-   return value;
-}
-
-} // end anonymous namespace
-
 inline void parallelFor(std::size_t begin,
                         std::size_t end, 
                         Worker& worker,
