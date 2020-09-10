@@ -50,27 +50,163 @@ private:
    Reducer* pSplitReducer_;
    Reducer& reducer_;
 };
+
+class TBBParallelForExecutor
+{
+public:
+   
+   TBBParallelForExecutor(Worker& worker,
+                          std::size_t begin,
+                          std::size_t end,
+                          std::size_t grainSize)
+      : worker_(worker),
+        begin_(begin),
+        end_(end),
+        grainSize_(grainSize)
+   {
+   }
+   
+   void operator()() const
+   {
+      TBBWorker tbbWorker(worker_);
+      tbb::parallel_for(
+         tbb::blocked_range<std::size_t>(begin_, end_, grainSize_),
+         tbbWorker
+      );
+   }
+   
+private:
+   Worker& worker_;
+   std::size_t begin_;
+   std::size_t end_;
+   std::size_t grainSize_;
+};
+
+template <typename Reducer>
+class TBBParallelReduceExecutor
+{
+public:
+   
+   TBBParallelReduceExecutor(Reducer& reducer,
+                             std::size_t begin,
+                             std::size_t end,
+                             std::size_t grainSize)
+      : reducer_(reducer),
+        begin_(begin),
+        end_(end),
+        grainSize_(grainSize)
+   {
+   }
+   
+   void operator()() const
+   {
+      TBBReducer<Reducer> tbbReducer(reducer_);
+      tbb::parallel_reduce(
+         tbb::blocked_range<std::size_t>(begin_, end_, grainSize_),
+         tbbReducer
+      );
+   }
+   
+private:
+   Reducer& reducer_;
+   std::size_t begin_;
+   std::size_t end_;
+   std::size_t grainSize_;
+};
+
+class TBBArenaParallelForExecutor
+{
+public:
+   
+   TBBArenaParallelForExecutor(tbb::task_group& group,
+                               Worker& worker,
+                               std::size_t begin,
+                               std::size_t end,
+                               std::size_t grainSize)
+      : group_(group),
+        worker_(worker),
+        begin_(begin),
+        end_(end),
+        grainSize_(grainSize)
+   {
+   }
+   
+   void operator()() const
+   {
+      TBBParallelForExecutor executor(worker_, begin_, end_, grainSize_);
+      group_.run_and_wait(executor);
+   }
+   
+private:
+   
+   tbb::task_group& group_;
+   Worker& worker_;
+   std::size_t begin_;
+   std::size_t end_;
+   std::size_t grainSize_;
+};
+
+template <typename Reducer>
+class TBBArenaParallelReduceExecutor
+{
+public:
+   
+   TBBArenaParallelReduceExecutor(tbb::task_group& group,
+                                  Reducer& reducer,
+                                  std::size_t begin,
+                                  std::size_t end,
+                                  std::size_t grainSize)
+      : group_(group),
+        reducer_(reducer),
+        begin_(begin),
+        end_(end),
+        grainSize_(grainSize)
+   {
+   }
+   
+   void operator()() const
+   {
+      TBBParallelReduceExecutor<Reducer> executor(reducer_, begin_, end_, grainSize_);
+      group_.run_and_wait(executor);
+   }
+   
+private:
+   
+   tbb::task_group& group_;
+   Reducer& reducer_;
+   std::size_t begin_;
+   std::size_t end_;
+   std::size_t grainSize_;
+};
    
 } // anonymous namespace
 
 
-inline void tbbParallelFor(std::size_t begin, std::size_t end, 
-                           Worker& worker, std::size_t grainSize = 1) {
+inline void tbbParallelFor(std::size_t begin,
+                           std::size_t end, 
+                           Worker& worker,
+                           std::size_t grainSize = 1,
+                           int numThreads = -1)
+{
+   tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
+   tbb::task_group group;
    
-   TBBWorker tbbWorker(worker);
-   
-   tbb::parallel_for(tbb::blocked_range<size_t>(begin, end, grainSize), 
-                     tbbWorker);
+   TBBArenaParallelForExecutor executor(group, worker, begin, end, grainSize);
+   arena.execute(executor);
 }
 
 template <typename Reducer>
-inline void tbbParallelReduce(std::size_t begin, std::size_t end, 
-                              Reducer& reducer, std::size_t grainSize = 1) {
+inline void tbbParallelReduce(std::size_t begin,
+                              std::size_t end, 
+                              Reducer& reducer,
+                              std::size_t grainSize = 1,
+                              int numThreads = -1)
+{
+   tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
+   tbb::task_group group;
    
-   TBBReducer<Reducer> tbbReducer(reducer);
-   
-   tbb::parallel_reduce(tbb::blocked_range<size_t>(begin, end, grainSize), 
-                        tbbReducer);
+   TBBArenaParallelReduceExecutor<Reducer> executor(group, reducer, begin, end, grainSize);
+   arena.execute(executor);
 }
 
 } // namespace RcppParallel

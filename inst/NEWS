@@ -1,6 +1,8 @@
 RcppParallel 5.0.3 (UNRELEASED)
 ------------------------------------------------------------------------
-
+* The parallelFor() and parallelReduce() functions gain the 'numThreads'
+  argument, allowing one to limit the number of threads used for a
+  particular computation.
 
 RcppParallel 5.0.2
 ------------------------------------------------------------------------

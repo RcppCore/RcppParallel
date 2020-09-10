@@ -102,9 +102,11 @@ std::vector<IndexRange> splitInputRange(const IndexRange& range,
 } // anonymous namespace
 
 // Execute the Worker over the IndexRange in parallel
-inline void ttParallelFor(std::size_t begin, std::size_t end, 
-                          Worker& worker, std::size_t grainSize = 1) {
-  
+inline void ttParallelFor(std::size_t begin,
+                          std::size_t end, 
+                          Worker& worker,
+                          std::size_t grainSize = 1)
+{
    // split the work
    IndexRange inputRange(begin, end);
    std::vector<IndexRange> ranges = splitInputRange(inputRange, grainSize);
@@ -124,9 +126,11 @@ inline void ttParallelFor(std::size_t begin, std::size_t end,
 
 // Execute the IWorker over the range in parallel then join results
 template <typename Reducer>
-inline void ttParallelReduce(std::size_t begin, std::size_t end, 
-                             Reducer& reducer, std::size_t grainSize = 1) {
-  
+inline void ttParallelReduce(std::size_t begin,
+                             std::size_t end, 
+                             Reducer& reducer,
+                             std::size_t grainSize = 1)
+{
    // split the work
    IndexRange inputRange(begin, end);
    std::vector<IndexRange> ranges = splitInputRange(inputRange, grainSize);
