@@ -1,24 +1,24 @@
 
 
-# Output the CXX flags. These flags are propagated to sourceCpp via the 
+# Output the CXX flags. These flags are propagated to sourceCpp via the
 # inlineCxxPlugin (defined below) and to packages via a line in Makevars[.win]
 # like this:
 #
 #  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::CxxFlags()")
 #
 CxxFlags <- function() {
-   writeLines(tbbCxxFlags(), sep = " ")
+   cat(tbbCxxFlags())
 }
 
 
 # Output the LD flags for building against TBB. These flags are propagated
-# to sourceCpp via the inlineCxxPlugin (defined below) and to packages 
+# to sourceCpp via the inlineCxxPlugin (defined below) and to packages
 # via a line in Makevars[.win] like this:
 #
 #   PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
 #
 LdFlags <- function() {
-   writeLines(tbbLdFlags(), sep = " ")
+   cat(tbbLdFlags())
 }
 
 # alias for backward compatibility
@@ -41,13 +41,14 @@ inlineCxxPlugin <- function() {
 }
 
 tbbCxxFlags <- function() {
-   
-   c(
-      "-DTBB_SUPPRESS_DEPRECATED_MESSAGES",
-      if (Sys.info()[["sysname"]] == "Windows")
-         "-DRCPP_PARALLEL_USE_TBB=1"
-   )
-   
+
+   flags <- c()
+
+   # opt-in to TBB on Windows
+   if (Sys.info()['sysname'] == "Windows")
+      flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+
+   flags
 }
 
 # Return the linker flags requried for TBB on this platform
@@ -65,8 +66,8 @@ tbbLdFlags <- function() {
 tbbLibPath <- function(suffix = "") {
    sysname <- Sys.info()['sysname']
    tbbSupported <- list(
-      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""), 
-      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""), 
+      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""),
+      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""),
       "Windows" = paste("tbb", suffix, ".dll", sep = ""),
       "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
@@ -74,7 +75,7 @@ tbbLibPath <- function(suffix = "") {
       libDir <- "lib/"
       if (sysname == "Windows")
          libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
-      system.file(paste(libDir, tbbSupported[[sysname]], sep = ""), 
+      system.file(paste(libDir, tbbSupported[[sysname]], sep = ""),
                   package = "RcppParallel")
    } else {
       NULL
