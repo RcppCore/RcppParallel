@@ -54,10 +54,10 @@ protected:
 
     //! it is barrier for synchronizing between threads
     Harness::SpinBarrier *barrier;
-
+    
     //! number of tests per this tester
     const int tests_count;
-
+    
     //! number of threads to operate
     int threads_count;
 
@@ -182,7 +182,7 @@ public:
     {
         test->tester_name = name;
     }
-
+    
     ~TestRunner() { delete &tester; }
 
     void init(arg_t value, int threads, Harness::SpinBarrier &barrier, StatisticsCollector *s) {
