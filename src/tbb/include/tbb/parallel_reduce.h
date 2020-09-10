@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,14 +12,13 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB_parallel_reduce_H
 #define __TBB_parallel_reduce_H
+
+#define __TBB_parallel_reduce_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include <new>
 #include "task.h"
@@ -136,7 +135,7 @@ public:
 #else
                 // Bound context prevents exceptions from body to affect nesting or sibling algorithms,
                 // and allows users to handle exceptions safely by wrapping parallel_for in the try-block.
-                task_group_context context;
+                task_group_context context(PARALLEL_REDUCE);
                 task::spawn_root_and_wait( *new(task::allocate_root(context)) start_reduce(range,&body,partitioner) );
 #endif /* __TBB_TASK_GROUP_CONTEXT && !TBB_JOIN_OUTER_TASK_GROUP */
             }
@@ -236,10 +235,10 @@ public:
         }
         //! Splitting constructor used to generate children.
         /** parent_ becomes left child.  Newly constructed object is right child. */
-        start_deterministic_reduce( start_deterministic_reduce& parent_, finish_type& c ) :
+        start_deterministic_reduce( start_deterministic_reduce& parent_, finish_type& c, typename Partitioner::split_type& split_obj ) :
             my_body( c.my_right_body ),
-            my_range( parent_.my_range, split() ),
-            my_partition( parent_.my_partition, split() )
+            my_range( parent_.my_range, split_obj ),
+            my_partition( parent_.my_partition, split_obj )
         {
         }
 
@@ -251,7 +250,7 @@ public:
 #else
                 // Bound context prevents exceptions from body to affect nesting or sibling algorithms,
                 // and allows users to handle exceptions safely by wrapping parallel_for in the try-block.
-                task_group_context context;
+                task_group_context context(PARALLEL_REDUCE);
                 task::spawn_root_and_wait( *new(task::allocate_root(context)) start_deterministic_reduce(range,body,partitioner) );
 #endif /* __TBB_TASK_GROUP_CONTEXT && !TBB_JOIN_OUTER_TASK_GROUP */
             }
@@ -263,11 +262,11 @@ public:
         }
 #endif /* __TBB_TASK_GROUP_CONTEXT */
 
-        void offer_work( typename Partitioner::split_type& ) {
+        void offer_work( typename Partitioner::split_type& split_obj) {
             task* tasks[2];
             allocate_sibling(static_cast<task*>(this), tasks, sizeof(start_deterministic_reduce), sizeof(finish_type));
             new((void*)tasks[0]) finish_type(my_body);
-            new((void*)tasks[1]) start_deterministic_reduce(*this, *static_cast<finish_type*>(tasks[0]));
+            new((void*)tasks[1]) start_deterministic_reduce(*this, *static_cast<finish_type*>(tasks[0]), split_obj);
             spawn(*tasks[1]);
         }
 
@@ -393,6 +392,13 @@ void parallel_reduce( const Range& range, Body& body, affinity_partitioner& part
 }
 
 #if __TBB_TASK_GROUP_CONTEXT
+//! Parallel iteration with reduction, default partitioner and user-supplied context.
+/** @ingroup algorithms **/
+template<typename Range, typename Body>
+void parallel_reduce( const Range& range, Body& body, task_group_context& context ) {
+    internal::start_reduce<Range,Body,const __TBB_DEFAULT_PARTITIONER>::run( range, body, __TBB_DEFAULT_PARTITIONER(), context );
+}
+
 //! Parallel iteration with reduction, simple partitioner and user-supplied context.
 /** @ingroup algorithms **/
 template<typename Range, typename Body>
@@ -480,6 +486,17 @@ Value parallel_reduce( const Range& range, const Value& identity, const RealBody
 }
 
 #if __TBB_TASK_GROUP_CONTEXT
+//! Parallel iteration with reduction, default partitioner and user-supplied context.
+/** @ingroup algorithms **/
+template<typename Range, typename Value, typename RealBody, typename Reduction>
+Value parallel_reduce( const Range& range, const Value& identity, const RealBody& real_body, const Reduction& reduction,
+                       task_group_context& context ) {
+    internal::lambda_reduce_body<Range,Value,RealBody,Reduction> body(identity, real_body, reduction);
+    internal::start_reduce<Range,internal::lambda_reduce_body<Range,Value,RealBody,Reduction>,const __TBB_DEFAULT_PARTITIONER>
+                          ::run( range, body, __TBB_DEFAULT_PARTITIONER(), context );
+    return body.result();
+}
+
 //! Parallel iteration with reduction, simple partitioner and user-supplied context.
 /** @ingroup algorithms **/
 template<typename Range, typename Value, typename RealBody, typename Reduction>
@@ -633,5 +650,8 @@ Value parallel_deterministic_reduce( const Range& range, const Value& identity, 
 //@}
 
 } // namespace tbb
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_parallel_reduce_H_include_area
 
 #endif /* __TBB_parallel_reduce_H */

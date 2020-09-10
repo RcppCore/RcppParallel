@@ -6,7 +6,7 @@ ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
-  
+
   MAKE = make
   MAKEFLAGS = -e -s -j1
   MAKE_CMD =                                  \
@@ -20,7 +20,7 @@ ifeq ($(OS), Windows_NT)
     $(MAKE)
 
 else
-  
+
   UNAME := $(shell uname)
   TBB_COPY_PATTERN=libtbb*.*
   ifeq ($(UNAME), Darwin)
@@ -49,7 +49,9 @@ endif
 
 ifdef USE_TBB
 
-PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+PKG_CXXFLAGS +=                         \
+	-DRCPP_PARALLEL_USE_TBB=1            \
+	-DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
 MAKE_ARGS := tbb_release tbbmalloc_release tbb_build_prefix=lib
 
@@ -102,4 +104,3 @@ clean:
 	(cd tbb/src; make clean)
 
 endif
-

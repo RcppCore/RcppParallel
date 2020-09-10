@@ -8,7 +8,7 @@
 #include <string>
 #include <exception>
 
-#include <tbb/task_scheduler_init.h>
+#include <tbb/global_control.h>
 
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
 
@@ -48,7 +48,7 @@ extern "C" SEXP defaultNumThreads() {
 #include <tthread/tinythread.h>
 
 extern "C" SEXP setThreadOptions(SEXP numThreadsSEXP, SEXP stackSizeSEXP) {
-   return R_NilValue;   
+   return R_NilValue;
 }
 
 extern "C" SEXP defaultNumThreads() {

@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2020 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,14 +12,13 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB_parallel_do_H
 #define __TBB_parallel_do_H
+
+#define __TBB_parallel_do_H_include_area
+#include "internal/_warning_suppress_enable_notice.h"
 
 #include "internal/_range_iterator.h"
 #include "internal/_template_helpers.h"
@@ -500,7 +499,7 @@ void parallel_do( Iterator first, Iterator last, const Body& body )
     if ( first == last )
         return;
 #if __TBB_TASK_GROUP_CONTEXT
-    task_group_context context;
+    task_group_context context(internal::PARALLEL_DO);
 #endif
     interface9::internal::select_parallel_do( first, last, body, &Body::operator()
 #if __TBB_TASK_GROUP_CONTEXT
@@ -547,5 +546,8 @@ void parallel_do(const Range& rng, const Body& body, task_group_context& context
 using interface9::parallel_do_feeder;
 
 } // namespace
+
+#include "internal/_warning_suppress_disable_notice.h"
+#undef __TBB_parallel_do_H_include_area
 
 #endif /* __TBB_parallel_do_H */

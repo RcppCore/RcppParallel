@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2017 Intel Corporation
+# Copyright (c) 2005-2020 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-#
-#
 
+CPLUS ?= icpc
+CONLY ?= icc
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
@@ -33,21 +31,22 @@ ifneq (,$(shell icc -dumpversion | egrep "1[2-9]\."))
 SDL_FLAGS = -fstack-protector -Wformat -Wformat-security
 endif
 
-CPLUS = icpc
-CONLY = icc
-
 ITT_NOTIFY = -DDO_ITT_NOTIFY
 ifeq (release,$(cfg))
 SDL_FLAGS += -D_FORTIFY_SOURCE=2
-CPLUS_FLAGS = $(ITT_NOTIFY) -O2 -g -DUSE_PTHREAD
+# -g is set intentionally in the release mode. It should not affect performance.
+CPLUS_FLAGS = -O2 -g -qno-opt-report-embed
 else
-CPLUS_FLAGS = $(ITT_NOTIFY) -O0 -g -DUSE_PTHREAD -DTBB_USE_DEBUG
+CPLUS_FLAGS = -O0 -g -DTBB_USE_DEBUG
 endif
 
 LIB_LINK_FLAGS = -shared -static-intel -Wl,-soname=$(BUILDING_LIBRARY) -z relro -z now
-LIBS += -lpthread -lrt
+LIBS += -lrt
 LINK_FLAGS = -rdynamic
 C_FLAGS = $(CPLUS_FLAGS)
+
+CPLUS_FLAGS += $(ITT_NOTIFY) -DUSE_PTHREAD -pthread
+LIB_LINK_FLAGS += -pthread
 
 ifneq (,$(shell icc -dumpversion | egrep  "^1[6-9]\."))
 OPENMP_FLAG = -qopenmp

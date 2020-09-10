@@ -25,7 +25,7 @@ if (broken)
 # RcppParallel to find and use a version of libtbb installed
 # there as opposed to the bundled version
 cppflags <- read_r_config("CPPFLAGS", envir = NULL)[[1]]
-cppflags <- sub("(?: )?-I/usr/local/include", "", cppflags)
+cppflags <- sub(" -I/usr/local/include", "", cppflags)
 
 # define the set of flags appropriate to the current
 # configuration of R
