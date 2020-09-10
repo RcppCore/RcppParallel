@@ -28,12 +28,46 @@
 
 namespace RcppParallel {
 
+namespace {
+
+template <typename T, typename U>
+int resolveValue(const char* envvar,
+                 T requestedValue,
+                 U defaultValue)
+{
+   // if the requested value is non-zero and not the default, we can use it
+   if (requestedValue != defaultValue && requestedValue > 0)
+      return requestedValue;
+   
+   // otherwise, try reading the default from associated envvar
+   // if the environment variable is unset, use the default
+   const char* var = getenv(envvar);
+   if (var == NULL)
+      return defaultValue;
+   
+   // try to convert the string to a number
+   // if an error occurs during conversion, just use default
+   errno = 0;
+   char* end;
+   long value = strtol(var, &end, 10);
+   if (errno != 0)
+      return defaultValue;
+
+   // okay, return the parsed environment variable value   
+   return value;
+}
+
+} // end anonymous namespace
+
 inline void parallelFor(std::size_t begin,
                         std::size_t end, 
                         Worker& worker,
                         std::size_t grainSize = 1,
                         int numThreads = -1)
 {
+   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, 1);
+   numThreads = resolveValue("RCPP_PARALLEL_NUM_THREADS", numThreads, -1);
+   
 #if RCPP_PARALLEL_USE_TBB
    if (internal::backend() == internal::BACKEND_TBB)
       tbbParallelFor(begin, end, worker, grainSize, numThreads);
@@ -51,6 +85,9 @@ inline void parallelReduce(std::size_t begin,
                            std::size_t grainSize = 1,
                            int numThreads = -1)
 {
+   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, 1);
+   numThreads = resolveValue("RCPP_PARALLEL_NUM_THREADS", numThreads, -1);
+   
 #if RCPP_PARALLEL_USE_TBB
    if (internal::backend() == internal::BACKEND_TBB)
       tbbParallelReduce(begin, end, reducer, grainSize, numThreads);
@@ -61,6 +98,6 @@ inline void parallelReduce(std::size_t begin,
 #endif
 }
 
-} // namespace RcppParallel
+} // end namespace RcppParallel
 
 #endif // __RCPP_PARALLEL__

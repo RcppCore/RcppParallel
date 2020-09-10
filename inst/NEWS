@@ -1,23 +1,30 @@
 RcppParallel 5.0.3 (UNRELEASED)
 ------------------------------------------------------------------------
+
+* setThreadOptions(...) can again be called multiple times per session.
+  The requested number of threads will be used for invocations to parallelFor()
+  and parallelReduce() that don't explicitly request a specific number of threads.
 * The parallelFor() and parallelReduce() functions gain the 'numThreads'
   argument, allowing one to limit the number of threads used for a
   particular computation.
 
 RcppParallel 5.0.2
 ------------------------------------------------------------------------
+
 * setThreadOptions(...) can now only be called once per session, to avoid
   segfaults when compiling RcppParallel / TBB with gcc 10.1. Subsequent
   calls to setThreadOptions(...) are ignored.
 
 RcppParallel 5.0.1
 ------------------------------------------------------------------------
+
 * Fixed compilation issue on OpenSUSE Tumbleweed with -flto=auto
 * Fixed compilation when CPPFLAGS = -I/usr/local/include and a version
   of libtbb is installed there
 
 RcppParallel 5.0.0
 ------------------------------------------------------------------------
+
 * RcppParallel backend can now be customized with RCPP_PARALLEL_BACKEND
   environment variable (supported values are 'tbb' and 'tinythread')
 * Fixed issue when compiling RcppParallel on macOS Catalina
@@ -25,6 +32,7 @@ RcppParallel 5.0.0
 
 RcppParallel 4.4.4
 ------------------------------------------------------------------------
+
 * Fixed an issue when compiling RcppParallel with clang-9 on Fedora
 
 RcppParallel 4.4.3
