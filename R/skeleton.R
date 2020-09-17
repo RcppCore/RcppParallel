@@ -57,6 +57,7 @@ RcppParallel.package.skeleton <- function(name = "anRpackage",
    cat(
       c(
          'CXX_STD = CXX11',
+         '# We also need importFrom(RcppParallel,RcppParallelLibs) in NAMESPACE',
          'PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::RcppParallelLibs()")'
       ),
       file = "src/Makevars",
