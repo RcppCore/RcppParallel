@@ -22,28 +22,20 @@ setThreadOptions <- function(numThreads = "auto", stackSize = "auto") {
    else
       stackSize <- as.integer(stackSize)
    
-   # Call setThreadOptions if using tbb
-   if (!is.null(dllInfo) && isUsingTbb())
-      setTbbThreadOptions(numThreads, stackSize)
-   
+   # set RCPP_PARALLEL_NUM_THREADS
    if (numThreads == -1L)
       Sys.unsetenv("RCPP_PARALLEL_NUM_THREADS")
    else
       Sys.setenv(RCPP_PARALLEL_NUM_THREADS = numThreads)
-}
-
-setTbbThreadOptions <- function(numThreads, stackSize) {
-   .Call(
-      "setThreadOptions",
-      as.integer(numThreads),
-      as.integer(stackSize),
-      PACKAGE = "RcppParallel"
-   )
+   
+   # set RCPP_PARALLEL_STACK_SIZE
+   if (stackSize == 0L)
+      Sys.unsetenv("RCPP_PARALLEL_STACK_SIZE")
+   else
+      Sys.setenv(RCPP_PARALLEL_STACK_SIZE = stackSize)
+   
 }
 
 defaultNumThreads <- function() {
-   .Call(
-      "defaultNumThreads",
-      PACKAGE = "RcppParallel"
-   )
+   .Call("defaultNumThreads", PACKAGE = "RcppParallel")
 }

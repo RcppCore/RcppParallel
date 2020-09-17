@@ -3,7 +3,12 @@
 
 #include "Common.h"
 
+#ifndef TBB_PREVIEW_GLOBAL_CONTROL
+# define TBB_PREVIEW_GLOBAL_CONTROL 1
+#endif
+
 #include <tbb/tbb.h>
+#include <tbb/global_control.h>
 #include <tbb/scalable_allocator.h>
 
 namespace RcppParallel {
@@ -178,6 +183,43 @@ private:
    std::size_t end_;
    std::size_t grainSize_;
 };
+
+class ThreadStackSizeControl
+{
+public:
+   
+   ThreadStackSizeControl()
+      : control_(nullptr)
+   {
+      int stackSize = resolveValue("RCPP_PARALLEL_STACK_SIZE", 0, 0);
+      if (stackSize > 0)
+      {
+         control_ = new tbb::global_control(
+            tbb::global_control::thread_stack_size,
+            stackSize
+         );
+      }
+   }
+   
+   ~ThreadStackSizeControl()
+   {
+      if (control_ != nullptr)
+      {
+         delete control_;
+         control_ = nullptr;
+      }
+   }
+
+private:
+   
+   // COPYING: not copyable
+   ThreadStackSizeControl(const ThreadStackSizeControl&);
+   ThreadStackSizeControl& operator=(const ThreadStackSizeControl&);
+   
+   // private members
+   tbb::global_control* control_;
+   
+};
    
 } // anonymous namespace
 
@@ -186,9 +228,11 @@ inline void tbbParallelFor(std::size_t begin,
                            std::size_t end, 
                            Worker& worker,
                            std::size_t grainSize = 1,
-                           int numThreads = -1)
+                           int numThreads = tbb::task_arena::automatic)
 {
-   tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
+   ThreadStackSizeControl control;
+   
+   tbb::task_arena arena(numThreads);
    tbb::task_group group;
    
    TBBArenaParallelForExecutor executor(group, worker, begin, end, grainSize);
@@ -200,9 +244,11 @@ inline void tbbParallelReduce(std::size_t begin,
                               std::size_t end, 
                               Reducer& reducer,
                               std::size_t grainSize = 1,
-                              int numThreads = -1)
+                              int numThreads = tbb::task_arena::automatic)
 {
-   tbb::task_arena arena(numThreads == -1 ? tbb::task_arena::automatic : numThreads);
+   ThreadStackSizeControl control;
+   
+   tbb::task_arena arena(numThreads);
    tbb::task_group group;
    
    TBBArenaParallelReduceExecutor<Reducer> executor(group, reducer, begin, end, grainSize);
