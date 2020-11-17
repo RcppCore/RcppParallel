@@ -10,7 +10,7 @@
 
 extern "C" SEXP defaultNumThreads() {
    SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
-   INTEGER(threadsSEXP)[0] = tbb::task_scheduler_init::default_num_threads();
+   INTEGER(threadsSEXP)[0] = tbb::global_control::max_allowed_parallelism;
    return threadsSEXP;
 }
 
