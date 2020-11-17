@@ -1,6 +1,7 @@
 
 PKG_CPPFLAGS = -I../inst/include
 PKG_CXXFLAGS = @CXX11STD@
+PKG_LIBS = -ltbb
 
 ifeq ($(OS), Windows_NT)
 
@@ -86,20 +87,10 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
-	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	cd tbb/src; \
-	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
-	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
-	elif [ -n "$(shell echo $(CC) | grep gcc)" ]; then \
-	   $(MAKE_CMD) stdver=@STDVER@ compiler=gcc $(MAKE_ARGS); \
-	else \
-	   $(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS); \
-	fi; \
-	cd ../..; \
-	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
+	echo "Use system (Intel/OneAPI) TBB."
 
 clean:
-	(cd tbb/src; make clean)
+	echo "Nothing to clean for TBB."
 
 endif
 
