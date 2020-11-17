@@ -87,6 +87,7 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	echo "Use system (Intel/OneAPI) TBB."
 
 clean:
