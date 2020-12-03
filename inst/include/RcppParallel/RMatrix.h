@@ -204,7 +204,7 @@ public:
    {
    }
 
-   inline RMatrix(const T* data, std::size_t nrow, std::size_t ncol) 
+   inline RMatrix(T* data, std::size_t nrow, std::size_t ncol) 
       : data_(data), nrow_(nrow), ncol_(ncol) 
    {
    }
