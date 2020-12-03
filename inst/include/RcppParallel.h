@@ -34,7 +34,7 @@ inline void parallelFor(std::size_t begin,
                         std::size_t grainSize = 1,
                         int numThreads = -1)
 {
-   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, 1);
+   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, 1u);
    numThreads = resolveValue("RCPP_PARALLEL_NUM_THREADS", numThreads, -1);
    
 #if RCPP_PARALLEL_USE_TBB
