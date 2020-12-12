@@ -3,7 +3,7 @@ PKG_CPPFLAGS = -I../inst/include
 PKG_CXXFLAGS = @CXX11STD@
 
 ifdef TBB_LIBRARY_FILE
-  PKG_LIBS = -ltbb
+PKG_LIBS = -ltbb
 endif
 
 ifeq ($(OS), Windows_NT)
@@ -90,10 +90,11 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
-	mkdir -p ../inst/lib/$(ARCH_DIR); \
 ifdef TBB_LIBRARY_FILE
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	echo "Use system (Intel/OneAPI) TBB."
 else
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
 	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
