@@ -79,7 +79,10 @@ tbbLibPath <- function(suffix = "") {
 
    tbb_path <- Sys.getenv("TBB_LIBRARY_FILE")
    if (file.exists(tbb_path)) {
-      normalizePath(tbb_path)
+      libDir <- dirname(tbb_path)
+      libExt <- strsplit(basename(tbb_path), split="\\.")[[1]][-1]
+
+      normalizePath(file.path(libDir, paste("libtbb", suffix, ".", libExt, sep = "")))
    } else {
       if ((sysname %in% names(tbbSupported)) && !isSparc()) {
          libDir <- "lib/"
