@@ -53,17 +53,14 @@ tbbCxxFlags <- function() {
 
 # Return the linker flags requried for TBB on this platform
 tbbLdFlags <- function() {
-   tbb_path <- Sys.getenv("TBB_LIBRARY_FILE")
-   if (file.exists(tbb_path)) {
+   tbb <- tbbLibPath()
+   if (file.exists(tbb)) {
+      paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
+   # on Windows and Solaris we need to explicitly link against tbb.dll
+   } else if ((Sys.info()['sysname'] %in% c("Windows", "SunOS")) && !isSparc()) {
       paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
    } else {
-      # on Windows and Solaris we need to explicitly link against tbb.dll
-      if ((Sys.info()['sysname'] %in% c("Windows", "SunOS")) && !isSparc()) {
-         tbb <- tbbLibPath()
-         paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
-      } else {
-         ""
-      }
+      ""
    }
 }
 
@@ -71,18 +68,16 @@ tbbLdFlags <- function() {
 tbbLibPath <- function(suffix = "") {
    sysname <- Sys.info()['sysname']
    tbbSupported <- list(
-      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""), 
-      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""), 
+      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""),
+      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""),
       "Windows" = paste("tbb", suffix, ".dll", sep = ""),
       "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
 
-   tbb_path <- Sys.getenv("TBB_LIBRARY_FILE")
-   if (file.exists(tbb_path)) {
-      libDir <- dirname(tbb_path)
-      libExt <- strsplit(basename(tbb_path), split="\\.")[[1]][-1]
-
-      normalizePath(file.path(libDir, paste("libtbb", suffix, ".", libExt, sep = "")))
+   tbb <- Sys.getenv("TBB_LIBRARY_FILE")
+   if (file.exists(tbb)) {
+      libDir <- dirname(tbb)
+      normalizePath(file.path(libDir, paste("libtbb", suffix, ".so", sep = "")))
    } else {
       if ((sysname %in% names(tbbSupported)) && !isSparc()) {
          libDir <- "lib/"
