@@ -53,8 +53,18 @@ tbbCxxFlags <- function() {
 
 # Return the linker flags requried for TBB on this platform
 tbbLdFlags <- function() {
-   tbb <- tbbLibPath()
-   paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
+   tbb_path <- normalizePath(Sys.getenv("TBB_LIBRARY_FILE"))
+   if (file.exists(tbb_path)) {
+      paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
+   } else {
+      # on Windows and Solaris we need to explicitly link against tbb.dll
+      if ((Sys.info()['sysname'] %in% c("Windows", "SunOS")) && !isSparc()) {
+         tbb <- tbbLibPath()
+         paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
+      } else {
+         ""
+      }
+   }
 }
 
 # Determine the platform-specific path to the TBB library
@@ -67,7 +77,20 @@ tbbLibPath <- function(suffix = "") {
       "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
 
-   normalizePath(Sys.getenv("TBB_LIBRARY_FILE"))
+   tbb_path <- normalizePath(Sys.getenv("TBB_LIBRARY_FILE"))
+   if (file.exists(tbb_path)) {
+      tbb_path
+   } else {
+      if ((sysname %in% names(tbbSupported)) && !isSparc()) {
+         libDir <- "lib/"
+         if (sysname == "Windows")
+            libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
+         system.file(paste(libDir, tbbSupported[[sysname]], sep = ""),
+                     package = "RcppParallel")
+      } else {
+         NULL
+      }
+   }
 }
 
 isSparc <- function() {
