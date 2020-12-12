@@ -22,15 +22,19 @@ mallocDllInfo <- NULL
       }
    }
    
-   # load the package library
-   library.dynam("RcppParallel", pkgname, libname)
-   
+   # load the package library if TBB library is found
+   if (!is.null(dllInfo) | !is.null(mallocDllInfo)) {
+      library.dynam("RcppParallel", pkgname, libname)
+   } else {
+      warning("Please install TBB library and reload the package!")
+   }
 }
 
 .onUnload <- function(libpath) {
    
    # unload the package library
-   library.dynam.unload("RcppParallel", libpath)
+   if (!is.null(dllInfo) | !is.null(mallocDllInfo))
+      library.dynam.unload("RcppParallel", libpath)
    
    # unload tbb if we loaded it
    if (!is.null(dllInfo))
