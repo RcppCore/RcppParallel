@@ -91,10 +91,15 @@ all: tbb $(SHLIB)
 
 tbb:
 ifdef TBB_LIBRARY_FILE
+	echo "Using system (Intel/OneAPI) TBB library: $(TBB_LIBRARY_FILE)"; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	echo "Use system (Intel/OneAPI) TBB."
+	rm -rf ../inst/include/serial/ ../inst/include/tbb/; \
+	rm -rf ../inst/include/tbb_local/
 else
+	echo "Building TBB library from source code..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
+	cp -r ../inst/include/tbb_local/* ../inst/include/; \
+	rm -rf ../inst/include/tbb_local/; \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
 	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
