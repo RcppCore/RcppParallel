@@ -1,7 +1,7 @@
 Package: RcppParallel
 Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
-Version: 5.0.2-9000
+Version: 5.1.0-9000
 Authors@R: c(
     person("JJ", "Allaire", role = c("aut"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
@@ -24,12 +24,12 @@ Suggests:
     RUnit,
     knitr,
     rmarkdown
-SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
+SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL (>= 2)
 URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
-Collate: 
+Collate:
    'build.R'
    'hooks.R'
    'options.R'
