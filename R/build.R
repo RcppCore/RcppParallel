@@ -53,7 +53,7 @@ tbbCxxFlags <- function() {
 
 # Return the linker flags requried for TBB on this platform
 tbbLdFlags <- function() {
-   tbb_path <- normalizePath(Sys.getenv("TBB_LIBRARY_FILE"))
+   tbb_path <- Sys.getenv("TBB_LIBRARY_FILE")
    if (file.exists(tbb_path)) {
       paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
    } else {
@@ -77,9 +77,9 @@ tbbLibPath <- function(suffix = "") {
       "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
 
-   tbb_path <- normalizePath(Sys.getenv("TBB_LIBRARY_FILE"))
+   tbb_path <- Sys.getenv("TBB_LIBRARY_FILE")
    if (file.exists(tbb_path)) {
-      tbb_path
+      normalizePath(tbb_path)
    } else {
       if ((sysname %in% names(tbbSupported)) && !isSparc()) {
          libDir <- "lib/"
