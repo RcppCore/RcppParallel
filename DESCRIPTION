@@ -8,7 +8,7 @@ Authors@R: c(
     person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com"),
     person("Gregory", "Vandenbrouck", role = "aut"),
     person("Marcus", "Geelnard", role = c("aut", "cph"),
-       comment = "TinyThread library, http://tinythreadpp.bitsnbites.eu/"),
+       comment = "TinyThread library, https://tinythreadpp.bitsnbites.eu/"),
     person(family = "RStudio", role = "cph"),
     person(family = "Intel", role = c("aut", "cph"),
        comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
@@ -26,7 +26,7 @@ Suggests:
     rmarkdown
 SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL (>= 2)
-URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
+URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
 Collate: 
