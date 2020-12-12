@@ -67,7 +67,7 @@ tbbLibPath <- function(suffix = "") {
       "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
 
-   Sys.getenv("TBB_LIBRARY_FILE")
+   normalizePath(Sys.getenv("TBB_LIBRARY_FILE"))
 }
 
 isSparc <- function() {
