@@ -1,6 +1,14 @@
-RcppParallel 5.0.3 (UNRELEASED)
+RcppParallel 5.1.0 (UNRELEASED)
 ------------------------------------------------------------------------
 
+* Supported both system TBB library and building it from the embedded source code.
+* Updated TBB functionality for the new interface.
+* Loading the package library only if TBB is found and loaded.
+* Falling back to building TBB from local source code.
+* Backward TBB compatibility based on `__TBB_tbb_stddef_H`.
+* Resolved conflicts between system and local TBB headers.
+* Fixed URLs, used HTTPS, and minor cleanups.
+* Updated package DESCRIPTION and bumped version.
 * setThreadOptions(...) can again be called multiple times per session.
   The requested number of threads will be used for invocations to parallelFor()
   and parallelReduce() that don't explicitly request a specific number of threads.
