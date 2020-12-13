@@ -1,9 +1,14 @@
 
-PKG_CPPFLAGS = -I../inst/include
 PKG_CXXFLAGS = @CXX11STD@
 
-ifdef TBB_LIBRARY_FILE
-PKG_LIBS = -ltbb
+ifdef TBB_INC
+PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
+else
+PKG_CPPFLAGS = -I../inst/include
+endif
+
+ifdef TBB_LIB
+PKG_LIBS = -L$(TBB_LIB) -ltbb
 endif
 
 ifeq ($(OS), Windows_NT)
@@ -90,8 +95,8 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
-ifdef TBB_LIBRARY_FILE
-	echo "Using system (Intel/OneAPI) TBB library: $(TBB_LIBRARY_FILE)"; \
+ifdef TBB_LIB
+	echo "Using system (Intel/OneAPI) TBB library..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	rm -rf ../inst/include/serial/ ../inst/include/tbb/; \
 	rm -rf ../inst/include/tbb_local/
@@ -113,7 +118,7 @@ else
 endif
 
 clean:
-ifdef TBB_LIBRARY_FILE
+ifdef TBB_LIB
 	echo "Nothing to clean for TBB."
 else
 	(cd tbb/src; make clean)
