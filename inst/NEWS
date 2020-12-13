@@ -1,8 +1,7 @@
 RcppParallel 5.1.0 (UNRELEASED)
 ------------------------------------------------------------------------
 
-* Supported both system TBB library and building it from the embedded source code,
-  by using TBB_INC and/or TBB_LIB environment variables, if defined.
+* Added support for external TBB library via TBB_INC and/or TBB_LIB environment variables.
 * Updated TBB functionality for the new interface.
 * Falling back to building TBB from local source code.
 * Backward TBB compatibility based on `__TBB_tbb_stddef_H`.
