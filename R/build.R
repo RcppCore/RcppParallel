@@ -63,7 +63,8 @@ tbbLdFlags <- function() {
       tbb <- tbbLibPath()
       paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
    } else if (dir.exists(Sys.getenv("TBB_LIB"))) {
-      paste("-L", asBuildPath(Sys.getenv("TBB_LIB")), " -ltbb -ltbbmalloc", sep = "")
+      TBB_LIB <- asBuildPath(Sys.getenv("TBB_LIB"))
+      paste0("-L", shQuote(TBB_LIB), " -Wl,-rpath,", TBB_LIB, " -ltbb -ltbbmalloc")
    } else {
       ""
    }
