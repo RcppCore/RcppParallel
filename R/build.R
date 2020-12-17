@@ -41,13 +41,23 @@ inlineCxxPlugin <- function() {
 }
 
 tbbCxxFlags <- function() {
-   
+
    flags <- c()
-   
+
    # opt-in to TBB on Windows
    if (Sys.info()['sysname'] == "Windows")
       flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
-   
+
+   if (dir.exists(Sys.getenv("TBB_INC"))) {
+       TBB_INC <- asBuildPath(Sys.getenv("TBB_INC"))
+
+       if (file.exists(file.path(TBB_INC, "tbb", "version.h"))) {
+          flags <- paste0("-I", shQuote(TBB_INC), " -DTBB_INTERFACE_NEW")
+       } else {
+          flags <- paste0("-I", shQuote(TBB_INC))
+       }
+   }
+
    flags
 }
 
@@ -57,6 +67,9 @@ tbbLdFlags <- function() {
    if ((Sys.info()['sysname'] %in% c("Windows", "SunOS")) && !isSparc()) {
       tbb <- tbbLibPath()
       paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
+   } else if (dir.exists(Sys.getenv("TBB_LIB"))) {
+      TBB_LIB <- asBuildPath(Sys.getenv("TBB_LIB"))
+      paste0("-L", shQuote(TBB_LIB), " -Wl,-rpath,", TBB_LIB, " -ltbb -ltbbmalloc")
    } else {
       ""
    }
@@ -66,19 +79,32 @@ tbbLdFlags <- function() {
 tbbLibPath <- function(suffix = "") {
    sysname <- Sys.info()['sysname']
    tbbSupported <- list(
-      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""), 
-      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""), 
+      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""),
+      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""),
       "Windows" = paste("tbb", suffix, ".dll", sep = ""),
       "SunOS" = paste("libtbb", suffix, ".so", sep = "")
    )
-   if ((sysname %in% names(tbbSupported)) && !isSparc()) {
-      libDir <- "lib/"
-      if (sysname == "Windows")
-         libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
-      system.file(paste(libDir, tbbSupported[[sysname]], sep = ""), 
-                  package = "RcppParallel")
+
+   if (dir.exists(Sys.getenv("TBB_LIB"))) {
+      TBB_LIB <- asBuildPath(Sys.getenv("TBB_LIB"))
+      asBuildPath(file.path(TBB_LIB, paste("libtbb", suffix, ".so", sep = "")))
    } else {
-      NULL
+      if ((sysname %in% names(tbbSupported)) && !isSparc()) {
+         libDir <- "lib/"
+         if (sysname == "Windows")
+            libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
+
+         tbb_path <- system.file(paste(libDir, tbbSupported[[sysname]], sep = ""),
+                                 package = "RcppParallel")
+         if (sysname == "Linux" && !file.exists(tbb_path)) {
+             system.file(paste(libDir, "libtbb", suffix, ".so", sep =""),
+                         package = "RcppParallel")
+         } else {
+            tbb_path
+         }
+      } else {
+         NULL
+      }
    }
 }
 

@@ -1,14 +1,18 @@
 Package: RcppParallel
 Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
-Version: 5.0.2-9000
+Version: 5.1.0-9000
 Authors@R: c(
     person("JJ", "Allaire", role = c("aut"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
     person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com"),
     person("Gregory", "Vandenbrouck", role = "aut"),
     person("Marcus", "Geelnard", role = c("aut", "cph"),
-       comment = "TinyThread library, http://tinythreadpp.bitsnbites.eu/"),
+       comment = "TinyThread library, https://tinythreadpp.bitsnbites.eu/"),
+    person("Hamada S.", "Badr",
+       email = "badr@jhu.edu",
+       role = c("ctb"),
+       comment = c(ORCID = "0000-0002-9808-2344")),
     person(family = "RStudio", role = "cph"),
     person(family = "Intel", role = c("aut", "cph"),
        comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
@@ -24,12 +28,12 @@ Suggests:
     RUnit,
     knitr,
     rmarkdown
-SystemRequirements: GNU make, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
+SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL (>= 2)
-URL: http://rcppcore.github.io/RcppParallel, https://github.com/RcppCore/RcppParallel
+URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
-Collate: 
+Collate:
    'build.R'
    'hooks.R'
    'options.R'

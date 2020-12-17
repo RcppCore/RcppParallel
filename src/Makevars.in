@@ -1,6 +1,15 @@
 
-PKG_CPPFLAGS = -I../inst/include
 PKG_CXXFLAGS = @CXX11STD@
+
+ifdef TBB_INC
+PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
+else
+PKG_CPPFLAGS = -I../inst/include
+endif
+
+ifdef TBB_LIB
+PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
+endif
 
 ifeq ($(OS), Windows_NT)
 
@@ -86,7 +95,21 @@ endif
 all: tbb $(SHLIB)
 
 tbb:
+ifdef TBB_LIB
+	echo "Using system (Intel/OneAPI) TBB library..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
+	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so 2>/dev/null || :; \
+	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so 2>/dev/null || :; \
+	rm -Rf ../inst/include/serial/ ../inst/include/tbb/; \
+	rm -Rf ../inst/include/tbb_local/; \
+	mkdir -p ../inst/include; \
+	cp -R $(TBB_INC)/serial ../inst/include/ 2>/dev/null || :; \
+	cp -R $(TBB_INC)/tbb ../inst/include/ 2>/dev/null || :
+else
+	echo "Building TBB library from source code..."; \
+	mkdir -p ../inst/lib/$(ARCH_DIR); \
+	cp -R ../inst/include/tbb_local/* ../inst/include/; \
+	rm -Rf ../inst/include/tbb_local/; \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
 	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
@@ -97,9 +120,14 @@ tbb:
 	fi; \
 	cd ../..; \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
-
-clean:
-	(cd tbb/src; make clean)
-
 endif
 
+clean:
+ifdef TBB_LIB
+	echo "Nothing to clean for TBB."
+else
+	(cd tbb/src; make clean)
+endif
+
+
+endif

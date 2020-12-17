@@ -15,7 +15,7 @@
   Blocks). On other platforms a less-performant fallback implementation based on the
   TinyThread library is used.
   
-  For additional documentation see the package website at: \href{http://rcppcore.github.io/RcppParallel}{http://rcppcore.github.io/RcppParallel}.
+  For additional documentation see the package website at: \href{https://rcppcore.github.io/RcppParallel/}{https://rcppcore.github.io/RcppParallel/}.
 }
 
 \author{
