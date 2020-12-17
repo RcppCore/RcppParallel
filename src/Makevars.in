@@ -100,13 +100,13 @@ ifdef TBB_LIB
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so; \
 	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so; \
-	rm -rf ../inst/include/serial/ ../inst/include/tbb/; \
-	rm -rf ../inst/include/tbb_local/
+	rm -Rf ../inst/include/serial/ ../inst/include/tbb/; \
+	rm -Rf ../inst/include/tbb_local/
 else
 	echo "Building TBB library from source code..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cp -R ../inst/include/tbb_local/* ../inst/include/; \
-	rm -rf ../inst/include/tbb_local/; \
+	rm -Rf ../inst/include/tbb_local/; \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
 	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
