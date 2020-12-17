@@ -105,7 +105,7 @@ ifdef TBB_LIB
 else
 	echo "Building TBB library from source code..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	cp -r ../inst/include/tbb_local/* ../inst/include/; \
+	cp -R ../inst/include/tbb_local/* ../inst/include/; \
 	rm -rf ../inst/include/tbb_local/; \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
@@ -128,4 +128,3 @@ endif
 
 
 endif
-
