@@ -101,7 +101,10 @@ ifdef TBB_LIB
 	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so; \
 	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so; \
 	rm -Rf ../inst/include/serial/ ../inst/include/tbb/; \
-	rm -Rf ../inst/include/tbb_local/
+	rm -Rf ../inst/include/tbb_local/; \
+	mkdir -p ../inst/include; \
+	cp -R $(TBB_INC)/serial ../inst/include/; \
+	cp -R $(TBB_INC)/tbb ../inst/include/
 else
 	echo "Building TBB library from source code..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
