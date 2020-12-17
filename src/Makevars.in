@@ -98,13 +98,13 @@ tbb:
 ifdef TBB_LIB
 	echo "Using system (Intel/OneAPI) TBB library..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so; \
-	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so; \
+	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so 2>/dev/null || :; \
+	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so 2>/dev/null || :; \
 	rm -Rf ../inst/include/serial/ ../inst/include/tbb/; \
 	rm -Rf ../inst/include/tbb_local/; \
 	mkdir -p ../inst/include; \
-	cp -R $(TBB_INC)/serial ../inst/include/; \
-	cp -R $(TBB_INC)/tbb ../inst/include/
+	cp -R $(TBB_INC)/serial ../inst/include/ 2>/dev/null || :; \
+	cp -R $(TBB_INC)/tbb ../inst/include/ 2>/dev/null || :
 else
 	echo "Building TBB library from source code..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
