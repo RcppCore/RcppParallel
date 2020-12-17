@@ -93,8 +93,15 @@ tbbLibPath <- function(suffix = "") {
          libDir <- "lib/"
          if (sysname == "Windows")
             libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
-         system.file(paste(libDir, tbbSupported[[sysname]], sep = ""),
-                     package = "RcppParallel")
+
+         tbb_path <- system.file(paste(libDir, tbbSupported[[sysname]], sep = ""),
+                                 package = "RcppParallel")
+         if (sysname == "Linux" && !file.exists(tbb_path)) {
+             system.file(paste(libDir, "libtbb", suffix, ".so", sep =""),
+                         package = "RcppParallel")
+         } else {
+            tbb_path
+         }
       } else {
          NULL
       }
