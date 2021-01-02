@@ -2,6 +2,7 @@ RcppParallel 5.1.0 (UNRELEASED)
 ------------------------------------------------------------------------
 
 * Added support for external TBB library via TBB_INC and/or TBB_LIB environment variables.
+* Added support for the latest versions of Intel oneAPI TBB / oneTBB.
 * Updated TBB functionality for the new interface.
 * Falling back to building TBB from local source code.
 * Backward TBB compatibility based on `__TBB_tbb_stddef_H`.
