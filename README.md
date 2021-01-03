@@ -36,13 +36,6 @@ For example, installing [oneTBB](https://github.com/oneapi-src/oneTBB) on Linux 
 
     export TBB_INC="$TBB/include"
     export TBB_LIB="$TBB/lib/intel64/gcc4.8"
-    #export LD_LIBRARY_PATH="$TBB_LIB:$LD_LIBRARY_PATH"
-
-    # Checks:
-    ls -lAh $TBB_INC
-    # should list `oneapi` and `tbb` directories that include the headers
-    ls -lAh $TBB_LIB
-    # should list the TBB libraries, including `libtbb.so`
 ```
 
 - Build the development version of `RcppParallel`:
