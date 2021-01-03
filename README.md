@@ -12,7 +12,7 @@ For additional documentation on using RcppParallel see the package website at ht
 
 ### Intel TBB
 
-`RcppParallel` now supports the new interface of Intel TBB and allows using external library (e.g., with [oneTBB](https://github.com/oneapi-src/oneTBB) or [OneAPI](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-toolkit-release-notes.html)), using `TBB_LIB` and `TBB_INC` environment variables. The updated TBB functionality are summarized [here](https://software.intel.com/content/www/us/en/develop/articles/tbb-revamp.html) and the release notes and backward compatibility are reported [here](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-threading-building-blocks-release-notes.html).
+`RcppParallel` now supports the new interface of Intel TBB and allows using external library (e.g., with [oneTBB](https://github.com/oneapi-src/oneTBB), [OneAPI](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-toolkit-release-notes.html), or the system TBB library), using `TBB_LIB` and `TBB_INC` environment variables. The updated TBB functionality are summarized [here](https://software.intel.com/content/www/us/en/develop/articles/tbb-revamp.html) and the release notes and backward compatibility are reported [here](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-threading-building-blocks-release-notes.html).
 
 To build the development version of `RcppParallel` with [oneTBB](https://github.com/oneapi-src/oneTBB) or [OneAPI](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-toolkit-release-notes.html):
 
