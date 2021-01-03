@@ -48,7 +48,7 @@ For example, installing [oneTBB](https://github.com/oneapi-src/oneTBB) on Linux 
 - Build the development version of `RcppParallel`:
 ```
 install.packages("remotes")
-remotes::install_github("hsbadr/RcppParallel@develop", force = TRUE)
+remotes::install_github("RcppCore/RcppParallel@develop", force = TRUE)
 ```
 
 ### License
