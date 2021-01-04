@@ -104,6 +104,7 @@ ifdef TBB_LIB
 	rm -Rf ../inst/include/tbb_local/; \
 	mkdir -p ../inst/include; \
 	cp -R $(TBB_INC)/serial ../inst/include/ 2>/dev/null || :; \
+	cp -R $(TBB_INC)/oneapi ../inst/include/ 2>/dev/null || :; \
 	cp -R $(TBB_INC)/tbb ../inst/include/ 2>/dev/null || :
 else
 	echo "Building TBB library from source code..."; \
