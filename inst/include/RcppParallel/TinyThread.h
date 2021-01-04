@@ -89,10 +89,15 @@ std::vector<IndexRange> splitInputRange(const IndexRange& range,
    // allocate ranges
    std::vector<IndexRange> ranges;
    std::size_t begin = range.begin();
+   std::size_t end = begin;
    while (begin < range.end()) {
-      std::size_t end = std::min(begin + grainSize, range.end());
-      ranges.push_back(IndexRange(begin, end));      
-      begin = end;
+     if ((range.end() - (begin + grainSize)) < grainSize)
+       end = range.end();
+     else
+       end = std::min(begin + grainSize, range.end());
+
+     ranges.push_back(IndexRange(begin, end));
+     begin = end;
    }
    
    // return ranges  
