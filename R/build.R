@@ -50,12 +50,7 @@ tbbCxxFlags <- function() {
 
    if (dir.exists(Sys.getenv("TBB_INC"))) {
        TBB_INC <- asBuildPath(Sys.getenv("TBB_INC"))
-
-       if (file.exists(file.path(TBB_INC, "tbb", "version.h"))) {
-          flags <- paste0("-I", shQuote(TBB_INC), " -DTBB_INTERFACE_NEW")
-       } else {
-          flags <- paste0("-I", shQuote(TBB_INC))
-       }
+       flags <- paste0("-I", shQuote(TBB_INC))
    }
 
    flags
