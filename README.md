@@ -12,34 +12,34 @@ For additional documentation on using RcppParallel see the package website at ht
 
 ### Intel TBB
 
-`RcppParallel` now supports the new interface of Intel TBB and allows using external library (e.g., with [oneTBB](https://github.com/oneapi-src/oneTBB), [OneAPI](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-toolkit-release-notes.html), or the system TBB library), using `TBB_LIB` and `TBB_INC` environment variables. The updated TBB functionality are summarized [here](https://software.intel.com/content/www/us/en/develop/articles/tbb-revamp.html) and the release notes and backward compatibility are reported [here](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-threading-building-blocks-release-notes.html).
+`RcppParallel` now supports the new interface of Intel TBB and allows using external library (e.g., with [`oneTBB`](https://github.com/oneapi-src/oneTBB) or the system TBB library), using `TBB_LIB` and `TBB_INC` environment variables.
 
-To build the development version of `RcppParallel` with [oneTBB](https://github.com/oneapi-src/oneTBB) or [OneAPI](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-toolkit-release-notes.html):
+To build the development version of `RcppParallel` with [`oneTBB`](https://github.com/oneapi-src/oneTBB):
 
-- Install [oneTBB](https://github.com/oneapi-src/oneTBB) or [OneAPI](https://software.intel.com/content/www/us/en/develop/articles/intel-oneapi-toolkit-release-notes.html).
+- Install [`oneTBB`](https://github.com/oneapi-src/oneTBB).
 
-For example, installing [oneTBB](https://github.com/oneapi-src/oneTBB) on Linux 64-bit (`x86_64`) to `$HOME` directory (change if needed!):
-```
-    TBB_VERSION="2021.1.1"
+For example, installing [`oneTBB`](https://github.com/oneapi-src/oneTBB) on Linux 64-bit (`x86_64`) to `$HOME` directory (change if needed!):
+```bash
+TBB_VERSION="2021.1.1"
 
-    wget https://github.com/oneapi-src/oneTBB/releases/download/v2021.1.1/oneapi-tbb-$TBB_VERSION-lin.tgz
-    tar zxvf oneapi-tbb-$TBB_VERSION-lin.tgz -C $HOME
+wget https://github.com/oneapi-src/oneTBB/releases/download/v2021.1.1/oneapi-tbb-$TBB_VERSION-lin.tgz
+tar zxvf oneapi-tbb-$TBB_VERSION-lin.tgz -C $HOME
 
-    export TBB="$HOME/oneapi-tbb-$TBB_VERSION"
+export TBB="$HOME/oneapi-tbb-$TBB_VERSION"
 ```
 
 - Set the TBB environment variables (specifically: `TBB` for the installation prefix, `TBB_INC` for the directory that includes the header files, and `TBB_LIB` for the libraries directory).
 
-For example, installing [oneTBB](https://github.com/oneapi-src/oneTBB) on Linux 64-bit (`x86_64`) to `$HOME` directory (change if needed!):
-```
-    source $TBB/env/vars.sh intel64
+For example, installing [`oneTBB`](https://github.com/oneapi-src/oneTBB) on Linux 64-bit (`x86_64`) to `$HOME` directory (change if needed!):
+```bash
+source $TBB/env/vars.sh intel64
 
-    export TBB_INC="$TBB/include"
-    export TBB_LIB="$TBB/lib/intel64/gcc4.8"
+export TBB_INC="$TBB/include"
+export TBB_LIB="$TBB/lib/intel64/gcc4.8"
 ```
 
 - Build the development version of `RcppParallel`:
-```
+```r
 install.packages("remotes")
 remotes::install_github("RcppCore/RcppParallel@develop", force = TRUE)
 ```
