@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #include "tbb/global_control.h" // thread_stack_size
@@ -218,12 +214,19 @@ arena::arena ( market& m, unsigned num_slots, unsigned num_reserved_slots ) {
         mailbox(i+1).construct();
         ITT_SYNC_CREATE(&mailbox(i+1), SyncType_Scheduler, SyncObj_Mailbox);
         my_slots[i].hint_for_pop = i;
+#if __TBB_PREVIEW_CRITICAL_TASKS
+        my_slots[i].hint_for_critical = i;
+#endif
 #if __TBB_STATISTICS
         my_slots[i].my_counters = new ( NFS_Allocate(1, sizeof(statistics_counters), NULL) ) statistics_counters;
 #endif /* __TBB_STATISTICS */
     }
     my_task_stream.initialize(my_num_slots);
     ITT_SYNC_CREATE(&my_task_stream, SyncType_Scheduler, SyncObj_TaskStream);
+#if __TBB_PREVIEW_CRITICAL_TASKS
+    my_critical_task_stream.initialize(my_num_slots);
+    ITT_SYNC_CREATE(&my_critical_task_stream, SyncType_Scheduler, SyncObj_CriticalTaskStream);
+#endif
 #if __TBB_ENQUEUE_ENFORCED_CONCURRENCY
     my_concurrency_mode = cm_normal;
 #endif
@@ -268,6 +271,9 @@ void arena::free_arena () {
         drained += mailbox(i+1).drain();
     }
     __TBB_ASSERT( my_task_stream.drain()==0, "Not all enqueued tasks were executed");
+#if __TBB_PREVIEW_CRITICAL_TASKS
+    __TBB_ASSERT( my_critical_task_stream.drain()==0, "Not all critical tasks were executed");
+#endif
 #if __TBB_COUNT_TASK_NODES
     my_market->update_task_node_count( -drained );
 #endif /* __TBB_COUNT_TASK_NODES */
@@ -431,6 +437,10 @@ bool arena::is_out_of_work() {
                     }
                     __TBB_ASSERT( k <= n, NULL );
                     bool work_absent = k == n;
+#if __TBB_PREVIEW_CRITICAL_TASKS
+                    bool no_critical_tasks = my_critical_task_stream.empty(0);
+                    work_absent &= no_critical_tasks;
+#endif
 #if __TBB_TASK_PRIORITY
                     // Variable tasks_present indicates presence of tasks at any priority
                     // level, while work_absent refers only to the current priority.
@@ -560,17 +570,48 @@ void arena::enqueue_task( task& t, intptr_t prio, FastRandom &random )
     }
     __TBB_ASSERT(t.prefix().affinity==affinity_id(0), "affinity is ignored for enqueued tasks");
 #endif /* TBB_USE_ASSERT */
+#if __TBB_PREVIEW_CRITICAL_TASKS
+    if( prio == internal::priority_critical || internal::is_critical( t ) ) {
+        // TODO: consider using of 'scheduler::handled_as_critical'
+        internal::make_critical( t );
+        generic_scheduler* s = governor::local_scheduler_if_initialized();
+        ITT_NOTIFY(sync_releasing, &my_critical_task_stream);
+        if( s && s->my_arena_slot ) {
+            // Scheduler is  initialized and it is attached to the arena,
+            // propagate isolation level to critical task
+#if __TBB_TASK_ISOLATION
+            t.prefix().isolation = s->my_innermost_running_task->prefix().isolation;
+#endif
+            unsigned& lane = s->my_arena_slot->hint_for_critical;
+            my_critical_task_stream.push( &t, 0, tbb::internal::subsequent_lane_selector(lane) );
+        } else {
+            // Either scheduler is not initialized or it is not attached to the arena
+            // use random lane for the task
+            my_critical_task_stream.push( &t, 0, internal::random_lane_selector(random) );
+        }
+        advertise_new_work<work_spawned>();
+        return;
+    }
+#endif /* __TBB_PREVIEW_CRITICAL_TASKS */
 
     ITT_NOTIFY(sync_releasing, &my_task_stream);
 #if __TBB_TASK_PRIORITY
     intptr_t p = prio ? normalize_priority(priority_t(prio)) : normalized_normal_priority;
     assert_priority_valid(p);
+#if __TBB_PREVIEW_CRITICAL_TASKS && __TBB_CPF_BUILD
+    my_task_stream.push( &t, p, internal::random_lane_selector(random) );
+#else
     my_task_stream.push( &t, p, random );
+#endif
     if ( p != my_top_priority )
         my_market->update_arena_priority( *this, p );
 #else /* !__TBB_TASK_PRIORITY */
     __TBB_ASSERT_EX(prio == 0, "the library is not configured to respect the task priority");
+#if __TBB_PREVIEW_CRITICAL_TASKS && __TBB_CPF_BUILD
+    my_task_stream.push( &t, 0, internal::random_lane_selector(random) );
+#else
     my_task_stream.push( &t, 0, random );
+#endif
 #endif /* !__TBB_TASK_PRIORITY */
     advertise_new_work<work_enqueued>();
 #if __TBB_TASK_PRIORITY
@@ -602,7 +643,7 @@ public:
             my_scheduler.my_innermost_running_task = my_orig_state.my_innermost_running_task;
         } else {
             my_scheduler.nested_arena_exit();
-            static_cast<scheduler_state&>(my_scheduler) = my_orig_state; // restore arena settings 
+            static_cast<scheduler_state&>(my_scheduler) = my_orig_state; // restore arena settings
 #if __TBB_TASK_PRIORITY
             my_scheduler.my_local_reload_epoch = *my_orig_state.my_ref_reload_epoch;
 #endif
@@ -620,6 +661,9 @@ private:
         my_scheduler.my_properties.outermost = true;
         my_scheduler.my_properties.type = type;
         my_scheduler.my_innermost_running_task = my_scheduler.my_dummy_task;
+#if __TBB_PREVIEW_CRITICAL_TASKS
+        my_scheduler.my_properties.has_taken_critical_task = false;
+#endif
 #if __TBB_TASK_GROUP_CONTEXT
         // Save dummy's context and replace it by arena's context
         my_orig_ctx = my_scheduler.my_dummy_task->prefix().context;
@@ -641,28 +685,27 @@ void generic_scheduler::nested_arena_entry(arena* a, size_t slot_index) {
     attach_arena( a, slot_index, /*is_master*/true );
     __TBB_ASSERT( my_arena == a, NULL );
     governor::assume_scheduler( this );
-#if __TBB_ARENA_OBSERVER
-    my_last_local_observer = 0; // TODO: try optimize number of calls
-    my_arena->my_observers.notify_entry_observers( my_last_local_observer, /*worker=*/false );
-#endif
     // TODO? ITT_NOTIFY(sync_acquired, a->my_slots + index);
     // TODO: it requires market to have P workers (not P-1)
     // TODO: a preempted worker should be excluded from assignment to other arenas e.g. my_slack--
     if( !is_worker() && slot_index >= my_arena->my_num_reserved_slots )
         my_arena->my_market->adjust_demand(*my_arena, -1);
+#if __TBB_ARENA_OBSERVER
+    my_last_local_observer = 0; // TODO: try optimize number of calls
+    my_arena->my_observers.notify_entry_observers( my_last_local_observer, /*worker=*/false );
+#endif
 }
 
 void generic_scheduler::nested_arena_exit() {
-    if( !is_worker() && my_arena_index >= my_arena->my_num_reserved_slots )
-        my_arena->my_market->adjust_demand(*my_arena, 1);
 #if __TBB_ARENA_OBSERVER
     my_arena->my_observers.notify_exit_observers( my_last_local_observer, /*worker=*/false );
 #endif /* __TBB_ARENA_OBSERVER */
-
 #if __TBB_TASK_PRIORITY
     if ( my_offloaded_tasks )
         my_arena->orphan_offloaded_tasks( *this );
 #endif
+    if( !is_worker() && my_arena_index >= my_arena->my_num_reserved_slots )
+        my_arena->my_market->adjust_demand(*my_arena, 1);
     // Free the master slot.
     __TBB_ASSERT(my_arena->my_slots[my_arena_index].my_scheduler, "A slot is already empty");
     __TBB_store_with_release(my_arena->my_slots[my_arena_index].my_scheduler, (generic_scheduler*)NULL);
@@ -753,11 +796,11 @@ void task_arena_base::internal_attach( ) {
 
 void task_arena_base::internal_enqueue( task& t, intptr_t prio ) const {
     __TBB_ASSERT(my_arena, NULL);
-    generic_scheduler* s = governor::local_scheduler_if_initialized();
+    generic_scheduler* s = governor::local_scheduler_weak();  // scheduler is only needed for FastRandom instance
     __TBB_ASSERT(s, "Scheduler is not initialized"); // we allocated a task so can expect the scheduler
 #if __TBB_TASK_GROUP_CONTEXT
-    __TBB_ASSERT(my_arena->my_default_ctx == t.prefix().context, NULL);
-    __TBB_ASSERT(!my_arena->my_default_ctx->is_group_execution_cancelled(), // TODO: any better idea?
+    // Is there a better place for checking the state of my_default_ctx?
+    __TBB_ASSERT(!(my_arena->my_default_ctx == t.prefix().context && my_arena->my_default_ctx->is_group_execution_cancelled()),
                  "The task will not be executed because default task_group_context of task_arena is cancelled. Has previously enqueued task thrown an exception?");
 #endif
     my_arena->enqueue_task( t, prio, s->my_random );
@@ -776,7 +819,7 @@ class delegated_task : public task {
             task * orig_dummy;
             task_group_context * orig_ctx;
             scheduler_properties orig_props;
-            outermost_context(delegated_task *_t, generic_scheduler &_s) 
+            outermost_context(delegated_task *_t, generic_scheduler &_s)
                 : t(_t), s(_s), orig_dummy(s.my_dummy_task), orig_props(s.my_properties) {
                 __TBB_ASSERT(s.my_innermost_running_task == t, NULL);
 #if __TBB_TASK_GROUP_CONTEXT
@@ -835,12 +878,12 @@ void task_arena_base::internal_execute(internal::delegate_base& d) const {
                     dynamic_cast< internal::delegated_function< graph_funct, void>* >(&d);
 
             if (deleg_funct) {
-                internal_enqueue(*new(task::allocate_root(*my_context)) 
+                internal_enqueue(*new(task::allocate_root(*my_context))
                     internal::function_task< internal::strip< graph_funct >::type >
                         (internal::forward< graph_funct >(deleg_funct->my_func)), 0);
                 return;
             } else {
-#endif
+#endif /*  __TBB_USE_OPTIONAL_RTTI */
                 concurrent_monitor::thread_context waiter;
 #if __TBB_TASK_GROUP_CONTEXT
                 task_group_context exec_context(task_group_context::isolated, my_version_and_traits & exact_exception_flag);
@@ -890,8 +933,8 @@ void task_arena_base::internal_execute(internal::delegate_base& d) const {
         } // if (index1 == arena::out_of_arena)
     } // if (!same_arena)
 
-    cpu_ctl_env_helper cpu_ctl_helper;
-    cpu_ctl_helper.set_env(__TBB_CONTEXT_ARG1(my_context));
+    context_guard_helper</*report_tasks=*/false> context_guard;
+    context_guard.set_ctx(__TBB_CONTEXT_ARG1(my_context));
 #if TBB_USE_EXCEPTIONS
     try {
 #endif
@@ -901,7 +944,7 @@ void task_arena_base::internal_execute(internal::delegate_base& d) const {
 #if TBB_USE_EXCEPTIONS
     }
     catch (...) {
-        cpu_ctl_helper.restore_default(); // TODO: is it needed on Windows?
+        context_guard.restore_default(); // TODO: is it needed on Windows?
         if (my_version_and_traits & exact_exception_flag) throw;
         else {
             task_group_context exception_container(task_group_context::isolated,
@@ -982,7 +1025,7 @@ public:
 };
 
 void isolate_within_arena( delegate_base& d, intptr_t reserved ) {
-    __TBB_ASSERT( reserved == 0, NULL );
+    __TBB_ASSERT_EX( reserved == 0, NULL );
     // TODO: Decide what to do if the scheduler is not initialized. Is there a use case for it?
     generic_scheduler* s = governor::local_scheduler_weak();
     __TBB_ASSERT( s, "this_task_arena::isolate() needs an initialized scheduler" );

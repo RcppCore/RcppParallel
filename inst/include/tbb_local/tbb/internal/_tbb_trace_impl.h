@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef _FGT_TBB_TRACE_IMPL_H
@@ -27,18 +23,17 @@ namespace tbb {
     namespace internal {
 
 #if TBB_PREVIEW_ALGORITHM_TRACE
-
         static inline void fgt_algorithm( string_index t, void *algorithm, void *parent ) {
-            itt_make_task_group( ITT_DOMAIN_FLOW, algorithm, FGT_ALGORITHM, parent, FGT_ALGORITHM, t );
+            itt_make_task_group( ITT_DOMAIN_FLOW, algorithm, ALGORITHM, parent, ALGORITHM, t );
         }
         static inline void fgt_begin_algorithm( string_index t, void *algorithm ) {
-            itt_task_begin( ITT_DOMAIN_FLOW, algorithm, FGT_ALGORITHM, NULL, FLOW_NULL, t );
+            itt_task_begin( ITT_DOMAIN_FLOW, algorithm, ALGORITHM, NULL, FLOW_NULL, t );
         }
         static inline void fgt_end_algorithm( void * ) {
             itt_task_end( ITT_DOMAIN_FLOW );
         }
         static inline void fgt_alg_begin_body( string_index t, void *body, void *algorithm ) {
-            itt_task_begin( ITT_DOMAIN_FLOW, body, FLOW_BODY, algorithm, FGT_ALGORITHM, t );
+            itt_task_begin( ITT_DOMAIN_FLOW, body, FLOW_BODY, algorithm, ALGORITHM, t );
         }
         static inline void fgt_alg_end_body( void * ) {
             itt_task_end( ITT_DOMAIN_FLOW );

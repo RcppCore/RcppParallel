@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2017 Intel Corporation
+# Copyright (c) 2005-2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-#
-#
 
 # Set by R
 R_COMPILED_BY ?= 4.9.3
@@ -53,7 +49,7 @@ PROXY.LIB =
 # Compiler-specific variables
 #------------------------------------------------------------------------------
 
-# CPLUS = g++
+# CPLUS ?= g++
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
@@ -93,7 +89,7 @@ ifeq ($(shell expr $(GCC_VERSION) \>= 6.0), 1)
 endif
 
 ifeq ($(cfg), release)
-        CPLUS_FLAGS = -g -O2
+        CPLUS_FLAGS = -O2
 endif
 ifeq ($(cfg), debug)
         CPLUS_FLAGS = -g -O0 -DTBB_USE_DEBUG

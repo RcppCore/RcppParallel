@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #include "ittnotify_config.h"
@@ -32,7 +28,7 @@
 #include <stdarg.h>
 #include <string.h>
 
-#define INTEL_NO_MACRO_BODY 
+#define INTEL_NO_MACRO_BODY
 #define INTEL_ITTNOTIFY_API_PRIVATE
 #include "ittnotify.h"
 #include "legacy/ittnotify.h"
@@ -378,7 +374,7 @@ static __itt_string_handle* ITTAPI ITT_VERSIONIZE(ITT_JOIN(_N_(string_handle_cre
     {
         if (h->strW != NULL && !wcscmp(h->strW, name)) break;
     }
-    if (h == NULL) 
+    if (h == NULL)
     {
         NEW_STRING_HANDLE_W(&_N_(_ittapi_global),h,h_tail,name);
     }
@@ -607,7 +603,7 @@ static const char* __itt_fsplit(const char* s, const char* sep, const char** out
 
 /* This function return value of env variable that placed into static buffer.
  * !!! The same static buffer is used for subsequent calls. !!!
- * This was done to aviod dynamic allocation for few calls.
+ * This was done to avoid dynamic allocation for few calls.
  * Actually we need this function only four times.
  */
 static const char* __itt_get_env_var(const char* name)
@@ -940,6 +936,7 @@ ITT_EXTERN_C int _N_(init_ittlib)(const char* lib_name, __itt_group_id init_grou
                         switch (lib_version) {
                         case 0:
                             groups = __itt_group_legacy;
+                            /* Falls through */
                         case 1:
                             /* Fill all pointers from dynamic library */
                             for (i = 0; _N_(_ittapi_global).api_list_ptr[i].name != NULL; i++)
