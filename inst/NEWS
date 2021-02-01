@@ -1,6 +1,7 @@
 RcppParallel 5.1.0 (UNRELEASED)
 ------------------------------------------------------------------------
 
+* Updated bundled version of TBB (Intel TBB 2019 Update 8)
 * Added support for external TBB library using TBB_INC and TBB_LIB environment variables.
 * Added support for the latest versions of Intel oneAPI TBB / oneTBB.
 * Updated TBB functionality for the new interface.
