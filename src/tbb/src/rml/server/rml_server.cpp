@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #include "rml_tbb.h"
@@ -1681,7 +1677,7 @@ void wakeup_some_tbb_threads()
 {
     /* First, atomically grab the connection, then increase the server ref count to keep
        it from being released prematurely.  Second, check if the balance is available for TBB
-       and the tbb conneciton has slack to exploit.  If the answer is true, go ahead and
+       and the tbb connection has slack to exploit.  If the answer is true, go ahead and
        try to wake some up. */
     if( generic_connection<tbb_server,tbb_client >::get_addr(active_tbb_connections)==0 )
         // the next connection will see the change; return.

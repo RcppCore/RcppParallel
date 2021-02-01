@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2017 Intel Corporation
+# Copyright (c) 2005-2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-#
-#
 
+CPLUS ?= icpc
+CONLY ?= icc
 COMPILE_ONLY = -c -MMD
 PREPROC_ONLY = -E -x c++
 INCLUDE_KEY = -I
@@ -33,13 +31,11 @@ ifneq (,$(shell icc -dumpversion | egrep "1[2-9]\."))
 SDL_FLAGS = -fstack-protector -Wformat -Wformat-security
 endif
 
-CPLUS = icpc
-CONLY = icc
-
 ITT_NOTIFY = -DDO_ITT_NOTIFY
 ifeq (release,$(cfg))
 SDL_FLAGS += -D_FORTIFY_SOURCE=2
-CPLUS_FLAGS = $(ITT_NOTIFY) -O2 -g -DUSE_PTHREAD
+#CPLUS_FLAGS = $(ITT_NOTIFY) -O2 -g -DUSE_PTHREAD
+CPLUS_FLAGS = $(ITT_NOTIFY) -O2 -DUSE_PTHREAD
 else
 CPLUS_FLAGS = $(ITT_NOTIFY) -O0 -g -DUSE_PTHREAD -DTBB_USE_DEBUG
 endif

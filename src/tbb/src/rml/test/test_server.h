@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,15 +12,11 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 /* This header contains code shared by test_omp_server.cpp and test_tbb_server.cpp 
    There is no ifndef guard - test is supposed to include this file exactly once.
-   The test is also exected to have #include of rml_omp.h or rml_tbb.h before 
+   The test is also executed to have #include of rml_omp.h or rml_tbb.h before 
    including this header. 
 
    This header should not use any parts of TBB that require linking in the TBB run-time. 
@@ -93,7 +89,7 @@ public:
     }
     ~MyJob() {
         // Overwrite so that accidental use after destruction can be detected.
-        memset(this,-1,sizeof(*this));
+        memset(static_cast<void*>(this),-1,sizeof(*this));
     }
 };
 

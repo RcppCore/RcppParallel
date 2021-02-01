@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB_dynamic_link
@@ -55,8 +51,10 @@ typedef void (*pointer_to_handler)();
 // prevent warnings from some compilers (g++ 4.1)
 #if __TBB_WEAK_SYMBOLS_PRESENT
 #define DLD(s,h) {#s, (pointer_to_handler*)(void*)(&h), (pointer_to_handler)&s}
+#define DLD_NOWEAK(s,h) {#s, (pointer_to_handler*)(void*)(&h), NULL}
 #else
 #define DLD(s,h) {#s, (pointer_to_handler*)(void*)(&h)}
+#define DLD_NOWEAK(s,h) DLD(s,h)
 #endif /* __TBB_WEAK_SYMBOLS_PRESENT */
 //! Association between a handler name and location of pointer to it.
 struct dynamic_link_descriptor {

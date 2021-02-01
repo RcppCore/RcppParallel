@@ -1,4 +1,4 @@
-# Copyright (c) 2005-2017 Intel Corporation
+# Copyright (c) 2005-2019 Intel Corporation
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,10 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-#
-#
-#
 
 ifdef tbb_build_dir
   test_dir:=$(tbb_build_dir)
@@ -126,7 +122,7 @@ MAKE_VERSIONS = $(CMD) cscript //NoLogo //E:JScript         \
   "$(arch)"                                                 \
   "$(subst \,/,$(VERSION_FLAGS))"                           \
   > version_string.ver
-  
+
 MAKE_TBBVARS = $(CMD) "$(subst /,\,$(tbb_root)/build/generate_tbbvars.bat)"
 
 TEST_LAUNCHER = $(subst /,\,$(tbb_root))\build\test_launcher.bat $(largs)

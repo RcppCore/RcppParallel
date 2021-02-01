@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2017 Intel Corporation
+    Copyright (c) 2005-2019 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
-
-
-
-
 */
 
 #ifndef __TBB__flow_graph_cache_impl_H
@@ -57,12 +53,12 @@ class node_cache {
 
     void clear() {
         while( !my_q.empty()) (void)my_q.pop();
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
         my_built_predecessors.clear();
 #endif
     }
 
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
     typedef edge_container<T> built_predecessors_type;
     built_predecessors_type &built_predecessors() { return my_built_predecessors; }
 
@@ -86,14 +82,14 @@ class node_cache {
         typename mutex_type::scoped_lock lock(my_mutex);
         return (size_t)(my_built_predecessors.edge_count());
     }
-#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
+#endif  /* TBB_DEPRECATED_FLOW_NODE_EXTRACTION */
 
 protected:
 
     typedef M mutex_type;
     mutex_type my_mutex;
     std::queue< T * > my_q;
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
     built_predecessors_type my_built_predecessors;
 #endif
 
@@ -189,7 +185,7 @@ public:
 
 protected:
 
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
     using node_cache< predecessor_type, M >::my_built_predecessors;
 #endif
     successor_type *my_owner;
@@ -290,7 +286,7 @@ protected:
     typedef sender<T> owner_type;
 #endif // __TBB_PREVIEW_ASYNC_MSG
     typedef std::list< pointer_type > successors_type;
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
     edge_container<successor_type> my_built_successors;
 #endif
     successors_type my_successors;
@@ -298,7 +294,7 @@ protected:
     owner_type *my_owner;
 
 public:
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
     typedef typename edge_container<successor_type>::edge_list_type successor_list_type;
 
     edge_container<successor_type> &built_successors() { return my_built_successors; }
@@ -323,7 +319,7 @@ public:
         return my_built_successors.edge_count();
     }
 
-#endif /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
+#endif /* TBB_DEPRECATED_FLOW_NODE_EXTRACTION */
 
     successor_cache( ) : my_owner(NULL) {}
 
@@ -354,7 +350,7 @@ public:
 
     void clear() {
         my_successors.clear();
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
         my_built_successors.clear();
 #endif
     }
@@ -381,7 +377,7 @@ protected:
 #endif // __TBB_PREVIEW_ASYNC_MSG
     typedef std::list< pointer_type > successors_type;
     successors_type my_successors;
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
     edge_container<successor_type> my_built_successors;
     typedef edge_container<successor_type>::edge_list_type successor_list_type;
 #endif
@@ -390,7 +386,7 @@ protected:
 
 public:
 
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
 
     edge_container<successor_type> &built_successors() { return my_built_successors; }
 
@@ -414,7 +410,7 @@ public:
         return my_built_successors.edge_count();
     }
 
-#endif  /* TBB_PREVIEW_FLOW_GRAPH_FEATURES */
+#endif  /* TBB_DEPRECATED_FLOW_NODE_EXTRACTION */
 
     successor_cache( ) : my_owner(NULL) {}
 
@@ -452,7 +448,7 @@ public:
 
     void clear() {
         my_successors.clear();
-#if TBB_PREVIEW_FLOW_GRAPH_FEATURES
+#if TBB_DEPRECATED_FLOW_NODE_EXTRACTION
         my_built_successors.clear();
 #endif
     }
@@ -508,6 +504,40 @@ public:
         return last_task;
     }
 
+    // call try_put_task and return list of received tasks
+#if __TBB_PREVIEW_ASYNC_MSG
+    template<typename X>
+    bool gather_successful_try_puts( const X &t, task_list &tasks ) {
+#else
+    bool gather_successful_try_puts( const T &t, task_list &tasks ) {
+#endif // __TBB_PREVIEW_ASYNC_MSG
+        bool upgraded = true;
+        bool is_at_least_one_put_successful = false;
+        typename mutex_type::scoped_lock l(this->my_mutex, upgraded);
+        typename successors_type::iterator i = this->my_successors.begin();
+        while ( i != this->my_successors.end() ) {
+            task * new_task = (*i)->try_put_task(t);
+            if(new_task) {
+                ++i;
+                if(new_task != SUCCESSFULLY_ENQUEUED) {
+                    tasks.push_back(*new_task);
+                }
+                is_at_least_one_put_successful = true;
+            }
+            else {  // failed
+                if ( (*i)->register_predecessor(*this->my_owner) ) {
+                    if (!upgraded) {
+                        l.upgrade_to_writer();
+                        upgraded = true;
+                    }
+                    i = this->my_successors.erase(i);
+                } else {
+                    ++i;
+                }
+            }
+        }
+        return is_at_least_one_put_successful;
+    }
 };
 
 //! A cache of successors that are put in a round-robin fashion
