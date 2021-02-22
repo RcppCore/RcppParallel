@@ -45,7 +45,7 @@ else
     endif
   endif
 
-  MAKEFLAGS = -e -s -j1
+  MAKEFLAGS = -e -s
   MAKE_CMD =                                   \
     CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
     CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
