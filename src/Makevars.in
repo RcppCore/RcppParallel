@@ -45,7 +45,7 @@ else
     endif
   endif
 
-  MAKEFLAGS += -e -s
+  MAKEFLAGS = -e -s -j1
   MAKE_CMD =                                   \
     CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
     CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
@@ -82,7 +82,7 @@ ifeq ($(USE_TBB),  Windows)
 endif
 
 # For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
-ifeq ($(USE_TBB),  SunOS)
+ifeq ($(USE_TBB), SunOS)
    R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
    ifeq ($(R_32BIT), TRUE)
       MAKE_ARGS += arch=ia32
@@ -96,21 +96,18 @@ all: tbb $(SHLIB)
 
 tbb:
 ifdef TBB_LIB
-	echo "Using system (Intel/OneAPI) TBB library..."; \
+	echo "Using system (Intel/OneAPI) TBB library ..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so 2>/dev/null || :; \
 	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so 2>/dev/null || :; \
-	rm -Rf ../inst/include/serial/ ../inst/include/tbb/; \
-	rm -Rf ../inst/include/tbb_local/; \
 	mkdir -p ../inst/include; \
 	cp -R $(TBB_INC)/serial ../inst/include/ 2>/dev/null || :; \
 	cp -R $(TBB_INC)/oneapi ../inst/include/ 2>/dev/null || :; \
 	cp -R $(TBB_INC)/tbb ../inst/include/ 2>/dev/null || :
 else
-	echo "Building TBB library from source code..."; \
+	echo "Using bundled TBB library ..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	cp -R ../inst/include/tbb_local/* ../inst/include/; \
-	rm -Rf ../inst/include/tbb_local/; \
+	cp -R tbb/include/* ../inst/include/; \
 	cd tbb/src; \
 	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
 	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
