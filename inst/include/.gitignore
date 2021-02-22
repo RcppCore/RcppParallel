@@ -1,5 +1,6 @@
 
 # These TBB libraries are copied in at configure time.
+/index.html
 /serial
 /tbb
 
