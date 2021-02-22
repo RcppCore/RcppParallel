@@ -170,7 +170,7 @@ size_t NFS_GetLineSize() {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // unary minus operator applied to unsigned type, result still unsigned
-    #pragma warning( disable: 4146 4706 )
+    // #pragma warning( disable: 4146 4706 )
 #endif
 
 void* NFS_Allocate( size_t n, size_t element_size, void* /*hint*/ ) {

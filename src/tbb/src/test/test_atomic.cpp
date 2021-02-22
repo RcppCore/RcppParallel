@@ -39,11 +39,11 @@ using std::memcmp;
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Unary minus operator applied to unsigned type, result still unsigned
     // Constant conditional expression
-    #pragma warning( disable: 4127 4310 )
+    // #pragma warning( disable: 4127 4310 )
 #endif
 
 #if __TBB_GCC_STRICT_ALIASING_BROKEN
-    #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+    // #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 enum LoadStoreExpression {
@@ -165,7 +165,7 @@ void TestFetchAndStore( T i, T j ) {
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // conversion from <bigger integer> to <smaller integer>, possible loss of data
     // the warning seems a complete nonsense when issued for e.g. short+=short
-    #pragma warning( disable: 4244 )
+    // #pragma warning( disable: 4244 )
 #endif
 
 //! Test fetch_and_add members of class atomic<T> for memory_semantics=M
@@ -610,8 +610,8 @@ void TestAlignment( const char* name ) {
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( disable: 4146 ) // unary minus operator applied to unsigned type, result still unsigned
-    #pragma warning( disable: 4334 ) // result of 32-bit shift implicitly converted to 64 bits
+    // #pragma warning( disable: 4146 ) // unary minus operator applied to unsigned type, result still unsigned
+    // #pragma warning( disable: 4334 ) // result of 32-bit shift implicitly converted to 64 bits
 #endif
 
 /** T is an integral type. */
@@ -1393,12 +1393,12 @@ public:
 
 #if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
     // VS2008/VC9 seems to have an issue; limits pull in math.h
-    #pragma warning( push )
-    #pragma warning( disable: 4985 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4985 )
 #endif
 #include <limits> /* Need std::numeric_limits */
 #if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 //! Commonality inherited by specializations for floating-point types.
@@ -1491,7 +1491,7 @@ public:
 template<typename T> void TestAssignmentSignature( T& (T::*)(const T&) ) {}
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( disable: 4355 4800 )
+    // #pragma warning( disable: 4355 4800 )
 #endif
 
 template<typename T, bool aligned>

@@ -93,8 +93,11 @@ endif
 # as TBB uses a number of #pragmas and compiler-specific switches depending
 # on the compiler and machine being compiled for, and it selects and activates
 # those switches only after confirming the specific compiler features it needs.
+# Set VERBOSE=1 to have a more verbose install.
 ifneq ($(OS), Windows_NT)
-  MAKE_ARGS += >/dev/null 2>&1
+  ifeq ($(VERBOSE),)
+    MAKE_ARGS += >/dev/null 2>&1
+  endif
 endif
 
 .PHONY: all tbb

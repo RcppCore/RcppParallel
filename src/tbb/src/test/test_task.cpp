@@ -274,8 +274,8 @@ struct ConstructionFailure {
 
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
     // Suppress pointless "unreachable code" warning.
-    #pragma warning (push)
-    #pragma warning (disable: 4702)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4702)
 #endif
 
 //! Task that cannot be constructed.
@@ -288,7 +288,7 @@ struct UnconstructibleTask: public tbb::empty_task {
 };
 
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 
 #define TRY_BAD_CONSTRUCTION(x)                  \
@@ -332,8 +332,8 @@ void TestUnconstructibleTask() {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for pointless warning "structure was padded due to __declspec(align())
-    #pragma warning (push)
-    #pragma warning (disable: 4324)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4324)
 #endif
 
 //! Task with members of type T.
@@ -357,7 +357,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 
 template<typename T>
@@ -1140,8 +1140,8 @@ tbb::atomic<size_t> g_num_executed_from_working_context;
 int g_cancelling_task_id = -1;
 
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (push)
-#pragma warning (disable: 4127)  /* suppress conditional expression is constant */
+// #pragma warning (push)
+// #pragma warning (disable: 4127)  /* suppress conditional expression is constant */
 #endif
 
 template<bool cancelled_group>
@@ -1184,7 +1184,7 @@ private:
 };
 
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif
 
 template<void(*submit_task)(task&)>

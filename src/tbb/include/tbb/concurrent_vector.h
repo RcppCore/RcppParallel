@@ -34,12 +34,12 @@
 
 #if _MSC_VER==1500 && !__INTEL_COMPILER
     // VS2008/VC9 seems to have an issue; limits pull in math.h
-    #pragma warning( push )
-    #pragma warning( disable: 4985 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4985 )
 #endif
 #include <limits> /* std::numeric_limits */
 #if _MSC_VER==1500 && !__INTEL_COMPILER
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 #if __TBB_INITIALIZER_LISTS_PRESENT
@@ -48,11 +48,11 @@
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (push)
+    // #pragma warning (push)
 #if defined(_Wp64)
-    #pragma warning (disable: 4267)
+    // #pragma warning (disable: 4267)
 #endif
-    #pragma warning (disable: 4127) //warning C4127: conditional expression is constant
+    // #pragma warning (disable: 4127) //warning C4127: conditional expression is constant
 #endif
 
 namespace tbb {
@@ -1175,8 +1175,8 @@ template<typename T, typename A = cache_aligned_allocator<T>
 #endif /* __TBB_CPP17_DEDUCTION_GUIDES_PRESENT */
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning (push)
-#pragma warning (disable: 4701) // potentially uninitialized local variable "old"
+// #pragma warning (push)
+// #pragma warning (disable: 4701) // potentially uninitialized local variable "old"
 #endif
 template<typename T, class A>
 void concurrent_vector<T, A>::shrink_to_fit() {
@@ -1198,7 +1198,7 @@ void concurrent_vector<T, A>::shrink_to_fit() {
     }
 }
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif // warning 4701 is back
 
 template<typename T, class A>
@@ -1322,8 +1322,8 @@ void concurrent_vector<T, A>::assign_array( void* dst, const void* src, size_typ
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warning
-    #pragma warning (push)
-    #pragma warning (disable: 4189)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4189)
 #endif
 template<typename T, class A>
 void concurrent_vector<T, A>::destroy_array( void* begin, size_type n ) {
@@ -1332,7 +1332,7 @@ void concurrent_vector<T, A>::destroy_array( void* begin, size_type n ) {
         array[j-1].~T(); // destructors are supposed to not throw any exceptions
 }
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4189 is back
 
 // concurrent_vector's template functions
@@ -1375,7 +1375,7 @@ inline void swap(concurrent_vector<T, A> &a, concurrent_vector<T, A> &b)
 } // namespace tbb
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4267,4127 are back
 
 #endif /* __TBB_concurrent_vector_H */

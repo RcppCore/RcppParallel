@@ -234,7 +234,7 @@ struct hacked_filter {
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
     // Suppress compiler warning about constant conditional expression
-    #pragma warning (disable: 4127)
+    // #pragma warning (disable: 4127)
 #endif
 
 void clear_global_state() {

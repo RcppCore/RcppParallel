@@ -29,14 +29,14 @@
 
 #include "harness_assert.h"
 #if _MSC_VER
-#pragma warning (push)
+// #pragma warning (push)
     // MSVC discovers that ASSERT(false) inside TestBlockingTerminateNS::ExceptionTest2::Body makes the code
     // in parallel_for after the body call unreachable. So suppress the warning.
-#pragma warning (disable: 4702)
+// #pragma warning (disable: 4702)
 #endif
 #include "tbb/parallel_for.h"
 #if _MSC_VER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif
 
 #include "harness_concurrency_tracker.h"

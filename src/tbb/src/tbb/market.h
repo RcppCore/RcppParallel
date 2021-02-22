@@ -28,8 +28,8 @@
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (push)
-    #pragma warning (disable: 4244)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4244)
 #endif
 
 namespace tbb {
@@ -365,7 +365,7 @@ public:
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4244 is back
 
 #endif /* _TBB_market_H */

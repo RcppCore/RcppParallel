@@ -195,7 +195,7 @@ void TestBasic( A& a ) {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for erroneous "conditional expression is constant" warning in method check_allocate.
-    #pragma warning (disable: 4127)
+    // #pragma warning (disable: 4127)
 #endif
 
 // A is an allocator for some type

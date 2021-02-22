@@ -84,7 +84,7 @@
     // Workaround for overzealous compiler warnings
     // These particular warnings are so ubiquitous that no attempt is made to narrow
     // the scope of the warnings.
-    #pragma warning (disable: 4100 4127 4312 4244 4267 4706)
+    // #pragma warning (disable: 4100 4127 4312 4244 4267 4706)
 #endif
 
 namespace tbb {

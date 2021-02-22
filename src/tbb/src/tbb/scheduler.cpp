@@ -77,8 +77,8 @@ scheduler::~scheduler( ) {}
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress overzealous compiler warning about using 'this' in base initializer list.
-    #pragma warning(push)
-    #pragma warning(disable:4355)
+    // #pragma warning(push)
+    // #pragma warning(disable:4355)
 #endif
 
 generic_scheduler::generic_scheduler( market& m )
@@ -114,7 +114,7 @@ generic_scheduler::generic_scheduler( market& m )
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif // warning 4355 is back
 
 #if TBB_USE_ASSERT > 1

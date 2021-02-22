@@ -120,8 +120,8 @@ private:
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 // unary minus operator applied to unsigned type, result still unsigned
-#pragma warning( push )
-#pragma warning( disable: 4146 )
+// #pragma warning( push )
+// #pragma warning( disable: 4146 )
 #endif
 
 //! A queue using simple locking.
@@ -387,7 +387,7 @@ micro_queue_pop_finalizer<T>::~micro_queue_pop_finalizer() {
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif // warning 4146 is back
 
 template<typename T> class concurrent_queue_iterator_rep ;
@@ -534,12 +534,12 @@ bool concurrent_queue_base_v3<T>::internal_try_pop( void* dst ) {
             // Queue had item with ticket k when we looked.  Attempt to get that item.
             ticket tk=k;
 #if defined(_MSC_VER) && defined(_Wp64)
-    #pragma warning (push)
-    #pragma warning (disable: 4267)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4267)
 #endif
             k = r.head_counter.compare_and_swap( tk+1, tk );
 #if defined(_MSC_VER) && defined(_Wp64)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
             if( k==tk )
                 break;

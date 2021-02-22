@@ -20,9 +20,9 @@
 #if _MSC_VER
 // Suppress "decorated name length exceeded, name was truncated" warning
 #if __INTEL_COMPILER
-#pragma warning( disable: 2586 )
+// #pragma warning( disable: 2586 )
 #else
-#pragma warning( disable: 4503 )
+// #pragma warning( disable: 4503 )
 #endif
 #endif
 
@@ -1475,8 +1475,8 @@ public:
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 // Suppress "conditional expression is constant" warning.
-#pragma warning( push )
-#pragma warning( disable: 4127 )
+// #pragma warning( push )
+// #pragma warning( disable: 4127 )
 #endif
 
 template<typename JType, class JP>
@@ -1743,7 +1743,7 @@ public:
 }; // serial_test
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif
 
 template<

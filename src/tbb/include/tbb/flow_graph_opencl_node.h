@@ -1123,23 +1123,23 @@ private:
                 cl_command_queue_properties props = (*d).out_of_order_exec_mode_on_host_present() ? CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE : 0;
                 // Suppress "declared deprecated" warning for the next line.
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+// #pragma GCC diagnostic push
+// #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 #endif
 #if _MSC_VER || __INTEL_COMPILER
-#pragma warning( push )
+// #pragma warning( push )
 #if __INTEL_COMPILER
-#pragma warning (disable: 1478)
+// #pragma warning (disable: 1478)
 #else
-#pragma warning (disable: 4996)
+// #pragma warning (disable: 4996)
 #endif
 #endif
                 cq = clCreateCommandQueue(ctx, (*d).my_cl_device_id, props, &err2);
 #if _MSC_VER || __INTEL_COMPILER
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
-#pragma GCC diagnostic pop
+// #pragma GCC diagnostic pop
 #endif
             }
             enforce_cl_retcode(err2, "Failed to create command queue");

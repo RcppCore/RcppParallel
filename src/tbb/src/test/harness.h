@@ -72,10 +72,10 @@ int TestMain ();
     #include "tbb/machine/windows_api.h"
     #if _WIN32_WINNT > 0x0501 && _MSC_VER && !_M_ARM
         // Suppress "typedef ignored ... when no variable is declared" warning by vc14
-        #pragma warning (push)
-        #pragma warning (disable: 4091)
+        // #pragma warning (push)
+        // #pragma warning (disable: 4091)
         #include <dbghelp.h>
-        #pragma warning (pop)
+        // #pragma warning (pop)
         #pragma comment (lib, "dbghelp.lib")
     #endif
     #if __TBB_WIN8UI_SUPPORT
@@ -529,8 +529,8 @@ public:
         ASSERT( thread_handle!=0, "NativeParallelFor: _beginthreadex failed" );
 #else
 #if __ICC==1100
-    #pragma warning (push)
-    #pragma warning (disable: 2193)
+    // #pragma warning (push)
+    // #pragma warning (disable: 2193)
 #endif /* __ICC==1100 */
         // Some machines may have very large hard stack limit. When the test is
         // launched by make, the default stack size is set to the hard limit, and
@@ -556,7 +556,7 @@ public:
         ASSERT(0==status, "NativeParallelFor: pthread_create failed");
         pthread_attr_destroy(&attr_stack);
 #if __ICC==1100
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 #endif /* _WIN32||_WIN64 */
     }

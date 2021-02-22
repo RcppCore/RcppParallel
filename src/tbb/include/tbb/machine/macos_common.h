@@ -20,8 +20,8 @@
 
 #define __TBB_machine_macos_common_H
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// #pragma clang diagnostic push
+// #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #include <sched.h>
 #define __TBB_Yield()  sched_yield()
@@ -129,6 +129,6 @@ static inline int64_t __TBB_machine_fetchadd8(volatile void *ptr, int64_t addend
 #endif
 #define __TBB_USE_GENERIC_SEQUENTIAL_CONSISTENCY_LOAD_STORE 1
 
-#pragma clang diagnostic pop
+// #pragma clang diagnostic pop
 
 #endif /* __TBB_UnknownArchitecture */

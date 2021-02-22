@@ -42,7 +42,7 @@
 using rml::internal::estimatedCacheLineSize;
 
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
-#pragma GCC diagnostic ignored "-Wuninitialized"
+// #pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
 
 static tbb::atomic<int> construction_counter;

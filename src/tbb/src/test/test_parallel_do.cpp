@@ -22,7 +22,7 @@
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (disable: 4267)
+    // #pragma warning (disable: 4267)
 #endif /* _MSC_VER && _Wp64 */
 
 #define N_DEPTHS     20

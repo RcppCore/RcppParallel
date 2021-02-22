@@ -18,10 +18,10 @@
 #define HARNESS_DEFAULT_MAX_THREADS 4
 
 #if _MSC_VER
-    #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
+    // #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
     #if _MSC_VER==1700 && !defined(__INTEL_COMPILER)
         // Suppress "unreachable code" warning by VC++ 17.0 (VS 2012)
-        #pragma warning (disable: 4702)
+        // #pragma warning (disable: 4702)
     #endif
 #endif
 

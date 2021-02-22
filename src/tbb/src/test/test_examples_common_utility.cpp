@@ -16,7 +16,7 @@
 
 #if __TBB_TEST_USE_WSUGGEST_OVERRIDE
 // __TBB_override may not be used in the tested header file
-#pragma GCC diagnostic ignored "-Wsuggest-override"
+// #pragma GCC diagnostic ignored "-Wsuggest-override"
 #undef __TBB_TEST_USE_WSUGGEST_OVERRIDE
 #endif
 

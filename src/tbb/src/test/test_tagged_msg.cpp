@@ -25,7 +25,7 @@
 #include <vector>
 
 #if __TBB_GCC_STRICT_ALIASING_BROKEN
-    #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+    // #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 // given a tuple, return the type of the element that has the maximum alignment requirement.

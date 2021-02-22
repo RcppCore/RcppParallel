@@ -116,12 +116,12 @@ public:
 #include "harness_memory.h"
 #if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
     // VS2008/VC9 seems to have an issue
-    #pragma warning( push )
-    #pragma warning( disable: 4985 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4985 )
 #endif
 #include <math.h>
 #if _MSC_VER==1500 && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 void RunTaskGenerators( bool switchProducer = false, bool checkProducer = false ) {

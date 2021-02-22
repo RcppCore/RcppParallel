@@ -102,8 +102,8 @@ static const size_t cache_line_size = tbb::internal::NFS_MaxLineSize;
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress overzealous compiler warnings about uninstantiable class
-    #pragma warning(push)
-    #pragma warning(disable:4510 4610)
+    // #pragma warning(push)
+    // #pragma warning(disable:4510 4610)
 #endif
 class padded_private_worker: public private_worker {
     char pad[cache_line_size - sizeof(private_worker)%cache_line_size];
@@ -112,7 +112,7 @@ public:
     : private_worker(server,client,i) { suppress_unused_warning(pad); }
 };
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif
 
 class private_server: public tbb_server, no_copy {
@@ -206,8 +206,8 @@ public:
 //------------------------------------------------------------------------
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress overzealous compiler warnings about an initialized variable 'sink_for_alloca' not referenced
-    #pragma warning(push)
-    #pragma warning(disable:4189)
+    // #pragma warning(push)
+    // #pragma warning(disable:4189)
 #endif
 #if __MINGW32__ && __GNUC__==4 &&__GNUC_MINOR__>=2 && !__MINGW64__
 // ensure that stack is properly aligned for TBB threads
@@ -220,7 +220,7 @@ __RML_DECL_THREAD_ROUTINE private_worker::thread_routine( void* arg ) {
     return 0;
 }
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif
 
 void private_worker::release_handle(thread_handle handle, bool join) {

@@ -26,7 +26,7 @@
 #include "../test/harness.h"
 #include "tbb/concurrent_priority_queue.h"
 
-#pragma warning(disable: 4996)
+// #pragma warning(disable: 4996)
 
 #define IMPL_STL 0
 #define IMPL_CPQ 1

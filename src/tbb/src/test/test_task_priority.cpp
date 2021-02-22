@@ -18,7 +18,7 @@
 #include "harness.h"
 
 #if __TBB_GCC_STRICT_ALIASING_BROKEN
-    #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+    // #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 #if __TBB_TASK_GROUP_CONTEXT

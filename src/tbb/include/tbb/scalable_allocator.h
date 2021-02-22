@@ -24,8 +24,8 @@
 #endif
 
 #if !defined(__cplusplus) && __ICC==1100
-    #pragma warning (push)
-    #pragma warning (disable: 991)
+    // #pragma warning (push)
+    // #pragma warning (disable: 991)
 #endif
 
 #ifdef __cplusplus
@@ -219,8 +219,8 @@ namespace tbb {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for erroneous "unreferenced parameter" warning in method destroy.
-    #pragma warning (push)
-    #pragma warning (disable: 4100)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4100)
 #endif
 
 //! @cond INTERNAL
@@ -297,7 +297,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif /* warning 4100 is back */
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
@@ -382,7 +382,7 @@ inline std::pmr::memory_resource* scalable_memory_resource() noexcept {
 #endif /* __cplusplus */
 
 #if !defined(__cplusplus) && __ICC==1100
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif /* ICC 11.0 warning 991 is back */
 
 #endif /* __TBB_scalable_allocator_H */

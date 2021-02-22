@@ -107,8 +107,8 @@ using namespace tbb;
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress overzealous warning about short+=short
-    #pragma warning( push )
-    #pragma warning( disable: 4244 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4244 )
 #endif
 
 class InnerBody: NoAssign {
@@ -132,7 +132,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 //! Test OpenMMP loop around TBB loop

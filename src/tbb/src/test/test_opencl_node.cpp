@@ -24,7 +24,7 @@
 
 #if __TBB_PREVIEW_OPENCL_NODE && !__TBB_MSVC_TEST_COMPILATION_BROKEN
 #if _MSC_VER
-#pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
+// #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
 #endif
 #include <iterator>
 #include "tbb/task_scheduler_init.h"

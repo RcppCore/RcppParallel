@@ -27,12 +27,12 @@
 
 #if _MSC_VER==1500 && !__INTEL_COMPILER
     // VS2008/VC9 seems to have an issue; limits pull in math.h
-    #pragma warning( push )
-    #pragma warning( disable: 4985 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4985 )
 #endif
 #include <climits>
 #if _MSC_VER==1500 && !__INTEL_COMPILER
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 #if __INTEL_COMPILER && (_WIN32 || _WIN64) && TBB_USE_DEBUG && _CPPLIB_VER<520

@@ -45,15 +45,15 @@ using std::printf;
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (push)
+    // #pragma warning (push)
 #if defined(_Wp64)
-    #pragma warning (disable: 4267)
+    // #pragma warning (disable: 4267)
 #endif
 #if _MSC_VER <= 1600
-    #pragma warning (disable: 4355)
+    // #pragma warning (disable: 4355)
 #endif
 #if _MSC_VER <= 1800
-    #pragma warning (disable: 4512)
+    // #pragma warning (disable: 4512)
 #endif
 #endif
 
@@ -830,7 +830,7 @@ bool allocator_aware_data<Allocator>::assert_on_constructions = false;
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4267,4512,4355 is back
 
 namespace Harness {

@@ -22,8 +22,8 @@
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (push)
-    #pragma warning (disable: 4244 4267)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4244 4267)
 #endif
 
 #include "msvc_ia32_common.h"
@@ -101,5 +101,5 @@ __TBB_MACHINE_DEFINE_ATOMICS(4, ptrdiff_t, ptrdiff_t, eax, ecx)
 
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warnings 4244, 4267 are back

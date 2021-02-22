@@ -252,6 +252,8 @@ template<> struct atomic_selector<8> {
         #include "machine/linux_ia32.h"
     #elif __TBB_x86_64
         #include "machine/linux_intel64.h"
+    #elif __ARM_ARCH_7A__ || __aarch64__
+        #include "machine/gcc_arm.h"
     #elif __POWERPC__
         #include "machine/mac_ppc.h"
     #endif
@@ -660,13 +662,13 @@ struct machine_load_store_seq_cst<T,8> {
     }
     static void store ( volatile T &location, T value ) {
 #if __TBB_GCC_VERSION >= 40702
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+// #pragma GCC diagnostic push
+// #pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
 #endif
         // An atomic initialization leads to reading of uninitialized memory
         int64_t result = (volatile int64_t&)location;
 #if __TBB_GCC_VERSION >= 40702
-#pragma GCC diagnostic pop
+// #pragma GCC diagnostic pop
 #endif
         while ( __TBB_machine_cmpswp8((volatile void*)&location, (int64_t)value, result) != result )
             result = (volatile int64_t&)location;

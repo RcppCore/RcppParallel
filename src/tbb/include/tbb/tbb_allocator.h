@@ -44,8 +44,8 @@ namespace internal {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for erroneous "unreferenced parameter" warning in method destroy.
-    #pragma warning (push)
-    #pragma warning (disable: 4100)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4100)
 #endif
 
 //! Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5
@@ -119,7 +119,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4100 is back
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1

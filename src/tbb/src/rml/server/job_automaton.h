@@ -22,8 +22,8 @@
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings 
-    #pragma warning (push)
-    #pragma warning (disable: 4244)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4244)
 #endif
 
 namespace rml {
@@ -135,7 +135,7 @@ public:
 
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4244 are back
 
 #endif /* __RML_job_automaton_H */

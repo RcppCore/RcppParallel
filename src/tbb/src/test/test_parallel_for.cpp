@@ -21,14 +21,14 @@
 #include "harness_defs.h"
 
 #if _MSC_VER
-#pragma warning (push)
+// #pragma warning (push)
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
     // Suppress pointless "unreachable code" warning.
-    #pragma warning (disable: 4702)
+    // #pragma warning (disable: 4702)
 #endif
 #if defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (disable: 4267)
+    // #pragma warning (disable: 4267)
 #endif
 
 #define _SCL_SECURE_NO_WARNINGS
@@ -773,5 +773,5 @@ int TestMain () {
 }
 
 #if _MSC_VER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif

@@ -23,7 +23,7 @@
 #if __TBB_PREVIEW_ASYNC_MSG
 
 #if _MSC_VER
-#pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
+// #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
 #endif
 
 #include "tbb/flow_graph.h"

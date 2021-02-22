@@ -1033,12 +1033,12 @@ public:
     void operator()(DataType i) const {
         my_reserving_node.try_put(i);
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (push)
-#pragma warning (disable: 4127)  /* suppress conditional expression is constant */
+// #pragma warning (push)
+// #pragma warning (disable: 4127)  /* suppress conditional expression is constant */
 #endif
         if (DoClear) {
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif
             my_reserving_node.clear();
         }

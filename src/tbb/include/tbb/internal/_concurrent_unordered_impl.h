@@ -687,8 +687,8 @@ private:
 };
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning(push)
-#pragma warning(disable: 4127) // warning C4127: conditional expression is constant
+// #pragma warning(push)
+// #pragma warning(disable: 4127) // warning C4127: conditional expression is constant
 #endif
 
 template <typename Traits>
@@ -1657,7 +1657,7 @@ private:
     atomic<raw_iterator*>                                         my_buckets[pointers_per_table]; // The segment table
 };
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning(pop) // warning 4127 is back
+// #pragma warning(pop) // warning 4127 is back
 #endif
 
 } // namespace internal

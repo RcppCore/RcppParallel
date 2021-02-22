@@ -33,7 +33,7 @@
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
     // Suppress compiler warning about constant conditional expression
-    #pragma warning (disable: 4127)
+    // #pragma warning (disable: 4127)
 #endif
 
 using namespace tbb;
@@ -298,7 +298,7 @@ atomic<size_t> n_sleepers;
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (disable: 4244 4267)
+    // #pragma warning (disable: 4244 4267)
 #endif
 
 struct AllButOneSleep : NoAssign {

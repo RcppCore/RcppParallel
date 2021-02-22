@@ -40,8 +40,8 @@
 // 2571 is variable has not been declared with compatible "target" attribute
 // 3218 is class/struct may fail when offloaded because this field is misaligned
 //         or contains data that is misaligned
-    #pragma warning(push)
-    #pragma warning(disable:2571 3218)
+    // #pragma warning(push)
+    // #pragma warning(disable:2571 3218)
 #endif
 #define protected public
 #define private public
@@ -49,7 +49,7 @@
 #undef protected
 #undef private
 #if __INTEL_COMPILER && __TBB_MIC_OFFLOAD
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif
 #include "../tbbmalloc/backend.cpp"
 #include "../tbbmalloc/backref.cpp"
@@ -868,7 +868,7 @@ void TestCleanThreadBuffers() {
 #if _MSC_VER==1600 || _MSC_VER==1500
     // ignore C4275: non dll-interface class 'stdext::exception' used as
     // base for dll-interface class 'std::bad_cast'
-    #pragma warning (disable: 4275)
+    // #pragma warning (disable: 4275)
 #endif
 #include <vector>
 #include <list>

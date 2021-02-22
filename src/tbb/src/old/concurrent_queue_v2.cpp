@@ -23,7 +23,7 @@
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (disable: 4267)
+    // #pragma warning (disable: 4267)
 #endif
 
 #define RECORD_EVENTS 0
@@ -130,8 +130,8 @@ public:
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // unary minus operator applied to unsigned type, result still unsigned
-    #pragma warning( push )
-    #pragma warning( disable: 4146 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4146 )
 #endif
 
 //------------------------------------------------------------------------
@@ -185,7 +185,7 @@ bool micro_queue::pop( void* dst, ticket k, concurrent_queue_base& base ) {
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 //------------------------------------------------------------------------

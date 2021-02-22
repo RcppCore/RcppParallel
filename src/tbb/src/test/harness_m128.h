@@ -25,13 +25,13 @@
 
 #if (_MSC_VER>=1600)
 //TODO: handle /arch:AVX in the right way.
-#pragma warning (push)
-#pragma warning (disable: 4752)
+// #pragma warning (push)
+// #pragma warning (disable: 4752)
 #endif
 
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT && __TBB_GCC_WARNING_IGNORED_ATTRIBUTES_PRESENT
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wignored-attributes"
+// #pragma GCC diagnostic push
+// #pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif
 
 
@@ -112,9 +112,9 @@ typedef ClassWithVectorType<__m128> ClassWithSSE;
 #endif
 
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT && __TBB_GCC_WARNING_IGNORED_ATTRIBUTES_PRESENT
-#pragma GCC diagnostic pop
+// #pragma GCC diagnostic pop
 #endif
 
 #if (_MSC_VER>=1600)
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif

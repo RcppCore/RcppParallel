@@ -17,7 +17,7 @@
 #include "tbb/tbb_config.h"
 
 #if __TBB_GCC_STRICT_ALIASING_BROKEN
-    #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+    // #pragma GCC diagnostic ignored "-Wstrict-aliasing"
 #endif
 
 //! Wrapper around T where all members are private.

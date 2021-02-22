@@ -24,8 +24,8 @@
 /** Note that the warnings are suppressed for all the code after this header is included. */
 #if _MSC_VER
 #if __INTEL_COMPILER
-    #pragma warning (disable: 583)
+    // #pragma warning (disable: 583)
 #else
-    #pragma warning (disable: 4530 4577)
+    // #pragma warning (disable: 4530 4577)
 #endif
 #endif

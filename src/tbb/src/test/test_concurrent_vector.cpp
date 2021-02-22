@@ -35,8 +35,8 @@
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (push)
-    #pragma warning (disable: 4800)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4800)
 #endif
 
 #if TBB_USE_EXCEPTIONS
@@ -1870,5 +1870,5 @@ int TestMain () {
 }
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4800 is back

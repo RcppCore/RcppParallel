@@ -26,12 +26,12 @@
 
 #if _MSC_VER==1500 && !__INTEL_COMPILER
     // VS2008/VC9 seems to have an issue; limits pull in math.h
-    #pragma warning( push )
-    #pragma warning( disable: 4985 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4985 )
 #endif
 #include <limits>
 #if _MSC_VER==1500 && !__INTEL_COMPILER
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 template <typename Q>

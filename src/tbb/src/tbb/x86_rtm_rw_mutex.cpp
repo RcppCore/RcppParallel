@@ -32,7 +32,7 @@
 
 #if defined(_MSC_VER) && defined(_Wp64)
     // Workaround for overzealous compiler warnings in /Wp64 mode
-    #pragma warning (disable: 4244)
+    // #pragma warning (disable: 4244)
 #endif
 
 namespace tbb {

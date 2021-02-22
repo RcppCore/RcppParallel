@@ -75,9 +75,9 @@ __TBB_MACHINE_DEFINE_ATOMICS(2,int16_t,"","=r")
 __TBB_MACHINE_DEFINE_ATOMICS(4,int32_t,"l","=r")
 
 #if __INTEL_COMPILER
-#pragma warning( push )
+// #pragma warning( push )
 // reference to EBX in a function requiring stack alignment
-#pragma warning( disable: 998 )
+// #pragma warning( disable: 998 )
 #endif
 
 #if __TBB_GCC_CAS8_BUILTIN_INLINING_BROKEN
@@ -143,7 +143,7 @@ static inline __TBB_IA32_CAS8_NOINLINE int64_t __TBB_machine_cmpswp8 (volatile v
 #undef __TBB_IA32_CAS8_NOINLINE
 
 #if __INTEL_COMPILER
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif // warning 998 is back
 
 static inline void __TBB_machine_or( volatile void *ptr, uint32_t addend ) {

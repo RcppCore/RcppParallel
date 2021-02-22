@@ -27,7 +27,7 @@
 #if __GNUC__>=5 && !__INTEL_COMPILER && !__clang__ && __GXX_EXPERIMENTAL_CXX0X__
 // GCC 5 has added -Wsuggest-override, but unfortunately enables it even in pre-C++11 mode.
 // We only want to use it for C++11 though.
-#pragma GCC diagnostic warning "-Wsuggest-override"
+// #pragma GCC diagnostic warning "-Wsuggest-override"
 #define __TBB_TEST_USE_WSUGGEST_OVERRIDE 1
 #endif
 // TODO: consider adding a similar option for clang

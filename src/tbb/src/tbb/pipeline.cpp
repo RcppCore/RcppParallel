@@ -493,7 +493,7 @@ public:
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
     // Suppress compiler warning about constant conditional expression
-    #pragma warning (disable: 4127)
+    // #pragma warning (disable: 4127)
 #endif
 
 // The class destroys end_counter and clears all input buffers if pipeline was cancelled.

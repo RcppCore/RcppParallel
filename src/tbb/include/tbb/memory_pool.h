@@ -74,8 +74,8 @@ protected:
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for erroneous "unreferenced parameter" warning in method destroy.
-    #pragma warning (push)
-    #pragma warning (disable: 4100)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4100)
 #endif
 
 //! Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5
@@ -145,7 +145,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4100 is back
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
@@ -234,8 +234,8 @@ void *memory_pool<Alloc>::allocate_request(intptr_t pool_id, size_t & bytes) {
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
     // Workaround for erroneous "unreachable code" warning in the template below.
     // Specific for VC++ 17-18 compiler
-    #pragma warning (push)
-    #pragma warning (disable: 4702)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4702)
 #endif
 template <typename Alloc>
 int memory_pool<Alloc>::deallocate_request(intptr_t pool_id, void* raw_ptr, size_t raw_bytes) {
@@ -246,7 +246,7 @@ int memory_pool<Alloc>::deallocate_request(intptr_t pool_id, void* raw_ptr, size
     return 0;
 }
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 inline fixed_pool::fixed_pool(void *buf, size_t size) : my_buffer(buf), my_size(size) {
     if (!buf || !size)

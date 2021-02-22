@@ -165,12 +165,12 @@ namespace tbb {
             __TBB_ASSERT(sizeof(T) == sizeof(void *), "Type must be word-sized.");
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
             // Workaround for overzealous compiler warnings
-            #pragma warning (push)
-            #pragma warning (disable: 4311)
+            // #pragma warning (push)
+            // #pragma warning (disable: 4311)
 #endif
             T result = (T)itt_load_pointer_with_acquire_v3(&src);
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-            #pragma warning (pop)
+            // #pragma warning (pop)
 #endif
             return result;
 #else

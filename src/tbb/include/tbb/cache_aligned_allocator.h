@@ -48,8 +48,8 @@ namespace internal {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Workaround for erroneous "unreferenced parameter" warning in method destroy.
-    #pragma warning (push)
-    #pragma warning (disable: 4100)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4100)
 #endif
 
 //! Meets "allocator" requirements of ISO C++ Standard, Section 20.1.5
@@ -109,7 +109,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4100 is back
 
 //! Analogous to std::allocator<void>, as defined in ISO C++ Standard, Section 20.4.1
@@ -151,13 +151,13 @@ private:
         __TBB_ASSERT(base != 0, "Upstream resource returned NULL.");
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // unary minus operator applied to unsigned type, result still unsigned
-    #pragma warning(push)
-    #pragma warning(disable: 4146 4706)
+    // #pragma warning(push)
+    // #pragma warning(disable: 4146 4706)
 #endif
         // Round up to the next cache line (align the base address)
         uintptr_t result = (base + cache_line_alignment) & -cache_line_alignment;
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif
         // Record where block actually starts.
         ((uintptr_t*)result)[-1] = base;

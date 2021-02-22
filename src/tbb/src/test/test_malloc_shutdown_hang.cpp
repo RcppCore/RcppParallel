@@ -93,8 +93,8 @@ void processSpawn(const char* /*self*/) {
 #endif
 
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (push)
-#pragma warning (disable: 4702)  /* Unreachable code */
+// #pragma warning (push)
+// #pragma warning (disable: 4702)  /* Unreachable code */
 #endif
 
 HARNESS_EXPORT
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
     }
 
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif
 
     REPORT("done\n");

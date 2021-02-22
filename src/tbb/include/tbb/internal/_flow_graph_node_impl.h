@@ -486,12 +486,12 @@ namespace internal {
             }
             task* successor_task = successors().try_put_task(v);
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (push)
-#pragma warning (disable: 4127)  /* suppress conditional expression is constant */
+// #pragma warning (push)
+// #pragma warning (disable: 4127)  /* suppress conditional expression is constant */
 #endif
             if(internal::has_policy<lightweight, Policy>::value) {
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif
                 if(!successor_task) {
                     // Return confirmative status since current
@@ -753,12 +753,12 @@ namespace internal {
                 return NULL;
             }
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (push)
-#pragma warning (disable: 4127)  /* suppress conditional expression is constant */
+// #pragma warning (push)
+// #pragma warning (disable: 4127)  /* suppress conditional expression is constant */
 #endif
             if(internal::has_policy<lightweight, Policy>::value) {
 #if _MSC_VER && !__INTEL_COMPILER
-#pragma warning (pop)
+// #pragma warning (pop)
 #endif
                 return apply_body_bypass( continue_msg() );
             }

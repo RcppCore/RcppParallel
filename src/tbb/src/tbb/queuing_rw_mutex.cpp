@@ -80,8 +80,8 @@ inline void queuing_rw_mutex::scoped_lock::unblock_or_wait_on_internal_lock( uin
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    #pragma warning (push)
-    #pragma warning (disable: 4311 4312)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4311 4312)
 #endif
 
 //! A view of a T* with additional functionality for twiddling low-order bits.
@@ -121,7 +121,7 @@ typedef tricky_atomic_pointer<queuing_rw_mutex::scoped_lock> tricky_pointer;
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 
 //! Mask for low order bit of a pointer.

@@ -15,7 +15,7 @@
 */
 
 #if _MSC_VER
-    #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
+    // #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
 #endif
 
 #ifdef TEST_COARSE_GRAINED_LOCK_IMPLEMENTATION

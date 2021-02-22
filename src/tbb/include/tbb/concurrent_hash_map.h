@@ -535,8 +535,8 @@ namespace interface5 {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress "conditional expression is constant" warning.
-    #pragma warning( push )
-    #pragma warning( disable: 4127 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4127 )
 #endif
 
 //! Unordered map from Key to T.
@@ -1625,7 +1625,7 @@ inline void swap(concurrent_hash_map<Key, T, HashCompare, A> &a, concurrent_hash
 {    a.swap( b ); }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif // warning 4127 is back
 
 } // namespace tbb

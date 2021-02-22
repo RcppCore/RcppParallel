@@ -19,12 +19,12 @@
 #include "harness_defs.h"
 
 #if _MSC_VER
-    #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
+    // #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
 #endif
 
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
     // Suppress "unreachable code" warning by VC++ 17.0-18.0 (VS 2012 or newer)
-    #pragma warning (disable: 4702)
+    // #pragma warning (disable: 4702)
 #endif
 
 #include "harness.h"

@@ -526,8 +526,8 @@ __TBB_ORIG_ALLOCATOR_REPLACEMENT_WRAPPER(ucrtbase);
 /*** replacements for global operators new and delete ***/
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( push )
-#pragma warning( disable : 4290 )
+// #pragma warning( push )
+// #pragma warning( disable : 4290 )
 #endif
 
 /*** operator new overloads internals (Linux, Windows) ***/
@@ -542,7 +542,7 @@ void operator_delete(void* ptr) __TBB_NO_THROW {
     __TBB_malloc_safer_delete(ptr);
 }
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif
 
 void operator_delete_arr(void* ptr) __TBB_NO_THROW {

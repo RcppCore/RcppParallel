@@ -22,8 +22,8 @@
 #if __TBB_PREVIEW_STREAMING_NODE
 
 #if _MSC_VER
-#pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
-#pragma warning (disable: 4702) // Suppress "unreachable code" warning
+// #pragma warning (disable: 4503) // Suppress "decorated name length exceeded, name was truncated" warning
+// #pragma warning (disable: 4702) // Suppress "unreachable code" warning
 #endif
 
 #include <functional>

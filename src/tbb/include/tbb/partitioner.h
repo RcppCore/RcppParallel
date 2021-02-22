@@ -53,8 +53,8 @@
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    #pragma warning (push)
-    #pragma warning (disable: 4244)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4244)
 #endif
 
 namespace tbb {
@@ -666,7 +666,7 @@ private:
 } // namespace tbb
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif // warning 4244 is back
 #undef __TBB_INITIAL_CHUNKS
 #undef __TBB_RANGE_POOL_CAPACITY

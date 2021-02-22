@@ -15,7 +15,7 @@
 */
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning(disable: 4180) // "qualifier applied to function type has no meaning; ignored"
+// #pragma warning(disable: 4180) // "qualifier applied to function type has no meaning; ignored"
 #endif
 
 #include "tbb/parallel_for_each.h"

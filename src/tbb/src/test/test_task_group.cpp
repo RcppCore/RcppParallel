@@ -52,7 +52,7 @@
 #else /* !TBBTEST_USE_TBB */
 
     #if defined(_MSC_VER)
-    #pragma warning(disable: 4100 4180)
+    // #pragma warning(disable: 4100 4180)
     #endif
 
     #include <ppl.h>
@@ -794,7 +794,7 @@ void TestStructuredCancellation1 () {
 
 #if TBB_USE_EXCEPTIONS
 #if defined(_MSC_VER)
-    #pragma warning (disable: 4127)
+    // #pragma warning (disable: 4127)
 #endif
 
 template<bool Throw>

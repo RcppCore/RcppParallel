@@ -73,7 +73,7 @@
 
 #include "harness_defs.h"
 #if _MSC_VER
-#pragma warning (disable : 4503)      // decorated name length exceeded, name was truncated
+// #pragma warning (disable : 4503)      // decorated name length exceeded, name was truncated
 #endif
 
 #if !(__TBB_TEST_SECONDARY && __TBB_CPP11_STD_PLACEHOLDERS_LINKAGE_BROKEN)

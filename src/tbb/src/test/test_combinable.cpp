@@ -35,7 +35,7 @@
 #include "test_container_move_support.h"
 
 #if __TBB_GCC_WARNING_SUPPRESSION_PRESENT
-#pragma GCC diagnostic ignored "-Wuninitialized"
+// #pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
 
 static tbb::atomic<int> construction_counter;

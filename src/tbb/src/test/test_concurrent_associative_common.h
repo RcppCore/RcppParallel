@@ -26,8 +26,8 @@
 #include "harness_allocator.h"
 
 #if _MSC_VER
-#pragma warning(disable: 4189) // warning 4189 -- local variable is initialized but not referenced
-#pragma warning(disable: 4127) // warning 4127 -- while (true) has a constant expression in it
+// #pragma warning(disable: 4189) // warning 4189 -- local variable is initialized but not referenced
+// #pragma warning(disable: 4127) // warning 4127 -- while (true) has a constant expression in it
 #endif
 
 // TestInitListSupportWithoutAssign with an empty initializer list causes internal error in Intel Compiler.

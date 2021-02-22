@@ -296,8 +296,8 @@ void TestReaderWriterLock( const char * mutex_name ) {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress "conditional expression is constant" warning.
-    #pragma warning( push )
-    #pragma warning( disable: 4127 )
+    // #pragma warning( push )
+    // #pragma warning( disable: 4127 )
 #endif
 
 /** Test try_acquire_reader functionality of a non-reenterable reader-writer mutex */
@@ -356,7 +356,7 @@ void TestTryAcquire_OneThread( const char * mutex_name ) {
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning( pop )
+    // #pragma warning( pop )
 #endif
 
 const int RecurN = 4;
