@@ -717,7 +717,7 @@ void myMemset(void *ptr, int c, size_t n)
     for (size_t i=0; i<n; i++)
         p[i] = c;
 #else
-    memset(ptr, c, n);
+    memset(static_cast<void*>(ptr), c, n);
 #endif
 }
 

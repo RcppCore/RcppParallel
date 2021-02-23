@@ -639,7 +639,7 @@ void NativeParallelFor( Index n, const Body& body ) {
 //! The function to zero-initialize arrays; useful to avoid warnings
 template <typename T>
 void zero_fill(void* array, size_t n) {
-    memset(array, 0, sizeof(T)*n);
+    memset(static_cast<void*>(array), 0, sizeof(T)*n);
 }
 
 #if __SUNPRO_CC && defined(min)

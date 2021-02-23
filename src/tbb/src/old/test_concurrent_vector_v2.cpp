@@ -409,7 +409,7 @@ void TestConcurrentGrowBy( int nthread ) {
     // Verify that v is a permutation of 0..m
     int inversions = 0;
     bool* found = new bool[m];
-    memset( found, 0, m );
+    memset( static_cast<void*>(found), 0, m );
     for( int i=0; i<m; ++i ) {
         int index = v[i].bar();
         ASSERT( !found[index], NULL );

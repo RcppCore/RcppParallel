@@ -99,7 +99,7 @@ bool TestReallocMsize(size_t startSz) {
     ASSERT(buf, "");
     size_t realSz = scalable_msize(buf);
     ASSERT(realSz>=startSz, "scalable_msize must be not less then allocated size");
-    memset(buf, 'a', realSz-1);
+    memset(static_cast<void*>(buf), 'a', realSz-1);
     buf[realSz-1] = 0;
     char *buf1 = (char*)scalable_realloc(buf, 2*realSz);
     ASSERT(buf1, "");

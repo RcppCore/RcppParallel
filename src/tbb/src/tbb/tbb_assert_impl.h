@@ -84,7 +84,7 @@ namespace tbb {
         //! Report a runtime warning.
         void __TBB_EXPORTED_FUNC runtime_warning( const char* format, ... )
         {
-            char str[1024]; memset(str, 0, 1024);
+            char str[1024]; memset(static_cast<void*>(str), 0, 1024);
             va_list args; va_start(args, format);
             vsnprintf( str, 1024-1, format, args);
             va_end(args);

@@ -87,7 +87,7 @@ void PrepareGlobals ( int numMasters ) {
         g_LeavesExecuted = new intptr_t[numMasters];
     g_CurConfig = 0;
     memset( const_cast<intptr_t*>(g_LeavesExecuted), 0, sizeof(intptr_t) * numMasters );
-    memset( g_TestFailures, 0, sizeof(int) * NumTests );
+    memset( static_cast<void*>(g_TestFailures), 0, sizeof(int) * NumTests );
 }
 
 void ClearGlobals () {

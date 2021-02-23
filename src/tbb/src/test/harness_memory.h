@@ -100,7 +100,7 @@ size_t GetMemoryUsage(MemoryStatType stat = currentUsage) {
 /** Recursion is used here instead of alloca because some implementations of alloca do not use the stack. */
 void UseStackSpace( size_t amount, char* top=0 ) {
     char x[1000];
-    memset( x, -1, sizeof(x) );
+    memset( static_cast<void*>(x), -1, sizeof(x) );
     if( !top )
         top = x;
     ASSERT( x<=top, "test assumes that stacks grow downwards" );

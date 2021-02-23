@@ -193,7 +193,7 @@ void Flog( int nthread ) {
             const FooRange<Pad> rc = r;
             FooBody<Pad> f( Array );
             const FooBody<Pad> fc = f;
-            memset( Array, 0, sizeof(Array) );
+            memset( static_cast<void*>(Array), 0, sizeof(Array) );
             FooBodyCount = 1;
             switch (mode) {
             case 0: {
@@ -256,7 +256,7 @@ void TestParallelForWithStepSupportHelper(Partitioner& p)
     for (T begin = 0; begin < pfor_buffer_test_size - 1; begin += pfor_buffer_test_size / 10 + 1) {
         T step;
         for (step = 1; step < pfor_buffer_test_size; step++) {
-            memset(pfor_buffer, 0, pfor_buffer_actual_size * sizeof(size_t));
+            memset(static_cast<void*>(pfor_buffer), 0, pfor_buffer_actual_size * sizeof(size_t));
             if (step == 1){
                 invoke_for(begin, pfor_buffer_test_size, TestFunctor<T>(), p);
             } else {

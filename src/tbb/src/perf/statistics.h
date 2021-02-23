@@ -170,7 +170,7 @@ private:
 
 //! using: Func(const char *fmt, ...) { vargf2buff(buff, 128, fmt);...
 #define vargf2buff(name, size, fmt) \
-    char name[size]; memset(name, 0, size); \
+    char name[size]; memset(static_cast<void*>(name), 0, size); \
     va_list args; va_start(args, fmt); \
     vsnprintf(name, size-1, fmt, args); \
     va_end(args);

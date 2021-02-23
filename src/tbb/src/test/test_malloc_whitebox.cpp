@@ -398,7 +398,7 @@ public:
              sz+=LargeObjectCache::LargeBSProps::CacheStep) {
             void *ptr = pool_malloc(my_mallocPool, sz);
             ASSERT(ptr, "Memory was not allocated");
-            memset(ptr, sz, sz);
+            memset(static_cast<void*>(ptr), sz, sz);
             pool_free(my_mallocPool, ptr);
         }
     }
@@ -452,16 +452,16 @@ void TestPools() {
 
     void *smallObj =  pool_malloc(fixedPool, 10);
     ASSERT(smallObj, "Memory was not allocated");
-    memset(smallObj, 1, 10);
+    memset(static_cast<void*>(smallObj), 1, 10);
     void *ptr = pool_malloc(fixedPool, 1024);
     ASSERT(ptr, "Memory was not allocated");
-    memset(ptr, 1, 1024);
+    memset(static_cast<void*>(ptr), 1, 1024);
     void *largeObj = pool_malloc(fixedPool, minLargeObjectSize);
     ASSERT(largeObj, "Memory was not allocated");
-    memset(largeObj, 1, minLargeObjectSize);
+    memset(static_cast<void*>(largeObj), 1, minLargeObjectSize);
     ptr = pool_malloc(fixedPool, minLargeObjectSize);
     ASSERT(ptr, "Memory was not allocated");
-    memset(ptr, minLargeObjectSize, minLargeObjectSize);
+    memset(static_cast<void*>(ptr), minLargeObjectSize, minLargeObjectSize);
     pool_malloc(fixedPool, 10*minLargeObjectSize); // no leak for unsuccessful allocations
     pool_free(fixedPool, smallObj);
     pool_free(fixedPool, largeObj);

@@ -79,7 +79,7 @@ struct Body: NoAssign {
     void operator()( long thread_id ) const {
         long pop_kind[3] = {0,0,0};
         int serial[MAXTHREAD+1];
-        memset( serial, 0, nthread*sizeof(unsigned) );
+        memset( static_cast<void*>(serial), 0, nthread*sizeof(unsigned) );
         ASSERT( thread_id<nthread, NULL );
 
         long sum = 0;

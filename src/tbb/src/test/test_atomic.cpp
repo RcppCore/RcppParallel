@@ -1141,7 +1141,7 @@ struct FlagAndMessage: AlignedAtomic<T,aligned> {
     //! Non-zero if message is ready
     T message;
     FlagAndMessage(): flag(FlagAndMessage::construct_atomic()) {
-        std::memset(pad,0,sizeof(pad));
+        std::memset(static_cast<void*>(pad),0,sizeof(pad));
     }
 };
 

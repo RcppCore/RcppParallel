@@ -197,7 +197,7 @@ void PrintVersion() {
 
 void PrintExtraVersionInfo( const char* category, const char* format, ... ) {
     if( PrintVersionFlag ) {
-        char str[1024]; memset(str, 0, 1024);
+        char str[1024]; memset(static_cast<void*>(str), 0, 1024);
         va_list args; va_start(args, format);
         // Note: correct vsnprintf definition obtained from tbb_assert_impl.h
         vsnprintf( str, 1024-1, format, args);

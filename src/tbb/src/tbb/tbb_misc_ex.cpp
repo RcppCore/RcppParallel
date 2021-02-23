@@ -100,7 +100,7 @@ affinity_helper::~affinity_helper() {
 void affinity_helper::protect_affinity_mask( bool restore_process_mask ) {
     if( threadMask == NULL && num_masks ) { // TODO: assert num_masks validity?
         threadMask = new basic_mask_t [num_masks];
-        memset( threadMask, 0, curMaskSize );
+        memset( static_cast<void*>(threadMask), 0, curMaskSize );
         get_thread_affinity_mask( curMaskSize, threadMask );
         if( restore_process_mask ) {
             __TBB_ASSERT( process_mask, "A process mask is requested but not yet stored" );
@@ -146,7 +146,7 @@ static void initialize_hardware_concurrency_info () {
     for (;;) {
         const int curMaskSize = BasicMaskSize * numMasks;
         processMask = new basic_mask_t[numMasks];
-        memset( processMask, 0, curMaskSize );
+        memset( static_cast<void*>(processMask), 0, curMaskSize );
 #if __linux__
         err = sched_getaffinity( pid, curMaskSize, processMask );
         if ( !err || errno != EINVAL || curMaskSize * CHAR_BIT >= 256 * 1024 )
@@ -178,7 +178,7 @@ static void initialize_hardware_concurrency_info () {
             if ( libiomp_try_restoring_original_mask()==0 ) {
                 // Now we have the right mask to capture, restored by libiomp.
                 const int curMaskSize = BasicMaskSize * numMasks;
-                memset( processMask, 0, curMaskSize );
+                memset( static_cast<void*>(processMask), 0, curMaskSize );
                 get_thread_affinity_mask( curMaskSize, processMask );
             } else
                 affhelp.dismiss();  // thread mask has not changed

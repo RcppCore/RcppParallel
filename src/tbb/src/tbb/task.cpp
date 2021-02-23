@@ -166,7 +166,7 @@ void affinity_partitioner_base_v3::resize( unsigned factor ) {
         }
         if( new_size ) {
             my_array = static_cast<affinity_id*>(NFS_Allocate(new_size,sizeof(affinity_id), NULL ));
-            memset( my_array, 0, sizeof(affinity_id)*new_size );
+            memset( static_cast<void*>(my_array), 0, sizeof(affinity_id)*new_size );
             my_size = new_size;
         }
     }

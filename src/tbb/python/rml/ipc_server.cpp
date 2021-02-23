@@ -822,7 +822,7 @@ ipc_server::ipc_server(tbb_client& client) :
 
     my_asleep_list_root = NULL;
     my_thread_array = tbb::cache_aligned_allocator<padded_ipc_worker>().allocate( my_n_thread );
-    memset( my_thread_array, 0, sizeof(padded_ipc_worker)*my_n_thread );
+    memset( static_cast<void*>(my_thread_array), 0, sizeof(padded_ipc_worker)*my_n_thread );
     for( size_t i=0; i<my_n_thread; ++i ) {
         ipc_worker* t = new( &my_thread_array[i] ) padded_ipc_worker( *this, client, i );
         t->my_next = my_asleep_list_root;
@@ -830,11 +830,11 @@ ipc_server::ipc_server(tbb_client& client) :
     }
 
     my_waker = tbb::cache_aligned_allocator<ipc_waker>().allocate(1);
-    memset( my_waker, 0, sizeof(ipc_waker) );
+    memset( static_cast<void*>(my_waker), 0, sizeof(ipc_waker) );
     new( my_waker ) ipc_waker( *this, client, my_n_thread );
 
     my_stopper = tbb::cache_aligned_allocator<ipc_stopper>().allocate(1);
-    memset( my_stopper, 0, sizeof(ipc_stopper) );
+    memset( static_cast<void*>(my_stopper), 0, sizeof(ipc_stopper) );
     new( my_stopper ) ipc_stopper( *this, client, my_n_thread + 1 );
 
     char* active_sem_name = get_active_sem_name();
@@ -1083,7 +1083,7 @@ void rml_atfork_child() {
     if( my_global_server!=NULL && my_global_client!=NULL ) {
         ipc_server* server = static_cast<ipc_server*>( my_global_server );
         server->~ipc_server();
-        memset( server, 0, sizeof(ipc_server) );
+        memset( static_cast<void*>(server), 0, sizeof(ipc_server) );
         new( server ) ipc_server( *my_global_client );
         pthread_atfork( NULL, NULL, rml_atfork_child );
         atexit( rml_atexit );

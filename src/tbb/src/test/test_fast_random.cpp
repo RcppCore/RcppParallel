@@ -85,9 +85,9 @@ struct CheckDistributionBody {
             ASSERT((random.a-1)%4==0, "a-1 is a multiple of p, for every prime p dividing m."
                    " And a-1 is a multiple of 4, if m is a multiple of 4");
 
-            memset( curHits, 0, randomRange * sizeof(uintptr_t) );
+            memset( static_cast<void*>(curHits), 0, randomRange * sizeof(uintptr_t) );
 #if TEST_TOTAL_SEQUENCE
-            memset( totalHits, 0, randomRange * sizeof(uintptr_t) );
+            memset( static_cast<void*>(totalHits), 0, randomRange * sizeof(uintptr_t) );
 #endif
             const uintptr_t seriesLen = randomRange * SeriesBaseLen,
                             experimentLen = NumSeries * seriesLen;

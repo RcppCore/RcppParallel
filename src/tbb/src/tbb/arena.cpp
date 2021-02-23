@@ -242,7 +242,7 @@ arena& arena::allocate_arena( market& m, unsigned num_slots, unsigned num_reserv
     size_t n = allocation_size(num_arena_slots(num_slots));
     unsigned char* storage = (unsigned char*)NFS_Allocate( 1, n, NULL );
     // Zero all slots to indicate that they are empty
-    memset( storage, 0, n );
+    memset( static_cast<void*>(storage), 0, n );
     return *new( storage + num_arena_slots(num_slots) * sizeof(mail_outbox) ) arena(m, num_slots, num_reserved_slots);
 }
 
@@ -293,7 +293,7 @@ void arena::free_arena () {
     __TBB_ASSERT( my_pool_state == SNAPSHOT_EMPTY || !my_max_num_workers, NULL );
     this->~arena();
 #if TBB_USE_ASSERT > 1
-    memset( storage, 0, allocation_size(my_num_slots) );
+    memset( static_cast<void*>(storage), 0, allocation_size(my_num_slots) );
 #endif /* TBB_USE_ASSERT */
     NFS_Free( storage );
 }

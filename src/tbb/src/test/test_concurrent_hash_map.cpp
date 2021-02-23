@@ -436,7 +436,7 @@ void TraverseTable( MyTable& table, size_t n, size_t expected_size ) {
     ASSERT( actual_size==expected_size, NULL );
     size_t count = 0;
     bool* array = new bool[n];
-    memset( array, 0, n*sizeof(bool) );
+    memset( static_cast<void*>(array), 0, n*sizeof(bool) );
     const MyTable& const_table = table;
     MyTable::const_iterator ci = const_table.begin();
     for( MyTable::iterator i = table.begin(); i!=table.end(); ++i ) {

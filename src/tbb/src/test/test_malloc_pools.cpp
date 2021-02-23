@@ -40,7 +40,7 @@ struct PoolSpace: NoCopy {
     PoolSpace(size_t bufSz = BUF_SIZE) :
         pos(0), regions(0),
         bufSize(bufSz), space(new char[bufSize]) {
-        memset(space, 0, bufSize);
+        memset(static_cast<void*>(space), 0, bufSize);
     }
     ~PoolSpace() {
         delete []space;
@@ -244,7 +244,7 @@ public:
             const size_t lrgSz = 2*16*1024;
             void *ptrLarge = pool_malloc(pool[id], lrgSz);
             ASSERT(ptrLarge, NULL);
-            memset(ptrLarge, 1, lrgSz);
+            memset(static_cast<void*>(ptrLarge), 1, lrgSz);
             // consume all small objects
             while (pool_malloc(pool[id], 5 * 1024));
             // releasing of large object will not give a chance to allocate more
@@ -591,7 +591,7 @@ void TestEntries()
         for (int j=0; j<ALGN; j++) {
             char *p = (char*)pool_aligned_malloc(pool, size[i], algn[j]);
             ASSERT(p && 0==((uintptr_t)p & (algn[j]-1)), NULL);
-            memset(p, j, size[i]);
+            memset(static_cast<void*>(p), j, size[i]);
 
             size_t curr_algn = algn[rand() % ALGN];
             size_t curr_sz = size[rand() % SZ];
@@ -599,7 +599,7 @@ void TestEntries()
             ASSERT(p1 && 0==((uintptr_t)p1 & (curr_algn-1)), NULL);
             ASSERT(memEqual(p1, min(size[i], curr_sz), j), NULL);
 
-            memset(p1, j+1, curr_sz);
+            memset(static_cast<void*>(p1), j+1, curr_sz);
             size_t curr_sz1 = size[rand() % SZ];
             char *p2 = (char*)pool_realloc(pool, p1, curr_sz1);
             ASSERT(p2, NULL);

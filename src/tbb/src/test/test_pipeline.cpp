@@ -237,7 +237,7 @@ void TestTrivialPipeline( unsigned nthread, unsigned number_of_filters ) {
         Harness::ConcurrencyTracker::Reset();
         unsigned streamSizeLimit = min( MaxStreamSize, nthread * MaxStreamItemsPerThread );
         for( StreamSize=0; StreamSize<=streamSizeLimit; ) {
-            memset( Done, 0, sizeof(Done) );
+            memset( static_cast<void*>(Done), 0, sizeof(Done) );
             for( unsigned i=0; i<number_of_filters; ++i ) {
                 static_cast<BaseFilter*>(filter[i])->current_token=0;
             }

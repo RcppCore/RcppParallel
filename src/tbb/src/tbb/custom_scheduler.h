@@ -118,7 +118,7 @@ class custom_scheduler: private generic_scheduler {
 public:
     static generic_scheduler* allocate_scheduler( market& m ) {
         void* p = NFS_Allocate(1, sizeof(scheduler_type), NULL);
-        std::memset(p, 0, sizeof(scheduler_type));
+        std::memset(static_cast<void*>(p), 0, sizeof(scheduler_type));
         scheduler_type* s = new( p ) scheduler_type( m );
         s->assert_task_pool_valid();
         ITT_SYNC_CREATE(s, SyncType_Scheduler, SyncObj_TaskPoolSpinning);

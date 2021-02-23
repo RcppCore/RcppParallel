@@ -885,7 +885,7 @@ void *BootStrapBlocks::allocate(MemoryPool *memPool, size_t size)
         }
     } // Unlock with release
 
-    memset (result, 0, size);
+    memset (static_cast<void*>(result), 0, size);
     return (void*)result;
 }
 
@@ -2699,7 +2699,7 @@ rml::MemPoolError pool_create_v1(intptr_t pool_id, const MemPoolPolicy *policy,
         *pool = NULL;
         return NO_MEMORY;
     }
-    memset(memPool, 0, sizeof(rml::internal::MemoryPool));
+    memset(static_cast<void*>(memPool), 0, sizeof(rml::internal::MemoryPool));
     if (!memPool->init(pool_id, policy)) {
         internalFree(memPool);
         *pool = NULL;
@@ -3067,7 +3067,7 @@ extern "C" void * scalable_calloc(size_t nobj, size_t size)
         }
     void* result = internalMalloc(arraySize);
     if (result)
-        memset(result, 0, arraySize);
+        memset(static_cast<void*>(result), 0, arraySize);
     else
         errno = ENOMEM;
     return result;

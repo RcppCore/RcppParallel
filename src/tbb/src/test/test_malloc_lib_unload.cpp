@@ -158,12 +158,12 @@ struct Run {
 
         for (size_t sz = 1024; sz <= 10*1024 ; sz*=10) {
             void *p1 = aligned_malloc_ptr(sz, 16);
-            memset(p1, 0, sz);
+            memset(static_cast<void*>(p1), 0, sz);
             aligned_free_ptr(p1);
         }
 
         void *p = malloc_ptr(100);
-        memset(p, 1, 100);
+        memset(static_cast<void*>(p), 1, 100);
         free_ptr(p);
 
         CloseLibrary(lib);

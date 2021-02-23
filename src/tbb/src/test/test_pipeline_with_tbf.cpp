@@ -239,7 +239,7 @@ struct hacked_filter {
 
 void clear_global_state() {
     Harness::ConcurrencyTracker::Reset();
-    memset( Done, 0, sizeof(Done) );
+    memset( static_cast<void*>(Done), 0, sizeof(Done) );
     thread_id = id0;
     is_serial_execution = false;
 }

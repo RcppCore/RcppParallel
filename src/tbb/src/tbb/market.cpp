@@ -148,7 +148,7 @@ market& market::global_market ( bool is_public, unsigned workers_requested, size
 #endif /* __TBB_TASK_GROUP_CONTEXT */
         __TBB_InitOnce::add_ref();
         void* storage = NFS_Allocate(1, size, NULL);
-        memset( storage, 0, size );
+        memset( static_cast<void*>(storage), 0, size );
         // Initialize and publish global market
         m = new (storage) market( workers_soft_limit, workers_hard_limit, stack_size );
         if( is_public )
