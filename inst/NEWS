@@ -17,6 +17,10 @@ RcppParallel 5.1.0 (UNRELEASED)
   argument, allowing one to limit the number of threads used for a
   particular computation.
 
+RcppParallel 5.0.3
+------------------------------------------------------------------------
+* Fixed compilation on macOS M1 machines.
+
 RcppParallel 5.0.2
 ------------------------------------------------------------------------
 
