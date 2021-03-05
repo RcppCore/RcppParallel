@@ -66,7 +66,7 @@ tbbLdFlags <- function() {
    # on Windows and Solaris we need to explicitly link against tbb.dll
    if ((Sys.info()['sysname'] %in% c("Windows", "SunOS")) && !isSparc()) {
       tbb <- tbbLibPath()
-      paste("-L", asBuildPath(dirname(tbb)), " -ltbb -ltbbmalloc", sep = "")
+      paste("-L", shQuote(asBuildPath(dirname(tbb))), " -ltbb -ltbbmalloc", sep = "")
    } else if (dir.exists(Sys.getenv("TBB_LIB"))) {
       TBB_LIB <- asBuildPath(Sys.getenv("TBB_LIB"))
       paste0("-L", shQuote(TBB_LIB), " -Wl,-rpath,", TBB_LIB, " -ltbb -ltbbmalloc")
