@@ -110,7 +110,7 @@ tbbLibPath <- function(suffix = "") {
       "Darwin"  = paste0("libtbb", suffix, ".dylib"),
       "Windows" = paste0("tbb",    suffix, ".dll"),
       "SunOS"   = paste0("libtbb", suffix, ".so"),
-      "Linux"   = paste0("libtbb", suffix, c(".so", ".so.2"))
+      "Linux"   = paste0("libtbb", suffix, c(".so.2", ".so"))
    )
    
    # skip systems that we know not to be compatible
