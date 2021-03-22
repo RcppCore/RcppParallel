@@ -28,98 +28,133 @@ RcppParallelLibs <- function() {
 
 # Inline plugin used by sourceCpp.
 inlineCxxPlugin <- function() {
-   list(
-      env = list(
-         PKG_CXXFLAGS = tbbCxxFlags(),
-         PKG_LIBS = tbbLdFlags()
-      ),
-      includes = "#include <RcppParallel.h>",
-      LinkingTo = "RcppParallel",
-      body = function(x) x,
-      Depends = "RcppParallel"
+   
+   env <- list(
+      PKG_CXXFLAGS = tbbCxxFlags(),
+      PKG_LIBS = tbbLdFlags()
    )
+   
+   list(
+      env       = env,
+      body      = identity,
+      includes  = "#include <RcppParallel.h>",
+      LinkingTo = "RcppParallel",
+      Depends   = "RcppParallel"
+   )
+   
 }
 
 tbbCxxFlags <- function() {
 
-   flags <- c()
+   flags <- character()
 
    # opt-in to TBB on Windows
-   if (Sys.info()['sysname'] == "Windows")
-      flags <- paste(flags, "-DRCPP_PARALLEL_USE_TBB=1")
-
-   if (dir.exists(Sys.getenv("TBB_INC"))) {
-       TBB_INC <- asBuildPath(Sys.getenv("TBB_INC"))
-
-       if (file.exists(file.path(TBB_INC, "tbb", "version.h"))) {
-          flags <- paste0("-I", shQuote(TBB_INC), " -DTBB_INTERFACE_NEW")
-       } else {
-          flags <- paste0("-I", shQuote(TBB_INC))
-       }
+   if (is_windows())
+      flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+   
+   # if TBB_INC is set, apply those library paths
+   tbbInc <- Sys.getenv("TBB_INC", unset = NA)
+   if (!is.na(tbbInc)) {
+      
+      # add include path
+      flags <- c(flags, paste0("-I", shQuote(asBuildPath(tbbInc))))
+      
+      # prefer new interface if version.h exists
+      versionPath <- file.path(tbbInc, "tbb/version.h")
+      if (file.exists(versionPath))
+         flags <- c(flags, "-DTBB_INTERFACE_NEW")
+      
    }
 
-   flags
+   # return flags as string
+   paste(flags, collapse = " ")
+   
 }
 
 # Return the linker flags requried for TBB on this platform
 tbbLdFlags <- function() {
-   # on Windows and Solaris we need to explicitly link against tbb.dll
-   if ((Sys.info()['sysname'] %in% c("Windows", "SunOS")) && !isSparc()) {
-      tbb <- tbbLibPath()
-      paste("-L", shQuote(asBuildPath(dirname(tbb))), " -ltbb -ltbbmalloc", sep = "")
-   } else if (dir.exists(Sys.getenv("TBB_LIB"))) {
-      TBB_LIB <- asBuildPath(Sys.getenv("TBB_LIB"))
-      paste0("-L", shQuote(TBB_LIB), " -Wl,-rpath,", TBB_LIB, " -ltbb -ltbbmalloc")
-   } else {
-      ""
+   
+   # shortcut if TBB_LIB defined
+   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
+   if (!is.na(tbbLib)) {
+      fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
+      return(sprintf(fmt, asBuildPath(tbbLib)))
    }
+   
+   # on Windows and Solaris, we need to explicitly link
+   needsExplicitFlags <- is_windows() || (is_solaris() && !is_sparc())
+   if (needsExplicitFlags) {
+      libPath <- asBuildPath(dirname(tbbLibPath()))
+      libFlag <- paste0("-L", shQuote(libPath))
+      return(paste(libFlag, "-ltbb", "-ltbbmalloc"))
+   }
+   
+   # nothing required on other platforms
+   ""
+   
 }
 
 # Determine the platform-specific path to the TBB library
 tbbLibPath <- function(suffix = "") {
-   sysname <- Sys.info()['sysname']
-   tbbSupported <- list(
-      "Darwin" = paste("libtbb", suffix, ".dylib", sep = ""),
-      "Linux" = paste("libtbb", suffix, ".so.2", sep = ""),
-      "Windows" = paste("tbb", suffix, ".dll", sep = ""),
-      "SunOS" = paste("libtbb", suffix, ".so", sep = "")
+   
+   # library paths for different OSes
+   sysname <- Sys.info()[["sysname"]]
+   
+   tbbLibNames <- list(
+      "Darwin"  = paste0("libtbb", suffix, ".dylib"),
+      "Windows" = paste0("tbb",    suffix, ".dll"),
+      "SunOS"   = paste0("libtbb", suffix, ".so"),
+      "Linux"   = paste0("libtbb", suffix, c(".so", ".so.2"))
    )
 
-   if (dir.exists(Sys.getenv("TBB_LIB"))) {
-      TBB_LIB <- asBuildPath(Sys.getenv("TBB_LIB"))
-      asBuildPath(file.path(TBB_LIB, paste("libtbb", suffix, ".so", sep = "")))
-   } else {
-      if ((sysname %in% names(tbbSupported)) && !isSparc()) {
-         libDir <- "lib/"
-         if (sysname == "Windows")
-            libDir <- paste(libDir, .Platform$r_arch, "/", sep="")
-
-         tbb_path <- system.file(paste(libDir, tbbSupported[[sysname]], sep = ""),
-                                 package = "RcppParallel")
-         if (sysname == "Linux" && !file.exists(tbb_path)) {
-             system.file(paste(libDir, "libtbb", suffix, ".so", sep =""),
-                         package = "RcppParallel")
-         } else {
-            tbb_path
-         }
-      } else {
-         NULL
-      }
+   # shortcut if TBB_LIB is defined
+   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
+   if (!is.na(tbbLib)) {
+      libPaths <- file.path(tbbLib, tbbLibNames[[sysname]])
+      for (libPath in libPaths)
+         if (file.exists(libPath))
+            return(asBuildPath(libPath))
    }
-}
+   
+   # otherwise, construct library path as appropriate for arch
+   isCompatible <-
+      !is_sparc() &&
+      !is.null(tbbLibNames[[sysname]])
+   
+   if (!isCompatible)
+      return(NULL)
+   
+   # construct library path
+   arch <- .Platform$r_arch
+   components <- c("lib", if (nzchar(arch)) arch)
+   libDir <- paste(components, collapse = "/")
+   
+   # form path to bundled tbb component
+   libNames <- tbbLibNames[[sysname]]
+   for (libName in libNames) {
+      tbbName <- file.path(libDir, libName)
+      tbbPath <- system.file(tbbName, package = "RcppParallel")
+      if (file.exists(tbbPath))
+         return(tbbPath)
+   }
 
-isSparc <- function() {
-   Sys.info()['sysname'] == "SunOS" && Sys.info()[["machine"]] != "i86pc"
 }
 
 # Helper function to ape the behavior of the R build system
 # when providing paths to libraries
 asBuildPath <- function(path) {
-   if (.Platform$OS.type == "windows") {
-      path <- normalizePath(path)
-      if (grepl(' ', path, fixed=TRUE))
-         path <- utils::shortPathName(path)
-      path <- gsub("\\\\", "/", path)
-   }
+   
+   # nothing to do for non-Windows
+   if (!is_windows())
+      return(path)
+   
+   # normalize paths using forward slashes
+   path <- normalizePath(path, winslash = "/", mustWork = FALSE)
+   
+   # prefer short path names if the path has spaces
+   if (grepl(" ", path, fixed = TRUE))
+      path <- utils::shortPathName(path)
+   
+   # return path
    return(path)
 }

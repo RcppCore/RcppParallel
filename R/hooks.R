@@ -13,6 +13,7 @@ mallocDllInfo <- NULL
          dllInfo <<- dyn.load(tbb, local = FALSE, now = TRUE)
       }
    }
+   
    tbbMalloc <- tbbLibPath("malloc")
    if (!is.null(tbbMalloc)) {
       if (!file.exists(tbbMalloc)) {
@@ -35,7 +36,9 @@ mallocDllInfo <- NULL
    # unload tbb if we loaded it
    if (!is.null(dllInfo))
       dyn.unload(dllInfo[["path"]])
+   
    # unload tbbmalloc if we loaded it
    if (!is.null(mallocDllInfo))
       dyn.unload(mallocDllInfo[["path"]])
+
 }
