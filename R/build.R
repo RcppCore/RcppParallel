@@ -78,7 +78,7 @@ tbbLdFlags <- function() {
    tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
    if (!is.na(tbbLib)) {
       fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
-      return(sprintf(fmt, asBuildPath(tbbLib)))
+      return(sprintf(fmt, shQuote(asBuildPath(tbbLib))))
    }
    
    # on Windows and Solaris, we need to explicitly link
@@ -94,6 +94,12 @@ tbbLdFlags <- function() {
    
 }
 
+tbbRoot <- function() {
+   rArch <- .Platform$r_arch
+   libDir <- paste(c("lib", if (nzchar(rArch)) rArch), collapse = "/")
+   system.file(libDir, package = "RcppParallel")
+}
+
 # Determine the platform-specific path to the TBB library
 tbbLibPath <- function(suffix = "") {
    
@@ -106,17 +112,8 @@ tbbLibPath <- function(suffix = "") {
       "SunOS"   = paste0("libtbb", suffix, ".so"),
       "Linux"   = paste0("libtbb", suffix, c(".so", ".so.2"))
    )
-
-   # shortcut if TBB_LIB is defined
-   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
-   if (!is.na(tbbLib)) {
-      libPaths <- file.path(tbbLib, tbbLibNames[[sysname]])
-      for (libPath in libPaths)
-         if (file.exists(libPath))
-            return(asBuildPath(libPath))
-   }
    
-   # otherwise, construct library path as appropriate for arch
+   # skip systems that we know not to be compatible
    isCompatible <-
       !is_sparc() &&
       !is.null(tbbLibNames[[sysname]])
@@ -124,18 +121,13 @@ tbbLibPath <- function(suffix = "") {
    if (!isCompatible)
       return(NULL)
    
-   # construct library path
-   arch <- .Platform$r_arch
-   components <- c("lib", if (nzchar(arch)) arch)
-   libDir <- paste(components, collapse = "/")
-   
-   # form path to bundled tbb component
+   # find root for TBB install
+   tbbRoot <- Sys.getenv("TBB_LIB", unset = tbbRoot())
    libNames <- tbbLibNames[[sysname]]
    for (libName in libNames) {
-      tbbName <- file.path(libDir, libName)
-      tbbPath <- system.file(tbbName, package = "RcppParallel")
-      if (file.exists(tbbPath))
-         return(tbbPath)
+      tbbName <- file.path(tbbRoot, libName)
+      if (file.exists(tbbName))
+         return(tbbName)
    }
 
 }

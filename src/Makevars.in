@@ -125,13 +125,7 @@ else
 	rm -Rf ../inst/include/tbb_local/; \
 	cp -R tbb/include/* ../inst/include/; \
 	cd tbb/src; \
-	if [ -n "$(shell echo $(CC) | grep clang)" ]; then \
-	   $(MAKE_CMD) stdver=@STDVER@ compiler=clang $(MAKE_ARGS); \
-	elif [ -n "$(shell echo $(CC) | grep gcc)" ]; then \
-	   $(MAKE_CMD) stdver=@STDVER@ compiler=gcc $(MAKE_ARGS); \
-	else \
-	   $(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS); \
-	fi; \
+	$(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS); \
 	cd ../..; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
 	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
