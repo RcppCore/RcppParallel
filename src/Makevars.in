@@ -11,13 +11,17 @@ ifdef TBB_LIB
   PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
 endif
 
+ifeq ($(VERBOSE),)
+  SILENT = -s
+endif
+
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
 
   MAKE = make
-  MAKEFLAGS = -e -s -j1
+  MAKEFLAGS = -e $(SILENT) -j1
   MAKE_CMD =                                  \
     MSYS2_ARG_CONV_EXCL="*"                   \
     CYGWIN=nodosfilewarning                   \
@@ -45,7 +49,7 @@ else
     endif
   endif
 
-  MAKEFLAGS += -e -s
+  MAKEFLAGS += -e $(SILENT)
   MAKE_CMD =                                   \
     CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
     CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
