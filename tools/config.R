@@ -77,7 +77,10 @@ configure_file <- function(
     rhs = "@",
     verbose = configure_verbose())
 {
+    # read source file
     contents <- readLines(source, warn = FALSE)
+
+    # replace defined variables
     enumerate(config, function(key, val) {
         needle <- paste(lhs, key, rhs, sep = "")
         replacement <- val
@@ -85,8 +88,15 @@ configure_file <- function(
     })
 
     ensure_directory(dirname(target))
-    writeLines(contents, con = target)
 
+    # write configured file to target location
+    # prefer unix newlines for Makevars
+    mode <- if (target %in% "Makevars") "wb" else "w"
+    conn <- file(target, open = mode)
+    on.exit(close(conn), add = TRUE)
+    writeLines(contents, con = conn)
+
+    # copy over source permissions
     info <- file.info(source)
     Sys.chmod(target, mode = info$mode)
 
@@ -580,8 +590,9 @@ if (!interactive()) {
 
     # switch working directory to the calling scripts's directory as set
     # by the shell, in case the R working directory was set to something else
-    basedir <- Sys.getenv("PWD", unset = ".")
-    setwd(basedir)
+    basedir <- Sys.getenv("PWD", unset = NA)
+    if (!is.na(basedir))
+        setwd(basedir)
 
     # report start of execution
     package <- Sys.getenv("R_PACKAGE_NAME", unset = "<unknown>")
