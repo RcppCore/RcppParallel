@@ -3,9 +3,10 @@
 .Rhistory
 .RData
 .DS_Store
+autom4te.cache/
 config.log
 config.status
-autom4te.cache/
+inst/doc
+revdep
 src-i386/
 src-x64/
-inst/doc
