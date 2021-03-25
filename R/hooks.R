@@ -23,8 +23,24 @@ mallocDllInfo <- NULL
       }
    }
    
-   # load the package library
-   library.dynam("RcppParallel", pkgname, libname)
+   # work around roxygen2 issue
+   documenting <- FALSE
+   checks <- list(
+      call("::", as.symbol("devtools"), as.symbol("document")),
+      call("::", as.symbol("roxygen2"), as.symbol("roxygenize"))
+   )
+   
+   for (call in sys.calls()) {
+      for (check in checks) {
+         if (identical(call[[1L]], check)) {
+            documenting <- TRUE
+            break
+         }
+      }
+   }
+   
+   if (!documenting)
+      library.dynam("RcppParallel", pkgname, libname)
    
 }
 

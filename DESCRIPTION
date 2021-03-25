@@ -33,3 +33,5 @@ License: GPL (>= 2)
 URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
+RoxygenNote: 7.1.1
+Encoding: UTF-8

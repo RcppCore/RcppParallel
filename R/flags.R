@@ -1,53 +1,57 @@
 
+#' Compilation flags for RcppParallel
+#' 
+#' Output the compiler or linker flags required to build against RcppParallel.
+#' 
+#' These functions are typically called from \code{Makevars} as follows:
+#' 
+#' ```
+#' PKG_LIBS += $(shell "${R_HOME}/bin/Rscript" -e "RcppParallel::LdFlags()")
+#' ```
+#' 
+#' On Windows, the flags ensure that the package links with the built-in TBB
+#' library. On Linux and macOS, the output is empty, because TBB is loaded
+#' dynamically.
+#' 
+#' To ensure portability, load \pkg{RcppParallel} before loading
+#' your package, e.g. by including \code{importFrom(RcppParallel,
+#' RcppParallelLibs)} in your \code{NAMESPACE} file. See
+#' \url{https://github.com/RcppCore/RcppParallel/issues/129} for details.
+#' 
+#' @name flags
+#' @rdname flags
+#' @aliases RcppParallelLibs LdFlags CxxFlags
+#' 
+#' @return Returns \code{NULL}, invisibly. These functions are called for
+#'   their side effects (writing the associated flags to stdout).
+#'
+NULL
 
-# Output the CXX flags. These flags are propagated to sourceCpp via the 
-# inlineCxxPlugin (defined below) and to packages via a line in Makevars[.win]
-# like this:
-#
-#  PKG_CXXFLAGS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::CxxFlags()")
-#
+
+#' @name flags
+#' @export
 CxxFlags <- function() {
    cat(tbbCxxFlags())
 }
 
-
-# Output the LD flags for building against TBB. These flags are propagated
-# to sourceCpp via the inlineCxxPlugin (defined below) and to packages 
-# via a line in Makevars[.win] like this:
-#
-#   PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::LdFlags()")
-#
+#' @name flags
+#' @export
 LdFlags <- function() {
    cat(tbbLdFlags())
 }
 
-# alias for backward compatibility
+#' @name flags
+#' @export
 RcppParallelLibs <- function() {
    LdFlags()
 }
 
-# Inline plugin used by sourceCpp.
-inlineCxxPlugin <- function() {
-   
-   env <- list(
-      PKG_CXXFLAGS = tbbCxxFlags(),
-      PKG_LIBS = tbbLdFlags()
-   )
-   
-   list(
-      env       = env,
-      body      = identity,
-      includes  = "#include <RcppParallel.h>",
-      LinkingTo = "RcppParallel",
-      Depends   = "RcppParallel"
-   )
-   
-}
+
 
 tbbCxxFlags <- function() {
-
+   
    flags <- character()
-
+   
    # opt-in to TBB on Windows
    if (is_windows())
       flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
@@ -65,7 +69,7 @@ tbbCxxFlags <- function() {
          flags <- c(flags, "-DTBB_INTERFACE_NEW")
       
    }
-
+   
    # return flags as string
    paste(flags, collapse = " ")
    
@@ -129,7 +133,7 @@ tbbLibPath <- function(suffix = "") {
       if (file.exists(tbbName))
          return(tbbName)
    }
-
+   
 }
 
 # Helper function to ape the behavior of the R build system
@@ -149,4 +153,5 @@ asBuildPath <- function(path) {
    
    # return path
    return(path)
+   
 }

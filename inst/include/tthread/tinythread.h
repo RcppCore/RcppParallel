@@ -130,8 +130,8 @@ freely, subject to the following restrictions:
 /// destructors) to be declared with the @c thread_local keyword, most pre-C++11
 /// compilers only allow for trivial types (e.g. @c int). So, to guarantee
 /// portable code, only use trivial types for thread local storage.
-/// @note This directive is currently not supported on Mac OS X (it will give
-/// a compiler error), since compile-time TLS is not supported in the Mac OS X
+/// @note This directive is currently not supported on Mac macOS (it will give
+/// a compiler error), since compile-time TLS is not supported in the Mac macOS
 /// executable format. Also, some older versions of MinGW (before GCC 4.x) do
 /// not support this directive.
 /// @hideinitializer

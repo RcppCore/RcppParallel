@@ -15,3 +15,4 @@ LaTeX: pdfLaTeX
 BuildType: Package
 PackageInstallArgs: --with-keep.source --clean
 PackageCheckArgs: --as-cran
+PackageRoxygenize: rd,collate,namespace,vignette
