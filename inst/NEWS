@@ -1,4 +1,4 @@
-RcppParallel 5.1.0 (UNRELEASED)
+RcppParallel 5.1.1
 ------------------------------------------------------------------------
 
 * Updated bundled version of TBB (Intel TBB 2019 Update 8)
