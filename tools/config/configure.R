@@ -84,12 +84,14 @@ if (getRversion() < "4.0") {
 }
 
 # on Solaris, check if we're using gcc or g++
+define(COMPILER = "")
 if (Sys.info()[["sysname"]] == "SunOS") {
    cxx <- r_cmd_config("CXX")
    version <- system(paste(cxx, "--version"), intern = TRUE)
    for (compiler in c("gcc", "g++")) {
       if (any(grepl(compiler, version, fixed = TRUE))) {
-         define(COMPILER = "compiler=gcc")
+         define(COMPILER = "gcc")
       }
    }
 }
+

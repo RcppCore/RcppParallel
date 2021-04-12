@@ -106,7 +106,9 @@ ifeq ($(USE_TBB), Windows)
 endif
 
 # write compiler if set
-MAKE_ARGS += $(COMPILER)
+ifneq (@COMPILER@, )
+	MAKE_ARGS += compiler=@COMPILER@
+endif
 
 # For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
 ifeq ($(USE_TBB), SunOS)
