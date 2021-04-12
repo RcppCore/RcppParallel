@@ -114,9 +114,11 @@ ifeq ($(USE_TBB), SunOS)
 endif
 
 # Write compilation output to file, and log it if installation fails.
-MAKE_ARGS += > tbb.log 2>&1 \
-	&& echo "(tbb) TBB successfully built and installed." \
-	|| cat tbb.log; rm -f tbb.log
+ifeq ($(VERBOSE),)
+	MAKE_ARGS += > tbb.log 2>&1 \
+		&& echo "(tbb) TBB successfully built and installed." \
+		|| cat tbb.log; rm -f tbb.log
+endif
 
 .PHONY: all tbb tbb-clean
 
