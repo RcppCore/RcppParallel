@@ -25,14 +25,19 @@
    if (is.na(tbbLib)) {
       
       # using bundled TBB
-      tbbLibs <- list.files(
-         path       = "tbb/build/lib_release",
-         pattern    = shlibPattern,
-         full.names = TRUE
+      sysname <- Sys.info()[["sysname"]]
+      
+      tbbExt <- switch(
+         sysname,
+         Windows = ".dll",
+         Darwin  = ".dylib",
+         ".so"
       )
       
-      # copy tbb libraries
-      file.copy(tbbLibs, tbbDest)
+      fmt <- "cp -R tbb/build/lib_release/*%s '%s/'"
+      cmd <- sprintf(fmt, tbbExt, tbbDest)
+      
+      system(cmd)
       
    } else {
       
