@@ -20,24 +20,27 @@
    if (is.na(tbbLib) && !is.na(tbbRoot))
       tbbLib <- file.path(tbbRoot, "lib")
    
-   shlibPattern <- "[.](?:so|dylib|dll)$"
+   # note: on Linux, TBB gets compiled with extensions like
+   # '.so.2', so be ready to handle those
+   shlibPattern <- switch(
+      Sys.info()[["sysname"]],
+      Windows = "[.]dll$",
+      Darwin  = "[.]dylib$",
+      "[.]so(?:[.][[:digit:]]+)?$"
+   )
    
    if (is.na(tbbLib)) {
       
       # using bundled TBB
-      sysname <- Sys.info()[["sysname"]]
-      
-      tbbExt <- switch(
-         sysname,
-         Windows = ".dll",
-         Darwin  = ".dylib",
-         ".so.2"
+      tbbLibs <- list.files(
+         path       = "tbb/build/lib_release",
+         pattern    = shlibPattern,
+         full.names = TRUE
       )
       
-      fmt <- "cp -R tbb/build/lib_release/*%s '%s/'"
-      cmd <- sprintf(fmt, tbbExt, tbbDest)
-      
-      system(cmd)
+      # only copy real files; don't copy symlinks
+      links <- Sys.readlink(tbbLibs)
+      file.copy(tbbLibs[!nzchar(links)], tbbDest)
       
    } else {
       
