@@ -101,7 +101,7 @@ ifeq ($(USE_TBB),  Windows)
 
   # Linker needs access to the tbb dll; otherwise you get errors such as:
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
-  PKG_LIBS += -L../inst/lib/$(ARCH_DIR) -ltbb -ltbbmalloc
+  PKG_LIBS += -L../inst/libs/$(ARCH_DIR) -ltbb -ltbbmalloc
 
 endif
 
