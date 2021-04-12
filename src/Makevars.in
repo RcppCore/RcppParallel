@@ -84,7 +84,7 @@ ifdef USE_TBB
 PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 PKG_CXXFLAGS += -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
-MAKE_ARGS := tbb_release tbbmalloc_release tbb_build_prefix=lib
+MAKE_TARGETS = tbb_build_prefix=lib tbb_release tbbmalloc_release
 
 ifeq ($(USE_TBB),  Windows)
 
@@ -101,7 +101,7 @@ ifeq ($(USE_TBB),  Windows)
 
   # Linker needs access to the tbb dll; otherwise you get errors such as:
   # "undefined reference to `tbb::task_scheduler_init::terminate()'"
-  PKG_LIBS += -L../inst/libs/$(ARCH_DIR) -ltbb -ltbbmalloc
+  PKG_LIBS += -L$(shell pwd)/tbb/build/lib_release -ltbb -ltbbmalloc
 
 endif
 
@@ -113,15 +113,10 @@ ifeq ($(USE_TBB), SunOS)
   endif
 endif
 
-# Override arch (mainly for arm64 macOS)
-ifneq ("$(ARCH)",)
-MAKE_ARGS += $(ARCH)
-endif
-
 # Write compilation output to file, and log it if installation fails.
 ifeq ($(VERBOSE),)
-	MAKE_ARGS += > tbb.log 2>&1 \
-		&& echo "(tbb) TBB successfully built and installed." \
+	MAKE_LOG = > tbb.log 2>&1 \
+		&& echo "(tbb) TBB compilation finished successfully." \
 		|| cat tbb.log; rm -f tbb.log
 endif
 
@@ -138,17 +133,17 @@ $(OBJECTS): tbb
 # However, we need to copy headers here so that they are visible during compilation.
 tbb: tbb-clean
 ifdef TBB_LIB
-	@echo "(tbb) Using system (Intel/OneAPI) TBB library ..."
+	@echo "(tbb) Using system (Intel / OneAPI) TBB library."
 	@echo "(tbb) TBB_LIB = $(TBB_LIB)"
 	@echo "(tbb) TBB_INC = $(TBB_INC)"
 	@mkdir -p ../inst/include
 	@cp -R $(TBB_INC)/* ../inst/include/
 else
-	@echo "(tbb) Using bundled TBB library ..."
+	@echo "(tbb) Building TBB using bundled sources ..."
 	@mkdir -p ../inst/include
 	@cp -R tbb/include/* ../inst/include/
-	@(cd tbb/src && $(MAKE_CMD) info)
-	@(cd tbb/src && $(MAKE_CMD) @STDVER@ $(MAKE_ARGS))
+	@(cd tbb/src && $(MAKE_CMD) $(MAKE_ARGS) info)
+	@(cd tbb/src && $(MAKE_CMD) @STDVER@ $(MAKE_ARGS) $(MAKE_TARGETS) $(MAKE_LOG))
 endif
 
 tbb-clean:
@@ -157,11 +152,11 @@ tbb-clean:
 	@rm -rf ../inst/include/tbb_local
 	@rm -rf ../inst/include/serial
 
-clean:
+clean: tbb-clean
 ifdef TBB_LIB
-	echo "Nothing to clean for TBB."
+	@echo "Nothing to clean for TBB."
 else
-	(cd tbb/src; make clean)
+	@(cd tbb/src; make clean)
 endif
 
 

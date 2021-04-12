@@ -76,14 +76,6 @@ if (info[["sysname"]] == "Windows") {
 
 }
 
-# detect arm64 macOS
-if (info[["sysname"]] == "Darwin") {
-   if (info[["machine"]] == "arm64") {
-      define(ARCH = "arch=arm64")
-   } else {
-      define(ARCH = "")
-   }
-}
 # use c++0x for compatibility with older compilers
 if (getRversion() < "4.0") {
    define(STDVER = "stdver=c++0x")
