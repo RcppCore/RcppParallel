@@ -76,5 +76,8 @@ if (Sys.info()[["sysname"]] == "Windows") {
 }
 
 # use c++0x for compatibility with older compilers
-define(STDVER = "c++0x")
-
+if (getRversion() < "4.0") {
+   define(STDVER = "stdver=c++0x")
+} else {
+   define(STDVER = "")
+}

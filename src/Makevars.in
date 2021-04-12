@@ -123,7 +123,9 @@ endif
 # Order is important in Windows' case. See PKG_LIBS above
 all: tbb $(SHLIB)
 
-$(SHLIB): $(OBJECTS) tbb
+# TBB needs to be built before our C++ sources are built, so that
+# headers are copied and available from the expected locations.
+$(OBJECTS): tbb
 
 # NOTE: TBB libraries are installed via install.libs.R.
 # However, we need to copy headers here so that they are visible during compilation.
@@ -138,7 +140,7 @@ else
 	@echo "(tbb) Using bundled TBB library ..."
 	@mkdir -p ../inst/include
 	@cp -R tbb/include/* ../inst/include/
-	@(cd tbb/src && $(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS))
+	@(cd tbb/src && $(MAKE_CMD) @STDVER@ $(MAKE_ARGS))
 endif
 
 tbb-clean:
