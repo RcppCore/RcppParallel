@@ -100,7 +100,8 @@ tbbLdFlags <- function() {
 
 tbbRoot <- function() {
    rArch <- .Platform$r_arch
-   libDir <- paste(c("lib", if (nzchar(rArch)) rArch), collapse = "/")
+   parts <- c("libs", if (nzchar(rArch)) rArch, "tbb")
+   libDir <- paste(parts, collapse = "/")
    system.file(libDir, package = "RcppParallel")
 }
 

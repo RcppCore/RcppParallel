@@ -1,6 +1,19 @@
 
 PKG_CXXFLAGS = @CXX11STD@
 
+# If TBB_ROOT is defined, use it.
+ifdef TBB_ROOT
+  
+  ifndef TBB_LIB
+    TBB_LIB = $(TBB_ROOT)/lib
+  endif
+  
+  ifndef TBB_INC
+    TBB_INC = $(TBB_ROOT)/include
+  endif
+  
+endif
+
 # If TBB_LIB is defined by TBB_INC is not, make a guess.
 ifdef TBB_LIB
   ifndef TBB_INC
@@ -69,6 +82,7 @@ endif
 ifdef USE_TBB
 
 PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+PKG_CXXFLAGS += -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
 MAKE_ARGS := tbb_release tbbmalloc_release tbb_build_prefix=lib
 
@@ -101,39 +115,37 @@ endif
 
 # Write compilation output to file, and log it if installation fails.
 ifneq ($(OS), Windows_NT)
-  MAKE_ARGS += > tbb.log 2>&1 || cat tbb.log; rm -f tbb.log
+  MAKE_ARGS += > tbb.log 2>&1 && echo "(tbb) TBB successfully built and installed." || cat tbb.log; rm -f tbb.log
 endif
 
-.PHONY: all tbb
+.PHONY: all tbb tbb-clean
 
 # Order is important in Windows' case. See PKG_LIBS above
 all: tbb $(SHLIB)
 
-tbb:
+$(SHLIB): $(OBJECTS) tbb
+
+# NOTE: TBB libraries are installed via install.libs.R.
+# However, we need to copy headers here so that they are visible during compilation.
+tbb: tbb-clean
 ifdef TBB_LIB
-	echo "Using system (Intel/OneAPI) TBB library ..."; \
-	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	ln -nfs $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so 2>/dev/null || :; \
-	ln -nfs $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so 2>/dev/null || :; \
-	rm -Rf ../inst/include/serial/; \
-	rm -Rf ../inst/include/tbb/; \
-	rm -Rf ../inst/include/tbb_local/; \
-	mkdir -p ../inst/include; \
-	cp -R $(TBB_INC)/serial ../inst/include/ 2>/dev/null || :; \
-	cp -R $(TBB_INC)/oneapi ../inst/include/ 2>/dev/null || :; \
-	cp -R $(TBB_INC)/tbb ../inst/include/ 2>/dev/null || :
+	@echo "(tbb) Using system (Intel/OneAPI) TBB library ..."
+	@echo "(tbb) TBB_LIB = $(TBB_LIB)"
+	@echo "(tbb) TBB_INC = $(TBB_INC)"
+	@mkdir -p ../inst/include
+	@cp -R $(TBB_INC)/* ../inst/include/
 else
-	echo "Using bundled TBB library ..."; \
-	rm -Rf ../inst/include/serial/; \
-	rm -Rf ../inst/include/tbb/; \
-	rm -Rf ../inst/include/tbb_local/; \
-	cp -R tbb/include/* ../inst/include/; \
-	cd tbb/src; \
-	$(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS); \
-	cd ../..; \
-	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	cp tbb/build/lib_release/$(TBB_COPY_PATTERN) ../inst/lib/$(ARCH_DIR)
+	@echo "(tbb) Using bundled TBB library ..."
+	@mkdir -p ../inst/include
+	@cp -R tbb/include/* ../inst/include/
+	@(cd tbb/src && $(MAKE_CMD) stdver=@STDVER@ $(MAKE_ARGS))
 endif
+
+tbb-clean:
+	@rm -rf ../inst/include/tbb
+	@rm -rf ../inst/include/oneapi
+	@rm -rf ../inst/include/tbb_local
+	@rm -rf ../inst/include/serial
 
 clean:
 ifdef TBB_LIB
