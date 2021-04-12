@@ -24,9 +24,10 @@
    # '.so.2', so be ready to handle those
    shlibPattern <- switch(
       Sys.info()[["sysname"]],
-      Windows = "[.]dll$",
-      Darwin  = "[.]dylib$",
-      "[.]so(?:[.][[:digit:]]+)?$"
+      Windows = "^tbb.*\\.dll$",
+      Darwin  = "^libtbb.*\\.dylib$",
+      Linux   = "^libtbb.*\\.so.*$",
+      "^libtbb.*\\.so.*$"
    )
    
    if (is.na(tbbLib)) {
@@ -38,9 +39,11 @@
          full.names = TRUE
       )
       
-      # only copy real files; don't copy symlinks
-      links <- Sys.readlink(tbbLibs)
-      file.copy(tbbLibs[!nzchar(links)], tbbDest)
+      # don't copy symlinks
+      tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
+      
+      # perform the copy
+      file.copy(tbbLibs, tbbDest)
       
    } else {
       
@@ -51,8 +54,15 @@
          full.names = TRUE
       )
       
-      # symlink tbb libraries
-      file.symlink(tbbLibs, tbbDest)
+      # don't copy symlinks
+      tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
+      
+      # copy / link the libraries
+      useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = "TRUE")
+      if (useSymlinks) 
+         file.symlink(tbbLibs, tbbDest)
+      else
+         file.copy(tbbLibs, tbbDest)
       
    }
    
