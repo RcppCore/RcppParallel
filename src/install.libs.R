@@ -31,7 +31,7 @@
          sysname,
          Windows = ".dll",
          Darwin  = ".dylib",
-         ".so"
+         ".so.2"
       )
       
       fmt <- "cp -R tbb/build/lib_release/*%s '%s/'"

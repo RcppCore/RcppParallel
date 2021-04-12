@@ -3,79 +3,79 @@ PKG_CXXFLAGS = @CXX11STD@
 
 # If TBB_ROOT is defined, use it.
 ifdef TBB_ROOT
-  
-  ifndef TBB_LIB
-    TBB_LIB = $(TBB_ROOT)/lib
-  endif
-  
-  ifndef TBB_INC
-    TBB_INC = $(TBB_ROOT)/include
-  endif
-  
+
+	ifndef TBB_LIB
+		TBB_LIB = $(TBB_ROOT)/lib
+	endif
+
+	ifndef TBB_INC
+		TBB_INC = $(TBB_ROOT)/include
+	endif
+
 endif
 
 # If TBB_LIB is defined by TBB_INC is not, make a guess.
 ifdef TBB_LIB
-  ifndef TBB_INC
-    TBB_INC = $(TBB_LIB)/../include
-  endif
+	ifndef TBB_INC
+		TBB_INC = $(TBB_LIB)/../include
+	endif
 endif
 
 ifdef TBB_INC
-  PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
+	PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
 else
-  PKG_CPPFLAGS = -I../inst/include
+	PKG_CPPFLAGS = -I../inst/include
 endif
 
 ifdef TBB_LIB
-  PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
+	PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
 endif
 
 ifeq ($(OS), Windows_NT)
 
-  USE_TBB=Windows
-  TBB_COPY_PATTERN=tbb*.dll
+	USE_TBB=Windows
+	TBB_COPY_PATTERN=tbb*.dll
 
-  MAKE = make
-  MAKEFLAGS = -e -j1
-  MAKE_CMD =                                  \
-    MSYS2_ARG_CONV_EXCL="*"                   \
-    CYGWIN=nodosfilewarning                   \
-    CONLY="@WINDOWS_CC@"                      \
-    CPLUS="@WINDOWS_CXX11@"                   \
-    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
-    PIC_KEY="@CXX11PICFLAGS@"                 \
-    WARNING_SUPPRESS=""                       \
-    $(MAKE)
+	MAKE = make
+	MAKEFLAGS = -e -j1
+	MAKE_CMD =                                    \
+		MSYS2_ARG_CONV_EXCL="*"                   \
+		CYGWIN=nodosfilewarning                   \
+		CONLY="@WINDOWS_CC@"                      \
+		CPLUS="@WINDOWS_CXX11@"                   \
+		CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
+		PIC_KEY="@CXX11PICFLAGS@"                 \
+		WARNING_SUPPRESS=""                       \
+		$(MAKE)
 
 else
-  
-  UNAME := $(shell uname)
-  TBB_COPY_PATTERN=libtbb*.*
-  
-  ifeq ($(UNAME), Darwin)
-    USE_TBB=Mac
-  endif
-  
-  ifeq ($(UNAME), Linux)
-    USE_TBB=Linux
-  endif
-  
-  ifeq ($(UNAME), SunOS)
-    SUNOS_ARCH = $(shell uname -p)
-    ifeq ($(SUNOS_ARCH), i386)
-      USE_TBB=SunOS
-    endif
-  endif
 
-  MAKEFLAGS += -e
-  MAKE_CMD =                                   \
-    CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
-    CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
-    CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1"  \
-    PIC_KEY="@CXX11PICFLAGS@"                  \
-    WARNING_SUPPRESS=""                        \
-    $(MAKE)
+	UNAME := $(shell uname)
+	TBB_COPY_PATTERN=libtbb*.*
+
+	ifeq ($(UNAME), Darwin)
+		USE_TBB=Mac
+	endif
+
+	ifeq ($(UNAME), Linux)
+		USE_TBB=Linux
+	endif
+
+	ifeq ($(UNAME), SunOS)
+		SUNOS_ARCH = $(shell uname -p)
+		ifeq ($(SUNOS_ARCH), i386)
+			USE_TBB=SunOS
+		endif
+	endif
+
+	MAKEFLAGS += -e
+	MAKE_CMD =                                     \
+		CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
+		CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
+		CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1"  \
+		PIC_KEY="@CXX11PICFLAGS@"                  \
+		WARNING_SUPPRESS=""                        \
+		$(MAKE)
 
 endif
 
@@ -88,29 +88,29 @@ MAKE_TARGETS = tbb_build_prefix=lib tbb_release tbbmalloc_release
 
 ifeq ($(USE_TBB),  Windows)
 
-  # rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
-  # compiler: overwrite default (which is cl = MS compiler)
-  MAKE_ARGS += rtools=true compiler=gcc
-  ifeq ($(WIN), 64)
-    MAKE_ARGS += arch=intel64 runtime=mingw
-    ARCH_DIR=x64/
-  else
-    MAKE_ARGS += arch=ia32 runtime=mingw
-    ARCH_DIR=i386/
-  endif
+	# rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
+	# compiler: overwrite default (which is cl = MS compiler)
+	MAKE_ARGS += rtools=true compiler=gcc
+	ifeq ($(WIN), 64)
+		MAKE_ARGS += arch=intel64 runtime=mingw
+		ARCH_DIR=x64/
+	else
+		MAKE_ARGS += arch=ia32 runtime=mingw
+		ARCH_DIR=i386/
+	endif
 
-  # Linker needs access to the tbb dll; otherwise you get errors such as:
-  # "undefined reference to `tbb::task_scheduler_init::terminate()'"
-  PKG_LIBS += -L$(shell pwd)/tbb/build/lib_release -ltbb -ltbbmalloc
+	# Linker needs access to the tbb dll; otherwise you get errors such as:
+	# "undefined reference to `tbb::task_scheduler_init::terminate()'"
+	PKG_LIBS += -L$(shell pwd)/tbb/build/lib_release -ltbb -ltbbmalloc
 
 endif
 
 # For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
 ifeq ($(USE_TBB), SunOS)
-  R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
-  ifeq ($(R_32BIT), TRUE)
-    MAKE_ARGS += arch=ia32
-  endif
+	R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
+	ifeq ($(R_32BIT), TRUE)
+		MAKE_ARGS += arch=ia32
+	endif
 endif
 
 # Write compilation output to file, and log it if installation fails.
@@ -147,6 +147,8 @@ else
 endif
 
 tbb-clean:
+	@rm -rf ../inst/lib
+	@rm -rf ../inst/libs
 	@rm -rf ../inst/include/tbb
 	@rm -rf ../inst/include/oneapi
 	@rm -rf ../inst/include/tbb_local
