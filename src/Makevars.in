@@ -147,6 +147,7 @@ else
 	@echo "(tbb) Using bundled TBB library ..."
 	@mkdir -p ../inst/include
 	@cp -R tbb/include/* ../inst/include/
+	@(cd tbb/src && $(MAKE_CMD) info)
 	@(cd tbb/src && $(MAKE_CMD) @STDVER@ $(MAKE_ARGS))
 endif
 
