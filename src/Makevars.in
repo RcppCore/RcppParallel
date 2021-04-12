@@ -1,6 +1,13 @@
 
 PKG_CXXFLAGS = @CXX11STD@
 
+# If TBB_LIB is defined by TBB_INC is not, make a guess.
+ifdef TBB_LIB
+  ifndef TBB_INC
+    TBB_INC = $(TBB_LIB)/../include
+  endif
+endif
+
 ifdef TBB_INC
   PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
 else
@@ -11,17 +18,13 @@ ifdef TBB_LIB
   PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
 endif
 
-ifeq ($(VERBOSE),)
-  SILENT = -s
-endif
-
 ifeq ($(OS), Windows_NT)
 
   USE_TBB=Windows
   TBB_COPY_PATTERN=tbb*.dll
 
   MAKE = make
-  MAKEFLAGS = -e $(SILENT) -j1
+  MAKEFLAGS = -e -j1
   MAKE_CMD =                                  \
     MSYS2_ARG_CONV_EXCL="*"                   \
     CYGWIN=nodosfilewarning                   \
@@ -36,12 +39,15 @@ else
   
   UNAME := $(shell uname)
   TBB_COPY_PATTERN=libtbb*.*
+  
   ifeq ($(UNAME), Darwin)
     USE_TBB=Mac
   endif
+  
   ifeq ($(UNAME), Linux)
     USE_TBB=Linux
   endif
+  
   ifeq ($(UNAME), SunOS)
     SUNOS_ARCH = $(shell uname -p)
     ifeq ($(SUNOS_ARCH), i386)
@@ -49,7 +55,7 @@ else
     endif
   endif
 
-  MAKEFLAGS += -e $(SILENT)
+  MAKEFLAGS += -e
   MAKE_CMD =                                   \
     CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
     CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
@@ -71,7 +77,7 @@ ifeq ($(USE_TBB),  Windows)
   # rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
   # compiler: overwrite default (which is cl = MS compiler)
   MAKE_ARGS += rtools=true compiler=gcc
-  ifeq ("$(WIN)", "64")
+  ifeq ($(WIN), 64)
     MAKE_ARGS += arch=intel64 runtime=mingw
     ARCH_DIR=x64/
   else
@@ -93,15 +99,9 @@ ifeq ($(USE_TBB), SunOS)
   endif
 endif
 
-# Silence some compilation warnings. This is a dirty trick, but is necessary
-# as TBB uses a number of #pragmas and compiler-specific switches depending
-# on the compiler and machine being compiled for, and it selects and activates
-# those switches only after confirming the specific compiler features it needs.
-# Set VERBOSE=1 to have a more verbose install.
+# Write compilation output to file, and log it if installation fails.
 ifneq ($(OS), Windows_NT)
-  ifeq ($(VERBOSE),)
-    MAKE_ARGS += >/dev/null 2>&1
-  endif
+  MAKE_ARGS += > tbb.log 2>&1 || cat tbb.log; rm -f tbb.log
 endif
 
 .PHONY: all tbb
@@ -113,8 +113,8 @@ tbb:
 ifdef TBB_LIB
 	echo "Using system (Intel/OneAPI) TBB library ..."; \
 	mkdir -p ../inst/lib/$(ARCH_DIR); \
-	cp $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so 2>/dev/null || :; \
-	cp $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so 2>/dev/null || :; \
+	ln -nfs $(TBB_LIB)/libtbb.so ../inst/lib/$(ARCH_DIR)/libtbb.so 2>/dev/null || :; \
+	ln -nfs $(TBB_LIB)/libtbbmalloc.so ../inst/lib/$(ARCH_DIR)/libtbbmalloc.so 2>/dev/null || :; \
 	rm -Rf ../inst/include/serial/; \
 	rm -Rf ../inst/include/tbb/; \
 	rm -Rf ../inst/include/tbb_local/; \
