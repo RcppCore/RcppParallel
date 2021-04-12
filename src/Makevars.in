@@ -86,7 +86,7 @@ PKG_CXXFLAGS += -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
 MAKE_TARGETS = tbb_build_prefix=lib tbb_release tbbmalloc_release
 
-ifeq ($(USE_TBB),  Windows)
+ifeq ($(USE_TBB), Windows)
 
 	# rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
 	# compiler: overwrite default (which is cl = MS compiler)
@@ -105,6 +105,9 @@ ifeq ($(USE_TBB),  Windows)
 
 endif
 
+# write compiler if set
+MAKE_ARGS += $(COMPILER)
+
 # For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
 ifeq ($(USE_TBB), SunOS)
 	R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
@@ -114,7 +117,7 @@ ifeq ($(USE_TBB), SunOS)
 endif
 
 # Write compilation output to file, and log it if installation fails.
-ifeq ($(VERBOSE),)
+ifeq ($(VERBOSE), )
 	MAKE_LOG = > tbb.log 2>&1 \
 		&& echo "(tbb) TBB compilation finished successfully." \
 		|| cat tbb.log; rm -f tbb.log

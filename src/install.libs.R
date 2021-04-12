@@ -26,7 +26,6 @@
       Sys.info()[["sysname"]],
       Windows = "^tbb.*\\.dll$",
       Darwin  = "^libtbb.*\\.dylib$",
-      Linux   = "^libtbb.*\\.so.*$",
       "^libtbb.*\\.so.*$"
    )
    
