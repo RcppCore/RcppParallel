@@ -20,12 +20,14 @@
    if (is.na(tbbLib) && !is.na(tbbRoot))
       tbbLib <- file.path(tbbRoot, "lib")
    
+   shlibPattern <- "[.](?:so|dylib|dll)$"
+   
    if (is.na(tbbLib)) {
       
       # using bundled TBB
       tbbLibs <- list.files(
          path       = "tbb/build/lib_release",
-         pattern    = "^libtbb",
+         pattern    = shlibPattern,
          full.names = TRUE
       )
       
@@ -37,7 +39,7 @@
       # using system tbb
       tbbLibs <- list.files(
          path       = tbbLib,
-         pattern    = "[.](?:so|dylib|dll)$",
+         pattern    = shlibPattern,
          full.names = TRUE
       )
       
