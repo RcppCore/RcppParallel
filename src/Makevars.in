@@ -137,7 +137,9 @@ ifdef TBB_LIB
 	@echo "(tbb) TBB_LIB = $(TBB_LIB)"
 	@echo "(tbb) TBB_INC = $(TBB_INC)"
 	@mkdir -p ../inst/include
-	@cp -R $(TBB_INC)/* ../inst/include/
+	@cp -R $(TBB_INC)/oneapi ../inst/include/ 2> /dev/null || :
+	@cp -R $(TBB_INC)/serial ../inst/include/ 2> /dev/null || :
+	@cp -R $(TBB_INC)/tbb    ../inst/include/ 2> /dev/null || :
 else
 	@echo "(tbb) Building TBB using bundled sources ..."
 	@mkdir -p ../inst/include
