@@ -10,7 +10,8 @@
       file.copy("symbols.rds", dest, overwrite = TRUE)
    
    # copy tbb
-   tbbDest <- file.path(dest, "tbb")
+   # TODO: use 'dest' library directory once rstan is updated
+   tbbDest <- file.path(R_PACKAGE_DIR, "lib/tbb", R_ARCH)
    dir.create(tbbDest, recursive = TRUE, showWarnings = FALSE)
    
    # check for bundled vs. system tbb

@@ -98,8 +98,13 @@ tbbLdFlags <- function() {
 }
 
 tbbRoot <- function() {
+   
+   # TODO: rstan
+   # parts <- c("libs", if (nzchar(rArch)) rArch, "tbb")
+   
    rArch <- .Platform$r_arch
-   parts <- c("libs", if (nzchar(rArch)) rArch, "tbb")
+   parts <- c("lib/tbb", if (nzchar(rArch)) rArch)
    libDir <- paste(parts, collapse = "/")
    system.file(libDir, package = "RcppParallel")
+   
 }
