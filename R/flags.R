@@ -75,7 +75,7 @@ tbbCxxFlags <- function() {
    
 }
 
-# Return the linker flags requried for TBB on this platform
+# Return the linker flags required for TBB on this platform
 tbbLdFlags <- function() {
    
    # shortcut if TBB_LIB defined
