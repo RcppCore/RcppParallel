@@ -1,6 +1,6 @@
 ## RcppParallel 5.1.2 (UNRELEASED)
 
-* `RcppParallel` gains the `tbbLibPath()` function, to be used when attempting
+* `RcppParallel` gains the `tbbLibraryPath()` function, to be used when attempting
   to query the location of the TBB libraries that `RcppParallel` has been
   configured to use. This may be useful for R packages which wish to explicitly
   use, or link to, these libraries.

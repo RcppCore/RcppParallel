@@ -5,7 +5,7 @@ mallocDllInfo <- NULL
 .onLoad <- function(libname, pkgname) {
    
    # load tbb and tbbmalloc on supported platforms   
-   tbb <- tbbLibPath()
+   tbb <- tbbLibraryPath("tbb")
    if (!is.null(tbb)) {
       if (!file.exists(tbb)) {
          warning(paste("TBB library", tbb, "not found."))
@@ -14,7 +14,7 @@ mallocDllInfo <- NULL
       }
    }
    
-   tbbMalloc <- tbbLibPath("tbbmalloc")
+   tbbMalloc <- tbbLibraryPath("tbbmalloc")
    if (!is.null(tbbMalloc)) {
       if (!file.exists(tbbMalloc)) {
          warning(paste("TBB malloc library", tbbMalloc, "not found."))

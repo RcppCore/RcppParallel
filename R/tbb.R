@@ -5,15 +5,23 @@
 #' using RcppParallel that wish to use, or re-use, the version of TBB that
 #' RcppParallel has been configured to use.
 #' 
-#' @param name The name of the library. Normally, this is one of
-#'   `tbb`, `tbbmalloc`, or `tbbmalloc_proxy`.
+#' @param name
+#'   The name of the TBB library to be resolved. Normally, this is one of
+#'   `tbb`, `tbbmalloc`, or `tbbmalloc_proxy`. When `NULL`, the library
+#'   path containing the TBB libraries is returned instead.
 #' 
 #' @export
-tbbLibPath <- function(name = "tbb") {
+tbbLibraryPath <- function(name = NULL) {
    
    # library paths for different OSes
    sysname <- Sys.info()[["sysname"]]
    
+   # find root for TBB install
+   tbbRoot <- Sys.getenv("TBB_LIB", unset = tbbRoot())
+   if (is.null(name))
+      return(tbbRoot)
+   
+   # form library names
    tbbLibNames <- list(
       "Darwin"  = paste0("lib", name, ".dylib"),
       "Windows" = paste0(       name, ".dll"),
@@ -29,8 +37,7 @@ tbbLibPath <- function(name = "tbb") {
    if (!isCompatible)
       return(NULL)
    
-   # find root for TBB install
-   tbbRoot <- Sys.getenv("TBB_LIB", unset = tbbRoot())
+   # find the request library (if any)
    libNames <- tbbLibNames[[sysname]]
    for (libName in libNames) {
       tbbName <- file.path(tbbRoot, libName)
@@ -80,7 +87,7 @@ tbbLdFlags <- function() {
    # on Windows and Solaris, we need to explicitly link
    needsExplicitFlags <- is_windows() || (is_solaris() && !is_sparc())
    if (needsExplicitFlags) {
-      libPath <- asBuildPath(dirname(tbbLibPath()))
+      libPath <- asBuildPath(tbbLibraryPath())
       libFlag <- paste0("-L", shQuote(libPath))
       return(paste(libFlag, "-ltbb", "-ltbbmalloc"))
    }
