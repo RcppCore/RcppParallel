@@ -30,10 +30,7 @@ tbbLibraryPath <- function(name = NULL) {
    )
    
    # skip systems that we know not to be compatible
-   isCompatible <-
-      !is_sparc() &&
-      !is.null(tbbLibNames[[sysname]])
-   
+   isCompatible <- !is_sparc() && !is.null(tbbLibNames[[sysname]])
    if (!isCompatible)
       return(NULL)
    
