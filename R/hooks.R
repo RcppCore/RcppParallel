@@ -14,7 +14,7 @@ mallocDllInfo <- NULL
       }
    }
    
-   tbbMalloc <- tbbLibPath("malloc")
+   tbbMalloc <- tbbLibPath("tbbmalloc")
    if (!is.null(tbbMalloc)) {
       if (!file.exists(tbbMalloc)) {
          warning(paste("TBB malloc library", tbbMalloc, "not found."))

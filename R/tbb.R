@@ -1,0 +1,98 @@
+
+#' Get the Path to a TBB Library
+#' 
+#' Retrieve the path to a TBB library. This can be useful for \R packages
+#' using RcppParallel that wish to use, or re-use, the version of TBB that
+#' RcppParallel has been configured to use.
+#' 
+#' @param name The name of the library. Normally, this is one of
+#'   `tbb`, `tbbmalloc`, or `tbbmalloc_proxy`.
+#' 
+#' @export
+tbbLibPath <- function(name = "tbb") {
+   
+   # library paths for different OSes
+   sysname <- Sys.info()[["sysname"]]
+   
+   tbbLibNames <- list(
+      "Darwin"  = paste0("lib", name, ".dylib"),
+      "Windows" = paste0(       name, ".dll"),
+      "SunOS"   = paste0("lib", name, ".so"),
+      "Linux"   = paste0("lib", name, c(".so.2", ".so"))
+   )
+   
+   # skip systems that we know not to be compatible
+   isCompatible <-
+      !is_sparc() &&
+      !is.null(tbbLibNames[[sysname]])
+   
+   if (!isCompatible)
+      return(NULL)
+   
+   # find root for TBB install
+   tbbRoot <- Sys.getenv("TBB_LIB", unset = tbbRoot())
+   libNames <- tbbLibNames[[sysname]]
+   for (libName in libNames) {
+      tbbName <- file.path(tbbRoot, libName)
+      if (file.exists(tbbName))
+         return(tbbName)
+   }
+   
+}
+
+tbbCxxFlags <- function() {
+   
+   flags <- character()
+   
+   # opt-in to TBB on Windows
+   if (is_windows())
+      flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+   
+   # if TBB_INC is set, apply those library paths
+   tbbInc <- Sys.getenv("TBB_INC", unset = NA)
+   if (!is.na(tbbInc)) {
+      
+      # add include path
+      flags <- c(flags, paste0("-I", shQuote(asBuildPath(tbbInc))))
+      
+      # prefer new interface if version.h exists
+      versionPath <- file.path(tbbInc, "tbb/version.h")
+      if (file.exists(versionPath))
+         flags <- c(flags, "-DTBB_INTERFACE_NEW")
+      
+   }
+   
+   # return flags as string
+   paste(flags, collapse = " ")
+   
+}
+
+# Return the linker flags required for TBB on this platform
+tbbLdFlags <- function() {
+   
+   # shortcut if TBB_LIB defined
+   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
+   if (!is.na(tbbLib)) {
+      fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
+      return(sprintf(fmt, shQuote(asBuildPath(tbbLib))))
+   }
+   
+   # on Windows and Solaris, we need to explicitly link
+   needsExplicitFlags <- is_windows() || (is_solaris() && !is_sparc())
+   if (needsExplicitFlags) {
+      libPath <- asBuildPath(dirname(tbbLibPath()))
+      libFlag <- paste0("-L", shQuote(libPath))
+      return(paste(libFlag, "-ltbb", "-ltbbmalloc"))
+   }
+   
+   # nothing required on other platforms
+   ""
+   
+}
+
+tbbRoot <- function() {
+   rArch <- .Platform$r_arch
+   parts <- c("libs", if (nzchar(rArch)) rArch, "tbb")
+   libDir <- paste(parts, collapse = "/")
+   system.file(libDir, package = "RcppParallel")
+}
