@@ -1,11 +1,10 @@
 
-# Helper function to ape the behavior of the R build system
-# when providing paths to libraries
+# generate paths consumable by the compilers and linkers
+# in particular, on Windows, this means the path _cannot_ be quoted !!
 asBuildPath <- function(path) {
    
-   # nothing to do for non-Windows
    if (!is_windows())
-      return(path)
+      return(shQuote(path))
    
    # normalize paths using forward slashes
    path <- normalizePath(path, winslash = "/", mustWork = FALSE)

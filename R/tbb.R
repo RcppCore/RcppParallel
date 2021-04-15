@@ -57,7 +57,7 @@ tbbCxxFlags <- function() {
    if (!is.na(tbbInc)) {
       
       # add include path
-      flags <- c(flags, paste0("-I", shQuote(asBuildPath(tbbInc))))
+      flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
       
       # prefer new interface if version.h exists
       versionPath <- file.path(tbbInc, "tbb/version.h")
@@ -78,14 +78,14 @@ tbbLdFlags <- function() {
    tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
    if (!is.na(tbbLib)) {
       fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
-      return(sprintf(fmt, shQuote(asBuildPath(tbbLib))))
+      return(sprintf(fmt, asBuildPath(tbbLib)))
    }
    
    # on Windows and Solaris, we need to explicitly link
    needsExplicitFlags <- is_windows() || (is_solaris() && !is_sparc())
    if (needsExplicitFlags) {
       libPath <- asBuildPath(tbbLibraryPath())
-      libFlag <- paste0("-L", shQuote(libPath))
+      libFlag <- paste0("-L", libPath)
       return(paste(libFlag, "-ltbb", "-ltbbmalloc"))
    }
    
@@ -100,7 +100,7 @@ tbbRoot <- function() {
    # parts <- c("libs", if (nzchar(rArch)) rArch, "tbb")
    
    rArch <- .Platform$r_arch
-   parts <- c("lib/tbb", if (nzchar(rArch)) rArch)
+   parts <- c("lib", if (nzchar(rArch)) rArch)
    libDir <- paste(parts, collapse = "/")
    system.file(libDir, package = "RcppParallel")
    
