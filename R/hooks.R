@@ -1,7 +1,9 @@
 
-.tbbDllInfo            <- NULL
-.tbbMallocDllInfo      <- NULL
-.tbbMallocProxyDllInfo <- NULL
+# NOTE: we intentionally do _not_ load tbbmalloc_proxy as its intended
+# use is to replace the default allocator, something that is dangerous
+# to do by default (and especially should only be done via e.g. LD_PRELOAD)
+.tbbDllInfo       <- NULL
+.tbbMallocDllInfo <- NULL
 
 loadTbbLibrary <- function(name) {
    
@@ -20,11 +22,11 @@ loadTbbLibrary <- function(name) {
 
 .onLoad <- function(libname, pkgname) {
    
-   # load tbb, tbbmalloc, tbbmalloc_proxy
-   .tbbDllInfo            <<- loadTbbLibrary("tbb")
-   .tbbMallocDllInfo      <<- loadTbbLibrary("tbbmalloc")
-   .tbbMallocProxyDllInfo <<- loadTbbLibrary("tbbmalloc_proxy")
+   # load tbb, tbbmalloc
+   .tbbDllInfo       <<- loadTbbLibrary("tbb")
+   .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
    
+   # load RcppParallel library
    library.dynam("RcppParallel", pkgname, libname)
    
 }
@@ -34,10 +36,16 @@ loadTbbLibrary <- function(name) {
    # unload the package library
    library.dynam.unload("RcppParallel", libpath)
    
+   # unload tbb_malloc if we loaded it
+   if (!is.null(.tbbMallocDllInfo)) {
+      dyn.unload(.tbbMallocDllInfo[["path"]])
+      .tbbMallocDllInfo <<- NULL
+   }
+   
    # unload tbb if we loaded it
-   dlls <- list(.tbbDllInfo, .tbbMallocDllInfo, .tbbMallocProxyDllInfo)
-   for (dll in dlls)
-      if (!is.null(dll))
-         dyn.unload(dll[["path"]])
+   if (!is.null(.tbbDllInfo)) {
+      dyn.unload(.tbbDllInfo[["path"]])
+      .tbbDllInfo <<- NULL
+   }
 
 }
