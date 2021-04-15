@@ -8,14 +8,14 @@
    dir.create(dest, recursive = TRUE, showWarnings = FALSE)
    file.copy(files, dest, overwrite = TRUE)
    
+   # copy symbols if available
+   if (file.exists("symbols.rds"))
+      file.copy("symbols.rds", dest, overwrite = TRUE)
+
    # also copy to package 'libs' folder, for devtools
    dest <- paste0("../libs", R_ARCH)
    dir.create(dest, recursive = TRUE, showWarnings = FALSE)
    file.copy(files, dest, overwrite = TRUE)
-   
-   # copy symbols if available
-   if (file.exists("symbols.rds"))
-      file.copy("symbols.rds", dest, overwrite = TRUE)
    
    # copy tbb
    # TODO: use 'dest' library directory once rstan is updated
