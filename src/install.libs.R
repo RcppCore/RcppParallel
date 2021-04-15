@@ -1,4 +1,5 @@
 
+# !diagnostics suppress=R_PACKAGE_DIR,SHLIB_EXT,R_ARCH
 .install.libs <- function() {
 
    # copy default library
@@ -6,6 +7,13 @@
    dest <- file.path(R_PACKAGE_DIR, paste0("libs", R_ARCH))
    dir.create(dest, recursive = TRUE, showWarnings = FALSE)
    file.copy(files, dest, overwrite = TRUE)
+   
+   # also copy to package 'libs' folder, for devtools
+   dest <- paste0("../libs", R_ARCH)
+   dir.create(dest, recursive = TRUE, showWarnings = FALSE)
+   file.copy(files, dest, overwrite = TRUE)
+   
+   # copy symbols if available
    if (file.exists("symbols.rds"))
       file.copy("symbols.rds", dest, overwrite = TRUE)
    

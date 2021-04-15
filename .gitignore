@@ -3,11 +3,11 @@
 .Rhistory
 .RData
 .DS_Store
-autom4te.cache/
-config.log
-config.status
 inst/doc
+inst/lib
+inst/libs
+libs
 revdep
-src-i386/
-src-x64/
+src-i386
+src-x64
 tbb.log

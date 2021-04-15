@@ -6,7 +6,9 @@
 ^appveyor\.yml$
 ^doc$
 ^gen$
+^libs$
 ^inst/lib$
+^inst/libs$
 ^revdep$
 ^src/.*\.o$
 ^src/tbb/build/lib_.*$
