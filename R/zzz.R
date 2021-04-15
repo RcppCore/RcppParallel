@@ -28,10 +28,6 @@ loadTbbLibrary <- function(name) {
    .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
    
    # load RcppParallel library if available
-   # (work around https://github.com/r-lib/devtools/issues/2343)
-   if (!file.exists(file.path(libname, pkgname, "lib")))
-      return()
-   
    .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
    
 }
@@ -49,5 +45,5 @@ loadTbbLibrary <- function(name) {
    # unload tbb if we loaded it
    if (!is.null(.tbbDllInfo))
       dyn.unload(.tbbDllInfo[["path"]])
-
+   
 }
