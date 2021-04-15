@@ -1,6 +1,11 @@
 
 ## RcppParallel 5.1.3 (UNRELEASED)
 
+* The `RCPP_PARALLEL_USE_TBBMALLOC_PROXY` environment variable can now be used
+  to control whether RcppParallel loads the `tbbmalloc_proxy` library on load.
+  See https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Automically_Replacing_malloc.html
+  for more information.
+
 ## RcppParallel 5.1.2
 
 * `RcppParallel` gains the `tbbLibraryPath()` function, to be used when attempting

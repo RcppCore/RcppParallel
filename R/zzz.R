@@ -1,10 +1,14 @@
 
-# NOTE: we intentionally do _not_ load tbbmalloc_proxy as its intended
-# use is to replace the default allocator, something that is dangerous
-# to do by default (and especially should only be done via e.g. LD_PRELOAD)
-.dllInfo          <- NULL
-.tbbDllInfo       <- NULL
-.tbbMallocDllInfo <- NULL
+# !diagnostics suppress=.dllInfo,.tbbDllInfo,.tbbMallocDllInfo,.tbbMallocProxyDllInfo
+
+# NOTE: we intentionally do _not_ load tbbmalloc_proxy by default, as its
+# intended use is to replace the default allocator, something that may be
+# dangerous to do by default. in addition, TBB's documentation recommends
+# only loading explicitly via e.g. LD_PRELOAD
+.dllInfo               <- NULL
+.tbbDllInfo            <- NULL
+.tbbMallocDllInfo      <- NULL
+.tbbMallocProxyDllInfo <- NULL
 
 loadTbbLibrary <- function(name) {
    
@@ -27,6 +31,11 @@ loadTbbLibrary <- function(name) {
    .tbbDllInfo       <<- loadTbbLibrary("tbb")
    .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
    
+   # load tbbmalloc_proxy, but only if requested
+   useTbbMallocProxy <- Sys.getenv("RCPP_PARALLEL_USE_TBBMALLOC_PROXY", unset = "FALSE")
+   if (useTbbMallocProxy %in% c("TRUE", "True", "true", "1"))
+      .tbbMallocProxyDllInfo <<- loadTbbLibrary("tbbmalloc_proxy")
+   
    # load RcppParallel library if available
    .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
    
@@ -38,7 +47,11 @@ loadTbbLibrary <- function(name) {
    if (!is.null(.dllInfo))
       library.dynam.unload("RcppParallel", libpath)
    
-   # unload tbb_malloc if we loaded it
+   # unload tbbmalloc_proxy if we loaded it
+   if (!is.null(.tbbMallocProxyDllInfo))
+      dyn.unload(.tbbMallocProxyDllInfo[["path"]])
+   
+   # unload tbbmalloc if we loaded it
    if (!is.null(.tbbMallocDllInfo))
       dyn.unload(.tbbMallocDllInfo[["path"]])
    
