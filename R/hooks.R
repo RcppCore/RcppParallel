@@ -39,21 +39,15 @@ loadTbbLibrary <- function(name) {
 .onUnload <- function(libpath) {
    
    # unload the package library
-   if (!is.null(.dllInfo)) {
+   if (!is.null(.dllInfo))
       library.dynam.unload("RcppParallel", libpath)
-      .dllInfo <<- NULL
-   }
    
    # unload tbb_malloc if we loaded it
-   if (!is.null(.tbbMallocDllInfo)) {
+   if (!is.null(.tbbMallocDllInfo))
       dyn.unload(.tbbMallocDllInfo[["path"]])
-      .tbbMallocDllInfo <<- NULL
-   }
    
    # unload tbb if we loaded it
-   if (!is.null(.tbbDllInfo)) {
+   if (!is.null(.tbbDllInfo))
       dyn.unload(.tbbDllInfo[["path"]])
-      .tbbDllInfo <<- NULL
-   }
 
 }
