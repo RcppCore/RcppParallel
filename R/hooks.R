@@ -2,6 +2,7 @@
 # NOTE: we intentionally do _not_ load tbbmalloc_proxy as its intended
 # use is to replace the default allocator, something that is dangerous
 # to do by default (and especially should only be done via e.g. LD_PRELOAD)
+.dllInfo          <- NULL
 .tbbDllInfo       <- NULL
 .tbbMallocDllInfo <- NULL
 
@@ -26,15 +27,22 @@ loadTbbLibrary <- function(name) {
    .tbbDllInfo       <<- loadTbbLibrary("tbb")
    .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
    
-   # load RcppParallel library
-   library.dynam("RcppParallel", pkgname, libname)
+   # load RcppParallel library if available
+   # (work around https://github.com/r-lib/devtools/issues/2343)
+   if (!file.exists(file.path(libname, pkgname, "lib")))
+      return()
+   
+   .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
    
 }
 
 .onUnload <- function(libpath) {
    
    # unload the package library
-   library.dynam.unload("RcppParallel", libpath)
+   if (!is.null(.dllInfo)) {
+      library.dynam.unload("RcppParallel", libpath)
+      .dllInfo <<- NULL
+   }
    
    # unload tbb_malloc if we loaded it
    if (!is.null(.tbbMallocDllInfo)) {
