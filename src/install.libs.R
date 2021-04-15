@@ -13,9 +13,9 @@
       file.copy("symbols.rds", dest, overwrite = TRUE)
 
    # also copy to package 'libs' folder, for devtools
-   dest <- paste0("../libs", R_ARCH)
-   dir.create(dest, recursive = TRUE, showWarnings = FALSE)
-   file.copy(files, dest, overwrite = TRUE)
+   libsDest <- paste0("../libs", R_ARCH)
+   dir.create(libsDest, recursive = TRUE, showWarnings = FALSE)
+   file.copy(files, libsDest, overwrite = TRUE)
    
    # copy tbb
    # TODO: use 'dest' library directory once rstan is updated

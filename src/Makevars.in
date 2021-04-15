@@ -153,9 +153,9 @@ else
 	@(cd tbb/src && $(MAKE_CMD) @STDVER@ $(MAKE_ARGS) $(MAKE_TARGETS) $(MAKE_LOG))
 endif
 
+# NOTE: we do not want to clean ../inst/lib or ../inst/libs here,
+# as we may be writing to those locations in multiarch builds
 tbb-clean:
-	@rm -rf ../inst/lib
-	@rm -rf ../inst/libs
 	@rm -rf ../inst/include/tbb
 	@rm -rf ../inst/include/oneapi
 	@rm -rf ../inst/include/tbb_local
