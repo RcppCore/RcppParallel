@@ -10,7 +10,7 @@ setThreadOptions(numThreads = "auto", stackSize = "auto")
 defaultNumThreads()
 }
 \arguments{
-\item{numThreads}{Number of threads to use for task scheduling. Call `defaultNumThreads()`
+\item{numThreads}{Number of threads to use for task scheduling. Call \code{defaultNumThreads()}
 to determine the the default value used for "auto".}
 
 \item{stackSize}{Stack size (in bytes) to use for worker threads. The
@@ -18,10 +18,10 @@ default used for "auto" is 2MB on 32-bit systems and 4MB on 64-bit systems
 (note that this parameter has no effect on Windows).}
 }
 \value{
-`defaultNumThreads()` returns the default number of threads used by
-  RcppParallel, if another value isn't specified either via
-  `setThreadOptions()` or explicitly in calls to `parallelFor()` and
-  `parallelReduce()`.
+\code{defaultNumThreads()} returns the default number of threads used by
+RcppParallel, if another value isn't specified either via
+\code{setThreadOptions()} or explicitly in calls to \code{parallelFor()} and
+\code{parallelReduce()}.
 }
 \description{
 Set thread options (number of threads to use for task scheduling and stack
@@ -29,10 +29,10 @@ size per-thread) for RcppParallel.
 }
 \details{
 RcppParallel is automatically initialized with the default number of threads
-and thread stack size when it loads. You can call `setThreadOptions()` at
+and thread stack size when it loads. You can call \code{setThreadOptions()} at
 any time to change the defaults.
 
-The `parallelFor()` and `parallelReduce()` also accept `numThreads` as
+The \code{parallelFor()} and \code{parallelReduce()} also accept \code{numThreads} as
 an argument, if you'd like to control the number of threads specifically
 to be made available for a particular parallel function call. Note that
 this value is advisory, and TBB may choose a smaller number of threads

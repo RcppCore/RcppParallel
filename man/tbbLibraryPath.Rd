@@ -8,7 +8,7 @@ tbbLibraryPath(name = NULL)
 }
 \arguments{
 \item{name}{The name of the TBB library to be resolved. Normally, this is one of
-`tbb`, `tbbmalloc`, or `tbbmalloc_proxy`. When `NULL`, the library
+\code{tbb}, \code{tbbmalloc}, or \code{tbbmalloc_proxy}. When \code{NULL}, the library
 path containing the TBB libraries is returned instead.}
 }
 \description{

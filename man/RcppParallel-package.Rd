@@ -7,8 +7,8 @@
 \title{Parallel programming tools for Rcpp}
 \description{
 High level functions for doing parallel programming with Rcpp.  For example,
-the `parallelFor()` function can be used to convert the work of a
-standard serial "for" loop into a parallel one, and the `parallelReduce()`
+the \code{parallelFor()} function can be used to convert the work of a
+standard serial "for" loop into a parallel one, and the \code{parallelReduce()}
 function can be used for accumulating aggregate or other values.
 }
 \details{
@@ -20,7 +20,7 @@ implementation based on the TinyThread library is used.
 
 For additional documentation, see the package website at:
 
-<https://rcppcore.github.io/RcppParallel>
+\url{https://rcppcore.github.io/RcppParallel}
 }
 \keyword{package}
 \keyword{parallel}

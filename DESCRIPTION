@@ -28,6 +28,7 @@ Suggests:
     RUnit,
     knitr,
     rmarkdown
+Roxygen: list(markdown = TRUE)
 SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
 License: GPL (>= 2)
 URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel

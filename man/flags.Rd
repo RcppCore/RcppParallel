@@ -15,28 +15,22 @@ RcppParallelLibs()
 }
 \value{
 Returns \code{NULL}, invisibly. These functions are called for
-  their side effects (writing the associated flags to stdout).
+their side effects (writing the associated flags to stdout).
 }
 \description{
 Output the compiler or linker flags required to build against RcppParallel.
 }
 \details{
-These functions are typically called from `Makevars` as follows:
-
-```
-PKG_LIBS += $(shell "${R_HOME}/bin/Rscript" -e "RcppParallel::LdFlags()")
-```
+These functions are typically called from \code{Makevars} as follows:\preformatted{PKG_LIBS += $(shell "$\{R_HOME\}/bin/Rscript" -e "RcppParallel::LdFlags()")
+}
 
 On Windows, the flags ensure that the package links with the built-in TBB
 library. On Linux and macOS, the output is empty, because TBB is loaded
-dynamically on load by `RcppParallel`.
+dynamically on load by \code{RcppParallel}.
 
 \R packages using RcppParallel should also add the following to their
-`NAMESPACE` file:
-
-```
-importFrom(RcppParallel, RcppParallelLibs)
-```
+\code{NAMESPACE} file:\preformatted{importFrom(RcppParallel, RcppParallelLibs)
+}
 
 This is necessary to ensure that \pkg{RcppParallel} (and so, TBB) is loaded
 and available.
