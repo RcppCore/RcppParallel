@@ -47,9 +47,8 @@ loadTbbLibrary <- function(name) {
    if (!is.null(.dllInfo))
       library.dynam.unload("RcppParallel", libpath)
    
-   # unload tbbmalloc_proxy if we loaded it
-   if (!is.null(.tbbMallocProxyDllInfo))
-      dyn.unload(.tbbMallocProxyDllInfo[["path"]])
+   # NOTE: we do not explicitly unload tbbmalloc_proxy as switching
+   # the allocator at runtime can cause issues
    
    # unload tbbmalloc if we loaded it
    if (!is.null(.tbbMallocDllInfo))
