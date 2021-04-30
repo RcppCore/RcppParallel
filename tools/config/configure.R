@@ -1,4 +1,27 @@
 
+# check whether user has Makevars file that might cause trouble
+makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
+if (file.exists(makevars)) {
+   contents <- readLines(makevars, warn = FALSE)
+   pattern <- "^(PKG_CPPFLAGS|PKG_CXXFLAGS)\\s*="
+   bad <- grep(pattern, contents, perl = TRUE, value = TRUE)
+   if (length(bad)) {
+      
+      text <- c(
+         "",
+         sprintf("NOTE: '%s' contains variable declarations incompatible with RcppParallel:", makevars),
+         "",
+         paste0("\t", bad),
+         "",
+         "Makevars variables prefixed with 'PKG_' should be considered reserved for use by R packages.",
+         ""
+      )
+      
+      writeLines(text, con = stdout())
+      
+   }
+}
+
 # Figure out the appropriate CXX prefix for the current
 # version of R + configuration.
 cxx <- NULL
