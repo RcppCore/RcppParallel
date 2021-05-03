@@ -8,7 +8,7 @@
 
 High level functions for parallel programming with Rcpp. The `parallelFor()` function can be used to convert the work of a standard serial "for" loop into a parallel one, and the `parallelReduce()` function can be used for accumulating aggregate or other values.
 
-The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, macOS, and Linux systems, the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms, a less-performant fallback implementation based on the [TinyThread](http://tinythreadpp.bitsnbites.eu/) library is used.
+The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, macOS, and Linux systems, the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms, a less-performant fallback implementation based on the [TinyThread](https://tinythreadpp.bitsnbites.eu/) library is used.
 
 For additional documentation on using RcppParallel see the package website at http://rcppcore.github.io/RcppParallel/.
 
@@ -58,6 +58,6 @@ remotes::install_github("RcppCore/RcppParallel")
 
 The RcppParallel package is made available under the [GPLv2](http://www.gnu.org/licenses/old-licenses/gpl-2.0.html) license.
 
-The [TinyThread library](https://tinythreadpp.bitsnbites.eu/) is licensed under the [zlib/libpng](http://www.opensource.org/licenses/zlib-license.php) license.
+The [TinyThread library](https://tinythreadpp.bitsnbites.eu/) is licensed under the [zlib/libpng](https://opensource.org/licenses/zlib-license.php) license.
 
 The Intel TBB Library is licensed under the Apache 2.0 license, as described at https://github.com/oneapi-src/oneTBB/blob/master/LICENSE.txt.

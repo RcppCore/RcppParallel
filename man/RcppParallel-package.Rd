@@ -20,7 +20,7 @@ implementation based on the TinyThread library is used.
 
 For additional documentation, see the package website at:
 
-\url{https://rcppcore.github.io/RcppParallel}
+\url{https://rcppcore.github.io/RcppParallel/}
 }
 \keyword{package}
 \keyword{parallel}
