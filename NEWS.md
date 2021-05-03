@@ -1,4 +1,6 @@
 
+## RcppParallel 5.1.4 (UNRELEASED)
+
 ## RcppParallel 5.1.3
 
 * Fixed an issue that prevented compilation of RcppParallel with R (< 4.0.0)
