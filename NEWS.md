@@ -1,5 +1,5 @@
 
-## RcppParallel 5.1.3 (UNRELEASED)
+## RcppParallel 5.1.3
 
 * Fixed an issue that prevented compilation of RcppParallel with R (< 4.0.0)
   of R on Windows.
