@@ -1,5 +1,8 @@
 
-## RcppParallel 5.1.4 (UNRELEASED)
+## RcppParallel 5.1.4
+
+- Fixed an issue causing client packages of RcppParallel to fail to compile
+  on Solaris.
 
 ## RcppParallel 5.1.3
 
