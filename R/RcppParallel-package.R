@@ -14,7 +14,7 @@
 #' 
 #' For additional documentation, see the package website at:
 #' 
-#' <https://rcppcore.github.io/RcppParallel>
+#' <https://rcppcore.github.io/RcppParallel/>
 #' 
 #' 
 #' @name RcppParallel-package

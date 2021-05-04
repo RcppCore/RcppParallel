@@ -17,9 +17,9 @@
    dir.create(libsDest, recursive = TRUE, showWarnings = FALSE)
    file.copy(files, libsDest, overwrite = TRUE)
    
-   # copy tbb
-   # TODO: use 'dest' library directory once rstan is updated
-   tbbDest <- paste0("../inst/lib", R_ARCH)
+   # copy tbb (NOTE: do not use inst/ folder as R will resolve symlinks,
+   # behavior which we do _not_ want here!)
+   tbbDest <- file.path(R_PACKAGE_DIR, paste0("lib", R_ARCH))
    dir.create(tbbDest, recursive = TRUE, showWarnings = FALSE)
    
    # check for bundled vs. system tbb

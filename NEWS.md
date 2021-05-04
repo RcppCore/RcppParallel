@@ -1,9 +1,12 @@
 
 ## RcppParallel 5.1.5 (UNRELEASED)
 
+* Fixed an issue where setting `TBB_ROOT` (or `TBB_INC` / `TBB_LIB`) would
+  copy rather than symlink the associated libraries. (#161)
+
 ## RcppParallel 5.1.4
 
-- Fixed an issue causing client packages of RcppParallel to fail to compile
+* Fixed an issue causing client packages of RcppParallel to fail to compile
   on Solaris.
 
 ## RcppParallel 5.1.3
