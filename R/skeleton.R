@@ -71,9 +71,12 @@ RcppParallel.package.skeleton <- function(name = "anRpackage",
    on.exit(setwd(owd), add = TRUE)
    
    # remove dummy stuff
-   unlink("data/dummy.Rda")
+   unlink("data", recursive=TRUE)
    unlink("man/dummy.Rd")
    unlink("Read-and-delete-me")
+   lns <- readLines("NAMESPACE")
+   writeLines(lns[!grepl("dummy", lns)], "NAMESPACE")
+   unlink("src/init.c")
    
    message("\nAdding RcppParallel settings")
    
