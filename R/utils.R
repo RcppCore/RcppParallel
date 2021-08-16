@@ -14,7 +14,11 @@ asBuildPath <- function(path) {
    if (grepl(" ", path, fixed = TRUE) && !is_windows() && !is_solaris())
       path <- shQuote(path)
    
+   # ensure we use forward slashes, even on Windows
+   path <- chartr("\\", "/", path)
+
    # return path
-   return(path)
+   path
    
 }
+
