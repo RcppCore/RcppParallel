@@ -8,8 +8,7 @@ output: html_document
 
 RcppParallel provides a complete toolkit for creating portable, high-performance parallel algorithms without requiring direct manipulation of operating system threads. RcppParallel includes:
 
-- [Intel TBB](https://www.threadingbuildingblocks.org/) 
-(v4.3), a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, Linux, and Solaris x86 only). 
+- [Intel TBB](https://www.threadingbuildingblocks.org/), a C++ library for task parallelism with a wide variety of parallel algorithms and data structures (Windows, OS X, Linux, and Solaris x86 only). 
 
 - [TinyThread](http://tinythreadpp.bitsnbites.eu/), a C++ library for portable use of operating system threads.
 
