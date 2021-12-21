@@ -99,7 +99,7 @@ CPLUS_FLAGS += -DUSE_WINTHREAD
 CPLUS_FLAGS += -D_WIN32_WINNT=$(_WIN32_WINNT)
 
 # MinGW specific
-CPLUS_FLAGS += -DMINGW_HAS_SECURE_API=1 -D__MSVCRT_VERSION__=0x0700 -msse -mthreads
+CPLUS_FLAGS += -DMINGW_HAS_SECURE_API=1 -msse -mthreads
 
 # CONLY = gcc
 debugger = gdb
