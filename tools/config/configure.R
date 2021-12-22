@@ -90,8 +90,16 @@ db <- configure_database()
 info <- as.list(Sys.info())
 if (info[["sysname"]] == "Windows") {
    
-   cygpath <- nzchar(Sys.which("cygpath"))
-   fmt <- if (cygpath) "$(shell cygpath -m \"%s\")" else "%s"
+   # for older versions of R, we need to resolve the
+   # 'true' path to the C / C++ compiler; we do so
+   # via the cygpath utility here
+   fmt <- if (getRversion() < "4.2.0") {
+      cygpath <- nzchar(Sys.which("cygpath"))
+      if (cygpath) "$(shell cygpath -m \"%s\")" else "%s"
+   } else {
+      "%s"
+   }
+
    define(
       WINDOWS_CC    = sprintf(fmt, db$CC),
       WINDOWS_CXX11 = sprintf(fmt, db$CXX11)
