@@ -30,7 +30,7 @@ Suggests:
     rmarkdown
 Roxygen: list(markdown = TRUE)
 SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
-License: GPL (>= 2)
+License: GPL (>= 3)
 URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
