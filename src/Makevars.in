@@ -14,7 +14,13 @@ ifdef TBB_ROOT
 
 endif
 
-# If TBB_LIB is defined by TBB_INC is not, make a guess.
+# If TBB_LIB is not defined, try to use autodetection
+ifndef TBB_LIB
+	TBB_LIB = @TBB_LIB_AUTO@
+	TBB_INC = @TBB_INC_AUTO@
+endif
+
+# If TBB_LIB is defined but TBB_INC is not, make a guess.
 ifdef TBB_LIB
 	ifndef TBB_INC
 		TBB_INC = $(TBB_LIB)/../include
