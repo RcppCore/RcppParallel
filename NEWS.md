@@ -1,5 +1,8 @@
 
-## RcppParallel 5.1.5 (UNRELEASED)
+## RcppParallel 5.1.5
+
+* Patches to ensure compatibility with the R 4.2.0 UCRT toolchain on Windows,
+  adapted from patches contributed by Tomas Kalibera.
 
 * Fixed an issue where setting `TBB_ROOT` (or `TBB_INC` / `TBB_LIB`) would
   copy rather than symlink the associated libraries. (#161)
