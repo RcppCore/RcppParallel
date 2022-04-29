@@ -49,6 +49,7 @@ if (broken)
 # there as opposed to the bundled version
 cppflags <- read_r_config("CPPFLAGS", envir = NULL)[[1]]
 cppflags <- sub("(?: )?-I/usr/local/include", "", cppflags)
+cppflags <- sub("(?: )?-I/opt/homebrew/include", "", cppflags)
 
 # define the set of flags appropriate to the current
 # configuration of R
