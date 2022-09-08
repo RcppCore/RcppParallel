@@ -24,7 +24,7 @@ if (file.exists(makevars)) {
 
 # Figure out the appropriate CXX prefix for the current
 # version of R + configuration.
-cxx <- NULL
+cxx <- "/usr/bin/c++"
 candidates <- c("CXX11", "CXX1X", "CXX")
 for (candidate in candidates) {
    value <- r_cmd_config(candidate)
@@ -32,6 +32,11 @@ for (candidate in candidates) {
       cxx <- candidate
       break
    }
+}
+
+# Check for the intel compiler
+if (any(grepl("icpc", cxx, fixed = TRUE))) {
+   define(COMPILER = "icpc")
 }
 
 # work around issue with '-Werror=format-security' being specified without
