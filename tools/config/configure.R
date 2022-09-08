@@ -1,4 +1,7 @@
 
+# defualt compiler unset
+define(COMPILER = "")
+
 # check whether user has Makevars file that might cause trouble
 makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
 if (file.exists(makevars)) {
@@ -29,14 +32,12 @@ candidates <- c("CXX11", "CXX1X", "CXX")
 for (candidate in candidates) {
    value <- r_cmd_config(candidate)
    if (!is.null(value)) {
+      if (any(grepl("icpc", value))) {
+         define(COMPILER = "icc")
+      }
       cxx <- candidate
       break
    }
-}
-
-# Check for the intel compiler
-if (any(grepl("icpc", cxx, fixed = TRUE))) {
-   define(COMPILER = "icpc")
 }
 
 # work around issue with '-Werror=format-security' being specified without
@@ -121,7 +122,6 @@ if (getRversion() < "4.0") {
 }
 
 # on Solaris, check if we're using gcc or g++
-define(COMPILER = "")
 if (Sys.info()[["sysname"]] == "SunOS") {
    cxx <- r_cmd_config("CXX")
    version <- system(paste(cxx, "--version"), intern = TRUE)
