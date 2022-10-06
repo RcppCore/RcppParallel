@@ -81,7 +81,7 @@ freely, subject to the following restrictions:
   #include <signal.h>
   #include <sched.h>
   #include <unistd.h>
-  #include <stdlib.h> 
+  #include <stdlib.h>
 #endif
 
 // Generic includes
@@ -866,12 +866,17 @@ inline void * thread::wrapper_function(void * aArg)
   {
     // Uncaught exceptions will terminate the application (default behavior
     // according to C++11)
+
     std::terminate();
   }
 
   // The thread is no longer executing
+  // Originally it executes on all platforms, but I don't think it's right to
+  // call with pthreads, so only make it work on Windows
+#if defined(_TTHREAD_WIN32_)
   lock_guard<mutex> guard(ti->mThread->mDataMutex);
   ti->mThread->mNotAThread = true;
+#endif
 
   // The thread is responsible for freeing the startup information
   delete ti;
@@ -912,14 +917,18 @@ inline thread::thread(void (*aFunction)(void *), void * aArg)
 
 inline thread::~thread()
 {
+#if defined(_TTHREAD_WIN32_)
   if(joinable())
     std::terminate();
+#elif defined(_TTHREAD_POSIX_)
+  join();
+  detach();
+#endif
 }
 
 inline void thread::join()
 {
-  if(joinable())
-  {
+  if( joinable() ) {
 #if defined(_TTHREAD_WIN32_)
     WaitForSingleObject(mHandle, INFINITE);
     CloseHandle(mHandle);
@@ -939,17 +948,23 @@ inline bool thread::joinable() const
 
 inline void thread::detach()
 {
+  bool isDetachable = false;
   mDataMutex.lock();
   if(!mNotAThread)
+  {
+    mNotAThread = true;
+    isDetachable = true;
+  }
+  mDataMutex.unlock();
+
+  if(isDetachable)
   {
 #if defined(_TTHREAD_WIN32_)
     CloseHandle(mHandle);
 #elif defined(_TTHREAD_POSIX_)
     pthread_detach(mHandle);
 #endif
-    mNotAThread = true;
   }
-  mDataMutex.unlock();
 }
 
 inline thread::id thread::get_id() const
