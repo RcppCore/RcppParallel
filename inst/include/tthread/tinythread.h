@@ -873,7 +873,7 @@ inline void * thread::wrapper_function(void * aArg)
   lock_guard<mutex> guard(ti->mThread->mDataMutex);
 
   // On POSIX, we allow the thread to be joined even after execution has finished.
-  // This is necessary to ensure that thread-local memory can be cleaned up.
+  // This is necessary to ensure that thread-local memory can be reclaimed.
 #if defined(_TTHREAD_WIN32_)
   ti->mThread->mJoinable = false;
 #endif
