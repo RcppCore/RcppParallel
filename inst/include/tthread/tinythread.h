@@ -874,13 +874,13 @@ inline void * thread::wrapper_function(void * aArg)
 
   // On POSIX, we allow the thread to be joined even after execution has finished.
   // This is necessary to ensure that thread-local memory can be cleaned up.
-  // 
-  // The thread is responsible for freeing the startup information
 #if defined(_TTHREAD_WIN32_)
   ti->mThread->mJoinable = false;
 #endif
 
+  // The thread is responsible for freeing the startup information
   delete ti;
+
   return 0;
 }
 
@@ -932,6 +932,12 @@ inline void thread::join()
 #elif defined(_TTHREAD_POSIX_)
     pthread_join(mHandle, NULL);
 #endif
+
+    // https://linux.die.net/man/3/pthread_join states:
+    //
+    // Joining with a thread that has previously been joined results in undefined behavior.
+    //
+    // We just allow a thread to be joined once.
     mJoinable = false;
   }
 }
