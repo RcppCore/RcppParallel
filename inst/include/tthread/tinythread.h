@@ -872,7 +872,7 @@ inline void * thread::wrapper_function(void * aArg)
   // The thread is no longer executing
   lock_guard<mutex> guard(ti->mThread->mDataMutex);
 
-  // On Linux, we allow the thread to be joined even after execution has finished.
+  // On POSIX, we allow the thread to be joined even after execution has finished.
   // This is necessary to ensure that thread-local memory can be cleaned up.
   // 
   // The thread is responsible for freeing the startup information
