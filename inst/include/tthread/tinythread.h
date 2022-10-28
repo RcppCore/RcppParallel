@@ -492,7 +492,7 @@ class thread {
     /// Default constructor.
     /// Construct a @c thread object without an associated thread of execution
     /// (i.e. non-joinable).
-    thread() : mHandle(0), mNotAThread(true)
+    thread() : mHandle(0), mJoinable(false)
 #if defined(_TTHREAD_WIN32_)
     , mWin32ThreadID(0)
 #endif
@@ -554,7 +554,7 @@ class thread {
   private:
     native_handle_type mHandle;   ///< Thread handle.
     mutable mutex mDataMutex;     ///< Serializer for access to the thread private data.
-    bool mNotAThread;             ///< True if this object is not a thread of execution.
+    bool mJoinable;               ///< Is the thread joinable?
 #if defined(_TTHREAD_WIN32_)
     unsigned int mWin32ThreadID;  ///< Unique thread ID (filled out by _beginthreadex).
 #endif
@@ -871,7 +871,12 @@ inline void * thread::wrapper_function(void * aArg)
 
   // The thread is no longer executing
   lock_guard<mutex> guard(ti->mThread->mDataMutex);
-  ti->mThread->mNotAThread = true;
+
+  // On POSIX, we allow the thread to be joined even after execution has finished.
+  // This is necessary to ensure that thread-local memory can be reclaimed.
+#if defined(_TTHREAD_WIN32_)
+  ti->mThread->mJoinable = false;
+#endif
 
   // The thread is responsible for freeing the startup information
   delete ti;
@@ -891,8 +896,8 @@ inline thread::thread(void (*aFunction)(void *), void * aArg)
   ti->mArg = aArg;
   ti->mThread = this;
 
-  // The thread is now alive
-  mNotAThread = false;
+  // Mark thread as joinable
+  mJoinable = true;
 
   // Create the thread
 #if defined(_TTHREAD_WIN32_)
@@ -905,9 +910,10 @@ inline thread::thread(void (*aFunction)(void *), void * aArg)
   // Did we fail to create the thread?
   if(!mHandle)
   {
-    mNotAThread = true;
+    mJoinable = false;
     delete ti;
   }
+
 }
 
 inline thread::~thread()
@@ -926,28 +932,37 @@ inline void thread::join()
 #elif defined(_TTHREAD_POSIX_)
     pthread_join(mHandle, NULL);
 #endif
+
+    // https://linux.die.net/man/3/pthread_join states:
+    //
+    // Joining with a thread that has previously been joined results in undefined behavior.
+    //
+    // We just allow a thread to be joined once.
+    mJoinable = false;
   }
 }
 
 inline bool thread::joinable() const
 {
   mDataMutex.lock();
-  bool result = !mNotAThread;
+  bool result = mJoinable;
   mDataMutex.unlock();
   return result;
 }
 
 inline void thread::detach()
 {
+  // TODO: Attempting to detach a non-joinable thread should throw.
+  // https://en.cppreference.com/w/cpp/thread/thread/detach
   mDataMutex.lock();
-  if(!mNotAThread)
+  if(mJoinable)
   {
 #if defined(_TTHREAD_WIN32_)
     CloseHandle(mHandle);
 #elif defined(_TTHREAD_POSIX_)
     pthread_detach(mHandle);
 #endif
-    mNotAThread = true;
+    mJoinable = false;
   }
   mDataMutex.unlock();
 }
