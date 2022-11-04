@@ -11,7 +11,7 @@ asBuildPath <- function(path) {
       path <- utils::shortPathName(path)
    
    # if we still have spaces, and we're not Windows or Solaris, try quoting
-   if (grepl(" ", path, fixed = TRUE) && !is_windows() && !is_solaris())
+   if (grepl(" ", path, fixed = TRUE) && !is_solaris())
       path <- shQuote(path)
    
    # ensure we use forward slashes, even on Windows
