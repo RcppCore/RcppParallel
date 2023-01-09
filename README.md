@@ -2,8 +2,8 @@
 ## RcppParallel
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/RcppCore/RcppParallel/workflows/R-CMD-check/badge.svg)](https://github.com/RcppCore/RcppParallel/actions)
 [![CRAN](http://www.r-pkg.org/badges/version/RcppParallel)](https://cran.r-project.org/package=RcppParallel)
+[![R-CMD-check](https://github.com/RcppCore/RcppParallel/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/RcppCore/RcppParallel/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 High level functions for parallel programming with Rcpp. The `parallelFor()` function can be used to convert the work of a standard serial "for" loop into a parallel one, and the `parallelReduce()` function can be used for accumulating aggregate or other values.
