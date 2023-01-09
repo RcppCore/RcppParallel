@@ -13,7 +13,7 @@ Authors@R: c(
        email = "badr@jhu.edu",
        role = c("ctb"),
        comment = c(ORCID = "0000-0002-9808-2344")),
-    person(family = "RStudio", role = "cph"),
+    person(family = "Posit, PBC", role = "cph"),
     person(family = "Intel", role = c("aut", "cph"),
        comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
     person(family = "Microsoft", role = "cph")
