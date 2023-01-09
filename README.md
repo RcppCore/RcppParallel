@@ -8,7 +8,7 @@
 
 High level functions for parallel programming with Rcpp. The `parallelFor()` function can be used to convert the work of a standard serial "for" loop into a parallel one, and the `parallelReduce()` function can be used for accumulating aggregate or other values.
 
-The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, macOS, and Linux systems, the underlying implementation is based on [Intel TBB](https://www.threadingbuildingblocks.org/) (Threading Building Blocks). On other platforms, a less-performant fallback implementation based on the [TinyThread](https://tinythreadpp.bitsnbites.eu/) library is used.
+The high level interface enables safe and robust parallel programming without direct manipulation of operating system threads. On Windows, macOS, and Linux systems, the underlying implementation is based on [Intel TBB](https://github.com/oneapi-src/oneTBB) (Threading Building Blocks). On other platforms, a less-performant fallback implementation based on the [TinyThread](https://tinythreadpp.bitsnbites.eu/) library is used.
 
 For additional documentation on using RcppParallel see the package website at http://rcppcore.github.io/RcppParallel/.
 
