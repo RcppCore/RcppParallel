@@ -1,4 +1,6 @@
 
+## RcppParallel 5.1.7 (UNRELEASED)
+
 ## RcppParallel 5.1.6
 
 * Patch for TBB to allow compilation with gcc-13.
