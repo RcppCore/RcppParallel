@@ -1,6 +1,8 @@
 
 ## RcppParallel 5.1.7 (UNRELEASED)
 
+* Remove deprecated `std::iterator`. (#192; @Enchufa2)
+
 ## RcppParallel 5.1.6
 
 * Patch for TBB to allow compilation with gcc-13.
