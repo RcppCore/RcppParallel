@@ -14,16 +14,21 @@ public:
    public:   
       
       template <typename V>
-      class row_iterator 
-         : public std::iterator<std::random_access_iterator_tag, V, std::size_t> {
+      class row_iterator {
       
       public:
-         inline row_iterator(Row& row, std::size_t i)
+         using iterator_category = std::random_access_iterator_tag;
+         using value_type = V;
+         using difference_type = std::size_t;
+         using pointer = value_type*;
+         using reference = value_type&;
+
+         inline row_iterator(Row& row, difference_type i)
             : start_(row.start_), parentNrow_(row.parent_.nrow()), index_(i)
          {
          }
          
-         inline row_iterator(V* start, std::size_t parentNrow, std::size_t index)
+         inline row_iterator(pointer start, difference_type parentNrow, difference_type index)
             : start_(start), parentNrow_(parentNrow), index_(index)
          {      
          }
@@ -57,23 +62,23 @@ public:
             return tmp ;
          }
 
-         row_iterator operator+(std::size_t n) const { 
+         row_iterator operator+(difference_type n) const {
             return row_iterator(start_, parentNrow_ ,index_ + n ) ; 
          }
-         row_iterator operator-(std::size_t n) const { 
+         row_iterator operator-(difference_type n) const {
             return row_iterator(start_, parentNrow_, index_ - n ) ; 
          }
          
-         std::size_t operator+(const row_iterator& other) const {
+         difference_type operator+(const row_iterator& other) const {
             return index_ + other.index_;
          }
          
-         std::size_t operator-(const row_iterator& other) const { 
+         difference_type operator-(const row_iterator& other) const {
             return index_ - other.index_ ; 
          }
          
-         row_iterator& operator+=(std::size_t n) { index_ += n ; return *this; }
-         row_iterator& operator-=(std::size_t n) { index_ -= n ; return *this; }
+         row_iterator& operator+=(difference_type n) { index_ += n ; return *this; }
+         row_iterator& operator-=(difference_type n) { index_ -= n ; return *this; }
          
          bool operator==(const row_iterator& other) const { return index_ == other.index_; }
          bool operator!=(const row_iterator& other) const { return index_ != other.index_; }
@@ -83,16 +88,16 @@ public:
          bool operator>=(const row_iterator& other) const { return index_ >= other.index_; }
          
 
-         inline V& operator*() { return start_[index_ * parentNrow_]; }
+         inline reference operator*() { return start_[index_ * parentNrow_]; }
          
-         inline V* operator->() { return &(start_[index_ * parentNrow_]); }
+         inline pointer operator->() { return &(start_[index_ * parentNrow_]); }
       
-         inline V& operator[](int i) { return start_[(index_+i) * parentNrow_]; }
+         inline reference operator[](int i) { return start_[(index_+i) * parentNrow_]; }
          
       private:
-         V* start_;
-         std::size_t parentNrow_;
-         std::size_t index_;
+         pointer start_;
+         difference_type parentNrow_;
+         difference_type index_;
       };
       
       typedef row_iterator<T> iterator;
