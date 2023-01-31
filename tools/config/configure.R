@@ -132,3 +132,23 @@ if (Sys.info()[["sysname"]] == "SunOS") {
    }
 }
 
+# tbb autodetection on Unix
+define(TBB_LIB_AUTO = "", TBB_INC_AUTO = "")
+if (.Platform$OS.type == "unix") {
+   tbbLib <- Sys.glob(c(
+      "/usr/*/libtbb.so",
+      "/usr/*/*/libtbb.so",
+      "/usr/*/*/*/libtbb.so"
+   ))
+   tbbInc <- Sys.glob(c(
+      "/usr/include/tbb.h",
+      "/usr/include/*/tbb.h"
+   ))
+   if (length(tbbLib) && length(tbbInc)) {
+      define(
+         TBB_LIB_AUTO = dirname(tbbLib[1]),
+         TBB_INC_AUTO = dirname(tbbInc[1])
+      )
+   }
+}
+
