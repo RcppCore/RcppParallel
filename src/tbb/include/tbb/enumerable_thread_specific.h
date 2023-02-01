@@ -17,6 +17,8 @@
 #ifndef __TBB_enumerable_thread_specific_H
 #define __TBB_enumerable_thread_specific_H
 
+#include "compat/iterator.h"
+
 #include "atomic.h"
 #include "concurrent_vector.h"
 #include "tbb_thread.h"
@@ -296,7 +298,7 @@ namespace interface6 {
         class enumerable_thread_specific_iterator
 #if defined(_WIN64) && defined(_MSC_VER)
             // Ensure that Microsoft's internal template function _Val_type works correctly.
-            : public std::iterator<std::random_access_iterator_tag,Value>
+            : public tbb::iterator<std::random_access_iterator_tag,Value>
 #endif /* defined(_WIN64) && defined(_MSC_VER) */
         {
             //! current position in the concurrent_vector
@@ -458,7 +460,7 @@ namespace interface6 {
     template<typename SegmentedContainer, typename Value >
         class segmented_iterator
 #if defined(_WIN64) && defined(_MSC_VER)
-        : public std::iterator<std::input_iterator_tag, Value>
+        : public tbb::iterator<std::input_iterator_tag, Value>
 #endif
         {
             template<typename C, typename T, typename U>

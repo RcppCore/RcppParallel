@@ -23,6 +23,7 @@
 #include <cstring>      // Need std::memset
 #include __TBB_STD_SWAP_HEADER
 
+#include "compat/iterator.h"
 #include "tbb_allocator.h"
 #include "spin_rw_mutex.h"
 #include "atomic.h"
@@ -340,7 +341,7 @@ namespace interface5 {
         @ingroup containers */
     template<typename Container, typename Value>
     class hash_map_iterator
-        : public std::iterator<std::forward_iterator_tag,Value>
+        : public tbb::iterator<std::forward_iterator_tag,Value>
     {
         typedef Container map_type;
         typedef typename Container::node node;

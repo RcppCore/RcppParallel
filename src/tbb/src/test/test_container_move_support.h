@@ -22,6 +22,8 @@
 #include "harness_allocator.h"
 #include "harness_state_trackable.h"
 
+#include "tbb/compat/iterator.h"
+
 #include "tbb/atomic.h"
 #include "tbb/aligned_space.h"
 #include "tbb/internal/_allocator_traits.h"
@@ -172,7 +174,7 @@ public:
     friend bool operator!=(const FooIteratorType & lhs, const FooIteratorType & rhs){ return !(lhs == rhs); }
 };
 
-class FooIterator: public std::iterator<std::input_iterator_tag,FooWithAssign>, public FooIteratorBase<FooIterator> {
+class FooIterator: public tbb::iterator<std::input_iterator_tag,FooWithAssign>, public FooIteratorBase<FooIterator> {
 public:
     FooIterator(intptr_t x): FooIteratorBase<FooIterator>(x) {}
 
@@ -181,7 +183,7 @@ public:
     }
 };
 
-class FooPairIterator: public std::iterator<std::input_iterator_tag, std::pair<FooWithAssign,FooWithAssign> >,  public FooIteratorBase<FooPairIterator> {
+class FooPairIterator: public tbb::iterator<std::input_iterator_tag, std::pair<FooWithAssign,FooWithAssign> >,  public FooIteratorBase<FooPairIterator> {
 public:
     FooPairIterator(intptr_t x): FooIteratorBase<FooPairIterator>(x) {}
 
