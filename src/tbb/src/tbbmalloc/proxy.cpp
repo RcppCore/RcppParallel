@@ -14,6 +14,16 @@
     limitations under the License.
 */
 
+#ifdef __GNUC__
+# if __GNUC__ >= 12
+#  define TBB_ALIAS(x) __attribute__((alias(#x), copy(x)))
+# endif
+#endif
+
+#ifndef TBB_ALIAS
+# define TBB_ALIAS(x) __attribute__((alias(#x)))
+#endif
+
 #if __linux__ && !__ANDROID__
 // include <bits/c++config.h> indirectly so that <cstdlib> is not included
 #include <cstddef>
@@ -146,7 +156,7 @@ static inline void initPageSize()
    1) detection that the proxy library is loaded
    2) check that dlsym("malloc") found something different from our replacement malloc
 */
-extern "C" void *__TBB_malloc_proxy(size_t) __attribute__ ((alias ("malloc")));
+extern "C" void *__TBB_malloc_proxy(size_t) TBB_ALIAS(malloc);
 
 static void *orig_msize;
 
@@ -285,19 +295,19 @@ struct mallinfo mallinfo() __THROW
 // Android doesn't have malloc_usable_size, provide it to be compatible
 // with Linux, in addition overload dlmalloc_usable_size() that presented
 // under Android.
-size_t dlmalloc_usable_size(const void *ptr) __attribute__ ((alias ("malloc_usable_size")));
+size_t dlmalloc_usable_size(const void *ptr) TBB_ALIAS(malloc_usable_size);
 #else // __ANDROID__
 // C11 function, supported starting GLIBC 2.16
-void *aligned_alloc(size_t alignment, size_t size) __attribute__ ((alias ("memalign")));
+void *aligned_alloc(size_t alignment, size_t size) TBB_ALIAS(memalign);
 // Those non-standard functions are exported by GLIBC, and might be used
 // in conjunction with standard malloc/free, so we must ovberload them.
 // Bionic doesn't have them. Not removing from the linker scripts,
 // as absent entry points are ignored by the linker.
-void *__libc_malloc(size_t size) __attribute__ ((alias ("malloc")));
-void *__libc_calloc(size_t num, size_t size) __attribute__ ((alias ("calloc")));
-void *__libc_memalign(size_t alignment, size_t size) __attribute__ ((alias ("memalign")));
-void *__libc_pvalloc(size_t size) __attribute__ ((alias ("pvalloc")));
-void *__libc_valloc(size_t size) __attribute__ ((alias ("valloc")));
+void *__libc_malloc(size_t size) TBB_ALIAS(malloc);
+void *__libc_calloc(size_t num, size_t size) TBB_ALIAS(calloc);
+void *__libc_memalign(size_t alignment, size_t size) TBB_ALIAS(memalign);
+void *__libc_pvalloc(size_t size) TBB_ALIAS(pvalloc);
+void *__libc_valloc(size_t size) TBB_ALIAS(valloc);
 
 // call original __libc_* to support naive replacement of free via __libc_free etc
 void __libc_free(void *ptr)
