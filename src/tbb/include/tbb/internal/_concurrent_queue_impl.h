@@ -21,6 +21,8 @@
 #error Do not #include this internal file directly; use public TBB headers instead.
 #endif
 
+#include "../compat/iterator.h"
+
 #include "../tbb_stddef.h"
 #include "../tbb_machine.h"
 #include "../atomic.h"
@@ -741,7 +743,7 @@ template<typename T> struct tbb_remove_cv<const volatile T> {typedef T type;};
     @ingroup containers */
 template<typename Container, typename Value>
 class concurrent_queue_iterator: public concurrent_queue_iterator_base_v3<typename tbb_remove_cv<Value>::type>,
-        public std::iterator<std::forward_iterator_tag,Value> {
+        public tbb::iterator<std::forward_iterator_tag,Value> {
 #if !__TBB_TEMPLATE_FRIENDS_BROKEN
     template<typename T, class A>
     friend class ::tbb::strict_ppl::concurrent_queue;
@@ -1000,7 +1002,7 @@ typedef concurrent_queue_iterator_base_v3 concurrent_queue_iterator_base;
     @ingroup containers */
 template<typename Container, typename Value>
 class concurrent_queue_iterator: public concurrent_queue_iterator_base,
-        public std::iterator<std::forward_iterator_tag,Value> {
+        public tbb::iterator<std::forward_iterator_tag,Value> {
 
 #if !__TBB_TEMPLATE_FRIENDS_BROKEN
     template<typename T, class A>

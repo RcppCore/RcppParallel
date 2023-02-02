@@ -32,6 +32,8 @@
 #include <cstring>      // Need std::memset
 #include __TBB_STD_SWAP_HEADER
 
+#include "../compat/iterator.h"
+
 #include "../atomic.h"
 #include "../tbb_exception.h"
 #include "../tbb_allocator.h"
@@ -64,7 +66,7 @@ class concurrent_unordered_base;
 
 // Forward list iterators (without skipping dummy elements)
 template<class Solist, typename Value>
-class flist_iterator : public std::iterator<std::forward_iterator_tag, Value>
+class flist_iterator : public tbb::iterator<std::forward_iterator_tag, Value>
 {
     template <typename T, typename Allocator>
     friend class split_ordered_list;
