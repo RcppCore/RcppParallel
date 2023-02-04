@@ -109,7 +109,6 @@ RcppParallel.package.skeleton <- function(name = "anRpackage",
    message(" >> added src/Makevars")
    cat(
       c(
-         'CXX_STD = CXX11',
          '# We also need importFrom(RcppParallel,RcppParallelLibs) in NAMESPACE',
          'PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e "RcppParallel::RcppParallelLibs()")'
       ),
@@ -121,7 +120,6 @@ RcppParallel.package.skeleton <- function(name = "anRpackage",
    message(" >> added src/Makevars.win")
    cat(
       c(
-         'CXX_STD = CXX11',
          'PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1',
          'PKG_LIBS += $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppParallel::RcppParallelLibs()")'
       ),
