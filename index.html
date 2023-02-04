@@ -305,16 +305,13 @@ SystemRequirements: GNU make</code></pre>
 <p><strong>NAMESPACE</strong></p>
 <pre class="r"><code>importFrom(RcppParallel, RcppParallelLibs)</code></pre>
 <p><strong>src\Makevars</strong></p>
-<pre class="make"><code>CXX_STD = CXX11
-PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
+<pre class="make"><code>PKG_LIBS += $(shell ${R_HOME}/bin/Rscript -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
 <p><strong>src\Makevars.win</strong></p>
-<pre class="make"><code>CXX_STD = CXX11
-PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+<pre class="make"><code>PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
 
 PKG_LIBS += $(shell &quot;${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe&quot; \
               -e &quot;RcppParallel::RcppParallelLibs()&quot;)</code></pre>
 <p>Note that the Windows variation (Makevars.win) requires an extra <code>PKG_CXXFLAGS</code> entry that enables the use of TBB. This is because TBB is not used by default on Windows (for backward compatibility with a previous version of RcppParallel which lacked support for TBB on Windows).</p>
-<p>TBB uses a subset of C++11 features – for example, <code>long long</code> is not defined in the C++98 standard. Although most compilers make this type available as a compiler extension, they may emit warnings / errors when using these types while compiling in C++98 mode. To ensure that your package builds on CRAN without these warnings, you can enforce compilation using C++11, as done by <code>CXX_STD = CXX11</code>.</p>
 <p>After you’ve added the above to the package you can simply include the main RcppParallel package header in source files that need to use it:</p>
 <pre class="cpp"><code>#include &lt;RcppParallel.h&gt;</code></pre>
 </div>
