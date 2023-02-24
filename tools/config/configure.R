@@ -161,7 +161,7 @@ if (!is.na(tbbLib) && is.na(tbbInc)) {
 # if TBB_LIB and TBB_INC are still not defined, try auto-detecting
 tryAutoDetect <-
    .Platform$OS.type == "unix" &&
-   Sys.getenv("TBB_AUTODETECT", unset = "TRUE") == "TRUE" &&
+   Sys.getenv("TBB_AUTODETECT", unset = "FALSE") == "TRUE" &&
    is.na(tbbLib) &&
    is.na(tbbInc)
 
