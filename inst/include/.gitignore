@@ -1,6 +1,7 @@
 
 # These TBB libraries are copied in at configure time.
 /index.html
+/oneapi
 /serial
 /tbb
 

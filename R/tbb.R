@@ -53,8 +53,8 @@ tbbCxxFlags <- function() {
       flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
    
    # if TBB_INC is set, apply those library paths
-   tbbInc <- Sys.getenv("TBB_INC", unset = NA)
-   if (!is.na(tbbInc)) {
+   tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
+   if (nzchar(tbbInc)) {
       
       # add include path
       flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
@@ -75,8 +75,8 @@ tbbCxxFlags <- function() {
 tbbLdFlags <- function() {
    
    # shortcut if TBB_LIB defined
-   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
-   if (!is.na(tbbLib)) {
+   tbbLib <- Sys.getenv("TBB_LIB", unset = TBB_LIB)
+   if (nzchar(tbbLib)) {
       fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
       return(sprintf(fmt, asBuildPath(tbbLib)))
    }
@@ -96,8 +96,8 @@ tbbLdFlags <- function() {
 
 tbbRoot <- function() {
    
-   # TODO: rstan
-   # parts <- c("libs", if (nzchar(rArch)) rArch, "tbb")
+   if (nzchar(TBB_LIB))
+      return(TBB_LIB)
    
    rArch <- .Platform$r_arch
    parts <- c("lib", if (nzchar(rArch)) rArch)

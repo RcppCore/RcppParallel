@@ -1,4 +1,7 @@
 
+library(Rcpp)
+library(RUnit)
+
 sourceCpp(system.file("tests/cpp/transform.cpp", package = "RcppParallel"))
 
 test.transform <- function() {

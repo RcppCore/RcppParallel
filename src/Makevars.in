@@ -1,38 +1,17 @@
 
 PKG_CXXFLAGS = @CXX11STD@
 
-# If TBB_ROOT is defined, use it.
-ifdef TBB_ROOT
+TBB_LIB = @TBB_LIB@
+TBB_INC = @TBB_INC@
 
-	ifndef TBB_LIB
-		TBB_LIB = $(TBB_ROOT)/lib
-	endif
-
-	ifndef TBB_INC
-		TBB_INC = $(TBB_ROOT)/include
-	endif
-
-endif
-
-# If TBB_LIB is not defined, try to use autodetection
-ifndef TBB_LIB
-	TBB_LIB = @TBB_LIB_AUTO@
-	TBB_INC = @TBB_INC_AUTO@
-endif
-
-# If TBB_LIB is defined but TBB_INC is not, make a guess.
-ifdef TBB_LIB
-	ifndef TBB_INC
-		TBB_INC = $(TBB_LIB)/../include
-	endif
-endif
-
+# If TBB_INC is defined, include those library paths.
 ifdef TBB_INC
 	PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
 else
 	PKG_CPPFLAGS = -I../inst/include
 endif
 
+# If TBB_LIB is defined, link to that explicitly.
 ifdef TBB_LIB
 	PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
 endif

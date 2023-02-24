@@ -1,4 +1,7 @@
 
+library(Rcpp)
+library(RUnit)
+
 sourceCpp(system.file("tests/cpp/sum.cpp", package = "RcppParallel"))
 
 test.sum <- function() {

@@ -1,4 +1,7 @@
 
+library(Rcpp)
+library(RUnit)
+
 sourceCpp(system.file("tests/cpp/innerproduct.cpp", package = "RcppParallel"))
 
 test.innerproduct <- function() {
@@ -10,4 +13,5 @@ test.innerproduct <- function() {
       innerProduct(x, y), 
       parallelInnerProduct(x, y)
    )
+   
 }

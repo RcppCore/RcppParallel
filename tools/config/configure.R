@@ -132,23 +132,81 @@ if (Sys.info()[["sysname"]] == "SunOS") {
    }
 }
 
-# tbb autodetection on Unix
-define(TBB_LIB_AUTO = "", TBB_INC_AUTO = "")
-if (.Platform$OS.type == "unix") {
-   tbbLib <- Sys.glob(c(
-      "/usr/*/libtbb.so",
-      "/usr/*/*/libtbb.so",
-      "/usr/*/*/*/libtbb.so"
-   ))
-   tbbInc <- Sys.glob(c(
-      "/usr/include/tbb.h",
-      "/usr/include/*/tbb.h"
-   ))
-   if (length(tbbLib) && length(tbbInc)) {
-      define(
-         TBB_LIB_AUTO = dirname(tbbLib[1]),
-         TBB_INC_AUTO = dirname(tbbInc[1])
-      )
+# try and figure out path to TBB
+tbbRoot <- Sys.getenv("TBB_ROOT", unset = NA)
+tbbLib  <- Sys.getenv("TBB_LIB", unset = NA)
+tbbInc  <- Sys.getenv("TBB_INC", unset = NA)
+
+# check TBB_ROOT first if defined
+if (!is.na(tbbRoot)) {
+   
+   if (is.na(tbbLib)) {
+      tbbLib <- file.path(tbbRoot, "lib")
+   }
+   
+   if (is.na(tbbInc)) {
+      tbbInc <- file.path(tbbRoot, "include")
+   }
+   
+}
+
+# if TBB_LIB is defined, guess TBB_INC
+if (!is.na(tbbLib) && is.na(tbbInc)) {
+   tbbIncCandidate <- file.path(tbbLib, "../include")
+   if (file.exists(tbbIncCandidate)) {
+      tbbInc <- normalizePath(tbbIncCandidate)
    }
 }
 
+# if TBB_LIB and TBB_INC are still not defined, try auto-detecting
+tryAutoDetect <-
+   .Platform$OS.type == "unix" &&
+   Sys.getenv("TBB_AUTODETECT", unset = "TRUE") == "TRUE" &&
+   is.na(tbbLib) &&
+   is.na(tbbInc)
+
+if (tryAutoDetect) {
+   
+   sysInfo <- as.list(Sys.info())
+   
+   homebrewPrefix <- if (sysInfo$sysname == "Darwin") {
+      "/opt/homebrew"
+   } else {
+      "/usr/local"
+   }
+   
+   tbbLibSearch <- if (sysInfo$sysname == "Darwin") {
+      file.path(homebrewPrefix, "opt/tbb/lib/libtbb.dylib")
+   } else {
+      Sys.glob(c(
+         "/usr/*/libtbb.so",
+         "/usr/*/*/libtbb.so",
+         "/usr/*/*/*/libtbb.so"
+      ))
+   }
+   
+   tbbIncSearch <- if (sysInfo$sysname == "Darwin") {
+      file.path(homebrewPrefix, "opt/tbb/include/tbb")
+   } else {
+      Sys.glob(c(
+         "/usr/include/tbb.h",
+         "/usr/include/*/tbb.h"
+      ))
+   }
+   
+   if (length(tbbLibSearch) &&
+       length(tbbIncSearch) &&
+       file.exists(tbbLibSearch[[1L]]) &&
+       file.exists(tbbIncSearch[[1L]]))
+   {
+      tbbLib <- dirname(tbbLibSearch[[1L]])
+      tbbInc <- dirname(tbbIncSearch[[1L]])
+   }
+   
+}
+
+# now, define TBB_LIB and TBB_INC as appropriate
+define(
+   TBB_LIB = if (!is.na(tbbLib)) tbbLib else "",
+   TBB_INC = if (!is.na(tbbInc)) tbbInc else ""
+)
