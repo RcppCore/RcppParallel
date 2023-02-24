@@ -62,7 +62,6 @@
       tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
       
       # copy / link the libraries
-      writeLines(paste("*", tbbLibs))
       useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = "TRUE")
       if (useSymlinks) 
          file.symlink(tbbLibs, tbbDest)
