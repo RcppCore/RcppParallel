@@ -2,6 +2,9 @@
 # !diagnostics suppress=R_PACKAGE_DIR,SHLIB_EXT,R_ARCH
 .install.libs <- function() {
 
+   # get TBB library path
+   tbbLib <- "@TBB_LIB@"
+
    # copy default library
    files <- Sys.glob(paste0("*", SHLIB_EXT))
    dest <- file.path(R_PACKAGE_DIR, paste0("libs", R_ARCH))
@@ -22,13 +25,6 @@
    tbbDest <- file.path(R_PACKAGE_DIR, paste0("lib", R_ARCH))
    dir.create(tbbDest, recursive = TRUE, showWarnings = FALSE)
    
-   # check for bundled vs. system tbb
-   tbbRoot <- Sys.getenv("TBB_ROOT", unset = NA)
-   
-   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
-   if (is.na(tbbLib) && !is.na(tbbRoot))
-      tbbLib <- file.path(tbbRoot, "lib")
-   
    # note: on Linux, TBB gets compiled with extensions like
    # '.so.2', so be ready to handle those
    shlibPattern <- switch(
@@ -38,7 +34,7 @@
       "^libtbb.*\\.so.*$"
    )
    
-   if (is.na(tbbLib)) {
+   if (!nzchar(tbbLib)) {
       
       # using bundled TBB
       tbbLibs <- list.files(

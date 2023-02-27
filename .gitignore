@@ -13,3 +13,5 @@ src-x64
 tbb.log
 
 R/tbb-autodetected.R
+src/install.libs.R
+

@@ -15,5 +15,5 @@
 ^tags$
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.dll$
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.s?o$
-
+^tools/tbb$
 ^\.github$
