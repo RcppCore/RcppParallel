@@ -1,4 +1,6 @@
 
+## RcppParallel 5.1.8  (UNRELEASED)
+
 ## RcppParallel 5.1.7
 
 * Remove deprecated `std::iterator`. (#192; @Enchufa2)
