@@ -81,8 +81,8 @@ tbbLdFlags <- function() {
       return(sprintf(fmt, asBuildPath(tbbLib)))
    }
    
-   # on Windows and Solaris, we need to explicitly link
-   needsExplicitFlags <- is_windows() || (is_solaris() && !is_sparc())
+   # on Mac, Windows and Solaris, we need to explicitly link (#206)
+   needsExplicitFlags <- is_mac() || is_windows() || (is_solaris() && !is_sparc())
    if (needsExplicitFlags) {
       libPath <- asBuildPath(tbbLibraryPath())
       libFlag <- paste0("-L", libPath)

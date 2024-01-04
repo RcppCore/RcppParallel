@@ -95,6 +95,11 @@ ifneq (@COMPILER@, )
 	MAKE_ARGS += compiler=@COMPILER@
 endif
 
+# When TBB_LIB is unset on MacOS, link to the bundled version (#206)
+ifeq ($(USE_TBB)$(TBB_LIB),Mac)
+	PKG_LIBS += -Ltbb/build/lib_release -ltbb -Wl,-rpath,'@loader_path/../lib'
+endif
+
 # For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
 ifeq ($(USE_TBB), SunOS)
 	R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
