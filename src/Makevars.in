@@ -40,6 +40,7 @@ else
 
 	ifeq ($(UNAME), Darwin)
 		USE_TBB=Mac
+		MAKE_ARGS += arch=$(shell uname -m)
 	endif
 
 	ifeq ($(UNAME), Linux)
