@@ -88,6 +88,14 @@ ifeq ($(USE_TBB), Windows)
 	# Linker needs access to the tbb dll; otherwise you get errors such as:
 	# "undefined reference to `tbb::task_scheduler_init::terminate()'"
 	PKG_LIBS += -Ltbb/build/lib_release -ltbb -ltbbmalloc
+	
+	# override for aarch64 (experimental) to use Rtools TBB
+	ARCH=$(shell "${R_HOME}/bin/R" --vanilla -s -e 'cat(R.version$$arch)')
+	ifeq "$(ARCH)" "aarch64"
+		TBB_LIB = ${R_TOOLS_SOFT}
+		TBB_INC = ${R_TOOLS_SOFT}
+		PKG_LIBS = -ltbb12 -ltbbmalloc
+	endif
 
 endif
 
