@@ -81,10 +81,6 @@ tbbLdFlags <- function() {
       return(sprintf(fmt, asBuildPath(tbbLib)))
    }
    
-   # on Aarch64 builds, use the version of TBB provided by Rtools
-   if (is_windows() && R.version$arch == "aarch64")
-      return("-ltbb12 -ltbbmalloc")
-   
    # on Mac, Windows and Solaris, we need to explicitly link (#206)
    needsExplicitFlags <- is_mac() || is_windows() || (is_solaris() && !is_sparc())
    if (needsExplicitFlags) {

@@ -74,7 +74,11 @@ ifneq (,$(MALLOC.DEF))
 tbbmalloc.def: $(MALLOC.DEF)
 	$(CPLUS) $(PREPROC_ONLY) $< $(M_CPLUS_FLAGS) $(WARNING_SUPPRESS) $(INCLUDES) > $@
 
-MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
+# LLVM on Windows doesn't need --version-script export
+# https://reviews.llvm.org/D63743
+ifeq (, $(WINARM64))
+	MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
+endif
 $(MALLOC.DLL): tbbmalloc.def
 endif
 

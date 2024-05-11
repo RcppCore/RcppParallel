@@ -21,6 +21,14 @@ ifeq ($(OS), Windows_NT)
 	USE_TBB=Windows
 	TBB_COPY_PATTERN=tbb*.dll
 
+	ARCH=$(shell "${R_HOME}/bin/R" --vanilla -s -e 'cat(R.version$$arch)')
+	TBB_CXXFLAGS = @CXX11FLAGS@ -DTBB_NO_LEGACY=1
+	ifeq "$(ARCH)" "aarch64"
+		WINARM64=true
+		PKG_CPPFLAGS += -DTBB_USE_GCC_BUILTINS
+		TBB_CXXFLAGS += -DTBB_USE_GCC_BUILTINS
+	endif
+
 	MAKE = make
 	MAKEFLAGS = -e -j1
 	MAKE_CMD =                                    \
@@ -28,9 +36,10 @@ ifeq ($(OS), Windows_NT)
 		CYGWIN=nodosfilewarning                   \
 		CONLY="@WINDOWS_CC@"                      \
 		CPLUS="@WINDOWS_CXX11@"                   \
-		CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1" \
+		CXXFLAGS="$(TBB_CXXFLAGS)" 				  \
 		PIC_KEY="@CXX11PICFLAGS@"                 \
 		WARNING_SUPPRESS=""                       \
+		WINARM64="$(WINARM64)"                    \
 		$(MAKE)
 
 else
@@ -77,26 +86,19 @@ ifeq ($(USE_TBB), Windows)
 	# rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
 	# compiler: overwrite default (which is cl = MS compiler)
 	MAKE_ARGS += rtools=true compiler=gcc
-	ifeq ($(WIN), 64)
-		MAKE_ARGS += arch=intel64 runtime=mingw
-		ARCH_DIR=x64/
-	else
-		MAKE_ARGS += arch=ia32 runtime=mingw
-		ARCH_DIR=i386/
+	ifneq ($(WINARM64), true)
+		ifeq ($(WIN), 64)
+			MAKE_ARGS += arch=intel64 runtime=mingw
+			ARCH_DIR=x64/
+		else
+			MAKE_ARGS += arch=ia32 runtime=mingw
+			ARCH_DIR=i386/
+		endif
 	endif
 
 	# Linker needs access to the tbb dll; otherwise you get errors such as:
 	# "undefined reference to `tbb::task_scheduler_init::terminate()'"
 	PKG_LIBS += -Ltbb/build/lib_release -ltbb -ltbbmalloc
-	
-	# override for aarch64 (experimental) to use Rtools TBB
-	ARCH=$(shell "${R_HOME}/bin/R" --vanilla -s -e 'cat(R.version$$arch)')
-	ifeq "$(ARCH)" "aarch64"
-		TBB_LIB = ${R_TOOLS_SOFT}
-		TBB_INC = ${R_TOOLS_SOFT}
-		PKG_LIBS = -ltbb12 -ltbbmalloc
-	endif
-
 endif
 
 # write compiler if set
