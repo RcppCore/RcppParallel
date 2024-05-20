@@ -49,8 +49,14 @@ tbbCxxFlags <- function() {
    flags <- character()
    
    # opt-in to TBB on Windows
-   if (is_windows())
+   if (is_windows()) {
       flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+      if (R.version$arch == "aarch64") {
+         # TBB does not have assembly code for Windows ARM64
+         # so we need to use compiler builtins
+         flags <- c(flags, "-DTBB_USE_GCC_BUILTINS")
+      }
+   }
    
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
@@ -80,10 +86,6 @@ tbbLdFlags <- function() {
       fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
       return(sprintf(fmt, asBuildPath(tbbLib)))
    }
-   
-   # on Aarch64 builds, use the version of TBB provided by Rtools
-   if (is_windows() && R.version$arch == "aarch64")
-      return("-ltbb12 -ltbbmalloc")
    
    # on Mac, Windows and Solaris, we need to explicitly link (#206)
    needsExplicitFlags <- is_mac() || is_windows() || (is_solaris() && !is_sparc())

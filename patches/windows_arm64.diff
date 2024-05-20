@@ -1,0 +1,47 @@
+diff --git a/src/tbb/build/Makefile.tbb b/src/tbb/build/Makefile.tbb
+index 8d155f80..c58f4fb1 100644
+--- a/src/tbb/build/Makefile.tbb
++++ b/src/tbb/build/Makefile.tbb
+@@ -91,7 +91,11 @@ ifneq (,$(TBB.DEF))
+ tbb.def: $(TBB.DEF) $(TBB.LST)
+ 	$(CPLUS) $(PREPROC_ONLY) $< $(CPLUS_FLAGS) $(INCLUDES) > $@
+ 
+-LIB_LINK_FLAGS += $(EXPORT_KEY)tbb.def
++# LLVM on Windows doesn't need --version-script export
++# https://reviews.llvm.org/D63743
++ifeq (, $(WINARM64_CLANG))
++  LIB_LINK_FLAGS += $(EXPORT_KEY)tbb.def
++endif
+ $(TBB.DLL): tbb.def
+ endif
+ 
+diff --git a/src/tbb/build/Makefile.tbbmalloc b/src/tbb/build/Makefile.tbbmalloc
+index 421e95c5..e7c38fa4 100644
+--- a/src/tbb/build/Makefile.tbbmalloc
++++ b/src/tbb/build/Makefile.tbbmalloc
+@@ -74,7 +74,11 @@ ifneq (,$(MALLOC.DEF))
+ tbbmalloc.def: $(MALLOC.DEF)
+ 	$(CPLUS) $(PREPROC_ONLY) $< $(M_CPLUS_FLAGS) $(WARNING_SUPPRESS) $(INCLUDES) > $@
+ 
+-MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
++# LLVM on Windows doesn't need --version-script export
++# https://reviews.llvm.org/D63743
++ifeq (, $(WINARM64_CLANG))
++	MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
++endif
+ $(MALLOC.DLL): tbbmalloc.def
+ endif
+ 
+diff --git a/src/tbb/src/tbbmalloc/TypeDefinitions.h b/src/tbb/src/tbbmalloc/TypeDefinitions.h
+index 3178442e..fd4b7956 100644
+--- a/src/tbb/src/tbbmalloc/TypeDefinitions.h
++++ b/src/tbb/src/tbbmalloc/TypeDefinitions.h
+@@ -25,7 +25,7 @@
+ #       define __ARCH_ipf 1
+ #   elif defined(_M_IX86)||defined(__i386__) // the latter for MinGW support
+ #       define __ARCH_x86_32 1
+-#   elif defined(_M_ARM)
++#   elif defined(_M_ARM) || defined(__aarch64__)
+ #       define __ARCH_other 1
+ #   else
+ #       error Unknown processor architecture for Windows

@@ -27,12 +27,8 @@ loadTbbLibrary <- function(name) {
 
 .onLoad <- function(libname, pkgname) {
    
-   tbbLibraryName <- "tbb"
-   if (is_windows() && R.version$arch == "aarch64")
-      tbbLibraryName <- "tbb12"
-   
    # load tbb, tbbmalloc
-   .tbbDllInfo       <<- loadTbbLibrary(tbbLibraryName)
+   .tbbDllInfo       <<- loadTbbLibrary("tbb")
    .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
    
    # load tbbmalloc_proxy, but only if requested
