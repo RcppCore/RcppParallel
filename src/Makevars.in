@@ -24,9 +24,12 @@ ifeq ($(OS), Windows_NT)
 	ARCH=$(shell "${R_HOME}/bin/R" --vanilla -s -e 'cat(R.version$$arch)')
 	TBB_CXXFLAGS = @CXX11FLAGS@ -DTBB_NO_LEGACY=1
 	ifeq "$(ARCH)" "aarch64"
-		WINARM64=true
 		PKG_CPPFLAGS += -DTBB_USE_GCC_BUILTINS
 		TBB_CXXFLAGS += -DTBB_USE_GCC_BUILTINS
+		CLANG_CHECK := $(shell echo | $(CC) -E -dM -  | findstr __clang__)
+		ifneq ($(CLANG_CHECK), )
+			WINARM64_CLANG=true
+		endif
 	endif
 
 	MAKE = make
@@ -39,7 +42,7 @@ ifeq ($(OS), Windows_NT)
 		CXXFLAGS="$(TBB_CXXFLAGS)" 				  \
 		PIC_KEY="@CXX11PICFLAGS@"                 \
 		WARNING_SUPPRESS=""                       \
-		WINARM64="$(WINARM64)"                    \
+		WINARM64_CLANG="$(WINARM64_CLANG)"        \
 		$(MAKE)
 
 else
@@ -86,7 +89,9 @@ ifeq ($(USE_TBB), Windows)
 	# rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
 	# compiler: overwrite default (which is cl = MS compiler)
 	MAKE_ARGS += rtools=true compiler=gcc
-	ifneq ($(WINARM64), true)
+	# TBB configure will detect mingw runtime with unknown arch on WINARM64_CLANG but not an 
+	#   issue as we are using compiler built-ins instead of arch-specific code
+	ifneq ($(WINARM64_CLANG), true)
 		ifeq ($(WIN), 64)
 			MAKE_ARGS += arch=intel64 runtime=mingw
 			ARCH_DIR=x64/

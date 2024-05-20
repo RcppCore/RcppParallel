@@ -93,7 +93,7 @@ tbb.def: $(TBB.DEF) $(TBB.LST)
 
 # LLVM on Windows doesn't need --version-script export
 # https://reviews.llvm.org/D63743
-ifeq (, $(WINARM64))
+ifeq (, $(WINARM64_CLANG))
   LIB_LINK_FLAGS += $(EXPORT_KEY)tbb.def
 endif
 $(TBB.DLL): tbb.def
