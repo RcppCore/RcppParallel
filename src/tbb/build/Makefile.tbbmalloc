@@ -77,7 +77,7 @@ tbbmalloc.def: $(MALLOC.DEF)
 # LLVM on Windows doesn't need --version-script export
 # https://reviews.llvm.org/D63743
 ifeq (, $(WINARM64_CLANG))
-	MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
+  MALLOC_LINK_FLAGS += $(EXPORT_KEY)tbbmalloc.def
 endif
 $(MALLOC.DLL): tbbmalloc.def
 endif
