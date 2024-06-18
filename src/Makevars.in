@@ -28,7 +28,7 @@ else
 endif
 
 ifdef TBB_LIB
-	PKG_LIBS = -Wl,-L,"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
+	PKG_LIBS = -Wl,-L"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
 endif
 
 ifeq ($(OS), Windows_NT)
