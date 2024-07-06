@@ -56,6 +56,7 @@ if (broken)
 cppflags <- read_r_config("CPPFLAGS", envir = NULL)[[1]]
 cppflags <- sub("(?: )?-I/usr/local/include", "", cppflags)
 cppflags <- sub("(?: )?-I/opt/homebrew/include", "", cppflags)
+cppflags <- sub("(?: )?-I/opt/local/libexec/onetbb/include", "", cppflags)
 
 # define the set of flags appropriate to the current
 # configuration of R
