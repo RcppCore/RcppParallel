@@ -1,5 +1,5 @@
 
-## RcppParallel 5.1.8  (UNRELEASED)
+## RcppParallel 5.1.8
 
 * RcppParallel now explicitly links to the bundled copy of TBB on macOS. (#206; @jeroen)
 
