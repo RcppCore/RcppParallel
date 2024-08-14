@@ -13,7 +13,11 @@ endif
 
 # If TBB_LIB is defined, link to that explicitly.
 ifdef TBB_LIB
-	PKG_LIBS = -Wl,-L"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
+	ifeq ($(OS), Windows_NT)
+		PKG_LIBS = -Wl,-L"$(TBB_LIB)" -ltbb -ltbbmalloc
+	else
+		PKG_LIBS = -Wl,-L"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
+	endif
 endif
 
 ifeq ($(OS), Windows_NT)

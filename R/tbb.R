@@ -83,7 +83,8 @@ tbbLdFlags <- function() {
    # shortcut if TBB_LIB defined
    tbbLib <- Sys.getenv("TBB_LINK_LIB", Sys.getenv("TBB_LIB", unset = TBB_LIB))
    if (nzchar(tbbLib)) {
-      fmt <- "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
+      fmt <- if (is_windows()) "-L%1$s -ltbb -ltbbmalloc"
+             else "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
       return(sprintf(fmt, asBuildPath(tbbLib)))
    }
    
