@@ -1,4 +1,7 @@
 
+## RcppParallel 5.1.10  (UNRELEASED)
+
+
 ## RcppParallel 5.1.9
 
 * RcppParallel no longer passes `-rpath` when building / linking on Windows.
