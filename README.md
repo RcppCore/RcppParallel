@@ -2,7 +2,7 @@
 ## RcppParallel
 
 <!-- badges: start -->
-[![CRAN](http://www.r-pkg.org/badges/version/RcppParallel)](https://cran.r-project.org/package=RcppParallel)
+[![CRAN](https://www.r-pkg.org/badges/version/RcppParallel)](https://cran.r-project.org/package=RcppParallel)
 [![R-CMD-check](https://github.com/RcppCore/RcppParallel/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/RcppCore/RcppParallel/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
