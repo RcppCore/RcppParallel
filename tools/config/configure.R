@@ -50,6 +50,16 @@ broken <-
 if (broken)
    cxxflags <- gsub("-Werror=format-security", "-Wformat -Werror=format-security", cxxflags)
 
+# add C++ standard if not set
+if (!grepl("-std=", cxxflags, fixed = TRUE)) {
+   stdflag <- if (getRversion() < "4.0") {
+      "-std=c++0x"
+   } else {
+      "$(CXX11STD)"
+   }
+   cxxflags <- paste(stdflag, cxxflags)
+}
+
 # avoid including /usr/local/include, as this can cause
 # RcppParallel to find and use a version of libtbb installed
 # there as opposed to the bundled version
@@ -113,13 +123,6 @@ if (info[["sysname"]] == "Windows") {
       WINDOWS_CXX11 = sprintf(fmt, db$CXX11)
    )
 
-}
-
-# use c++0x for compatibility with older compilers
-if (getRversion() < "4.0") {
-   define(STDVER = "stdver=c++0x")
-} else {
-   define(STDVER = "")
 }
 
 # on Solaris, check if we're using gcc or g++
