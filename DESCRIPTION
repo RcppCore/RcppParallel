@@ -3,16 +3,17 @@ Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
 Version: 5.1.9.9000
 Authors@R: c(
-    person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com"),
+    person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com",
+        comment = c(ORCID = "0000-0003-2880-7407")),
     person("JJ", "Allaire", role = c("aut"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
     person("Gregory", "Vandenbrouck", role = "aut"),
     person("Marcus", "Geelnard", role = c("aut", "cph"),
        comment = "TinyThread library, https://tinythreadpp.bitsnbites.eu/"),
-    person("Hamada S.", "Badr",
-       email = "badr@jhu.edu",
-       role = c("ctb"),
+    person("Hamada S.", "Badr", email = "badr@jhu.edu", role = c("ctb"),
        comment = c(ORCID = "0000-0002-9808-2344")),
+    person("Dirk", "Eddelbuettel", role = c("aut"), email = "edd@debian.org",
+        comment = c(ORCID = "0000-0001-6419-907X")),
     person(family = "Intel", role = c("aut", "cph"), comment = "oneTBB library"),
     person(family = "UXL Foundation", role = c("aut", "cph"), comment = "oneTBB library"),
     person(family = "Microsoft", role = "cph"),
@@ -22,7 +23,7 @@ Description: High level functions for parallel programming with 'Rcpp'.
     For example, the 'parallelFor()' function can be used to convert the work of
     a standard serial "for" loop into a parallel one and the 'parallelReduce()'
     function can be used for accumulating aggregate or other values.
-Depends: R (>= 3.0.2)
+Depends: R (>= 4.2.0)
 Suggests:
     Rcpp,
     RUnit,

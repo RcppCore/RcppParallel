@@ -1,144 +1,19 @@
 
-PKG_CXXFLAGS = @CXX11STD@
+R = @R@
 
-TBB_LIB = @TBB_LIB@
-TBB_INC = @TBB_INC@
+TBB_LIB   = @TBB_LIB@
+TBB_INC   = @TBB_INC@
+TBB_NAME  = @TBB_NAME@
 
-# If TBB_INC is defined, include those library paths.
-ifdef TBB_INC
-	PKG_CPPFLAGS = -I../inst/include -I$(TBB_INC)
-else
-	PKG_CPPFLAGS = -I../inst/include
-endif
-
-# If TBB_LIB is defined, link to that explicitly.
-ifdef TBB_LIB
-	ifeq ($(OS), Windows_NT)
-		PKG_LIBS = -Wl,-L"$(TBB_LIB)" -ltbb -ltbbmalloc
-	else
-		PKG_LIBS = -Wl,-L"$(TBB_LIB)" -Wl,-rpath,"$(TBB_LIB)" -ltbb -ltbbmalloc
-	endif
-endif
-
-ifeq ($(OS), Windows_NT)
-
-	USE_TBB=Windows
-	TBB_COPY_PATTERN=tbb*.dll
-
-	ARCH=$(shell "${R_HOME}/bin/R" --vanilla -s -e 'cat(R.version$$arch)')
-	TBB_CXXFLAGS = @CXX11FLAGS@ -DTBB_NO_LEGACY=1
-	ifeq "$(ARCH)" "aarch64"
-		PKG_CPPFLAGS += -DTBB_USE_GCC_BUILTINS
-		TBB_CXXFLAGS += -DTBB_USE_GCC_BUILTINS
-		CLANG_CHECK := $(shell echo | $(CC) -E -dM -  | findstr __clang__)
-		ifneq ($(CLANG_CHECK), )
-			WINARM64_CLANG=true
-		endif
-	endif
-
-	MAKE = make
-	MAKEFLAGS = -e -j1
-	MAKE_CMD =                            \
-		MSYS2_ARG_CONV_EXCL="*"            \
-		CYGWIN=nodosfilewarning            \
-		CONLY="@WINDOWS_CC@"               \
-		CPLUS="@WINDOWS_CXX11@"            \
-		CXXFLAGS="$(TBB_CXXFLAGS)"         \
-		PIC_KEY="@CXX11PICFLAGS@"          \
-		WARNING_SUPPRESS=""                \
-		WINARM64_CLANG="$(WINARM64_CLANG)" \
-		$(MAKE)
-
-else
-
-	UNAME := $(shell uname)
-	TBB_COPY_PATTERN=libtbb*.*
-
-	ifeq ($(UNAME), Darwin)
-		USE_TBB=Mac
-		MAKE_ARGS += arch=$(shell uname -m)
-	endif
-
-	ifeq ($(UNAME), Linux)
-		USE_TBB=Linux
-	endif
-
-	ifeq ($(UNAME), SunOS)
-		SUNOS_ARCH = $(shell uname -p)
-		ifeq ($(SUNOS_ARCH), i386)
-			USE_TBB=SunOS
-		endif
-	endif
-
-	MAKEFLAGS += -e
-	MAKE_CMD =                                    \
-		CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
-		CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
-		CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1"  \
-		PIC_KEY="@CXX11PICFLAGS@"                  \
-		WARNING_SUPPRESS=""                        \
-		$(MAKE)
-
-endif
-
-ifdef USE_TBB
-
-PKG_CXXFLAGS += -DRCPP_PARALLEL_USE_TBB=1
+PKG_CPPFLAGS = @PKG_CPPFLAGS@
+PKG_CXXFLAGS = @CXX11STD@ -DRCPP_PARALLEL_USE_TBB=1
 PKG_CXXFLAGS += -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
-MAKE_TARGETS = tbb_build_prefix=lib tbb_release tbbmalloc_release
-
-ifeq ($(USE_TBB), Windows)
-
-	# rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
-	# compiler: overwrite default (which is cl = MS compiler)
-	MAKE_ARGS += rtools=true compiler=gcc
-	
-	# TBB configure will detect mingw runtime with unknown arch on WINARM64_CLANG but not an 
-	#   issue as we are using compiler built-ins instead of arch-specific code
-	ifneq ($(WINARM64_CLANG), true)
-		ifeq ($(WIN), 64)
-			MAKE_ARGS += arch=intel64 runtime=mingw
-			ARCH_DIR=x64/
-		else
-			MAKE_ARGS += arch=ia32 runtime=mingw
-			ARCH_DIR=i386/
-		endif
-	endif
-
-	# Linker needs access to the tbb dll; otherwise you get errors such as:
-	# "undefined reference to `tbb::task_scheduler_init::terminate()'"
-	PKG_LIBS += -Ltbb/build/lib_release -ltbb -ltbbmalloc
-endif
-
-# write compiler if set
-ifneq (@COMPILER@, )
-	MAKE_ARGS += compiler=@COMPILER@
-endif
-
-# When TBB_LIB is unset on MacOS, link to the bundled version (#206)
-ifeq ($(USE_TBB)$(TBB_LIB),Mac)
-	PKG_LIBS += -Ltbb/build/lib_release -ltbb -Wl,-rpath,'@loader_path/../lib'
-endif
-
-# For Solaris detect if this is 32-bit R on x86 and if so forward that to TBB
-ifeq ($(USE_TBB), SunOS)
-	R_32BIT = $(shell ${R_HOME}/bin/Rscript -e 'cat(.Machine$$sizeof.pointer == 4)')
-	ifeq ($(R_32BIT), TRUE)
-		MAKE_ARGS += arch=ia32
-	endif
-endif
-
-# Write compilation output to file, and log it if installation fails.
-ifeq ($(VERBOSE), )
-	MAKE_LOG = > tbb.log 2>&1 \
-		&& echo "(tbb) TBB compilation finished successfully." \
-		|| cat tbb.log; rm -f tbb.log
-endif
+PKG_LIBS = -Wl,-L"$(TBB_LIB)" @TBB_RPATH@ -l$(TBB_NAME) -ltbbmalloc
+PKG_LIBS += @PKG_LIBS_EXTRA@
 
 .PHONY: all tbb tbb-clean
 
-# Order is important in Windows' case. See PKG_LIBS above
 all: tbb $(SHLIB)
 
 # TBB needs to be built before our C++ sources are built, so that
@@ -148,20 +23,7 @@ $(OBJECTS): tbb
 # NOTE: TBB libraries are installed via install.libs.R.
 # However, we need to copy headers here so that they are visible during compilation.
 tbb: tbb-clean
-ifdef TBB_LIB
-	@echo "(tbb) Using system (Intel / OneAPI) TBB library."
-	@echo "(tbb) TBB_LIB = $(TBB_LIB)"
-	@echo "(tbb) TBB_INC = $(TBB_INC)"
-	@mkdir -p ../inst/include
-	@cp -R $(TBB_INC)/oneapi ../inst/include/ 2> /dev/null || :
-	@cp -R $(TBB_INC)/serial ../inst/include/ 2> /dev/null || :
-	@cp -R $(TBB_INC)/tbb    ../inst/include/ 2> /dev/null || :
-else
-	@echo "(tbb) Building TBB using bundled sources ..."
-	@mkdir -p ../inst/include
-	@cp -R tbb/include/* ../inst/include/
-	@(cd tbb; mkdir -p build; cd build; cmake -DTBB_TEST=0 ..; cmake --build .; mkdir -p lib_release; cp -R *_relwithdebinfo/ lib_release/)
-endif
+	TBB_LIB="$(TBB_LIB)" TBB_INC="$(TBB_INC)" TBB_NAME="$(TBB_NAME)" @R@ -s -f install.libs.R --args build
 
 # NOTE: we do not want to clean ../inst/lib or ../inst/libs here,
 # as we may be writing to those locations in multiarch builds
@@ -170,13 +32,3 @@ tbb-clean:
 	@rm -rf ../inst/include/oneapi
 	@rm -rf ../inst/include/tbb_local
 	@rm -rf ../inst/include/serial
-
-clean: tbb-clean
-ifdef TBB_LIB
-	@echo "Nothing to clean for TBB."
-else
-	@(cd tbb/src; make clean)
-endif
-
-
-endif

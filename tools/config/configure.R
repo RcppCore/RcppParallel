@@ -1,6 +1,7 @@
 
-# defualt compiler unset
-define(COMPILER = "")
+# make sure we call correct version of R
+rExe <- if (.Platform$OS.type == "windows") "R.exe" else "R"
+define(R = file.path(R.home("bin"), rExe))
 
 # check whether user has Makevars file that might cause trouble
 makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
@@ -103,43 +104,37 @@ switch(
    stop("Failed to infer C / C++ compilation flags")
 )
 
-# define special flags for Windows
-db <- configure_database()
-info <- as.list(Sys.info())
-if (info[["sysname"]] == "Windows") {
+# on Windows, check for Rtools; if it exists, and we have tbb, use it
+if (.Platform$OS.type == "windows") {
    
-   # for older versions of R, we need to resolve the
-   # 'true' path to the C / C++ compiler; we do so
-   # via the cygpath utility here
-   fmt <- if (getRversion() < "4.2.0") {
-      cygpath <- nzchar(Sys.which("cygpath"))
-      if (cygpath) "$(shell cygpath -m \"%s\")" else "%s"
-   } else {
-      "%s"
+   gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
+   
+   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
+   if (is.na(tbbLib)) {
+      tbbLib <- normalizePath(file.path(gccPath, "../../lib"), winslash = "/")
+      Sys.setenv(TBB_LIB = tbbLib)
    }
-
-   define(
-      WINDOWS_CC    = sprintf(fmt, db$CC),
-      WINDOWS_CXX11 = sprintf(fmt, db$CXX11)
-   )
-
-}
-
-# on Solaris, check if we're using gcc or g++
-if (Sys.info()[["sysname"]] == "SunOS") {
-   cxx <- r_cmd_config("CXX")
-   version <- system(paste(cxx, "--version"), intern = TRUE)
-   for (compiler in c("gcc", "g++")) {
-      if (any(grepl(compiler, version, fixed = TRUE))) {
-         define(COMPILER = "gcc")
-      }
+   
+   tbbInc <- Sys.getenv("TBB_INC", unset = NA)
+   if (is.na(tbbInc)) {
+      tbbInc <- normalizePath(file.path(gccPath, "../../include"), winslash = "/")
+      Sys.setenv(TBB_INC = tbbInc)
    }
+   
+   tbbPattern <- "lib(tbb[^[:alpha:]]*)\\.a$"
+   tbbLibs <- list.files(tbbLib, pattern = tbbPattern)
+   if (length(tbbLibs)) {
+      tbbName <- gsub(tbbPattern, "\\1", tbbLibs[[1L]])
+      Sys.setenv(TBB_NAME = tbbName)
+   }
+   
 }
 
 # try and figure out path to TBB
-tbbRoot <- Sys.getenv("TBB_ROOT", unset = NA)
-tbbLib  <- Sys.getenv("TBB_LIB", unset = NA)
-tbbInc  <- Sys.getenv("TBB_INC", unset = NA)
+tbbRoot  <- Sys.getenv("TBB_ROOT", unset = NA)
+tbbLib   <- Sys.getenv("TBB_LIB", unset = NA)
+tbbInc   <- Sys.getenv("TBB_INC", unset = NA)
+tbbName  <- Sys.getenv("TBB_NAME", unset = "tbb")
 
 # check TBB_ROOT first if defined
 if (!is.na(tbbRoot)) {
@@ -211,6 +206,28 @@ if (tryAutoDetect) {
 
 # now, define TBB_LIB and TBB_INC as appropriate
 define(
-   TBB_LIB = if (!is.na(tbbLib)) tbbLib else "",
-   TBB_INC = if (!is.na(tbbInc)) tbbInc else ""
+   TBB_LIB   = if (!is.na(tbbLib)) tbbLib else "",
+   TBB_INC   = if (!is.na(tbbInc)) tbbInc else "",
+   TBB_NAME  = tbbName
 )
+
+# set TBB_RPATH
+if (!is.na(tbbLib)) {
+   define(TBB_RPATH = sprintf("-Wl,-rpath,%s", shQuote(tbbLib)))
+} else {
+   define(TBB_RPATH = "")
+}
+
+# now, set up PKG_CPPFLAGS
+if (!is.na(tbbLib)) {
+   define(PKG_CPPFLAGS = "-I../inst/include -I\"$(TBB_INC)\"")
+} else {
+   define(PKG_CPPFLAGS = "-I../inst/include")
+}
+
+# macOS needs some extra flags set
+if (Sys.info()[["sysname"]] == "Darwin") {
+   define(PKG_LIBS_EXTRA = "-Ltbb/build/lib_release -ltbb -Wl,-rpath,\"@loader_path/../lib\"")
+} else {
+   define(PKG_LIBS_EXTRA = "")
+}
