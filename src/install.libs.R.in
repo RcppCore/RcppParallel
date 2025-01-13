@@ -40,14 +40,14 @@
       tbbLibs <- list.files(
          path       = "tbb/build/lib_release",
          pattern    = shlibPattern,
-         full.names = TRUE
+         full.names = TRUE,
+         recursive  = TRUE
       )
       
-      # don't copy symlinks
-      tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
-      
-      # perform the copy
-      file.copy(tbbLibs, tbbDest)
+      # perform the copy; use 'cp' so that we can preserve symlinks
+      for (tbbLib in tbbLibs) {
+         system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
+      }
       
    } else {
       

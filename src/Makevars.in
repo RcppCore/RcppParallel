@@ -160,8 +160,7 @@ else
 	@echo "(tbb) Building TBB using bundled sources ..."
 	@mkdir -p ../inst/include
 	@cp -R tbb/include/* ../inst/include/
-	@(cd tbb/src && $(MAKE_CMD) $(MAKE_ARGS) info)
-	@(cd tbb/src && $(MAKE_CMD) $(MAKE_ARGS) $(MAKE_TARGETS) $(MAKE_LOG))
+	@(cd tbb; mkdir -p build; cd build; cmake -DTBB_TEST=0 ..; cmake --build .; mkdir -p lib_release; cp -R *_relwithdebinfo/ lib_release/)
 endif
 
 # NOTE: we do not want to clean ../inst/lib or ../inst/libs here,

@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2019 Intel Corporation
+    Copyright (c) 2005-2021 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -51,11 +51,6 @@ static inline T alignUpGeneric(T arg, uintptr_t alignment) {
     return arg;
 }
 
-template<typename T, size_t N> // generic function to find length of array
-inline size_t arrayLength(const T(&)[N]) {
-    return N;
-}
-
 /*
  * Compile time Log2 calculation
  */
@@ -82,8 +77,8 @@ T min ( const T& val1, const T& val2 ) {
 #if defined(_MSC_VER) && (_MSC_VER<1900) && !defined(__INTEL_COMPILER)
     // Suppress overzealous compiler warnings that default ctor and assignment
     // operator cannot be generated and object 'class' can never be instantiated.
-    // #pragma warning(push)
-    // #pragma warning(disable:4510 4512 4610)
+    #pragma warning(push)
+    #pragma warning(disable:4510 4512 4610)
 #endif
 
 #if __SUNPRO_CC
@@ -95,11 +90,11 @@ T min ( const T& val1, const T& val2 ) {
 // TODO: add a constructor to remove warnings suppression
 struct parseFileItem {
     const char* format;
-    unsigned long long& value;
+    long long& value;
 };
 
 #if defined(_MSC_VER) && (_MSC_VER<1900) && !defined(__INTEL_COMPILER)
-    // #pragma warning(pop)
+    #pragma warning(pop)
 #endif
 
 #if __SUNPRO_CC

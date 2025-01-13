@@ -3,9 +3,9 @@ Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
 Version: 5.1.9.9000
 Authors@R: c(
+    person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com"),
     person("JJ", "Allaire", role = c("aut"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
-    person("Kevin", "Ushey", role = c("aut", "cre"), email = "kevin@rstudio.com"),
     person("Gregory", "Vandenbrouck", role = "aut"),
     person("Marcus", "Geelnard", role = c("aut", "cph"),
        comment = "TinyThread library, https://tinythreadpp.bitsnbites.eu/"),
@@ -13,10 +13,10 @@ Authors@R: c(
        email = "badr@jhu.edu",
        role = c("ctb"),
        comment = c(ORCID = "0000-0002-9808-2344")),
-    person(family = "Posit, PBC", role = "cph"),
-    person(family = "Intel", role = c("aut", "cph"),
-       comment = "Intel TBB library, https://www.threadingbuildingblocks.org/"),
-    person(family = "Microsoft", role = "cph")
+    person(family = "Intel", role = c("aut", "cph"), comment = "oneTBB library"),
+    person(family = "UXL Foundation", role = c("aut", "cph"), comment = "oneTBB library"),
+    person(family = "Microsoft", role = "cph"),
+    person(family = "Posit, PBC", role = "cph")
     )
 Description: High level functions for parallel programming with 'Rcpp'.
     For example, the 'parallelFor()' function can be used to convert the work of
@@ -29,7 +29,7 @@ Suggests:
     knitr,
     rmarkdown
 Roxygen: list(markdown = TRUE)
-SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
+SystemRequirements: CMake (>= 3.5)
 License: GPL (>= 3)
 URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
