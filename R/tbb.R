@@ -61,6 +61,10 @@ tbbCxxFlags <- function() {
    
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
+   if (!file.exists(tbbInc)) {
+      tbbInc <- system.file("include", package = "Rcpp")
+   }
+   
    if (nzchar(tbbInc)) {
       
       # add include path
@@ -96,15 +100,15 @@ tbbLdFlags <- function() {
    # shortcut if TBB_LIB defined
    tbbLib <- Sys.getenv("TBB_LINK_LIB", Sys.getenv("TBB_LIB", unset = TBB_LIB))
    if (nzchar(tbbLib)) {
-      fmt <- "-L%1$s -Wl,-rpath,%1$s -l%2$s -ltbbmalloc"
-      return(sprintf(fmt, asBuildPath(tbbLib), TBB_NAME))
+      fmt <- "-L%1$s -Wl,-rpath,%1$s -l%2$s -l%3$s"
+      return(sprintf(fmt, asBuildPath(tbbLib), TBB_NAME, TBB_MALLOC_NAME))
    }
    
    # explicitly link on macOS
    # https://github.com/RcppCore/RcppParallel/issues/206
    if (is_mac()) {
-      fmt <- "-L%s -l%s -ltbbmalloc"
-      return(sprintf(fmt, asBuildPath(tbbLibraryPath()), TBB_NAME))
+      fmt <- "-L%s -l%s -l%s"
+      return(sprintf(fmt, asBuildPath(tbbLibraryPath()), TBB_NAME, TBB_MALLOC_NAME))
    }
    
    # nothing required on other platforms

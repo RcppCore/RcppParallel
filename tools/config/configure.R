@@ -107,7 +107,6 @@ switch(
 # on Windows, check for Rtools; if it exists, and we have tbb, use it
 if (.Platform$OS.type == "windows") {
    
-   tbbPattern <- "lib(tbb[^[:alpha:]]*)\\.a$"
    gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
    
    tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
@@ -118,22 +117,35 @@ if (.Platform$OS.type == "windows") {
    if (is.na(tbbInc))
       tbbInc <- normalizePath(file.path(gccPath, "../../include"), winslash = "/")
    
-   tbbLibs <- list.files(tbbLib, pattern = tbbPattern)
-   if (length(tbbLibs)) {
-      tbbName <- gsub(tbbPattern, "\\1", tbbLibs[[1L]])
+   tbbFiles <- list.files(tbbLib, pattern = "^libtbb")
+   if (length(tbbFiles)) {
+      
+      tbbPattern <- "^lib(tbb\\d*(?:_static)?)\\.a$"
+      tbbName <- grep(tbbPattern, tbbFiles, perl = TRUE, value = TRUE)
+      tbbName <- gsub(tbbPattern, "\\1", tbbName, perl = TRUE)
+      
+      tbbMallocPattern <- "^lib(tbbmalloc\\d*(?:_static)?)\\.a$"
+      tbbMallocName <- grep(tbbMallocPattern, tbbFiles, perl = TRUE, value = TRUE)
+      tbbMallocName <- gsub(tbbMallocPattern, "\\1", tbbMallocName, perl = TRUE)
+      
       Sys.setenv(
          TBB_LIB = tbbLib,
          TBB_INC = tbbInc,
-         TBB_NAME = tbbName
+         TBB_NAME = tbbName,
+         TBB_MALLOC_NAME = tbbMallocName
       )
+      
    }
+   
 }
 
 # try and figure out path to TBB
 tbbRoot  <- Sys.getenv("TBB_ROOT", unset = NA)
 tbbLib   <- Sys.getenv("TBB_LIB", unset = NA)
 tbbInc   <- Sys.getenv("TBB_INC", unset = NA)
+
 tbbName  <- Sys.getenv("TBB_NAME", unset = "tbb")
+tbbMallocName <- Sys.getenv("TBB_MALLOC_NAME", unset = "tbbmalloc")
 
 # check TBB_ROOT first if defined
 if (!is.na(tbbRoot)) {
@@ -205,9 +217,10 @@ if (tryAutoDetect) {
 
 # now, define TBB_LIB and TBB_INC as appropriate
 define(
-   TBB_LIB   = if (!is.na(tbbLib)) tbbLib else "",
-   TBB_INC   = if (!is.na(tbbInc)) tbbInc else "",
-   TBB_NAME  = tbbName
+   TBB_LIB         = if (!is.na(tbbLib)) tbbLib else "",
+   TBB_INC         = if (!is.na(tbbInc)) tbbInc else "",
+   TBB_NAME        = tbbName,
+   TBB_MALLOC_NAME = tbbMallocName
 )
 
 # set PKG_LIBS
@@ -217,7 +230,7 @@ pkgLibs <- if (!is.na(tbbLib)) {
       "-Wl,-L\"$(TBB_LIB)\"",
       sprintf("-Wl,-rpath,%s", shQuote(tbbLib)),
       "-l$(TBB_NAME)",
-      "-ltbbmalloc"
+      "-l$(TBB_MALLOC_NAME)"
    )
    
 } else if (.Platform$OS.type == "windows") {
@@ -229,7 +242,7 @@ pkgLibs <- if (!is.na(tbbLib)) {
    c(
       "-Wl,-Ltbb/build/lib_release",
       "-l$(TBB_NAME)",
-      "-ltbbmalloc"
+      "-l$(TBB_MALLOC_NAME)"
    )
    
 }
