@@ -220,7 +220,6 @@ pkgLibs <- if (!is.na(tbbLib)) {
       "-l$(TBB_NAME)",
       "-ltbbmalloc"
    )
-   
 } else {
    
    c(
@@ -230,8 +229,52 @@ pkgLibs <- if (!is.na(tbbLib)) {
    )
    
 }
-   
+
 define(PKG_LIBS = paste(pkgLibs, collapse = " "))
+   
+# if we're going to build tbb from sources, check for cmake
+define(CMAKE = "")
+if (is.na(tbbLib)) {
+   
+   cmake <- local({
+      
+      # check for envvar
+      cmake <- Sys.getenv("CMAKE", unset = NA)
+      if (!is.na(cmake))
+         return(cmake)
+      
+      # check for path
+      cmake <- Sys.which("cmake")
+      if (nzchar(cmake))
+         return(cmake)
+      
+      # check for macOS cmake
+      cmake <- "/Applications/CMake.app/Contents/bin/cmake"
+      if (file.exists(cmake))
+         return(cmake)
+      
+      stop("cmake was not found")
+      
+   })
+   
+   # make sure we have an appropriate version of cmake installed
+   output <- system("cmake --version", intern = TRUE)[[1L]]
+   cmakeVersion <- numeric_version(sub("cmake version ", "", output))
+   if (cmakeVersion < "3.5") {
+      stop("error: RcppParallel requires cmake (>= 3.6); you have ", cmakeVersion)
+   }
+   
+   define(CMAKE = cmake)
+   
+}
+
+# set TBB_RPATH
+if (!is.na(tbbLib)) {
+   define(TBB_RPATH = sprintf("-Wl,-rpath,%s", shQuote(tbbLib)))
+} else {
+   define(TBB_RPATH = "")
+}
+
 
 # now, set up PKG_CPPFLAGS
 if (!is.na(tbbLib)) {
