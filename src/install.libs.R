@@ -87,23 +87,25 @@ useSystemTbb <- function(tbbLib, tbbInc) {
 useBundledTbb <- function() {
    
    useTbbPreamble("tbb/include")
-   dir.create("tbb/build", showWarnings = FALSE)
+   dir.create("tbb/build-tbb", showWarnings = FALSE)
    
    writeLines("*** configuring tbb")
-   status <- system("cd tbb/build; cmake -DTBB_TEST=0 -DTBB_EXAMPLES=0 -DTBB_STRICT=0 .. > build.log 2>&1")
+   status <- system("cd tbb/build-tbb; cmake -DTBB_TEST=0 -DTBB_EXAMPLES=0 -DTBB_STRICT=0 .. > build.log 2>&1")
    if (status != 0L) {
       system("cat build.log")
       stop("error configuring tbb (status code ", status, ")")
    }
    
    writeLines("*** building tbb")
-   status <- system("cd tbb/build; cmake --build . > build.log 2>&1")
+   status <- system("cd tbb/build-tbb; cmake --build . > build.log 2>&1")
    if (status != 0L) {
       system("cat build.log")
       stop("error building tbb (status code ", status, ")")
    }
    
-   system("cd tbb/build; mv *_relwithdebinfo lib_release")
+   dir.create("tbb/build", showWarnings = FALSE)
+   system("mv tbb/build-tbb/*_relwithdebinfo tbb/build/lib_release")
+   system("rm -rf tbb/build-tbb")
    writeLines("*** finished building tbb")
    
 }
