@@ -17,7 +17,7 @@ file.rename(folder, "tbb")
 setwd("tbb")
 remove <- c(".gitattributes", ".github", "doc", "examples", "python", "test")
 unlink(remove, recursive = TRUE)
-bazel <- list.files(pattern = "[Bb]azel")
+bazel <- list.files(pattern = "[Bb]azel", all.files = TRUE)
 unlink(bazel)
 setwd("..")
 
