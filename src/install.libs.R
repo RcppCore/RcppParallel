@@ -103,7 +103,7 @@ useBundledTbb <- function() {
       stop("error building tbb (status code ", status, ")")
    }
    
-   tbbFiles <- list.files(pattern = "libtbb.so", recursive = TRUE)
+   tbbFiles <- list.files(pattern = "^libtbb\\.(so|dylib)", recursive = TRUE)
    tbbDir <- dirname(tbbFiles[[1L]])
    
    dir.create("tbb/build", showWarnings = FALSE)
