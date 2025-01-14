@@ -28,8 +28,8 @@ namespace d1 {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress warning: structure was padded due to alignment specifier
-    #pragma warning (push)
-    #pragma warning (disable: 4324)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4324)
 #endif
 
 template <typename F>
@@ -243,7 +243,7 @@ void collaborative_call_once(collaborative_once_flag& flag, Fn&& fn, Args&&... a
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop) // 4324 warning
+    // #pragma warning (pop) // 4324 warning
 #endif
 
 } // namespace d1

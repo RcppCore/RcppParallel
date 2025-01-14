@@ -29,8 +29,8 @@
 #include <cstring>
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning(push)
-#pragma warning(disable: 4127) // warning C4127: conditional expression is constant
+// #pragma warning(push)
+// #pragma warning(disable: 4127) // warning C4127: conditional expression is constant
 #endif
 
 namespace tbb {
@@ -560,7 +560,7 @@ protected:
 } // namespace tbb
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning(pop) // warning 4127 is back
+// #pragma warning(pop) // warning 4127 is back
 #endif
 
 #endif // __TBB_detail__segment_table_H

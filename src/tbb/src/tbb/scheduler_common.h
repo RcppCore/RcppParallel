@@ -52,7 +52,7 @@ using scheduler_mutex_type = __TBB_SCHEDULER_MUTEX_TYPE;
     // Workaround for overzealous compiler warnings
     // These particular warnings are so ubiquitous that no attempt is made to narrow
     // the scope of the warnings.
-    #pragma warning (disable: 4100 4127 4312 4244 4267 4706)
+    // #pragma warning (disable: 4100 4127 4312 4244 4267 4706)
 #endif
 
 namespace tbb {
@@ -435,8 +435,8 @@ struct suspend_point_type {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 // structure was padded due to alignment specifier
-#pragma warning( push )
-#pragma warning( disable: 4324 )
+// #pragma warning( push )
+// #pragma warning( disable: 4324 )
 #endif
 
 class alignas (max_nfs_size) task_dispatcher {
@@ -574,7 +574,7 @@ public:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif
 
 inline std::uintptr_t calculate_stealing_threshold(std::uintptr_t base, std::size_t stack_size) {

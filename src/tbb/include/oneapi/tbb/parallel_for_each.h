@@ -84,14 +84,14 @@ public:
     -> decltype(tbb::detail::invoke(body, std::forward<ItemArg>(item)), void()) {
         #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
         // Suppression of Microsoft non-standard extension warnings
-        #pragma warning (push)
-        #pragma warning (disable: 4239)
+        // #pragma warning (push)
+        // #pragma warning (disable: 4239)
         #endif
 
         tbb::detail::invoke(body, std::forward<ItemArg>(item));
 
         #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-        #pragma warning (pop)
+        // #pragma warning (pop)
         #endif
     }
 
@@ -100,15 +100,15 @@ public:
     -> decltype(tbb::detail::invoke(body, std::forward<ItemArg>(item), *feeder), void()) {
         #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
         // Suppression of Microsoft non-standard extension warnings
-        #pragma warning (push)
-        #pragma warning (disable: 4239)
+        // #pragma warning (push)
+        // #pragma warning (disable: 4239)
         #endif
         __TBB_ASSERT(feeder, "Feeder was not created but should be");
 
         tbb::detail::invoke(body, std::forward<ItemArg>(item), *feeder);
 
         #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-        #pragma warning (pop)
+        // #pragma warning (pop)
         #endif
     }
 };

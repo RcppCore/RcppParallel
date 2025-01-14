@@ -40,8 +40,8 @@
 #include <algorithm>
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning(push)
-#pragma warning(disable: 4127) // warning C4127: conditional expression is constant
+// #pragma warning(push)
+// #pragma warning(disable: 4127) // warning C4127: conditional expression is constant
 #endif
 
 namespace tbb {
@@ -1505,7 +1505,7 @@ bool operator!=( const concurrent_unordered_base<Traits>& lhs,
 #endif
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#pragma warning(pop) // warning 4127 is back
+// #pragma warning(pop) // warning 4127 is back
 #endif
 
 } // namespace d2

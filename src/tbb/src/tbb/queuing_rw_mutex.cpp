@@ -29,8 +29,8 @@ namespace r1 {
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    #pragma warning (push)
-    #pragma warning (disable: 4311 4312)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4311 4312)
 #endif
 
 //! A view of a T* with additional functionality for twiddling low-order bits.
@@ -81,7 +81,7 @@ using tricky_pointer = tricky_atomic_pointer<queuing_rw_mutex::scoped_lock>;
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Workaround for overzealous compiler warnings
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 
 //! Flag bits in a state_t that specify information about a locking request.

@@ -42,8 +42,8 @@
 #if TBB_USE_PROFILING_TOOLS && ( __unix__ || __APPLE__ )
    #if __INTEL_COMPILER
        // Disabled warning "routine is both inline and noinline"
-       #pragma warning (push)
-       #pragma warning( disable: 2196 )
+       // #pragma warning (push)
+       // #pragma warning( disable: 2196 )
    #endif
    #define __TBB_NOINLINE_SYM __attribute__((noinline))
 #else

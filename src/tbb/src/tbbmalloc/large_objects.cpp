@@ -20,8 +20,8 @@
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Suppress warning: unary minus operator applied to unsigned type, result still unsigned
     // TBB_REVAMP_TODO: review this warning
-    #pragma warning(push)
-    #pragma warning(disable:4146)
+    // #pragma warning(push)
+    // #pragma warning(disable:4146)
 #endif
 
 /******************************* Allocation of large objects *********************************************/
@@ -1069,5 +1069,5 @@ void *ExtMemoryPool::remap(void *ptr, size_t oldSize, size_t newSize, size_t ali
 } // namespace rml
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif

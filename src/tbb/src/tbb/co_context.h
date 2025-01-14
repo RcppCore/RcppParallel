@@ -41,11 +41,11 @@
 // ucontext.h API is deprecated since macOS 10.6
 #if __APPLE__
     #if __INTEL_COMPILER
-        #pragma warning(push)
-        #pragma warning(disable:1478)
+        // #pragma warning(push)
+        // #pragma warning(disable:1478)
     #elif __clang__
-        #pragma clang diagnostic push
-        #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        // #pragma clang diagnostic push
+        // #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     #endif
 #endif // __APPLE__
 
@@ -361,9 +361,9 @@ inline void destroy_coroutine(coroutine_type& c) {
 
 #if __APPLE__
     #if __INTEL_COMPILER
-        #pragma warning(pop) // 1478 warning
+        // #pragma warning(pop) // 1478 warning
     #elif __clang__
-        #pragma clang diagnostic pop // "-Wdeprecated-declarations"
+        // #pragma clang diagnostic pop // "-Wdeprecated-declarations"
     #endif
 #endif
 

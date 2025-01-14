@@ -22,17 +22,17 @@
 #include "oneapi/tbb/detail/_config.h"
 
 #if _MSC_VER && !__INTEL_COMPILER && !__clang__
-#pragma warning( push )
-#pragma warning( disable : 4100 )
+// #pragma warning( push )
+// #pragma warning( disable : 4100 )
 #elif _MSC_VER && __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
+// #pragma GCC diagnostic push
+// #pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 #include <hwloc.h>
 #if _MSC_VER && !__INTEL_COMPILER && !__clang__
-#pragma warning( pop )
+// #pragma warning( pop )
 #elif _MSC_VER && __clang__
-#pragma GCC diagnostic pop
+// #pragma GCC diagnostic pop
 #endif
 
 #define __TBBBIND_HWLOC_HYBRID_CPUS_INTERFACES_PRESENT (HWLOC_API_VERSION >= 0x20400)

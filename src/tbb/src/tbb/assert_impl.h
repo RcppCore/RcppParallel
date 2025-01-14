@@ -65,14 +65,14 @@ static std::atomic<tbb::detail::do_once_state> assertion_state;
 void __TBB_EXPORTED_FUNC assertion_failure(const char* location, int line, const char* expression, const char* comment) {
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
     // Workaround for erroneous "unreachable code" during assertion throwing using call_once
-    #pragma warning (push)
-    #pragma warning (disable: 4702)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4702)
 #endif
     // We cannot use std::call_once because it brings a dependency on C++ runtime on some platforms 
     // while assert_impl.h is reused in tbbmalloc that should not depend on C++ runtime
     atomic_do_once([&](){ assertion_failure_impl(location, line, expression, comment); }, assertion_state);
 #if __TBB_MSVC_UNREACHABLE_CODE_IGNORED
-    #pragma warning (pop)
+    // #pragma warning (pop)
 #endif
 }
 

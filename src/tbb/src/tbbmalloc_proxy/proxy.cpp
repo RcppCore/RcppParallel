@@ -520,8 +520,8 @@ __TBB_ORIG_ALLOCATOR_REPLACEMENT_WRAPPER(ucrtbase);
 /*** replacements for global operators new and delete ***/
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( push )
-#pragma warning( disable : 4290 )
+// #pragma warning( push )
+// #pragma warning( disable : 4290 )
 #endif
 
 /*** operator new overloads internals (Linux, Windows) ***/
@@ -536,7 +536,7 @@ void operator_delete(void* ptr) noexcept {
     __TBB_malloc_safer_delete(ptr);
 }
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif
 
 void operator_delete_arr(void* ptr) noexcept {
@@ -764,8 +764,8 @@ void doMallocReplacement()
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
     // Suppress warning for UWP build ('main' signature found without threading model)
-    #pragma warning(push)
-    #pragma warning(disable:4447)
+    // #pragma warning(push)
+    // #pragma warning(disable:4447)
 #endif
 
 extern "C" BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID reserved )
@@ -784,7 +784,7 @@ extern "C" BOOL WINAPI DllMain( HINSTANCE hInst, DWORD callReason, LPVOID reserv
 }
 
 #if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif
 
 // Just to make the linker happy and link the DLL to the application

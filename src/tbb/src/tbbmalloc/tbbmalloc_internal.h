@@ -348,12 +348,12 @@ public:
 // and must be preserved in used blocks.
 class BlockI {
 #if __clang__ && !__INTEL_COMPILER
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wunused-private-field"
+    // #pragma clang diagnostic push
+    // #pragma clang diagnostic ignored "-Wunused-private-field"
 #endif
     intptr_t     blockState[2];
 #if __clang__ && !__INTEL_COMPILER
-    #pragma clang diagnostic pop // "-Wunused-private-field"
+    // #pragma clang diagnostic pop // "-Wunused-private-field"
 #endif
 };
 

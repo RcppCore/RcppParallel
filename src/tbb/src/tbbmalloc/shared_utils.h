@@ -77,8 +77,8 @@ T min ( const T& val1, const T& val2 ) {
 #if defined(_MSC_VER) && (_MSC_VER<1900) && !defined(__INTEL_COMPILER)
     // Suppress overzealous compiler warnings that default ctor and assignment
     // operator cannot be generated and object 'class' can never be instantiated.
-    #pragma warning(push)
-    #pragma warning(disable:4510 4512 4610)
+    // #pragma warning(push)
+    // #pragma warning(disable:4510 4512 4610)
 #endif
 
 #if __SUNPRO_CC
@@ -94,7 +94,7 @@ struct parseFileItem {
 };
 
 #if defined(_MSC_VER) && (_MSC_VER<1900) && !defined(__INTEL_COMPILER)
-    #pragma warning(pop)
+    // #pragma warning(pop)
 #endif
 
 #if __SUNPRO_CC

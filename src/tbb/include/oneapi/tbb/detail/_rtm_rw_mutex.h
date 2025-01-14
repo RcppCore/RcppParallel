@@ -35,8 +35,8 @@ namespace d1 {
 constexpr std::size_t speculation_granularity = 64;
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress warning: structure was padded due to alignment specifier
-    #pragma warning (push)
-    #pragma warning (disable: 4324)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4324)
 #endif
 
 //! Fast, unfair, spinning speculation-enabled reader-writer lock with backoff and writer-preference
@@ -116,7 +116,7 @@ private:
 };
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop) // 4324 warning
+    // #pragma warning (pop) // 4324 warning
 #endif
 
 } // namespace d1

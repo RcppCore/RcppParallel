@@ -34,8 +34,8 @@
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress warning: structure was padded due to alignment specifier
-    #pragma warning(push)
-    #pragma warning(disable:4324)
+    // #pragma warning(push)
+    // #pragma warning(disable:4324)
 #endif
 
 namespace tbb {
@@ -706,7 +706,7 @@ using detail::d2::task_handle;
 } // namespace tbb
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning(pop) // 4324 warning
+    // #pragma warning(pop) // 4324 warning
 #endif
 
 #endif // __TBB_task_group_H

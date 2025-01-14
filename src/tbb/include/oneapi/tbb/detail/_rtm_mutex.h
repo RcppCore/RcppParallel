@@ -32,8 +32,8 @@ namespace d1 {
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
     // Suppress warning: structure was padded due to alignment specifier
-    #pragma warning (push)
-    #pragma warning (disable: 4324)
+    // #pragma warning (push)
+    // #pragma warning (disable: 4324)
 #endif
 
 /** A rtm_mutex is an speculation-enabled spin mutex.
@@ -136,7 +136,7 @@ inline void rtm_mutex::scoped_lock::release() {
 }
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-    #pragma warning (pop) // 4324 warning
+    // #pragma warning (pop) // 4324 warning
 #endif
 
 #if TBB_USE_PROFILING_TOOLS

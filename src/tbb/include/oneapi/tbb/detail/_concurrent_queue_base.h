@@ -47,8 +47,8 @@ class micro_queue_pop_finalizer;
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 // unary minus operator applied to unsigned type, result still unsigned
-#pragma warning( push )
-#pragma warning( disable: 4146 )
+// #pragma warning( push )
+// #pragma warning( disable: 4146 )
 #endif
 
 // A queue using simple locking.
@@ -358,7 +358,7 @@ private:
 }; // class micro_queue
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif // warning 4146 is back
 
 template <typename Container, typename T, typename Allocator>
@@ -400,8 +400,8 @@ private:
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
 // structure was padded due to alignment specifier
-#pragma warning( push )
-#pragma warning( disable: 4324 )
+// #pragma warning( push )
+// #pragma warning( disable: 4324 )
 #endif
 
 template <typename T, typename Allocator>
@@ -502,7 +502,7 @@ public:
 }; // class concurrent_queue_rep
 
 #if _MSC_VER && !defined(__INTEL_COMPILER)
-#pragma warning( pop )
+// #pragma warning( pop )
 #endif
 
 template <typename Value, typename Allocator>

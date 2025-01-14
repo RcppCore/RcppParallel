@@ -43,7 +43,7 @@ enum class exception_id {
 } // namespace d0
 
 #if _MSC_VER
-    #pragma warning(disable: 4275)
+    // #pragma warning(disable: 4275)
 #endif
 
 namespace r1 {
