@@ -23,7 +23,7 @@ Description: High level functions for parallel programming with 'Rcpp'.
     For example, the 'parallelFor()' function can be used to convert the work of
     a standard serial "for" loop into a parallel one and the 'parallelReduce()'
     function can be used for accumulating aggregate or other values.
-Depends: R (>= 4.2.0)
+Depends: R (>= 3.6.0)
 Suggests:
     Rcpp,
     RUnit,
