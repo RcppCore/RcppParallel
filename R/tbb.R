@@ -50,7 +50,8 @@ tbbCxxFlags <- function() {
    
    # opt-in to TBB on Windows
    if (is_windows()) {
-      flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+      enabled <- if (TBB_ENABLED) "1" else "0"
+      flags <- c(flags, sprintf("-DRCPP_PARALLEL_USE_TBB=%s", enabled))
       if (R.version$arch == "aarch64") {
          # TBB does not have assembly code for Windows ARM64
          # so we need to use compiler builtins

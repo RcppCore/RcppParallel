@@ -107,27 +107,26 @@ switch(
 # on Windows, check for Rtools; if it exists, and we have tbb, use it
 if (.Platform$OS.type == "windows") {
    
+   tbbPattern <- "lib(tbb[^[:alpha:]]*)\\.a$"
    gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
    
    tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
-   if (is.na(tbbLib)) {
+   if (is.na(tbbLib))
       tbbLib <- normalizePath(file.path(gccPath, "../../lib"), winslash = "/")
-      Sys.setenv(TBB_LIB = tbbLib)
-   }
    
    tbbInc <- Sys.getenv("TBB_INC", unset = NA)
-   if (is.na(tbbInc)) {
+   if (is.na(tbbInc))
       tbbInc <- normalizePath(file.path(gccPath, "../../include"), winslash = "/")
-      Sys.setenv(TBB_INC = tbbInc)
-   }
    
-   tbbPattern <- "lib(tbb[^[:alpha:]]*)\\.a$"
    tbbLibs <- list.files(tbbLib, pattern = tbbPattern)
    if (length(tbbLibs)) {
       tbbName <- gsub(tbbPattern, "\\1", tbbLibs[[1L]])
-      Sys.setenv(TBB_NAME = tbbName)
+      Sys.setenv(
+         TBB_LIB = tbbLib,
+         TBB_INC = tbbInc,
+         TBB_NAME = tbbName
+      )
    }
-   
 }
 
 # try and figure out path to TBB
@@ -220,6 +219,11 @@ pkgLibs <- if (!is.na(tbbLib)) {
       "-l$(TBB_NAME)",
       "-ltbbmalloc"
    )
+   
+} else if (.Platform$OS.type == "windows") {
+   
+   NULL
+   
 } else {
    
    c(
@@ -283,6 +287,14 @@ if (!is.na(tbbLib)) {
    define(PKG_CPPFLAGS = "-I../inst/include")
 }
 
+# PKG_CXXFLAGS
+if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
+   define(TBB_ENABLED = FALSE)
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
+} else {
+   define(TBB_ENABLED = TRUE)
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
+}
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {

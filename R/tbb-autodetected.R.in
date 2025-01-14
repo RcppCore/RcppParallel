@@ -1,4 +1,5 @@
 
+TBB_ENABLED <- @TBB_ENABLED@
 TBB_LIB  <- "@TBB_LIB@"
 TBB_INC  <- "@TBB_INC@"
 TBB_NAME <- "@TBB_NAME@"

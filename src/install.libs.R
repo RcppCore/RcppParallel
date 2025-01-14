@@ -89,21 +89,56 @@ useBundledTbb <- function() {
    useTbbPreamble("tbb/include")
    dir.create("tbb/build-tbb", showWarnings = FALSE)
    
+   cmake <- Sys.getenv("CMAKE", unset = "cmake")
+   buildType <- Sys.getenv("CMAKE_BUILD_TYPE", unset = "Release")
+   verbose <- Sys.getenv("VERBOSE", unset = "0")
+
+   cmakeFlags <- c(
+      sprintf("-DCMAKE_BUILD_TYPE=%s", buildType),
+      "-DTBB_TEST=0",
+      "-DTBB_EXAMPLES=0",
+      "-DTBB_STRICT=0",
+      ".."
+   )   
+   
    writeLines("*** configuring tbb")
-   status <- system("cd tbb/build-tbb; cmake -DTBB_TEST=0 -DTBB_EXAMPLES=0 -DTBB_STRICT=0 .. > build.log 2>&1")
-   if (status != 0L) {
-      system("cat build.log")
+   owd <- setwd("tbb/build-tbb")
+   output <- system2(cmake, shQuote(cmakeFlags), stdout = TRUE, stderr = TRUE)
+   status <- attr(output, "status")
+   if (is.numeric(status) && status != 0L) {
+      writeLines(output)
       stop("error configuring tbb (status code ", status, ")")
+   } else if (!identical(verbose, "0")) {
+      writeLines(output)
    }
+   setwd(owd)
    
    writeLines("*** building tbb")
-   status <- system("cd tbb/build-tbb; cmake --build . > build.log 2>&1")
-   if (status != 0L) {
-      system("cat build.log")
+   owd <- setwd("tbb/build-tbb")
+   output <- system2(cmake, c("--build", ".", "--config", "release"), stdout = TRUE, stderr = TRUE)
+   status <- attr(output, "status")
+   if (is.numeric(status) && status != 0L) {
+      writeLines(output)
       stop("error building tbb (status code ", status, ")")
+   } else if (!identical(verbose, "0")) {
+      writeLines(output)
    }
+   setwd(owd)
    
-   tbbFiles <- list.files(pattern = "^libtbb\\.(so|dylib)", recursive = TRUE)
+   shlibPattern <- switch(
+      Sys.info()[["sysname"]],
+      Windows = "^tbb.*\\.dll$",
+      Darwin  = "^libtbb.*\\.dylib$",
+      "^libtbb.*\\.so.*$"
+   )
+   
+   tbbFiles <- list.files(
+      "tbb/build-tbb",
+      pattern = shlibPattern,
+      recursive = TRUE,
+      full.names = TRUE
+   )
+   
    tbbDir <- dirname(tbbFiles[[1L]])
    
    dir.create("tbb/build", showWarnings = FALSE)
@@ -123,6 +158,8 @@ args <- commandArgs(trailingOnly = TRUE)
 if (identical(args, "build")) {
    if (nzchar(tbbLib) && nzchar(tbbInc)) {
       useSystemTbb(tbbLib, tbbInc)
+   } else if (.Platform$OS.type == "windows") {
+      writeLines("** building RcppParallel without tbb backend")
    } else {
       useBundledTbb()
    }
