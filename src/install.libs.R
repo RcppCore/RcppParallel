@@ -103,9 +103,12 @@ useBundledTbb <- function() {
       stop("error building tbb (status code ", status, ")")
    }
    
+   tbbFiles <- list.files(pattern = "libtbb.so", recursive = TRUE)
+   tbbDir <- dirname(tbbFiles[[1L]])
+   
    dir.create("tbb/build", showWarnings = FALSE)
-   system("mv tbb/build-tbb/*_relwithdebinfo tbb/build/lib_release")
-   system("rm -rf tbb/build-tbb")
+   file.rename(tbbDir, "tbb/build/lib_release")
+   unlink("tbb/build-tbb", recursive = TRUE)
    writeLines("*** finished building tbb")
    
 }

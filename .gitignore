@@ -12,5 +12,8 @@ src-i386
 src-x64
 tbb.log
 
+src/tbb/build
+src/tbb/build-tbb
+
 R/tbb-autodetected.R
 
