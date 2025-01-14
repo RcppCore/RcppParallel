@@ -211,14 +211,27 @@ define(
    TBB_NAME  = tbbName
 )
 
-# set TBB_RPATH
-if (!is.na(tbbLib)) {
-   define(PKG_LIBS = "-Wl,-L\"$(TBB_LIB)\" @TBB_RPATH@ -l$(TBB_NAME) -ltbbmalloc")
-   define(TBB_RPATH = sprintf("-Wl,-rpath,%s", shQuote(tbbLib)))
+# set PKG_LIBS
+pkgLibs <- if (!is.na(tbbLib)) {
+   
+   c(
+      "-Wl,-L\"$(TBB_LIB)\"",
+      sprintf("-Wl,-rpath,%s", shQuote(tbbLib)),
+      "-l$(TBB_NAME)",
+      "-ltbbmalloc"
+   )
+   
 } else {
-   define(PKG_LIBS = "@TBB_RPATH@ -l$(TBB_NAME) -ltbbmalloc")
-   define(TBB_RPATH = "")
+   
+   c(
+      "-Wl,-Ltbb/build/lib_release",
+      "-l$(TBB_NAME)",
+      "-ltbbmalloc"
+   )
+   
 }
+   
+define(PKG_LIBS = paste(pkgLibs, collapse = " "))
 
 # now, set up PKG_CPPFLAGS
 if (!is.na(tbbLib)) {
@@ -230,7 +243,7 @@ if (!is.na(tbbLib)) {
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {
-   define(PKG_LIBS_EXTRA = "-Ltbb/build/lib_release -ltbb -Wl,-rpath,\"@loader_path/../lib\"")
+   define(PKG_LIBS_EXTRA = "-Wl,-rpath,\"@loader_path/../lib\"")
 } else {
    define(PKG_LIBS_EXTRA = "")
 }
