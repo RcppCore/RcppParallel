@@ -9,8 +9,7 @@ PKG_CPPFLAGS = @PKG_CPPFLAGS@
 PKG_CXXFLAGS = @CXX11STD@ -DRCPP_PARALLEL_USE_TBB=1
 PKG_CXXFLAGS += -DTBB_SUPPRESS_DEPRECATED_MESSAGES=1
 
-PKG_LIBS = -Wl,-L"$(TBB_LIB)" @TBB_RPATH@ -l$(TBB_NAME) -ltbbmalloc
-PKG_LIBS += @PKG_LIBS_EXTRA@
+PKG_LIBS = @PKG_LIBS@ @PKG_LIBS_EXTRA@
 
 .PHONY: all tbb tbb-clean
 
@@ -23,7 +22,7 @@ $(OBJECTS): tbb
 # NOTE: TBB libraries are installed via install.libs.R.
 # However, we need to copy headers here so that they are visible during compilation.
 tbb: tbb-clean
-	TBB_LIB="$(TBB_LIB)" TBB_INC="$(TBB_INC)" TBB_NAME="$(TBB_NAME)" @R@ -s -f install.libs.R --args build
+	@TBB_LIB="$(TBB_LIB)" TBB_INC="$(TBB_INC)" TBB_NAME="$(TBB_NAME)" @R@ -s -f install.libs.R --args build
 
 # NOTE: we do not want to clean ../inst/lib or ../inst/libs here,
 # as we may be writing to those locations in multiarch builds

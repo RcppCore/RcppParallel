@@ -213,8 +213,10 @@ define(
 
 # set TBB_RPATH
 if (!is.na(tbbLib)) {
+   define(PKG_LIBS = "-Wl,-L\"$(TBB_LIB)\" @TBB_RPATH@ -l$(TBB_NAME) -ltbbmalloc")
    define(TBB_RPATH = sprintf("-Wl,-rpath,%s", shQuote(tbbLib)))
 } else {
+   define(PKG_LIBS = "@TBB_RPATH@ -l$(TBB_NAME) -ltbbmalloc")
    define(TBB_RPATH = "")
 }
 
@@ -224,6 +226,7 @@ if (!is.na(tbbLib)) {
 } else {
    define(PKG_CPPFLAGS = "-I../inst/include")
 }
+
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {
