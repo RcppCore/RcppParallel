@@ -46,15 +46,15 @@ tbbLibraryPath <- function(name = NULL) {
 
 tbbCxxFlags <- function() {
    
-   flags <- character()
+   if (!TBB_ENABLED)
+      return("-DRCPP_PARALLEL_USE_TBB=0")
    
-   # opt-in to TBB on Windows
-   if (is_windows()) {
-      enabled <- if (TBB_ENABLED) "1" else "0"
-      flags <- c(flags, sprintf("-DRCPP_PARALLEL_USE_TBB=%s", enabled))
+   flags <- c("-DRCPP_PARALLEL_USE_TBB=1")
+   
+   # TBB does not have assembly code for Windows ARM64
+   # so we need to use compiler builtins
+   if (TBB_ENABLED && is_windows()) {
       if (R.version$arch == "aarch64") {
-         # TBB does not have assembly code for Windows ARM64
-         # so we need to use compiler builtins
          flags <- c(flags, "-DTBB_USE_GCC_BUILTINS")
       }
    }
@@ -62,18 +62,20 @@ tbbCxxFlags <- function() {
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
    if (!file.exists(tbbInc)) {
-      tbbInc <- system.file("include", package = "Rcpp")
+      tbbInc <- system.file("include", package = "RcppParallel")
    }
    
-   if (nzchar(tbbInc)) {
+   # add include path
+   if (nzchar(tbbInc) && file.exists(tbbInc)) {
       
-      # add include path
-      flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
-      
-      # prefer new interface if version.h exists
+      # prefer new interface if version.h exists -- we keep this
+      # for compatibility with packages like StanHeaders, rstan
       versionPath <- file.path(tbbInc, "tbb/version.h")
       if (file.exists(versionPath))
          flags <- c(flags, "-DTBB_INTERFACE_NEW")
+      
+      # now add the include path
+      flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
       
    }
    
