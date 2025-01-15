@@ -1,5 +1,5 @@
 
-## RcppParallel 5.1.10  (UNRELEASED)
+## RcppParallel 6.0.0
 
 * RcppParallel now bundles oneTBB 2022.0.0.
   
