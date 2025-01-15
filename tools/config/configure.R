@@ -247,6 +247,15 @@ pkgLibs <- if (!is.na(tbbLib)) {
    
 }
 
+# on Windows, we may need to link to ssp; otherwise,
+# we see errors like
+#
+#    C:\rtools43\x86_64-w64-mingw32.static.posix\bin/ld.exe: C:/rtools43/x86_64-w64-mingw32.static.posix/lib/libtbb12.a(allocator.cpp.obj):allocator.cpp:(.text+0x18b): undefined reference to `__stack_chk_fail'
+#
+if (.Platform$OS.type == "windows") {
+   pkgLibs <- c(pkgLibs, "-lssp")
+}
+
 define(PKG_LIBS = paste(pkgLibs, collapse = " "))
    
 # if we're going to build tbb from sources, check for cmake
