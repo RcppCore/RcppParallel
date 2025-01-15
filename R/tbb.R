@@ -50,7 +50,8 @@ tbbCxxFlags <- function() {
    
    # opt-in to TBB on Windows
    if (is_windows()) {
-      flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+      enabled <- if (TBB_ENABLED) "1" else "0"
+      flags <- c(flags, sprintf("-DRCPP_PARALLEL_USE_TBB=%s", enabled))
       if (R.version$arch == "aarch64") {
          # TBB does not have assembly code for Windows ARM64
          # so we need to use compiler builtins
@@ -60,6 +61,10 @@ tbbCxxFlags <- function() {
    
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
+   if (!file.exists(tbbInc)) {
+      tbbInc <- system.file("include", package = "Rcpp")
+   }
+   
    if (nzchar(tbbInc)) {
       
       # add include path
@@ -80,20 +85,30 @@ tbbCxxFlags <- function() {
 # Return the linker flags required for TBB on this platform
 tbbLdFlags <- function() {
    
+   # on Windows, we statically link to oneTBB
+   if (is_windows()) {
+      
+      libPath <- system.file("libs", package = "RcppParallel")
+      if (nzchar(.Platform$r_arch))
+         libPath <- file.path(libPath, .Platform$r_arch)
+      
+      ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
+      return(ldFlags)
+      
+   }
+   
    # shortcut if TBB_LIB defined
    tbbLib <- Sys.getenv("TBB_LINK_LIB", Sys.getenv("TBB_LIB", unset = TBB_LIB))
    if (nzchar(tbbLib)) {
-      fmt <- if (is_windows()) "-L%1$s -ltbb -ltbbmalloc"
-             else "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
-      return(sprintf(fmt, asBuildPath(tbbLib)))
+      fmt <- "-L%1$s -Wl,-rpath,%1$s -l%2$s -l%3$s"
+      return(sprintf(fmt, asBuildPath(tbbLib), TBB_NAME, TBB_MALLOC_NAME))
    }
    
-   # on Mac, Windows and Solaris, we need to explicitly link (#206)
-   needsExplicitFlags <- is_mac() || is_windows() || (is_solaris() && !is_sparc())
-   if (needsExplicitFlags) {
-      libPath <- asBuildPath(tbbLibraryPath())
-      libFlag <- paste0("-L", libPath)
-      return(paste(libFlag, "-ltbb", "-ltbbmalloc"))
+   # explicitly link on macOS
+   # https://github.com/RcppCore/RcppParallel/issues/206
+   if (is_mac()) {
+      fmt <- "-L%s -l%s -l%s"
+      return(sprintf(fmt, asBuildPath(tbbLibraryPath()), TBB_NAME, TBB_MALLOC_NAME))
    }
    
    # nothing required on other platforms
