@@ -4,6 +4,7 @@
 ^\.Rprofile$
 ^\.Rproj\.user$
 ^appveyor\.yml$
+^check$
 ^doc$
 ^gen$
 ^libs$

@@ -3,6 +3,7 @@
 .Rhistory
 .RData
 .DS_Store
+check
 inst/doc
 inst/lib
 inst/libs
