@@ -142,6 +142,7 @@ useBundledTbb <- function() {
    tbbDir <- dirname(tbbFiles[[1L]])
    
    dir.create("tbb/build", showWarnings = FALSE)
+   unlink("tbb/build/lib_release", recursive = TRUE)
    file.rename(tbbDir, "tbb/build/lib_release")
    unlink("tbb/build-tbb", recursive = TRUE)
    writeLines("*** finished building tbb")

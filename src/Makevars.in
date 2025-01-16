@@ -21,7 +21,7 @@ $(OBJECTS): tbb
 # NOTE: TBB libraries are installed via install.libs.R.
 # However, we need to copy headers here so that they are visible during compilation.
 tbb: tbb-clean
-	TBB_LIB="$(TBB_LIB)" TBB_INC="$(TBB_INC)"                   \
+	@TBB_LIB="$(TBB_LIB)" TBB_INC="$(TBB_INC)"                  \
 	TBB_NAME="$(TBB_NAME)" TBB_MALLOC_NAME="$(TBB_MALLOC_NAME)" \
 	CC="$(CC)" CFLAGS="$(CFLAGS)" CPPFLAGS="$(CPPFLAGS)"        \
 	CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)"	LDFLAGS="$(LDFLAGS)"    \

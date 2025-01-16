@@ -1,9 +1,10 @@
 
-## RcppParallel 5.1.10  (UNRELEASED)
+## RcppParallel 6.0.0  (UNRELEASED)
 
-* RcppParallel now bundles oneTBB 2022.0.0.
+* RcppParallel now bundles oneTBB 2022.0.0. Note that the TBB ABI has changed;
+  packages which depend on RcppParallel may need to be rebuilt.
   
-* On Windows, RcppParallel now uses the copy of TBB provided by Rtools, if any.
+* On Windows, RcppParallel now uses the copy of TBB provided by Rtools.
   If TBB is not available, RcppParallel will use only the fallback 'tinythread'
   implementation. In practice, this implies that RcppParallel will now only
   provide a TBB backend with R (>= 4.2.0).
