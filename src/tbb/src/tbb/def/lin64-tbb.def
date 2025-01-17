@@ -17,6 +17,26 @@
 {
 global:
 
+/* Needed for backwards compatibility */
+_ZNSt13runtime_errorD1Ev;
+_ZTISt13runtime_error;
+_ZTSSt13runtime_error;
+_ZNSt16invalid_argumentD1Ev;
+_ZTISt16invalid_argument;
+_ZTSSt16invalid_argument;
+_ZNSt11range_errorD1Ev;
+_ZTISt11range_error;
+_ZTSSt11range_error;
+_ZNSt12length_errorD1Ev;
+_ZTISt12length_error;
+_ZTSSt12length_error;
+_ZNSt12out_of_rangeD1Ev;
+_ZTISt12out_of_range;
+_ZTSSt12out_of_range;
+
+/* Needed by rstan */
+_ZN3tbb8internal26task_scheduler_observer_v37observeEb;
+
 /* Assertions (assert.cpp) */
 _ZN3tbb6detail2r117assertion_failureEPKciS3_S3_;
 
