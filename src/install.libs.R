@@ -99,7 +99,7 @@ useBundledTbb <- function() {
       "-DTBB_EXAMPLES=0",
       "-DTBB_STRICT=0",
       ".."
-   )   
+   )
    
    writeLines("*** configuring tbb")
    owd <- setwd("tbb/build-tbb")
@@ -133,18 +133,14 @@ useBundledTbb <- function() {
    )
    
    tbbFiles <- list.files(
-      "tbb/build-tbb",
+      file.path(getwd(), "tbb/build-tbb"),
       pattern = shlibPattern,
       recursive = TRUE,
       full.names = TRUE
    )
    
-   tbbDir <- dirname(tbbFiles[[1L]])
-   
-   dir.create("tbb/build", showWarnings = FALSE)
-   unlink("tbb/build/lib_release", recursive = TRUE)
-   file.rename(tbbDir, "tbb/build/lib_release")
-   unlink("tbb/build-tbb", recursive = TRUE)
+   dir.create("tbb/build/lib_release", recursive = TRUE, showWarnings = FALSE)
+   file.copy(tbbFiles, "tbb/build/lib_release")
    writeLines("*** finished building tbb")
    
 }

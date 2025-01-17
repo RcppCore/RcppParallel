@@ -2,8 +2,8 @@
 # Clean up files generated during configuration here.
 # Use 'remove_file()' to remove files generated during configuration.
 
-unlink("src/tbb/build", recursive = TRUE)
-unlink("src/tbb/build-tbb", recursive = TRUE)
+# unlink("src/tbb/build", recursive = TRUE)
+# unlink("src/tbb/build-tbb", recursive = TRUE)
 unlink("inst/lib",  recursive = TRUE)
 unlink("inst/libs", recursive = TRUE)
 unlink("inst/include/index.html", recursive = TRUE)

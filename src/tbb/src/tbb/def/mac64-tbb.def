@@ -19,6 +19,26 @@
 # be listed WITHOUT one leading underscore. __TBB_SYMBOL macro should add underscore when
 # necessary, depending on the intended usage.
 
+# Needed for backwards compatibility
+__ZNSt13runtime_errorD1Ev
+__ZTISt13runtime_error
+__ZTSSt13runtime_error
+__ZNSt16invalid_argumentD1Ev
+__ZTISt16invalid_argument
+__ZTSSt16invalid_argument
+__ZNSt11range_errorD1Ev
+__ZTISt11range_error
+__ZTSSt11range_error
+__ZNSt12length_errorD1Ev
+__ZTISt12length_error
+__ZTSSt12length_error
+__ZNSt12out_of_rangeD1Ev
+__ZTISt12out_of_range
+__ZTSSt12out_of_range
+
+# Needed by rstan
+__ZN3tbb8internal26task_scheduler_observer_v37observeEb
+
 # Assertions (assert.cpp)
 __ZN3tbb6detail2r117assertion_failureEPKciS3_S3_
 

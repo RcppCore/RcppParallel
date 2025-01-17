@@ -317,3 +317,14 @@ void __TBB_EXPORTED_FUNC observe(d1::task_scheduler_observer &tso, bool enable) 
 } // namespace r1
 } // namespace detail
 } // namespace tbb
+
+namespace tbb {
+namespace internal {
+
+void __TBB_EXPORTED_FUNC task_scheduler_observer_v3::observe( bool enable ) {
+    auto* tso = (tbb::detail::d1::task_scheduler_observer*) (this);
+    tbb::detail::r1::observe(*tso, enable);
+}
+
+} // namespace internal
+} // namespace tbb
