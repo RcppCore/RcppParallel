@@ -57,7 +57,7 @@
       tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
       
       # copy / link the libraries
-      useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = "TRUE")
+      useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = .Platform$OS.type != "windows")
       if (useSymlinks) {
          file.symlink(tbbLibs, tbbDest)
       } else {
@@ -66,6 +66,19 @@
          }
       }
       
+   }
+   
+   # on Windows, we create a stub library that links to us so that
+   # older binaries (like rstan) can still load
+   if (.Platform$OS.type == "windows") {
+      tbbDll <- file.path(tbbDest, "tbb.dll")
+      if (!file.exists(tbbDll)) {
+         writeLines("** creating tbb stub library")
+         status <- system("R CMD SHLIB tbb-compat/tbb-compat.cpp")
+         if (status != 0)
+            stop("error build tbb stub library")
+         file.rename("tbb-compat/tbb-compat.dll", file.path(tbbDest, "tbb.dll"))
+      }
    }
    
 }
@@ -81,7 +94,7 @@ useTbbPreamble <- function(tbbInc) {
 }
 
 useSystemTbb <- function(tbbLib, tbbInc) {
-   useTbbPreamble(tbbInc)
+   writeLines("** using system-provided tbb installation")
 }
 
 useBundledTbb <- function() {

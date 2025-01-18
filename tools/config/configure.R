@@ -316,7 +316,7 @@ if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
    define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
 } else {
    define(TBB_ENABLED = TRUE)
-   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1 -DRCPP_PARALLEL_TBB_COMPAT=1")
 }
 
 # macOS needs some extra flags set
