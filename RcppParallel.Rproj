@@ -14,6 +14,7 @@ RnwWeave: Sweave
 LaTeX: pdfLaTeX
 
 BuildType: Package
+PackageCleanBeforeInstall: No
 PackageInstallArgs: --with-keep.source --clean
 PackageCheckArgs: --as-cran
 PackageRoxygenize: rd,collate,namespace

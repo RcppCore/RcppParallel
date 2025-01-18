@@ -57,7 +57,7 @@
       tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
       
       # copy / link the libraries
-      useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = "TRUE")
+      useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = .Platform$OS.type != "windows")
       if (useSymlinks) {
          file.symlink(tbbLibs, tbbDest)
       } else {
@@ -66,6 +66,19 @@
          }
       }
       
+   }
+   
+   # on Windows, we create a stub library that links to us so that
+   # older binaries (like rstan) can still load
+   if (.Platform$OS.type == "windows") {
+      tbbDll <- file.path(tbbDest, "tbb.dll")
+      if (!file.exists(tbbDll)) {
+         writeLines("** creating tbb stub library")
+         status <- system("R CMD SHLIB tbb-compat/tbb-compat.cpp")
+         if (status != 0)
+            stop("error building tbb stub library")
+         file.rename("tbb-compat/tbb-compat.dll", file.path(tbbDest, "tbb.dll"))
+      }
    }
    
 }
@@ -99,7 +112,7 @@ useBundledTbb <- function() {
       "-DTBB_EXAMPLES=0",
       "-DTBB_STRICT=0",
       ".."
-   )   
+   )
    
    writeLines("*** configuring tbb")
    owd <- setwd("tbb/build-tbb")
@@ -133,17 +146,14 @@ useBundledTbb <- function() {
    )
    
    tbbFiles <- list.files(
-      "tbb/build-tbb",
+      file.path(getwd(), "tbb/build-tbb"),
       pattern = shlibPattern,
       recursive = TRUE,
       full.names = TRUE
    )
    
-   tbbDir <- dirname(tbbFiles[[1L]])
-   
-   dir.create("tbb/build", showWarnings = FALSE)
-   unlink("tbb/build/lib_release", recursive = TRUE)
-   file.rename(tbbDir, "tbb/build/lib_release")
+   dir.create("tbb/build/lib_release", recursive = TRUE, showWarnings = FALSE)
+   file.copy(tbbFiles, "tbb/build/lib_release", overwrite = TRUE)
    unlink("tbb/build-tbb", recursive = TRUE)
    writeLines("*** finished building tbb")
    

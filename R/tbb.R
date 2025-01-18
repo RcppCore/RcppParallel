@@ -37,9 +37,17 @@ tbbLibraryPath <- function(name = NULL) {
    # find the request library (if any)
    libNames <- tbbLibNames[[sysname]]
    for (libName in libNames) {
+      
       tbbName <- file.path(tbbRoot, libName)
       if (file.exists(tbbName))
          return(tbbName)
+      
+      arch <- if (nzchar(.Platform$r_arch)) .Platform$r_arch
+      suffix <- paste(c("lib", arch, libName), collapse = "/")
+      tbbName <- system.file(suffix, package = "RcppParallel")
+      if (file.exists(tbbName))
+         return(tbbName)
+      
    }
    
 }

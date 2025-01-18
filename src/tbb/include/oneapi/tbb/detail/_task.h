@@ -124,12 +124,14 @@ class wait_context {
         }
     }
 
+public:
     bool continue_execution() const {
         std::uint64_t r = m_ref_count.load(std::memory_order_acquire);
         __TBB_ASSERT_EX((r & overflow_mask) == 0, "Overflow is detected");
         return r > 0;
     }
-
+    
+private:
     friend class r1::thread_data;
     friend class r1::task_dispatcher;
     friend class r1::external_waiter;

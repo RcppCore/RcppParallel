@@ -247,6 +247,7 @@ pkgLibs <- if (!is.na(tbbLib)) {
    
 }
 
+
 # on Windows, we may need to link to ssp; otherwise,
 # we see errors like
 #
@@ -320,7 +321,7 @@ if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {
-   define(PKG_LIBS_EXTRA = "-Wl,-rpath,\"@loader_path/../lib\"")
+   define(PKG_LIBS_EXTRA = "-Wl,-rpath,@loader_path/../lib")
 } else {
    define(PKG_LIBS_EXTRA = "")
 }

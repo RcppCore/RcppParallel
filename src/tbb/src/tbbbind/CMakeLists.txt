@@ -53,8 +53,6 @@ function(tbbbind_build TBBBIND_NAME REQUIRED_HWLOC_TARGET)
     # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
     set_target_properties(${TBBBIND_NAME} PROPERTIES
         DEFINE_SYMBOL ""
-        VERSION ${TBBBIND_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
-        SOVERSION ${TBBBIND_BINARY_VERSION}
     )
 
     tbb_handle_ipo(${TBBBIND_NAME})

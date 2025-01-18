@@ -90,8 +90,6 @@ target_compile_options(tbb
 # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
 set_target_properties(tbb PROPERTIES
     DEFINE_SYMBOL ""
-    VERSION ${TBB_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
-    SOVERSION ${TBB_BINARY_VERSION}
 )
 
 tbb_handle_ipo(tbb)

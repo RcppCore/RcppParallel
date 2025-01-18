@@ -70,8 +70,6 @@ enable_language(C)
 # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
 set_target_properties(tbbmalloc PROPERTIES
     DEFINE_SYMBOL ""
-    VERSION ${TBBMALLOC_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
-    SOVERSION ${TBBMALLOC_BINARY_VERSION}
     LINKER_LANGUAGE C
 )
 
