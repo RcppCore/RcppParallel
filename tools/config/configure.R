@@ -316,12 +316,12 @@ if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
    define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
 } else {
    define(TBB_ENABLED = TRUE)
-   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1 -DRCPP_PARALLEL_TBB_COMPAT=1")
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
 }
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {
-   define(PKG_LIBS_EXTRA = "-Wl,-rpath,\"@loader_path/../lib\"")
+   define(PKG_LIBS_EXTRA = "-Wl,-rpath,@loader_path/../lib")
 } else {
    define(PKG_LIBS_EXTRA = "")
 }

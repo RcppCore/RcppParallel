@@ -76,7 +76,7 @@
          writeLines("** creating tbb stub library")
          status <- system("R CMD SHLIB tbb-compat/tbb-compat.cpp")
          if (status != 0)
-            stop("error build tbb stub library")
+            stop("error building tbb stub library")
          file.rename("tbb-compat/tbb-compat.dll", file.path(tbbDest, "tbb.dll"))
       }
    }
@@ -94,7 +94,7 @@ useTbbPreamble <- function(tbbInc) {
 }
 
 useSystemTbb <- function(tbbLib, tbbInc) {
-   writeLines("** using system-provided tbb installation")
+   useTbbPreamble(tbbInc)
 }
 
 useBundledTbb <- function() {
