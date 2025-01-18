@@ -8,6 +8,12 @@
 #include "../tbb/src/tbb/main.h"
 #include "../tbb/src/tbb/thread_data.h"
 
+#ifdef _WIN32
+# define DLL_EXPORT __declspec(dllexport)
+#else
+# define DLL_EXPORT
+#endif
+
 namespace tbb {
 
 namespace interface6 {
@@ -127,7 +133,7 @@ public:
 namespace tbb {
 namespace internal {
 
-__declspec(dllexport)
+DLL_EXPORT
 void __TBB_EXPORTED_FUNC task_scheduler_observer_v3::observe( bool enable ) {
    auto* tso = (tbb::detail::d1::task_scheduler_observer*) (this);
    tbb::detail::r1::observe(*tso, enable);
