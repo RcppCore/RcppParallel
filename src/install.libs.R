@@ -154,6 +154,7 @@ useBundledTbb <- function() {
    
    dir.create("tbb/build/lib_release", recursive = TRUE, showWarnings = FALSE)
    file.copy(tbbFiles, "tbb/build/lib_release")
+   unlink("tbb/build-tbb", recursive = TRUE)
    writeLines("*** finished building tbb")
    
 }
