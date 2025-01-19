@@ -27,19 +27,24 @@ loadTbbLibrary <- function(name) {
 
 .onLoad <- function(libname, pkgname) {
    
-   if (TBB_STATIC) {
+   # on Windows, load RcppParallel first
+   if (.Platform$OS.type == "windows") {
       .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
-      return()
    }
    
+   # load tbb, tbbmalloc
    .tbbDllInfo       <<- loadTbbLibrary("tbb")
    .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
    
+   # load tbbmalloc_proxy, but only if requested
    useTbbMallocProxy <- Sys.getenv("RCPP_PARALLEL_USE_TBBMALLOC_PROXY", unset = "FALSE")
    if (useTbbMallocProxy %in% c("TRUE", "True", "true", "1"))
       .tbbMallocProxyDllInfo <<- loadTbbLibrary("tbbmalloc_proxy")
    
-   .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
+   # load RcppParallel library if available
+   if (.Platform$OS.type != "windows") {
+      .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
+   }
    
 }
 

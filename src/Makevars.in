@@ -2,16 +2,13 @@
 CMAKE = @CMAKE@
 R = @R@
 
-TBB_ENABLED     = @TBB_ENABLED@
-TBB_STATIC      = @TBB_STATIC@
-TBB_SRC         = @TBB_SRC@
 TBB_LIB         = @TBB_LIB@
 TBB_INC         = @TBB_INC@
-
 TBB_NAME        = @TBB_NAME@
 TBB_MALLOC_NAME = @TBB_MALLOC_NAME@
 
 PKG_CPPFLAGS = @PKG_CPPFLAGS@
+PKG_CXXFLAGS = @PKG_CXXFLAGS@
 
 PKG_LIBS = @PKG_LIBS@ @PKG_LIBS_EXTRA@
 
@@ -24,23 +21,11 @@ $(OBJECTS): tbb
 # NOTE: TBB libraries are installed via install.libs.R.
 # However, we need to copy headers here so that they are visible during compilation.
 tbb: tbb-clean
-	@                                    \
-	TBB_ENABLED="$(TBB_ENABLED)"         \
-	TBB_STATIC="$(TBB_STATIC)"           \
-	TBB_SRC="$(TBB_SRC)"                 \
-	TBB_LIB="$(TBB_LIB)"                 \
-	TBB_INC="$(TBB_INC)"                 \
-	TBB_NAME="$(TBB_NAME)"               \
-	TBB_MALLOC_NAME="$(TBB_MALLOC_NAME)" \
-	CC="$(CC)"                           \
-	CFLAGS="$(CFLAGS)"                   \
-	CPPFLAGS="$(CPPFLAGS)"               \
-	CXX="$(CXX)"                         \
-	CXXFLAGS="$(CXXFLAGS)"	             \
-	CXXPICFLAGS="$(CXXPICFLAGS)"         \
-	LDFLAGS="$(LDFLAGS)"                 \
-	CMAKE="$(CMAKE)"                     \
-	"@R@" -s -f install.libs.R --args build
+	@TBB_LIB="$(TBB_LIB)" TBB_INC="$(TBB_INC)"                  \
+	TBB_NAME="$(TBB_NAME)" TBB_MALLOC_NAME="$(TBB_MALLOC_NAME)" \
+	CC="$(CC)" CFLAGS="$(CFLAGS)" CPPFLAGS="$(CPPFLAGS)"        \
+	CXX="$(CXX)" CXXFLAGS="$(CXXFLAGS)"	LDFLAGS="$(LDFLAGS)"    \
+	CMAKE="$(CMAKE)" "@R@" -s -f install.libs.R --args build
 
 # NOTE: we do not want to clean ../inst/lib or ../inst/libs here,
 # as we may be writing to those locations in multiarch builds

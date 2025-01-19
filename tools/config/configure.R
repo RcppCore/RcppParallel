@@ -1,20 +1,7 @@
 
-# use new tbb for newer versions of R
-tbbSrc <- Sys.getenv("TBB_SRC", unset = NA)
-if (is.na(tbbSrc)) {
-   tbbSrc <- if (getRversion() >= "4.5.0") "tbb" else "tbb-2019"
-}
-
-# set up some default flags
-define(TBB_ENABLED = TRUE)
-define(TBB_STATIC = FALSE)
-define(TBB_SRC = tbbSrc)
-
-
 # make sure we call correct version of R
 rExe <- if (.Platform$OS.type == "windows") "R.exe" else "R"
 define(R = file.path(R.home("bin"), rExe))
-
 
 # check whether user has Makevars file that might cause trouble
 makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
@@ -118,7 +105,7 @@ switch(
 )
 
 # on Windows, check for Rtools; if it exists, and we have tbb, use it
-if (getRversion() >= "4.5.0" && .Platform$OS.type == "windows") {
+if (.Platform$OS.type == "windows") {
    
    gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
    
@@ -140,8 +127,6 @@ if (getRversion() >= "4.5.0" && .Platform$OS.type == "windows") {
       tbbMallocPattern <- "^lib(tbbmalloc\\d*(?:_static)?)\\.a$"
       tbbMallocName <- grep(tbbMallocPattern, tbbFiles, perl = TRUE, value = TRUE)
       tbbMallocName <- gsub(tbbMallocPattern, "\\1", tbbMallocName, perl = TRUE)
-      
-      define(TBB_STATIC = TRUE)
       
       Sys.setenv(
          TBB_LIB = tbbLib,
@@ -276,7 +261,7 @@ define(PKG_LIBS = paste(pkgLibs, collapse = " "))
    
 # if we're going to build tbb from sources, check for cmake
 define(CMAKE = "")
-if (tbbSrc == "tbb" && is.na(tbbLib)) {
+if (is.na(tbbLib)) {
    
    cmake <- local({
       
@@ -323,6 +308,15 @@ if (!is.na(tbbLib)) {
    define(PKG_CPPFLAGS = "-I../inst/include -I\"$(TBB_INC)\"")
 } else {
    define(PKG_CPPFLAGS = "-I../inst/include")
+}
+
+# PKG_CXXFLAGS
+if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
+   define(TBB_ENABLED = FALSE)
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
+} else {
+   define(TBB_ENABLED = TRUE)
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
 }
 
 # macOS needs some extra flags set

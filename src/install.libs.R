@@ -105,9 +105,6 @@ useBundledTbb <- function() {
    cmake <- Sys.getenv("CMAKE", unset = "cmake")
    buildType <- Sys.getenv("CMAKE_BUILD_TYPE", unset = "Release")
    verbose <- Sys.getenv("VERBOSE", unset = "0")
-   
-   cxxFlags <- paste(Sys.getenv("CPPFLAGS", "CXXFLAGS", "CXXPICFLAGS"), collapse = " ")
-   Sys.setenv(CXXFLAGS = cxxFlags)
 
    cmakeFlags <- c(
       sprintf("-DCMAKE_BUILD_TYPE=%s", buildType),
@@ -162,79 +159,9 @@ useBundledTbb <- function() {
    
 }
 
-useOldBundledTbb <- function() {
-   
-   useTbbPreamble("tbb-2019/include")
-   owd <- setwd("tbb-2019/src")
-   on.exit(setwd(owd), add = TRUE)
-   
-   makeArgs <- "stdver=c++11"
-   cxxFlags <- c(
-      "-DTBB_NO_LEGACY=1",
-      "-DTBB_SUPPRESS_DEPRECATED_MESSAGES=1",
-      Sys.getenv(c("CPPFLAGS", "CXXFLAGS"))
-   )
-   
-   cxxFlags <- paste(cxxFlags, collapse = " ")
-   Sys.setenv(
-      CONLY    = Sys.getenv("CC", unset = "cc"),
-      CPLUS    = Sys.getenv("CXX", unset = "c++"),
-      CXXFLAGS = paste(cxxFlags, collapse = " "),
-      PIC_KEY  = Sys.getenv("CXXPICFLAGS", unset = "-fPIC"),
-      WARNING_SUPPRESS = ""
-   )
-   
-   if (.Platform$OS.type == "windows") {
-      
-      Sys.setenv(
-         MSYS2_ARG_CONV_EXCL = "*",
-         CYGWIN = "nodosfilewarning",
-         WINARM64_CLANG = "$(WINARM64_CLANG)"
-      )
-      
-      makeArgs <- "rtools=true compiler=gcc runtime=mingw"
-
-   }
-   
-   writeLines("** configuring tbb")
-   system("make info")
-   writeLines("")
-   
-   writeLines("** building tbb")
-   makeTargets <- c("tbb_build_prefix=lib", "tbb_release", "tbbmalloc_release")
-   output <- system2("make", c("-e", makeArgs, makeTargets), stdout = TRUE, stderr = TRUE)
-   status <- attr(output, "status")
-   if (!is.null(status) && status != 0) {
-      writeLines(output, con = stderr())
-      stop("error building tbb")
-   }
-   
-   shlibPattern <- switch(
-      Sys.info()[["sysname"]],
-      Windows = "^tbb.*\\.dll$",
-      Darwin  = "^libtbb.*\\.dylib$",
-      "^libtbb.*\\.so.*$"
-   )
-   
-   setwd(owd)
-   tbbFiles <- list.files(
-      file.path(getwd(), "tbb-2019/build/lib_release"),
-      pattern = shlibPattern,
-      recursive = TRUE,
-      full.names = TRUE
-   )
-   
-   dir.create("tbb/build/lib_release", recursive = TRUE, showWarnings = FALSE)
-   file.copy(tbbFiles, "tbb/build/lib_release", overwrite = TRUE)
-   unlink("tbb/build-tbb", recursive = TRUE)
-   writeLines("** finished building tbb")
-
-}
-
 
 # Main ----
 
-tbbSrc <- Sys.getenv("TBB_SRC")
 tbbLib <- Sys.getenv("TBB_LIB")
 tbbInc <- Sys.getenv("TBB_INC")
 
@@ -242,10 +169,10 @@ args <- commandArgs(trailingOnly = TRUE)
 if (identical(args, "build")) {
    if (nzchar(tbbLib) && nzchar(tbbInc)) {
       useSystemTbb(tbbLib, tbbInc)
-   } else if (tbbSrc == "tbb") {
+   } else if (.Platform$OS.type == "windows") {
+      writeLines("** building RcppParallel without tbb backend")
+   } else {
       useBundledTbb()
-   } else if (tbbSrc == "tbb-2019") {
-      useOldBundledTbb()
    }
 } else {
    source("../R/tbb-autodetected.R")

@@ -57,15 +57,14 @@ tbbCxxFlags <- function() {
    if (!TBB_ENABLED)
       return("-DRCPP_PARALLEL_USE_TBB=0")
    
-   flags <- c(
-      "-DRCPP_PARALLEL_USE_TBB=1",
-      "-DTBB_INTERFACE_NEW"
-   )
+   flags <- c("-DRCPP_PARALLEL_USE_TBB=1")
    
    # TBB does not have assembly code for Windows ARM64
    # so we need to use compiler builtins
-   if (is_windows() && R.version$arch == "aarch64") {
-      flags <- c(flags, "-DTBB_USE_GCC_BUILTINS")
+   if (TBB_ENABLED && is_windows()) {
+      if (R.version$arch == "aarch64") {
+         flags <- c(flags, "-DTBB_USE_GCC_BUILTINS")
+      }
    }
    
    # if TBB_INC is set, apply those library paths
@@ -76,7 +75,16 @@ tbbCxxFlags <- function() {
    
    # add include path
    if (nzchar(tbbInc) && file.exists(tbbInc)) {
+      
+      # prefer new interface if version.h exists -- we keep this
+      # for compatibility with packages like StanHeaders, rstan
+      versionPath <- file.path(tbbInc, "tbb/version.h")
+      if (file.exists(versionPath))
+         flags <- c(flags, "-DTBB_INTERFACE_NEW")
+      
+      # now add the include path
       flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
+      
    }
    
    # return flags as string
@@ -87,14 +95,16 @@ tbbCxxFlags <- function() {
 # Return the linker flags required for TBB on this platform
 tbbLdFlags <- function() {
    
-   # handle static linking
-   if (TBB_STATIC) {
+   # on Windows, we statically link to oneTBB
+   if (is_windows()) {
+      
       libPath <- system.file("libs", package = "RcppParallel")
       if (nzchar(.Platform$r_arch))
          libPath <- file.path(libPath, .Platform$r_arch)
       
       ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
       return(ldFlags)
+      
    }
    
    # shortcut if TBB_LIB defined
