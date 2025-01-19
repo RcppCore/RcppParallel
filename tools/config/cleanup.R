@@ -4,6 +4,7 @@
 
 # unlink("src/tbb/build", recursive = TRUE)
 # unlink("src/tbb/build-tbb", recursive = TRUE)
+# unlink("src/tbb-2019/build/lib_release", recursive = TRUE)
 unlink("inst/lib",  recursive = TRUE)
 unlink("inst/libs", recursive = TRUE)
 unlink("inst/include/index.html", recursive = TRUE)
