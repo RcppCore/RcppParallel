@@ -37,7 +37,7 @@ loadTbbLibrary <- function(name) {
       .tbbMallocProxyDllInfo <<- loadTbbLibrary("tbbmalloc_proxy")
    
    # load RcppParallel library if available
-   .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
+   .dllInfo <<- library.dynam("RcppParallel", pkgname, libname, local = FALSE)
    
 }
 
