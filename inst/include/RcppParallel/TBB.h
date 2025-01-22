@@ -228,14 +228,14 @@ inline void tbbParallelFor(std::size_t begin,
                            std::size_t end, 
                            Worker& worker,
                            std::size_t grainSize = 1,
-                           int numThreads = tbb::task_arena::automatic)
+                           int numThreads = -1)
 {
    ThreadStackSizeControl control;
    
-   tbb::task_arena arena(numThreads);
    tbb::task_group group;
-   
    TBBArenaParallelForExecutor executor(group, worker, begin, end, grainSize);
+   
+   tbb::task_arena arena(numThreads);
    arena.execute(executor);
 }
 
@@ -244,14 +244,14 @@ inline void tbbParallelReduce(std::size_t begin,
                               std::size_t end, 
                               Reducer& reducer,
                               std::size_t grainSize = 1,
-                              int numThreads = tbb::task_arena::automatic)
+                              int numThreads = -1)
 {
    ThreadStackSizeControl control;
    
-   tbb::task_arena arena(numThreads);
    tbb::task_group group;
-   
    TBBArenaParallelReduceExecutor<Reducer> executor(group, reducer, begin, end, grainSize);
+   
+   tbb::task_arena arena(numThreads);
    arena.execute(executor);
 }
 
