@@ -13,8 +13,6 @@
 
 namespace RcppParallel {
 
-namespace {
-
 struct TBBWorker
 {
    explicit TBBWorker(Worker& worker) : worker_(worker) {}
@@ -183,46 +181,6 @@ private:
    std::size_t end_;
    std::size_t grainSize_;
 };
-
-class ThreadStackSizeControl
-{
-public:
-   
-   ThreadStackSizeControl()
-      : control_(nullptr)
-   {
-      int stackSize = resolveValue("RCPP_PARALLEL_STACK_SIZE", 0, 0);
-      if (stackSize > 0)
-      {
-         control_ = new tbb::global_control(
-            tbb::global_control::thread_stack_size,
-            stackSize
-         );
-      }
-   }
-   
-   ~ThreadStackSizeControl()
-   {
-      if (control_ != nullptr)
-      {
-         delete control_;
-         control_ = nullptr;
-      }
-   }
-
-private:
-   
-   // COPYING: not copyable
-   ThreadStackSizeControl(const ThreadStackSizeControl&);
-   ThreadStackSizeControl& operator=(const ThreadStackSizeControl&);
-   
-   // private members
-   tbb::global_control* control_;
-   
-};
-   
-} // anonymous namespace
-
 
 inline void tbbParallelFor(std::size_t begin,
                            std::size_t end, 

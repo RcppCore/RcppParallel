@@ -41,7 +41,6 @@ inline int resolveValue(const char* envvar,
 // to from the void* passed to the worker thread (required because
 // the tinythreads interface allows to pass only a void* to the
 // thread main rather than a generic type / template)
-
 struct Worker 
 {  
    // construct and destruct (delete virtually)
@@ -58,8 +57,21 @@ private:
 };
 
 // Tag type used for disambiguating splitting constructors
-
 struct Split {};
+
+// Used for controlling the stack size for threads / tasks within a scope.
+class ThreadStackSizeControl
+{
+public:
+   ThreadStackSizeControl();
+   ~ThreadStackSizeControl();
+   
+private:
+   // COPYING: not copyable
+   ThreadStackSizeControl(const ThreadStackSizeControl&);
+   ThreadStackSizeControl& operator=(const ThreadStackSizeControl&);
+};
+
 
 } // namespace RcppParallel
 
