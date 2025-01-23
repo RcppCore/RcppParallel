@@ -13,110 +13,91 @@
 
 namespace RcppParallel {
 
-struct TBBWorker
-{
-   explicit TBBWorker(Worker& worker) : worker_(worker) {}
-   
-   void operator()(const tbb::blocked_range<size_t>& r) const {
-      worker_(r.begin(), r.end());
+// This class is primarily used to implement type erasure. The goals here were:
+//
+// 1. Hide the tbb symbols / implementation details from client R packages.
+//    That is, they should get the tools they need only via RcppParallel.
+//
+// 2. Do this in a way that preserves binary compatibility with pre-existing
+//    classes that make use of parallelReduce().
+//
+// 3. Ensure that those packages, when re-compiled without source changes,
+//    can still function as expected.
+//
+// The downside here is that all the indirection through std::function<>
+// and the requirement for RTTI is probably expensive, but I couldn't find
+// a better way forward that could also preserve binary compatibility with
+// existing pre-built pacakges.
+//
+// Hopefully, in a future release, we can do away with this wrapper, once
+// packages have been rebuilt and no longer implicitly depend on TBB internals.
+struct ReducerWrapper {
+
+   template <typename T>
+   ReducerWrapper(T* reducer)
+   {
+      self_ = reinterpret_cast<void*>(reducer);
+      owned_ = false;
+
+      work_ = [&](void* self, std::size_t begin, std::size_t end)
+      {
+         (*reinterpret_cast<T*>(self))(begin, end);
+      };
+
+      split_ = [&](void* object, Split split)
+      {
+         return new T(*reinterpret_cast<T*>(object), split);
+      };
+
+      join_ = [&](void* self, void* other)
+      {
+         (*reinterpret_cast<T*>(self)).join(*reinterpret_cast<T*>(other));
+      };
+
+      deleter_ = [&](void* object)
+      {
+         delete (T*) object;
+      };
+   }
+
+   ~ReducerWrapper()
+   {
+      if (owned_)
+      {
+         deleter_(self_);
+         self_ = nullptr;
+      }
+   }
+
+   void operator()(std::size_t begin, std::size_t end) const
+   {
+      work_(self_, begin, end);
+   }
+
+   ReducerWrapper(const ReducerWrapper& rhs, Split split)
+   {
+      self_  = rhs.split_(rhs.self_, split);
+      owned_ = true;
+
+      work_    = rhs.work_;
+      split_   = rhs.split_;
+      join_    = rhs.join_;
+      deleter_ = rhs.deleter_;
+   }
+
+   void join(const ReducerWrapper& rhs) const
+   {
+      join_(self_, rhs.self_);
    }
 
 private:
-   Worker& worker_;
-};
+   void* self_ = nullptr;
+   bool owned_ = false;
 
-template <typename Reducer>
-struct TBBReducer 
-{  
-   explicit TBBReducer(Reducer& reducer) 
-      : pSplitReducer_(NULL), reducer_(reducer)
-   {
-   }
-   
-   TBBReducer(TBBReducer& tbbReducer, tbb::split)
-      : pSplitReducer_(new Reducer(tbbReducer.reducer_, RcppParallel::Split())),
-        reducer_(*pSplitReducer_)
-   {
-   }
-   
-   virtual ~TBBReducer() { delete pSplitReducer_; }
-
-   void operator()(const tbb::blocked_range<size_t>& r) {
-      reducer_(r.begin(), r.end());
-   }
-   
-   void join(const TBBReducer& tbbReducer) { 
-      reducer_.join(tbbReducer.reducer_); 
-   }
-   
-private:
-   Reducer* pSplitReducer_;
-   Reducer& reducer_;
-};
-
-template <typename Reducer>
-class TBBParallelReduceExecutor
-{
-public:
-   
-   TBBParallelReduceExecutor(Reducer& reducer,
-                             std::size_t begin,
-                             std::size_t end,
-                             std::size_t grainSize)
-      : reducer_(reducer),
-        begin_(begin),
-        end_(end),
-        grainSize_(grainSize)
-   {
-   }
-   
-   void operator()() const
-   {
-      TBBReducer<Reducer> tbbReducer(reducer_);
-      tbb::parallel_reduce(
-         tbb::blocked_range<std::size_t>(begin_, end_, grainSize_),
-         tbbReducer
-      );
-   }
-   
-private:
-   Reducer& reducer_;
-   std::size_t begin_;
-   std::size_t end_;
-   std::size_t grainSize_;
-};
-
-template <typename Reducer>
-class TBBArenaParallelReduceExecutor
-{
-public:
-   
-   TBBArenaParallelReduceExecutor(tbb::task_group& group,
-                                  Reducer& reducer,
-                                  std::size_t begin,
-                                  std::size_t end,
-                                  std::size_t grainSize)
-      : group_(group),
-        reducer_(reducer),
-        begin_(begin),
-        end_(end),
-        grainSize_(grainSize)
-   {
-   }
-   
-   void operator()() const
-   {
-      TBBParallelReduceExecutor<Reducer> executor(reducer_, begin_, end_, grainSize_);
-      group_.run_and_wait(executor);
-   }
-   
-private:
-   
-   tbb::task_group& group_;
-   Reducer& reducer_;
-   std::size_t begin_;
-   std::size_t end_;
-   std::size_t grainSize_;
+   std::function<void (void*, std::size_t, std::size_t)> work_;
+   std::function<void*(void*, Split)> split_;
+   std::function<void (void*, void*)> join_;
+   std::function<void(void*)> deleter_;
 };
 
 void tbbParallelFor(std::size_t begin,
@@ -125,20 +106,21 @@ void tbbParallelFor(std::size_t begin,
                     std::size_t grainSize = 1,
                     int numThreads = -1);
 
+void tbbParallelReduceImpl(std::size_t begin,
+                           std::size_t end,
+                           ReducerWrapper& wrapper,
+                           std::size_t grainSize = 1,
+                           int numThreads = -1);
+
 template <typename Reducer>
-inline void tbbParallelReduce(std::size_t begin,
-                              std::size_t end, 
-                              Reducer& reducer,
-                              std::size_t grainSize = 1,
-                              int numThreads = -1)
+void tbbParallelReduce(std::size_t begin,
+                       std::size_t end,
+                       Reducer& reducer,
+                       std::size_t grainSize = 1,
+                       int numThreads = -1)
 {
-   ThreadStackSizeControl control;
-   
-   tbb::task_group group;
-   TBBArenaParallelReduceExecutor<Reducer> executor(group, reducer, begin, end, grainSize);
-   
-   tbb::task_arena arena(numThreads);
-   arena.execute(executor);
+   ReducerWrapper wrapper(&reducer);
+   tbbParallelReduceImpl(begin, end, wrapper, grainSize, numThreads);
 }
 
 } // namespace RcppParallel
