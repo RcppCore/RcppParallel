@@ -13,7 +13,7 @@ inline int resolveValue(const char* envvar,
                         U defaultValue)
 {
    // if the requested value is non-zero and not the default, we can use it
-   if (requestedValue != defaultValue && requestedValue > 0)
+   if (requestedValue != static_cast<T>(defaultValue) && requestedValue > 0)
       return requestedValue;
 
    // otherwise, try reading the default from associated envvar
