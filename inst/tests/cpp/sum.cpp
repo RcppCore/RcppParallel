@@ -21,21 +21,16 @@ struct Sum : public Worker
 
    // constructors
    Sum(const NumericVector input) : input(input), value(0) {}
-   Sum(const Sum& sum, Split) : input(sum.input), value(0) {
-      printf("ctor: invoking split constructor\n");
-   }
+   Sum(const Sum& sum, Split) : input(sum.input), value(0) {}
 
    // accumulate just the element of the range I have been asked to
    void operator()(std::size_t begin, std::size_t end) {
-      double extra = std::accumulate(input.begin() + begin, input.begin() + end, 0.0);
-      value += extra;
-      printf("work: added %f (value is now %f)\n", extra, value);
+      value += std::accumulate(input.begin() + begin, input.begin() + end, 0.0);
    }
 
    // join my value with that of another Sum
    void join(const Sum& rhs) {
       value += rhs.value;
-      printf("join: added %f (value is now %f)\n", rhs.value, value);
    }
 };
 
