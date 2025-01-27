@@ -4,6 +4,7 @@
 ^\.Rprofile$
 ^\.Rproj\.user$
 ^appveyor\.yml$
+^check$
 ^doc$
 ^gen$
 ^libs$
@@ -11,7 +12,7 @@
 ^inst/libs$
 ^revdep$
 ^src/.*\.o$
-^src/tbb/build/lib_.*$
+^src/tbb/build$
 ^tags$
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.dll$
 ^tests/testthat/pkg/RcppParallelTest/src/.*\.s?o$

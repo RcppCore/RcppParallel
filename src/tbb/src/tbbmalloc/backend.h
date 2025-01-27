@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2019 Intel Corporation
+    Copyright (c) 2005-2023 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -27,55 +27,55 @@
 class BackendSync {
     // Class instances should reside in zero-initialized memory!
     // The number of blocks currently removed from a bin and not returned back
-    intptr_t inFlyBlocks;         // to another
-    intptr_t binsModifications;   // incremented on every bin modification
+    std::atomic<intptr_t> inFlyBlocks;        // to another
+    std::atomic<intptr_t> binsModifications;  // incremented on every bin modification
     Backend *backend;
 public:
     void init(Backend *b) { backend = b; }
-    void blockConsumed() { AtomicIncrement(inFlyBlocks); }
-    void binsModified() { AtomicIncrement(binsModifications); }
+    void blockConsumed() { inFlyBlocks++; }
+    void binsModified() { binsModifications++; }
     void blockReleased() {
 #if __TBB_MALLOC_BACKEND_STAT
         MALLOC_ITT_SYNC_RELEASING(&inFlyBlocks);
 #endif
-        AtomicIncrement(binsModifications);
-        intptr_t prev = AtomicAdd(inFlyBlocks, -1);
+        binsModifications++;
+        intptr_t prev = inFlyBlocks.fetch_sub(1);
         MALLOC_ASSERT(prev > 0, ASSERT_TEXT);
         suppress_unused_warning(prev);
     }
-    intptr_t getNumOfMods() const { return FencedLoad(binsModifications); }
+    intptr_t getNumOfMods() const { return binsModifications.load(std::memory_order_acquire); }
     // return true if need re-do the blocks search
     inline bool waitTillBlockReleased(intptr_t startModifiedCnt);
 };
 
 class CoalRequestQ { // queue of free blocks that coalescing was delayed
 private:
-    FreeBlock   *blocksToFree;
+    std::atomic<FreeBlock*> blocksToFree;
     BackendSync *bkndSync;
     // counted blocks in blocksToFree and that are leaved blocksToFree
     // and still in active coalescing
-    intptr_t     inFlyBlocks;
+    std::atomic<intptr_t> inFlyBlocks;
 public:
     void init(BackendSync *bSync) { bkndSync = bSync; }
     FreeBlock *getAll(); // return current list of blocks and make queue empty
     void putBlock(FreeBlock *fBlock);
     inline void blockWasProcessed();
-    intptr_t blocksInFly() const { return FencedLoad(inFlyBlocks); }
+    intptr_t blocksInFly() const { return inFlyBlocks.load(std::memory_order_acquire); }
 };
 
 class MemExtendingSema {
-    intptr_t     active;
+    std::atomic<intptr_t>    active;
 public:
     bool wait() {
         bool rescanBins = false;
         // up to 3 threads can add more memory from OS simultaneously,
         // rest of threads have to wait
+        intptr_t prevCnt = active.load(std::memory_order_acquire);
         for (;;) {
-            intptr_t prevCnt = FencedLoad(active);
             if (prevCnt < 3) {
-                intptr_t n = AtomicCompareExchange(active, prevCnt+1, prevCnt);
-                if (n == prevCnt)
+                if (active.compare_exchange_strong(prevCnt, prevCnt + 1)) {
                     break;
+                }
             } else {
                 SpinWaitWhileEq(active, prevCnt);
                 rescanBins = true;
@@ -84,7 +84,7 @@ public:
         }
         return rescanBins;
     }
-    void signal() { AtomicAdd(active, -1); }
+    void signal() { active.fetch_sub(1); }
 };
 
 enum MemRegionType {
@@ -144,13 +144,16 @@ public:
     // Bin keeps 2-linked list of free blocks. It must be 2-linked
     // because during coalescing a block it's removed from a middle of the list.
     struct Bin {
-        FreeBlock   *head,
-                    *tail;
-        MallocMutex  tLock;
+        std::atomic<FreeBlock*> head;
+        FreeBlock*              tail;
+        MallocMutex             tLock;
 
         void removeBlock(FreeBlock *fBlock);
-        void reset() { head = tail = 0; }
-        bool empty() const { return !head; }
+        void reset() {
+            head.store(nullptr, std::memory_order_relaxed);
+            tail = nullptr;
+        }
+        bool empty() const { return !head.load(std::memory_order_relaxed); }
 
         size_t countFreeBlocks();
         size_t reportFreeBlocks(FILE *f);
@@ -201,12 +204,12 @@ private:
     class UsedAddressRange {
         static const uintptr_t ADDRESS_UPPER_BOUND = UINTPTR_MAX;
 
-        uintptr_t   leftBound,
-                    rightBound;
+        std::atomic<uintptr_t> leftBound,
+                               rightBound;
         MallocMutex mutex;
     public:
         // rightBound is zero-initialized
-        void init() { leftBound = ADDRESS_UPPER_BOUND; }
+        void init() { leftBound.store(ADDRESS_UPPER_BOUND, std::memory_order_relaxed); }
         void registerAlloc(uintptr_t left, uintptr_t right);
         void registerFree(uintptr_t left, uintptr_t right);
         // as only left and right bounds are kept, we can return true
@@ -214,7 +217,8 @@ private:
         // was requested from OS
         bool inRange(void *ptr) const {
             const uintptr_t p = (uintptr_t)ptr;
-            return leftBound<=p && p<=rightBound;
+            return leftBound.load(std::memory_order_relaxed)<=p &&
+                   p<=rightBound.load(std::memory_order_relaxed);
         }
     };
 #else
@@ -235,8 +239,10 @@ private:
     BackendSync      bkndSync;
     // semaphore protecting adding more more memory from OS
     MemExtendingSema memExtendingSema;
-    size_t           totalMemSize,
-                     memSoftLimit;
+    //size_t           totalMemSize,
+    //                 memSoftLimit;
+    std::atomic<size_t> totalMemSize;
+    std::atomic<size_t> memSoftLimit;
     UsedAddressRange usedAddrRange;
     // to keep 1st allocation large than requested, keep bootstrapping status
     enum {
@@ -244,14 +250,14 @@ private:
         bootsrapMemInitializing,
         bootsrapMemDone
     };
-    intptr_t         bootsrapMemStatus;
+    std::atomic<intptr_t> bootsrapMemStatus;
     MallocMutex      bootsrapMemStatusMutex;
 
     // Using of maximal observed requested size allows decrease
     // memory consumption for small requests and decrease fragmentation
     // for workloads when small and large allocation requests are mixed.
     // TODO: decrease, not only increase it
-    size_t           maxRequestedSize;
+    std::atomic<size_t> maxRequestedSize;
 
     // register bins related to advance regions
     AdvRegionsBins advRegBins;
@@ -259,6 +265,7 @@ private:
     IndexedBins freeLargeBlockBins,
                 freeSlabAlignedBins;
 
+    std::atomic<intptr_t> backendCleanCnt;
     // Our friends
     friend class BackendSync;
 
@@ -369,7 +376,7 @@ public:
 
     /*-------------------------- Testing, statistics ------------------------------*/
 #if __TBB_MALLOC_WHITEBOX_TEST
-    size_t getTotalMemSize() const { return totalMemSize; }
+    size_t getTotalMemSize() const { return totalMemSize.load(std::memory_order_relaxed); }
 #endif
 #if __TBB_MALLOC_BACKEND_STAT
     void reportStat(FILE *f);

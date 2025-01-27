@@ -18,14 +18,13 @@
 #endif
 
 #if RCPP_PARALLEL_USE_TBB
-#if defined(WINNT) && defined(__aarch64__) && !defined(TBB_USE_GCC_BUILTINS)
-#define TBB_USE_GCC_BUILTINS 1
-#endif
+# if defined(WINNT) && defined(__aarch64__) && !defined(TBB_USE_GCC_BUILTINS)
+#  define TBB_USE_GCC_BUILTINS 1
+# endif
 # include "RcppParallel/TBB.h"
 #endif
 
 #include "RcppParallel/Backend.h"
-
 #include "RcppParallel/RVector.h"
 #include "RcppParallel/RMatrix.h"
 

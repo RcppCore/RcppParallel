@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2019 Intel Corporation
+    Copyright (c) 2005-2024 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 #ifndef __TBB_tbbmalloc_internal_H
 #define __TBB_tbbmalloc_internal_H
 
-
 #include "TypeDefinitions.h" /* Also includes customization layer Customize.h */
 
 #if USE_PTHREAD
@@ -25,17 +24,20 @@
     #include <pthread.h>
     typedef pthread_key_t tls_key_t;
 #elif USE_WINTHREAD
-    #include "tbb/machine/windows_api.h"
+    #include <windows.h>
     typedef DWORD tls_key_t;
 #else
     #error Must define USE_PTHREAD or USE_WINTHREAD
 #endif
 
+#include <atomic>
+
 // TODO: *BSD also has it
 #define BACKEND_HAS_MREMAP __linux__
 #define CHECK_ALLOCATION_RANGE MALLOC_DEBUG || MALLOC_ZONE_OVERLOAD_ENABLED || MALLOC_UNIXLIKE_OVERLOAD_ENABLED
 
-#include "tbb/tbb_config.h" // for __TBB_LIBSTDCPP_EXCEPTION_HEADERS_BROKEN
+#include "oneapi/tbb/detail/_config.h" // for __TBB_LIBSTDCPP_EXCEPTION_HEADERS_BROKEN
+#include "oneapi/tbb/detail/_template_helpers.h"
 #if __TBB_LIBSTDCPP_EXCEPTION_HEADERS_BROKEN
   #define _EXCEPTION_PTR_H /* prevents exception_ptr.h inclusion */
   #define _GLIBCXX_NESTED_EXCEPTION_H /* prevents nested_exception.h inclusion */
@@ -48,7 +50,7 @@
 #if MALLOC_CHECK_RECURSION
 #include <new>        /* for placement new */
 #endif
-#include "tbb/scalable_allocator.h"
+#include "oneapi/tbb/scalable_allocator.h"
 #include "tbbmalloc_internal_api.h"
 
 /********* Various compile-time options        **************/
@@ -65,7 +67,7 @@
 #define TRACEF(x) ((void)0)
 #endif /* MALLOC_TRACE */
 
-#define ASSERT_TEXT NULL
+#define ASSERT_TEXT nullptr
 
 #define COLLECT_STATISTICS ( MALLOC_DEBUG && MALLOCENV_COLLECT_STATISTICS )
 #ifndef USE_INTERNAL_TID
@@ -100,9 +102,13 @@ void suppress_unused_warning( const T& ) {}
 /*
  * Default huge page size
  */
+#if defined __loongarch64
+static const size_t HUGE_PAGE_SIZE = 32 * 1024 * 1024;
+#else
 static const size_t HUGE_PAGE_SIZE = 2 * 1024 * 1024;
+#endif
 
-/********** End of global default constatns *********/
+/********** End of global default constants *********/
 
 /********** Various numeric parameters controlling allocations ********/
 
@@ -157,36 +163,39 @@ public:
 };
 
 template<typename Arg, typename Compare>
-inline void AtomicUpdate(Arg &location, Arg newVal, const Compare &cmp)
+inline void AtomicUpdate(std::atomic<Arg>& location, Arg newVal, const Compare &cmp)
 {
-    MALLOC_STATIC_ASSERT(sizeof(Arg) == sizeof(intptr_t),
-                         "Type of argument must match AtomicCompareExchange type.");
-    for (Arg old = location; cmp(old, newVal); ) {
-        Arg val = AtomicCompareExchange((intptr_t&)location, (intptr_t)newVal, old);
-        if (val == old)
+    static_assert(sizeof(Arg) == sizeof(intptr_t), "Type of argument must match AtomicCompareExchange type.");
+    Arg old = location.load(std::memory_order_acquire);
+    for (; cmp(old, newVal); ) {
+        if (location.compare_exchange_strong(old, newVal))
             break;
         // TODO: do we need backoff after unsuccessful CAS?
-        old = val;
+        //old = val;
     }
 }
 
 // TODO: make BitMaskBasic more general
+// TODO: check that BitMaskBasic is not used for synchronization
 // (currently, it fits BitMaskMin well, but not as suitable for BitMaskMax)
 template<unsigned NUM>
 class BitMaskBasic {
     static const unsigned SZ = (NUM-1)/(CHAR_BIT*sizeof(uintptr_t))+1;
     static const unsigned WORD_LEN = CHAR_BIT*sizeof(uintptr_t);
-    uintptr_t mask[SZ];
+
+    std::atomic<uintptr_t> mask[SZ];
+
 protected:
     void set(size_t idx, bool val) {
         MALLOC_ASSERT(idx<NUM, ASSERT_TEXT);
 
         size_t i = idx / WORD_LEN;
         int pos = WORD_LEN - idx % WORD_LEN - 1;
-        if (val)
-            AtomicOr(&mask[i], 1ULL << pos);
-        else
-            AtomicAnd(&mask[i], ~(1ULL << pos));
+        if (val) {
+            mask[i].fetch_or(1ULL << pos);
+        } else {
+            mask[i].fetch_and(~(1ULL << pos));
+        }
     }
     int getMinTrue(unsigned startIdx) const {
         unsigned idx = startIdx / WORD_LEN;
@@ -195,19 +204,19 @@ protected:
         if (startIdx % WORD_LEN) {
             // only interested in part of a word, clear bits before startIdx
             pos = WORD_LEN - startIdx % WORD_LEN;
-            uintptr_t actualMask = mask[idx] & (((uintptr_t)1<<pos) - 1);
+            uintptr_t actualMask = mask[idx].load(std::memory_order_relaxed) & (((uintptr_t)1<<pos) - 1);
             idx++;
             if (-1 != (pos = BitScanRev(actualMask)))
                 return idx*WORD_LEN - pos - 1;
         }
 
         while (idx<SZ)
-            if (-1 != (pos = BitScanRev(mask[idx++])))
+            if (-1 != (pos = BitScanRev(mask[idx++].load(std::memory_order_relaxed))))
                 return idx*WORD_LEN - pos - 1;
         return -1;
     }
 public:
-    void reset() { for (unsigned i=0; i<SZ; i++) mask[i] = 0; }
+    void reset() { for (unsigned i=0; i<SZ; i++) mask[i].store(0, std::memory_order_relaxed); }
 };
 
 template<unsigned NUM>
@@ -223,9 +232,13 @@ template<unsigned NUM>
 class BitMaskMax : public BitMaskBasic<NUM> {
 public:
     void set(size_t idx, bool val) {
+        MALLOC_ASSERT(NUM >= idx + 1, ASSERT_TEXT);
+
         BitMaskBasic<NUM>::set(NUM - 1 - idx, val);
     }
     int getMaxTrue(unsigned startIdx) const {
+        MALLOC_ASSERT(NUM >= startIdx + 1, ASSERT_TEXT);
+
         int p = BitMaskBasic<NUM>::getMinTrue(NUM-startIdx-1);
         return -1==p? -1 : (int)NUM - 1 - p;
     }
@@ -248,7 +261,7 @@ public:
     void unregisterThread(TLSRemote *tls);
     bool cleanup(bool cleanOnlyUnused);
     void markUnused();
-    void reset() { head = NULL; }
+    void reset() { head = nullptr; }
 };
 
 class LifoList {
@@ -259,7 +272,7 @@ public:
     inline Block *grab();
 
 private:
-    Block *top;
+    std::atomic<Block*> top;
     MallocMutex lock;
 };
 
@@ -283,32 +296,49 @@ public:
 /* Large objects entities */
 #include "large_objects.h"
 
-// select index size for BackRefMaster based on word size: default is uint32_t,
+// select index size for BackRefMain based on word size: default is uint32_t,
 // uint16_t for 32-bit platforms
 template<bool>
-struct MasterIndexSelect {
-    typedef uint32_t master_type;
+struct MainIndexSelect {
+    typedef uint32_t main_type;
 };
 
 template<>
-struct MasterIndexSelect<false> {
-    typedef uint16_t master_type;
+struct MainIndexSelect<false> {
+    typedef uint16_t main_type;
 };
 
 class BackRefIdx { // composite index to backreference array
 public:
-    typedef MasterIndexSelect<4 < sizeof(uintptr_t)>::master_type master_t;
+    typedef MainIndexSelect<4 < sizeof(uintptr_t)>::main_type main_t;
 private:
-    static const master_t invalid = ~master_t(0);
-    master_t master;      // index in BackRefMaster
+    static const main_t invalid = ~main_t(0);
+    main_t main;      // index in BackRefMain
     uint16_t largeObj:1;  // is this object "large"?
     uint16_t offset  :15; // offset from beginning of BackRefBlock
 public:
-    BackRefIdx() : master(invalid), largeObj(0), offset(0) {}
-    bool isInvalid() const { return master == invalid; }
+    BackRefIdx() : main(invalid), largeObj(0), offset(0) {}
+    bool isInvalid() const { return main == invalid; }
     bool isLargeObject() const { return largeObj; }
-    master_t getMaster() const { return master; }
+    main_t getMain() const { return main; }
     uint16_t getOffset() const { return offset; }
+
+#if __TBB_USE_THREAD_SANITIZER
+    friend
+    __attribute__((no_sanitize("thread")))
+     BackRefIdx dereference(const BackRefIdx* ptr) {
+        BackRefIdx idx;
+        idx.main = ptr->main;
+        idx.largeObj = ptr->largeObj;
+        idx.offset = ptr->offset;
+        return idx;
+    }
+#else
+    friend
+    BackRefIdx dereference(const BackRefIdx* ptr) {
+        return *ptr;
+    }
+#endif
 
     // only newBackRef can modify BackRefIdx
     static BackRefIdx newBackRef(bool largeObj);
@@ -317,7 +347,14 @@ public:
 // Block header is used during block coalescing
 // and must be preserved in used blocks.
 class BlockI {
+#if __clang__ && !__INTEL_COMPILER
+    // #pragma clang diagnostic push
+    // #pragma clang diagnostic ignored "-Wunused-private-field"
+#endif
     intptr_t     blockState[2];
+#if __clang__ && !__INTEL_COMPILER
+    // #pragma clang diagnostic pop // "-Wunused-private-field"
+#endif
 };
 
 struct LargeMemoryBlock : public BlockI {
@@ -365,6 +402,8 @@ public:
     // envName - environment variable to get controlled mode
     void initReadEnv(const char *envName, intptr_t defaultVal) {
         if (!setDone) {
+            // unreferenced formal parameter warning
+            tbb::detail::suppress_unused_warning(envName);
 #if !__TBB_WIN8UI_SUPPORT
         // TODO: use strtol to get the actual value of the envirable
             const char *envVal = getenv(envName);
@@ -400,7 +439,7 @@ private:
                                        // to keep enabled and requestedMode consistent
     MallocMutex setModeLock;
     size_t      pageSize;
-    intptr_t    needActualStatusPrint;
+    std::atomic<intptr_t> needActualStatusPrint;
 
     static void doPrintStatus(bool state, const char *stateName) {
         // Under macOS* fprintf/snprintf acquires an internal lock, so when
@@ -416,31 +455,31 @@ private:
     void parseSystemMemInfo() {
         bool hpAvailable  = false;
         bool thpAvailable = false;
-        unsigned long long hugePageSize = 0;
+        long long hugePageSize = -1;
 
-#if __linux__
+#if __unix__
         // Check huge pages existence
-        unsigned long long meminfoHugePagesTotal = 0;
+        long long meminfoHugePagesTotal = 0;
 
         parseFileItem meminfoItems[] = {
             // Parse system huge page size
-            { "Hugepagesize: %llu kB", hugePageSize },
+            { "Hugepagesize: %lld kB", hugePageSize },
             // Check if there are preallocated huge pages on the system
             // https://www.kernel.org/doc/Documentation/vm/hugetlbpage.txt
-            { "HugePages_Total: %llu", meminfoHugePagesTotal } };
+            { "HugePages_Total: %lld", meminfoHugePagesTotal } };
 
         parseFile</*BUFF_SIZE=*/100>("/proc/meminfo", meminfoItems);
 
         // Double check another system information regarding preallocated
         // huge pages if there are no information in /proc/meminfo
-        unsigned long long vmHugePagesTotal = 0;
+        long long vmHugePagesTotal = 0;
 
-        parseFileItem vmItem[] = { { "%llu", vmHugePagesTotal } };
+        parseFileItem vmItem[] = { { "%lld", vmHugePagesTotal } };
 
         // We parse a counter number, it can't be huge
         parseFile</*BUFF_SIZE=*/100>("/proc/sys/vm/nr_hugepages", vmItem);
 
-        if (meminfoHugePagesTotal > 0 || vmHugePagesTotal > 0) {
+        if (hugePageSize > -1 && (meminfoHugePagesTotal > 0 || vmHugePagesTotal > 0)) {
             MALLOC_ASSERT(hugePageSize != 0, "Huge Page size can't be zero if we found preallocated.");
 
             // Any non zero value clearly states that there are preallocated
@@ -449,11 +488,11 @@ private:
         }
 
         // Check if there is transparent huge pages support on the system
-        unsigned long long thpPresent = 'n';
+        long long thpPresent = 'n';
         parseFileItem thpItem[] = { { "[alwa%cs] madvise never\n", thpPresent } };
         parseFile</*BUFF_SIZE=*/100>("/sys/kernel/mm/transparent_hugepage/enabled", thpItem);
 
-        if (thpPresent == 'y') {
+        if (hugePageSize > -1 && thpPresent == 'y') {
             MALLOC_ASSERT(hugePageSize != 0, "Huge Page size can't be zero if we found thp existence.");
             thpAvailable = true;
         }
@@ -461,7 +500,11 @@ private:
         MALLOC_ASSERT(!pageSize, "Huge page size can't be set twice. Double initialization.");
 
         // Initialize object variables
-        pageSize       = hugePageSize * 1024; // was read in KB from meminfo
+        if (hugePageSize > -1) {
+            pageSize = hugePageSize * 1024; // was read in KB from meminfo
+        } else {
+            pageSize = 0;
+        }
         isHPAvailable  = hpAvailable;
         isTHPAvailable = thpAvailable;
     }
@@ -490,12 +533,9 @@ public:
         isEnabled = (isHPAvailable || isTHPAvailable) && newVal;
     }
 
-    bool isRequested() const {
-        return requestedMode.ready() ? requestedMode.get() : false;
-    }
-
     void reset() {
-        pageSize = needActualStatusPrint = 0;
+        needActualStatusPrint.store(0, std::memory_order_relaxed);
+        pageSize = 0;
         isEnabled = isHPAvailable = isTHPAvailable = false;
     }
 
@@ -512,7 +552,7 @@ public:
         doPrintStatus(requestedMode.get(), "requested");
         if (requestedMode.get()) { // report actual status iff requested
             if (pageSize)
-                FencedStore(needActualStatusPrint, 1);
+                needActualStatusPrint.store(1, std::memory_order_release);
             else
                 doPrintStatus(/*state=*/false, "available");
         }
@@ -548,6 +588,9 @@ struct ExtMemoryPool {
                       fixedPool;
     TLSKey            tlsPointerKey;  // per-pool TLS key
 
+    std::atomic<int> softCachesCleanupInProgress;
+    std::atomic<int> hardCachesCleanupInProgress;
+
     bool init(intptr_t poolId, rawAllocType rawAlloc, rawFreeType rawFree,
               size_t granularity, bool keepAllMemory, bool fixedPool);
     bool initTLS();
@@ -558,7 +601,7 @@ struct ExtMemoryPool {
      // true if something has been released
     bool softCachesCleanup();
     bool releaseAllLocalCaches();
-    bool hardCachesCleanup();
+    bool hardCachesCleanup(bool wait);
     void *remap(void *ptr, size_t oldSize, size_t newSize, size_t alignment);
     bool reset() {
         loc.reset();
@@ -590,8 +633,10 @@ struct ExtMemoryPool {
     LargeMemoryBlock *mallocLargeObject(MemoryPool *pool, size_t allocationSize);
     void freeLargeObject(LargeMemoryBlock *lmb);
     void freeLargeObjectList(LargeMemoryBlock *head);
+#if MALLOC_DEBUG
     // use granulatity as marker for pool validity
     bool isPoolValid() const { return granularity; }
+#endif
 };
 
 inline bool Backend::inUserPool() const { return extMemPool->userPool(); }
@@ -613,9 +658,9 @@ struct FreeObject {
 
 class RecursiveMallocCallProtector {
     // pointer to an automatic data of holding thread
-    static void       *autoObjPtr;
+    static std::atomic<void*> autoObjPtr;
     static MallocMutex rmc_mutex;
-    static pthread_t   owner_thread;
+    static std::atomic<pthread_t> owner_thread;
 /* Under FreeBSD 8.0 1st call to any pthread function including pthread_self
    leads to pthread initialization, that causes malloc calls. As 1st usage of
    RecursiveMallocCallProtector can be before pthread initialized, pthread calls
@@ -637,32 +682,31 @@ class RecursiveMallocCallProtector {
 
     MallocMutex::scoped_lock* lock_acquired;
     char scoped_lock_space[sizeof(MallocMutex::scoped_lock)+1];
-
-    static uintptr_t absDiffPtr(void *x, void *y) {
-        uintptr_t xi = (uintptr_t)x, yi = (uintptr_t)y;
-        return xi > yi ? xi - yi : yi - xi;
-    }
+    
 public:
-
-    RecursiveMallocCallProtector() : lock_acquired(NULL) {
+    RecursiveMallocCallProtector() : lock_acquired(nullptr) {
         lock_acquired = new (scoped_lock_space) MallocMutex::scoped_lock( rmc_mutex );
         if (canUsePthread)
-            owner_thread = pthread_self();
-        autoObjPtr = &scoped_lock_space;
+            owner_thread.store(pthread_self(), std::memory_order_relaxed);
+        autoObjPtr.store(&scoped_lock_space, std::memory_order_relaxed);
     }
+
+    RecursiveMallocCallProtector(RecursiveMallocCallProtector&) = delete;
+    RecursiveMallocCallProtector& operator=(RecursiveMallocCallProtector) = delete;
+
     ~RecursiveMallocCallProtector() {
         if (lock_acquired) {
-            autoObjPtr = NULL;
+            autoObjPtr.store(nullptr, std::memory_order_relaxed);
             lock_acquired->~scoped_lock();
         }
     }
     static bool sameThreadActive() {
-        if (!autoObjPtr) // fast path
+        if (!autoObjPtr.load(std::memory_order_relaxed)) // fast path
             return false;
         // Some thread has an active recursive call protector; check if the current one.
         // Exact pthread_self based test
         if (canUsePthread) {
-            if (pthread_equal( owner_thread, pthread_self() )) {
+            if (pthread_equal( owner_thread.load(std::memory_order_relaxed), pthread_self() )) {
                 mallocRecursionDetected = true;
                 return true;
             } else
@@ -671,9 +715,13 @@ public:
         // inexact stack size based test
         const uintptr_t threadStackSz = 2*1024*1024;
         int dummy;
-        return absDiffPtr(autoObjPtr, &dummy)<threadStackSz;
+
+        uintptr_t xi = (uintptr_t)autoObjPtr.load(std::memory_order_relaxed), yi = (uintptr_t)&dummy;
+        uintptr_t diffPtr = xi > yi ? xi - yi : yi - xi;
+
+        return diffPtr < threadStackSz;
     }
-    static bool noRecursion();
+
 /* The function is called on 1st scalable_malloc call to check if malloc calls
    scalable_malloc (nested call must set mallocRecursionDetected). */
     static void detectNaiveOverload() {
@@ -683,7 +731,7 @@ public:
    is already on, so can do it. */
             if (!canUsePthread) {
                 canUsePthread = true;
-                owner_thread = pthread_self();
+                owner_thread.store(pthread_self(), std::memory_order_relaxed);
             }
 #endif
             free(malloc(1));
@@ -701,12 +749,10 @@ public:
 
 #endif  /* MALLOC_CHECK_RECURSION */
 
-bool isMallocInitializedExt();
-
 unsigned int getThreadId();
 
-bool initBackRefMaster(Backend *backend);
-void destroyBackRefMaster(Backend *backend);
+bool initBackRefMain(Backend *backend);
+void destroyBackRefMain(Backend *backend);
 void removeBackRef(BackRefIdx backRefIdx);
 void setBackRef(BackRefIdx backRefIdx, void *newPtr);
 void *getBackRef(BackRefIdx backRefIdx);

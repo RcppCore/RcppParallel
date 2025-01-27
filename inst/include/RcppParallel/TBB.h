@@ -10,6 +10,37 @@
 #include <tbb/tbb.h>
 #include <tbb/global_control.h>
 #include <tbb/scalable_allocator.h>
+#include <tbb/task_arena.h>
+
+// For compatibility with older R packages.
+namespace tbb {
+
+#ifndef __TBB_task_scheduler_init_H
+#define __TBB_task_scheduler_init_H
+
+class task_scheduler_init {
+   
+public:
+   task_scheduler_init(
+      int number_of_threads = -1,
+      std::size_t stack_size = 0)
+   {
+   }
+   
+   static int default_num_threads()
+   {
+      return tbb::this_task_arena::max_concurrency();
+   }
+   
+   static const int automatic = -1;
+   static const int deferred = -2;
+ 
+};
+
+#endif
+
+} // end namespace tbb
+
 
 namespace RcppParallel {
 

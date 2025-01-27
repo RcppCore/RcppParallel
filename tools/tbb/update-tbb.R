@@ -1,6 +1,6 @@
 
 # update as appropriate for new TBB releases, then re-run script
-url <- "https://github.com/oneapi-src/oneTBB/archive/refs/tags/v2021.1.1.tar.gz"
+url <- "https://github.com/uxlfoundation/oneTBB/archive/refs/tags/v2022.0.0.tar.gz"
 
 owd <- setwd("src")
 unlink("tbb", recursive = TRUE)
@@ -13,5 +13,12 @@ after <- list.files()
 folder <- setdiff(after, before)
 print(folder)
 file.rename(folder, "tbb")
+
+setwd("tbb")
+remove <- c(".gitattributes", ".github", "doc", "examples", "python", "test")
+unlink(remove, recursive = TRUE)
+bazel <- list.files(pattern = "[Bb]azel", all.files = TRUE)
+unlink(bazel)
+setwd("..")
 
 unlink(basename(url))

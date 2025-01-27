@@ -1,6 +1,7 @@
 
-# defualt compiler unset
-define(COMPILER = "")
+# make sure we call correct version of R
+rExe <- if (.Platform$OS.type == "windows") "R.exe" else "R"
+define(R = file.path(R.home("bin"), rExe))
 
 # check whether user has Makevars file that might cause trouble
 makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
@@ -103,43 +104,48 @@ switch(
    stop("Failed to infer C / C++ compilation flags")
 )
 
-# define special flags for Windows
-db <- configure_database()
-info <- as.list(Sys.info())
-if (info[["sysname"]] == "Windows") {
+# on Windows, check for Rtools; if it exists, and we have tbb, use it
+if (.Platform$OS.type == "windows") {
    
-   # for older versions of R, we need to resolve the
-   # 'true' path to the C / C++ compiler; we do so
-   # via the cygpath utility here
-   fmt <- if (getRversion() < "4.2.0") {
-      cygpath <- nzchar(Sys.which("cygpath"))
-      if (cygpath) "$(shell cygpath -m \"%s\")" else "%s"
-   } else {
-      "%s"
+   gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
+   
+   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
+   if (is.na(tbbLib))
+      tbbLib <- normalizePath(file.path(gccPath, "../../lib"), winslash = "/")
+   
+   tbbInc <- Sys.getenv("TBB_INC", unset = NA)
+   if (is.na(tbbInc))
+      tbbInc <- normalizePath(file.path(gccPath, "../../include"), winslash = "/")
+   
+   tbbFiles <- list.files(tbbLib, pattern = "^libtbb")
+   if (length(tbbFiles)) {
+      
+      tbbPattern <- "^lib(tbb\\d*(?:_static)?)\\.a$"
+      tbbName <- grep(tbbPattern, tbbFiles, perl = TRUE, value = TRUE)
+      tbbName <- gsub(tbbPattern, "\\1", tbbName, perl = TRUE)
+      
+      tbbMallocPattern <- "^lib(tbbmalloc\\d*(?:_static)?)\\.a$"
+      tbbMallocName <- grep(tbbMallocPattern, tbbFiles, perl = TRUE, value = TRUE)
+      tbbMallocName <- gsub(tbbMallocPattern, "\\1", tbbMallocName, perl = TRUE)
+      
+      Sys.setenv(
+         TBB_LIB = tbbLib,
+         TBB_INC = tbbInc,
+         TBB_NAME = tbbName,
+         TBB_MALLOC_NAME = tbbMallocName
+      )
+      
    }
-
-   define(
-      WINDOWS_CC    = sprintf(fmt, db$CC),
-      WINDOWS_CXX11 = sprintf(fmt, db$CXX11)
-   )
-
-}
-
-# on Solaris, check if we're using gcc or g++
-if (Sys.info()[["sysname"]] == "SunOS") {
-   cxx <- r_cmd_config("CXX")
-   version <- system(paste(cxx, "--version"), intern = TRUE)
-   for (compiler in c("gcc", "g++")) {
-      if (any(grepl(compiler, version, fixed = TRUE))) {
-         define(COMPILER = "gcc")
-      }
-   }
+   
 }
 
 # try and figure out path to TBB
-tbbRoot <- Sys.getenv("TBB_ROOT", unset = NA)
-tbbLib  <- Sys.getenv("TBB_LIB", unset = NA)
-tbbInc  <- Sys.getenv("TBB_INC", unset = NA)
+tbbRoot  <- Sys.getenv("TBB_ROOT", unset = NA)
+tbbLib   <- Sys.getenv("TBB_LIB", unset = NA)
+tbbInc   <- Sys.getenv("TBB_INC", unset = NA)
+
+tbbName  <- Sys.getenv("TBB_NAME", unset = "tbb")
+tbbMallocName <- Sys.getenv("TBB_MALLOC_NAME", unset = "tbbmalloc")
 
 # check TBB_ROOT first if defined
 if (!is.na(tbbRoot)) {
@@ -211,6 +217,111 @@ if (tryAutoDetect) {
 
 # now, define TBB_LIB and TBB_INC as appropriate
 define(
-   TBB_LIB = if (!is.na(tbbLib)) tbbLib else "",
-   TBB_INC = if (!is.na(tbbInc)) tbbInc else ""
+   TBB_LIB         = if (!is.na(tbbLib)) tbbLib else "",
+   TBB_INC         = if (!is.na(tbbInc)) tbbInc else "",
+   TBB_NAME        = tbbName,
+   TBB_MALLOC_NAME = tbbMallocName
 )
+
+# set PKG_LIBS
+pkgLibs <- if (!is.na(tbbLib)) {
+   
+   c(
+      "-Wl,-L\"$(TBB_LIB)\"",
+      sprintf("-Wl,-rpath,%s", shQuote(tbbLib)),
+      "-l$(TBB_NAME)",
+      "-l$(TBB_MALLOC_NAME)"
+   )
+   
+} else if (.Platform$OS.type == "windows") {
+   
+   NULL
+   
+} else {
+   
+   c(
+      "-Wl,-Ltbb/build/lib_release",
+      "-l$(TBB_NAME)",
+      "-l$(TBB_MALLOC_NAME)"
+   )
+   
+}
+
+
+# on Windows, we may need to link to ssp; otherwise,
+# we see errors like
+#
+#    C:\rtools43\x86_64-w64-mingw32.static.posix\bin/ld.exe: C:/rtools43/x86_64-w64-mingw32.static.posix/lib/libtbb12.a(allocator.cpp.obj):allocator.cpp:(.text+0x18b): undefined reference to `__stack_chk_fail'
+#
+if (.Platform$OS.type == "windows") {
+   pkgLibs <- c(pkgLibs, "-lssp")
+}
+
+define(PKG_LIBS = paste(pkgLibs, collapse = " "))
+   
+# if we're going to build tbb from sources, check for cmake
+define(CMAKE = "")
+if (is.na(tbbLib)) {
+   
+   cmake <- local({
+      
+      # check for envvar
+      cmake <- Sys.getenv("CMAKE", unset = NA)
+      if (!is.na(cmake))
+         return(cmake)
+      
+      # check for path
+      cmake <- Sys.which("cmake")
+      if (nzchar(cmake))
+         return(cmake)
+      
+      # check for macOS cmake
+      cmake <- "/Applications/CMake.app/Contents/bin/cmake"
+      if (file.exists(cmake))
+         return(cmake)
+      
+      stop("cmake was not found")
+      
+   })
+   
+   # make sure we have an appropriate version of cmake installed
+   output <- system("cmake --version", intern = TRUE)[[1L]]
+   cmakeVersion <- numeric_version(sub("cmake version ", "", output))
+   if (cmakeVersion < "3.5") {
+      stop("error: RcppParallel requires cmake (>= 3.6); you have ", cmakeVersion)
+   }
+   
+   define(CMAKE = cmake)
+   
+}
+
+# set TBB_RPATH
+if (!is.na(tbbLib)) {
+   define(TBB_RPATH = sprintf("-Wl,-rpath,%s", shQuote(tbbLib)))
+} else {
+   define(TBB_RPATH = "")
+}
+
+
+# now, set up PKG_CPPFLAGS
+if (!is.na(tbbLib)) {
+   define(PKG_CPPFLAGS = "-I../inst/include -I\"$(TBB_INC)\"")
+} else {
+   define(PKG_CPPFLAGS = "-I../inst/include")
+}
+
+# PKG_CXXFLAGS
+if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
+   define(TBB_ENABLED = FALSE)
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
+} else {
+   define(TBB_ENABLED = TRUE)
+   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
+}
+
+# macOS needs some extra flags set
+if (Sys.info()[["sysname"]] == "Darwin") {
+   define(PKG_LIBS_EXTRA = "-Wl,-rpath,@loader_path/../lib")
+} else {
+   define(PKG_LIBS_EXTRA = "")
+}

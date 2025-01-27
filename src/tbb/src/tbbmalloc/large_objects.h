@@ -1,5 +1,5 @@
 /*
-    Copyright (c) 2005-2019 Intel Corporation
+    Copyright (c) 2005-2024 Intel Corporation
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -80,16 +80,26 @@ public:
     static const unsigned NumBins = (MaxSizeExp - MinSizeExp) * StepFactor;
 
     static size_t alignToBin(size_t size) {
-        size_t minorStepExp = BitScanRev(size) - StepFactorExp;
+        MALLOC_ASSERT(size >= StepFactor, "Size must not be less than the StepFactor");
+
+        int sizeExp = (int)BitScanRev(size);
+        MALLOC_ASSERT(sizeExp >= 0, "BitScanRev() cannot return -1, as size >= stepfactor > 0");
+        MALLOC_ASSERT(sizeExp >= StepFactorExp, "sizeExp >= StepFactorExp, because size >= stepFactor");
+        int minorStepExp = sizeExp - StepFactorExp;
+
         return alignUp(size, 1ULL << minorStepExp);
     }
 
-    // Sizes between the power of 2 values are aproximated to StepFactor.
+    // Sizes between the power of 2 values are approximated to StepFactor.
     static int sizeToIdx(size_t size) {
         MALLOC_ASSERT(MinSize <= size && size <= MaxSize, ASSERT_TEXT);
+
         int sizeExp = (int)BitScanRev(size); // same as __TBB_Log2
-        size_t majorStepSize = 1ULL << sizeExp;
+        MALLOC_ASSERT(sizeExp >= 0, "BitScanRev() cannot return -1, as size >= stepfactor > 0");
+        MALLOC_ASSERT(sizeExp >= StepFactorExp, "sizeExp >= StepFactorExp, because size >= stepFactor");
         int minorStepExp = sizeExp - StepFactorExp;
+
+        size_t majorStepSize = 1ULL << sizeExp;
         int minorIdx = (size - majorStepSize) >> minorStepExp;
         MALLOC_ASSERT(size == majorStepSize + ((size_t)minorIdx << minorStepExp),
             "Size is not aligned on the bin");
@@ -144,24 +154,24 @@ public:
     // and move bins to different cache lines.
     class CacheBin {
     private:
-        LargeMemoryBlock *first,
-                         *last;
+        LargeMemoryBlock* first;
+        std::atomic<LargeMemoryBlock*> last;
         /* age of an oldest block in the list; equal to last->age, if last defined,
             used for quick checking it without acquiring the lock. */
-        uintptr_t         oldest;
+        std::atomic<uintptr_t> oldest;
         /* currAge when something was excluded out of list because of the age,
          not because of cache hit */
         uintptr_t         lastCleanedAge;
         /* Current threshold value for the blocks of a particular size.
          Set on cache miss. */
-        intptr_t          ageThreshold;
+        std::atomic<intptr_t> ageThreshold;
 
         /* total size of all objects corresponding to the bin and allocated by user */
-        size_t            usedSize,
+        std::atomic<size_t> usedSize;
         /* total size of all objects cached in the bin */
-                          cachedSize;
+        std::atomic<size_t> cachedSize;
         /* mean time of presence of block in the bin before successful reuse */
-        intptr_t          meanHitRange;
+        std::atomic<intptr_t> meanHitRange;
         /* time of last get called for the bin */
         uintptr_t         lastGet;
 
@@ -188,14 +198,15 @@ public:
 
         void updateUsedSize(ExtMemoryPool *extMemPool, size_t size, BinBitMask *bitMask, int idx);
         void decreaseThreshold() {
-            if (ageThreshold)
-                ageThreshold = (ageThreshold + meanHitRange) / 2;
+            intptr_t threshold = ageThreshold.load(std::memory_order_relaxed);
+            if (threshold)
+                ageThreshold.store((threshold + meanHitRange.load(std::memory_order_relaxed)) / 2, std::memory_order_relaxed);
         }
         void updateBinsSummary(BinsSummary *binsSummary) const {
-            binsSummary->update(usedSize, cachedSize);
+            binsSummary->update(usedSize.load(std::memory_order_relaxed), cachedSize.load(std::memory_order_relaxed));
         }
-        size_t getSize() const { return cachedSize; }
-        size_t getUsedSize() const { return usedSize; }
+        size_t getSize() const { return cachedSize.load(std::memory_order_relaxed); }
+        size_t getUsedSize() const { return usedSize.load(std::memory_order_relaxed); }
         size_t reportStat(int num, FILE *f);
 
         /* --------- Unsafe methods used with the aggregator ------- */
@@ -206,20 +217,22 @@ public:
         LargeMemoryBlock *cleanToThreshold(uintptr_t currTime, BinBitMask *bitMask, int idx);
         LargeMemoryBlock *cleanAll(BinBitMask *bitMask, int idx);
         void updateUsedSize(size_t size, BinBitMask *bitMask, int idx) {
-            if (!usedSize) bitMask->set(idx, true);
-            usedSize += size;
-            if (!usedSize && !first) bitMask->set(idx, false);
+            if (!usedSize.load(std::memory_order_relaxed)) bitMask->set(idx, true);
+            usedSize.store(usedSize.load(std::memory_order_relaxed) + size, std::memory_order_relaxed);
+            if (!usedSize.load(std::memory_order_relaxed) && !first) bitMask->set(idx, false);
         }
         void updateMeanHitRange( intptr_t hitRange ) {
             hitRange = hitRange >= 0 ? hitRange : 0;
-            meanHitRange = meanHitRange ? (meanHitRange + hitRange) / 2 : hitRange;
+            intptr_t mean = meanHitRange.load(std::memory_order_relaxed);
+            mean = mean ? (mean + hitRange) / 2 : hitRange;
+            meanHitRange.store(mean, std::memory_order_relaxed);
         }
         void updateAgeThreshold( uintptr_t currTime ) {
             if (lastCleanedAge)
-                ageThreshold = Props::OnMissFactor*(currTime - lastCleanedAge);
+                ageThreshold.store(Props::OnMissFactor * (currTime - lastCleanedAge), std::memory_order_relaxed);
         }
         void updateCachedSize(size_t size) {
-            cachedSize += size;
+            cachedSize.store(cachedSize.load(std::memory_order_relaxed) + size, std::memory_order_relaxed);
         }
         void setLastGet( uintptr_t newLastGet ) {
             lastGet = newLastGet;
@@ -233,11 +246,11 @@ public:
 
 private:
     // How many times LOC was "too large"
-    intptr_t     tooLargeLOC;
+    std::atomic<intptr_t> tooLargeLOC;
     // for fast finding of used bins and bins with non-zero usedSize;
     // indexed from the end, as we need largest 1st
     BinBitMask   bitMask;
-    // bins with lists of recently freed large blocks cached for re-use
+    // bins with lists of recently freed large blocks cached for reuse
     CacheBin bin[numBins];
 
 public:
@@ -275,7 +288,7 @@ private:
     static const size_t minLargeSize = 8 * 1024,
                         maxLargeSize = 8 * 1024 * 1024,
                         // Cache memory up to 1TB (or 2GB for 32-bit arch), but sieve objects from the special threshold
-                        maxHugeSize = tbb::internal::select_size_t_constant<2147483648U, 1099511627776ULL>::value;
+                        maxHugeSize = tbb::detail::select_size_t_constant<2147483648U, 1099511627776ULL>::value;
 
 public:
     // Upper bound threshold for caching size. After that size all objects sieve through cache
@@ -313,7 +326,7 @@ private:
        a different case multiple cached blocks would have same age,
        and accuracy of predictors suffers.
     */
-    uintptr_t cacheCurrTime;
+    std::atomic<uintptr_t> cacheCurrTime;
 
     // Memory pool that owns this LargeObjectCache.
     // strict 1:1 relation, never changed
@@ -359,7 +372,6 @@ public:
     // Check if we should cache or sieve this size
     bool sizeInCacheRange(size_t size);
 
-    uintptr_t getCurrTime();
     uintptr_t getCurrTimeRange(uintptr_t range);
     void registerRealloc(size_t oldSize, size_t newSize);
 };

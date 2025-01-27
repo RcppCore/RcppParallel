@@ -37,39 +37,54 @@ tbbLibraryPath <- function(name = NULL) {
    # find the request library (if any)
    libNames <- tbbLibNames[[sysname]]
    for (libName in libNames) {
+      
       tbbName <- file.path(tbbRoot, libName)
       if (file.exists(tbbName))
          return(tbbName)
+      
+      arch <- if (nzchar(.Platform$r_arch)) .Platform$r_arch
+      suffix <- paste(c("lib", arch, libName), collapse = "/")
+      tbbName <- system.file(suffix, package = "RcppParallel")
+      if (file.exists(tbbName))
+         return(tbbName)
+      
    }
 
 }
 
 tbbCxxFlags <- function() {
 
-   flags <- character()
-
-   # opt-in to TBB on Windows
-   if (is_windows()) {
-      flags <- c(flags, "-DRCPP_PARALLEL_USE_TBB=1")
+  if (!TBB_ENABLED)
+      return("-DRCPP_PARALLEL_USE_TBB=0")
+   
+   flags <- c("-DRCPP_PARALLEL_USE_TBB=1")
+   
+   # TBB does not have assembly code for Windows ARM64
+   # so we need to use compiler builtins
+   if (TBB_ENABLED && is_windows()) {
       if (R.version$arch == "aarch64") {
-         # TBB does not have assembly code for Windows ARM64
-         # so we need to use compiler builtins
          flags <- c(flags, "-DTBB_USE_GCC_BUILTINS")
       }
    }
 
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
-   if (nzchar(tbbInc)) {
-
-      # add include path
-      flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
-
-      # prefer new interface if version.h exists
+   if (!file.exists(tbbInc)) {
+      tbbInc <- system.file("include", package = "RcppParallel")
+   }
+   
+   # add include path
+   if (nzchar(tbbInc) && file.exists(tbbInc)) {
+      
+      # prefer new interface if version.h exists -- we keep this
+      # for compatibility with packages like StanHeaders, rstan
       versionPath <- file.path(tbbInc, "tbb/version.h")
       if (file.exists(versionPath))
          flags <- c(flags, "-DTBB_INTERFACE_NEW")
-
+      
+      # now add the include path
+      flags <- c(flags, paste0("-I", asBuildPath(tbbInc)))
+      
    }
 
    # return flags as string
@@ -79,41 +94,31 @@ tbbCxxFlags <- function() {
 
 # Return the linker flags required for TBB on this platform
 tbbLdFlags <- function() {
-
-   tbbFlags <- tbbLdFlagsImpl()
-
+   
+   # on Windows, we statically link to oneTBB
    if (is_windows()) {
-      libDir <- system.file("libs", .Platform$r_arch, package = "RcppParallel")
-      libName <- paste0("RcppParallel", .Platform$dynlib.ext)
-      newFlags <- sprintf("-L%s -lRcppParallel", shQuote(libDir))
-      tbbFlags <- paste(newFlags, tbbFlags)
+      
+      libPath <- system.file("libs", package = "RcppParallel")
+      if (nzchar(.Platform$r_arch))
+         libPath <- file.path(libPath, .Platform$r_arch)
+      
+      ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
+      return(ldFlags)
+      
    }
-
-   tbbFlags
-
-}
-
-tbbLdFlagsImpl <- function() {
-
+   
    # shortcut if TBB_LIB defined
    tbbLib <- Sys.getenv("TBB_LINK_LIB", Sys.getenv("TBB_LIB", unset = TBB_LIB))
    if (nzchar(tbbLib)) {
-
-      fmt <- if (is_windows()) {
-         "-L%1$s -ltbb -ltbbmalloc"
-      } else {
-         "-L%1$s -Wl,-rpath,%1$s -ltbb -ltbbmalloc"
-      }
-
-      return(sprintf(fmt, asBuildPath(tbbLib)))
+      fmt <- "-L%1$s -Wl,-rpath,%1$s -l%2$s -l%3$s"
+      return(sprintf(fmt, asBuildPath(tbbLib), TBB_NAME, TBB_MALLOC_NAME))
    }
-
-   # on Mac, Windows and Solaris, we need to explicitly link (#206)
-   needsExplicitFlags <- is_mac() || is_windows() || (is_solaris() && !is_sparc())
-   if (needsExplicitFlags) {
-      libPath <- asBuildPath(tbbLibraryPath())
-      libFlag <- paste0("-L", libPath)
-      return(paste(libFlag, "-ltbb", "-ltbbmalloc"))
+   
+   # explicitly link on macOS
+   # https://github.com/RcppCore/RcppParallel/issues/206
+   if (is_mac()) {
+      fmt <- "-L%s -l%s -l%s"
+      return(sprintf(fmt, asBuildPath(tbbLibraryPath()), TBB_NAME, TBB_MALLOC_NAME))
    }
 
    # nothing required on other platforms
