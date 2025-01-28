@@ -9,6 +9,12 @@
   implementation. In practice, this implies that RcppParallel will now only
   provide a TBB backend with R (>= 4.2.0).
 
+## RcppParallel 5.1.10
+
+* Fixed an issue where packages linking to RcppParallel could inadverently
+  depend on internals of the TBB library available during compilation, even
+  if the package did not explicitly use TBB itself.
+
 ## RcppParallel 5.1.9
 
 * RcppParallel no longer passes `-rpath` when building / linking on Windows.

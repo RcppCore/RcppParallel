@@ -43,7 +43,7 @@ loadTbbLibrary <- function(name) {
    
    # load RcppParallel library if available
    if (.Platform$OS.type != "windows") {
-      .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
+      .dllInfo <<- library.dynam("RcppParallel", pkgname, libname, local = FALSE)
    }
    
 }
