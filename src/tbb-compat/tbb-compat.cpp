@@ -40,7 +40,7 @@ public:
    /** For local observers the method can be used only when the current thread
     has the task scheduler initialized or is attached to an arena.
     Repeated calls with the same state are no-ops. **/
-   void __TBB_EXPORTED_METHOD observe( bool state=true );
+   void DLL_EXPORT __TBB_EXPORTED_METHOD observe( bool state=true );
    
    //! Returns true if observation is enabled, false otherwise.
    bool is_observing() const {return my_proxy!=NULL;}
