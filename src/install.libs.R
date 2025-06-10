@@ -74,10 +74,10 @@
       tbbDll <- file.path(tbbDest, "tbb.dll")
       if (!file.exists(tbbDll)) {
          writeLines("** creating tbb stub library")
-         status <- system("R CMD SHLIB tbb-compat/tbb-compat.cpp")
+         status <- system("R CMD SHLIB -o tbb-compat/tbb.dll tbb-compat/tbb-compat.cpp")
          if (status != 0)
             stop("error building tbb stub library")
-         file.rename("tbb-compat/tbb-compat.dll", file.path(tbbDest, "tbb.dll"))
+         file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll"))
       }
    }
    
