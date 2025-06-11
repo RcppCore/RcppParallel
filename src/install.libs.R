@@ -30,6 +30,10 @@
       Darwin  = "^libtbb.*\\.dylib$",
       "^libtbb.*\\.so.*$"
    )
+   # WASM only supports static libraries
+   if (R.version$os == "emscripten") {
+      shlibPattern <- "^libtbb.*\\.a$"
+   }
    
    if (!nzchar(tbbLib)) {
       
@@ -114,6 +118,15 @@ useBundledTbb <- function() {
       ".."
    )
    
+   if (R.version$os == "emscripten") {
+      cmakeFlags <- c(
+         "-DEMSCRIPTEN=1",
+         "-DTBBMALLOC_BUILD=0",
+         "-DBUILD_SHARED_LIBS=0",
+         cmakeFlags
+      )
+   }
+   
    writeLines("*** configuring tbb")
    owd <- setwd("tbb/build-tbb")
    output <- system2(cmake, shQuote(cmakeFlags), stdout = TRUE, stderr = TRUE)
@@ -144,6 +157,11 @@ useBundledTbb <- function() {
       Darwin  = "^libtbb.*\\.dylib$",
       "^libtbb.*\\.so.*$"
    )
+   
+   # WASM only supports static libraries
+   if (R.version$os == "emscripten") {
+      shlibPattern <- "^libtbb.*\\.a$"
+   }
    
    tbbFiles <- list.files(
       file.path(getwd(), "tbb/build-tbb"),

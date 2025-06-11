@@ -110,6 +110,10 @@ tbbLdFlags <- function() {
    # shortcut if TBB_LIB defined
    tbbLib <- Sys.getenv("TBB_LINK_LIB", Sys.getenv("TBB_LIB", unset = TBB_LIB))
    if (nzchar(tbbLib)) {
+      if (R.version$os == "emscripten") {
+         fmt <- "-L%1$s -l%2$s"
+         return(sprintf(fmt, asBuildPath(tbbLib), TBB_NAME))
+      }
       fmt <- "-L%1$s -Wl,-rpath,%1$s -l%2$s -l%3$s"
       return(sprintf(fmt, asBuildPath(tbbLib), TBB_NAME, TBB_MALLOC_NAME))
    }

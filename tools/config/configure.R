@@ -238,13 +238,18 @@ pkgLibs <- if (!is.na(tbbLib)) {
    NULL
    
 } else {
-   
-   c(
-      "-Wl,-Ltbb/build/lib_release",
-      "-l$(TBB_NAME)",
-      "-l$(TBB_MALLOC_NAME)"
-   )
-   
+   if (R.version$os == "emscripten") {
+      c(
+         "-Wl,-Ltbb/build/lib_release",
+         "-l$(TBB_NAME)"
+      )
+   } else {
+      c(
+         "-Wl,-Ltbb/build/lib_release",
+         "-l$(TBB_NAME)",
+         "-l$(TBB_MALLOC_NAME)"
+      )
+   }
 }
 
 
