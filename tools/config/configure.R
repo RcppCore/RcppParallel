@@ -237,19 +237,21 @@ pkgLibs <- if (!is.na(tbbLib)) {
    
    NULL
    
+} else if (R.version$os == "emscripten") {
+   
+   c(
+      "-Wl,-Ltbb/build/lib_release",
+      "-l$(TBB_NAME)"
+   )
+   
 } else {
-   if (R.version$os == "emscripten") {
-      c(
-         "-Wl,-Ltbb/build/lib_release",
-         "-l$(TBB_NAME)"
-      )
-   } else {
-      c(
-         "-Wl,-Ltbb/build/lib_release",
-         "-l$(TBB_NAME)",
-         "-l$(TBB_MALLOC_NAME)"
-      )
-   }
+   
+   c(
+      "-Wl,-Ltbb/build/lib_release",
+      "-l$(TBB_NAME)",
+      "-l$(TBB_MALLOC_NAME)"
+   )
+   
 }
 
 
@@ -300,13 +302,6 @@ if (is.na(tbbLib)) {
    
 }
 
-# set TBB_RPATH
-if (!is.na(tbbLib)) {
-   define(TBB_RPATH = sprintf("-Wl,-rpath,%s", shQuote(tbbLib)))
-} else {
-   define(TBB_RPATH = "")
-}
-
 
 # now, set up PKG_CPPFLAGS
 if (!is.na(tbbLib)) {
@@ -327,6 +322,9 @@ if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {
    define(PKG_LIBS_EXTRA = "-Wl,-rpath,@loader_path/../lib")
+} else if (Sys.info()[["sysname"]] == "Linux") {
+   define(PKG_LIBS_EXTRA = "-Wl,-rpath,$(ORIGIN)/../lib")
 } else {
    define(PKG_LIBS_EXTRA = "")
+   
 }
