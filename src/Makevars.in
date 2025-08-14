@@ -1,7 +1,7 @@
 
 # This needs to expand to something the shell will accept as '$ORIGIN',
 # including a literal '$' (no variable expansion)
-ORIGIN := \$$ORIGIN
+ORIGIN = \$$ORIGIN
 
 CMAKE = @CMAKE@
 R = @R@
