@@ -7,11 +7,6 @@
 # define TBB_PREVIEW_GLOBAL_CONTROL 1
 #endif
 
-#include <tbb/tbb.h>
-#include <tbb/global_control.h>
-#include <tbb/scalable_allocator.h>
-#include <tbb/task_arena.h>
-
 // For compatibility with older R packages.
 namespace tbb {
 
@@ -29,7 +24,7 @@ public:
    
    static int default_num_threads()
    {
-      return tbb::this_task_arena::max_concurrency();
+      return 2;
    }
    
    static const int automatic = -1;

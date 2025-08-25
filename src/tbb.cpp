@@ -4,6 +4,11 @@
 #include <RcppParallel/Common.h>
 #include <RcppParallel/TBB.h>
 
+#include <tbb/tbb.h>
+#include <tbb/global_control.h>
+#include <tbb/scalable_allocator.h>
+#include <tbb/task_arena.h>
+
 namespace RcppParallel {
 
 tbb::global_control* s_globalControl = nullptr;
