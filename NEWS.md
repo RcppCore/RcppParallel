@@ -1,6 +1,9 @@
 
 ## RcppParallel 6.0.0  (UNRELEASED)
 
+* RcppParallel no longer includes tbb headers as part of the RcppParallel/TBB.h
+  header, and instead only exposes its TBB-specific APIs for parallel work.
+  
 * RcppParallel now bundles oneTBB 2022.0.0. Note that the TBB ABI has changed;
   packages which depend on RcppParallel may need to be rebuilt.
   
