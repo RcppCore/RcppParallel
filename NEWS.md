@@ -12,6 +12,10 @@
   implementation. In practice, this implies that RcppParallel will now only
   provide a TBB backend with R (>= 4.2.0).
 
+## RcppParallel 5.1.11
+
+* Compatibility fixes for LLVM 21.
+
 ## RcppParallel 5.1.10
 
 * Fixed an issue where packages linking to RcppParallel could inadverently
