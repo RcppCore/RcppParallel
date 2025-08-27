@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdlib>
 
+#include <algorithm>
+#include <memory>
 #include <functional>
 #include <utility>
 
