@@ -7,6 +7,18 @@
 # define TBB_PREVIEW_GLOBAL_CONTROL 1
 #endif
 
+// For compatibility with existing packages on CRAN.
+#include "tbb/blocked_range.h"
+#include "tbb/concurrent_unordered_set.h"
+#include "tbb/concurrent_unordered_map.h"
+#include "tbb/global_control.h"
+#include "tbb/mutex.h"
+#include "tbb/parallel_for.h"
+#include "tbb/parallel_for_each.h"
+#include "tbb/parallel_reduce.h"
+#include "tbb/parallel_sort.h"
+#include "tbb/spin_mutex.h"
+
 // For compatibility with older R packages.
 namespace tbb {
 
