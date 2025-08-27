@@ -6,7 +6,7 @@
 #include "RcppParallel/TinyThread.h"
 
 // Use TBB only where it's known to compile and work correctly
-// (NOTE: Windows TBB is temporarily opt-in for packages for 
+// (NOTE: Windows TBB is temporarily opt-in for packages for
 // compatibility with CRAN packages not previously configured
 // to link to TBB in Makevars.win)
 #ifndef RCPP_PARALLEL_USE_TBB
@@ -32,14 +32,14 @@
 namespace RcppParallel {
 
 inline void parallelFor(std::size_t begin,
-                        std::size_t end, 
+                        std::size_t end,
                         Worker& worker,
                         std::size_t grainSize = 1,
                         int numThreads = -1)
 {
-   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, 1u);
+   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, std::size_t(1));
    numThreads = resolveValue("RCPP_PARALLEL_NUM_THREADS", numThreads, -1);
-   
+
 #if RCPP_PARALLEL_USE_TBB
    if (internal::backend() == internal::BACKEND_TBB)
       tbbParallelFor(begin, end, worker, grainSize, numThreads);
@@ -52,14 +52,14 @@ inline void parallelFor(std::size_t begin,
 
 template <typename Reducer>
 inline void parallelReduce(std::size_t begin,
-                           std::size_t end, 
+                           std::size_t end,
                            Reducer& reducer,
                            std::size_t grainSize = 1,
                            int numThreads = -1)
 {
-   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, 1);
+   grainSize = resolveValue("RCPP_PARALLEL_GRAIN_SIZE", grainSize, std::size_t(1));
    numThreads = resolveValue("RCPP_PARALLEL_NUM_THREADS", numThreads, -1);
-   
+
 #if RCPP_PARALLEL_USE_TBB
    if (internal::backend() == internal::BACKEND_TBB)
       tbbParallelReduce(begin, end, reducer, grainSize, numThreads);

@@ -8,6 +8,10 @@
 #include <string>
 #include <exception>
 
+#include <tbb/tbb.h>
+#include <tbb/global_control.h>
+#include <tbb/scalable_allocator.h>
+
 extern "C" SEXP defaultNumThreads() {
    SEXP threadsSEXP = Rf_allocVector(INTSXP, 1);
 #ifdef __TBB_task_arena_H

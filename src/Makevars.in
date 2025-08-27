@@ -38,15 +38,15 @@ ifeq ($(OS), Windows_NT)
 
 	MAKE = make
 	MAKEFLAGS = -e -j1
-	MAKE_CMD =                                    \
-		MSYS2_ARG_CONV_EXCL="*"                   \
-		CYGWIN=nodosfilewarning                   \
-		CONLY="@WINDOWS_CC@"                      \
-		CPLUS="@WINDOWS_CXX11@"                   \
-		CXXFLAGS="$(TBB_CXXFLAGS)" 				  \
-		PIC_KEY="@CXX11PICFLAGS@"                 \
-		WARNING_SUPPRESS=""                       \
-		WINARM64_CLANG="$(WINARM64_CLANG)"        \
+	MAKE_CMD =                            \
+		MSYS2_ARG_CONV_EXCL="*"            \
+		CYGWIN=nodosfilewarning            \
+		CONLY="@WINDOWS_CC@"               \
+		CPLUS="@WINDOWS_CXX11@"            \
+		CXXFLAGS="$(TBB_CXXFLAGS)"         \
+		PIC_KEY="@CXX11PICFLAGS@"          \
+		WARNING_SUPPRESS=""                \
+		WINARM64_CLANG="$(WINARM64_CLANG)" \
 		$(MAKE)
 
 else
@@ -71,7 +71,7 @@ else
 	endif
 
 	MAKEFLAGS += -e
-	MAKE_CMD =                                     \
+	MAKE_CMD =                                    \
 		CONLY="@CC@ $(PKG_CPPFLAGS) @CPPFLAGS@"    \
 		CPLUS="@CXX11@ $(PKG_CPPFLAGS) @CPPFLAGS@" \
 		CXXFLAGS="@CXX11FLAGS@ -DTBB_NO_LEGACY=1"  \
@@ -93,6 +93,7 @@ ifeq ($(USE_TBB), Windows)
 	# rtools: turn on hacks to compensate for make and shell differences rtools<=>MinGW
 	# compiler: overwrite default (which is cl = MS compiler)
 	MAKE_ARGS += rtools=true compiler=gcc
+	
 	# TBB configure will detect mingw runtime with unknown arch on WINARM64_CLANG but not an 
 	#   issue as we are using compiler built-ins instead of arch-specific code
 	ifneq ($(WINARM64_CLANG), true)
@@ -160,7 +161,7 @@ else
 	@mkdir -p ../inst/include
 	@cp -R tbb/include/* ../inst/include/
 	@(cd tbb/src && $(MAKE_CMD) $(MAKE_ARGS) info)
-	@(cd tbb/src && $(MAKE_CMD) @STDVER@ $(MAKE_ARGS) $(MAKE_TARGETS) $(MAKE_LOG))
+	@(cd tbb/src && $(MAKE_CMD) $(MAKE_ARGS) $(MAKE_TARGETS) $(MAKE_LOG))
 endif
 
 # NOTE: we do not want to clean ../inst/lib or ../inst/libs here,

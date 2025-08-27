@@ -1,7 +1,7 @@
 Package: RcppParallel
 Type: Package
 Title: Parallel Programming Tools for 'Rcpp'
-Version: 5.1.9
+Version: 5.1.11-1
 Authors@R: c(
     person("JJ", "Allaire", role = c("aut"), email = "jj@rstudio.com"),
     person("Romain", "Francois", role = c("aut", "cph")),
@@ -23,16 +23,29 @@ Description: High level functions for parallel programming with 'Rcpp'.
     a standard serial "for" loop into a parallel one and the 'parallelReduce()'
     function can be used for accumulating aggregate or other values.
 Depends: R (>= 3.0.2)
-Suggests:
-    Rcpp,
-    RUnit,
-    knitr,
-    rmarkdown
-Roxygen: list(markdown = TRUE)
-SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and cscript.exe, Solaris: g++ is required
+Suggests: Rcpp, RUnit, knitr, rmarkdown
+SystemRequirements: GNU make, Intel TBB, Windows: cmd.exe and
+        cscript.exe, Solaris: g++ is required
 License: GPL (>= 3)
-URL: https://rcppcore.github.io/RcppParallel/, https://github.com/RcppCore/RcppParallel
+URL: https://rcppcore.github.io/RcppParallel/,
+        https://github.com/RcppCore/RcppParallel
 BugReports: https://github.com/RcppCore/RcppParallel/issues
 Biarch: TRUE
 RoxygenNote: 7.1.1
 Encoding: UTF-8
+NeedsCompilation: yes
+Packaged: 2025-01-23 23:26:25 UTC; kevin
+Author: JJ Allaire [aut],
+  Romain Francois [aut, cph],
+  Kevin Ushey [aut, cre],
+  Gregory Vandenbrouck [aut],
+  Marcus Geelnard [aut, cph] (TinyThread library,
+    https://tinythreadpp.bitsnbites.eu/),
+  Hamada S. Badr [ctb] (<https://orcid.org/0000-0002-9808-2344>),
+  Posit, PBC [cph],
+  Intel [aut, cph] (Intel TBB library,
+    https://www.threadingbuildingblocks.org/),
+  Microsoft [cph]
+Maintainer: Kevin Ushey <kevin@rstudio.com>
+Repository: CRAN
+Date/Publication: 2025-01-24 02:00:02 UTC

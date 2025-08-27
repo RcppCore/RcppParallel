@@ -350,7 +350,10 @@ private:
 public:
     enum kind_type {
         isolated,
-        bound
+        bound,
+        binding_completed,
+        detached,
+        dying
     };
 
     enum traits_type {
@@ -561,9 +564,6 @@ private:
     friend class internal::allocate_root_with_context_proxy;
 
     static const kind_type binding_required = bound;
-    static const kind_type binding_completed = kind_type(bound+1);
-    static const kind_type detached = kind_type(binding_completed+1);
-    static const kind_type dying = kind_type(detached+1);
 
     //! Propagates any state change detected to *this, and as an optimisation possibly also upward along the heritage line.
     template <typename T>
