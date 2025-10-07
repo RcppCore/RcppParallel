@@ -11,7 +11,10 @@
 .tbbMallocProxyDllInfo <- NULL
 
 loadTbbLibrary <- function(name) {
-   
+   # TBB is statically linked on Windows
+   if (is_windows()) {
+      return(NULL)
+   }
    path <- tbbLibraryPath(name)
    if (is.null(path))
       return(NULL)

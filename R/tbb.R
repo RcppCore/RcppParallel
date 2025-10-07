@@ -24,7 +24,7 @@ tbbLibraryPath <- function(name = NULL) {
    # form library names
    tbbLibNames <- list(
       "Darwin"  = paste0("lib", name, ".dylib"),
-      "Windows" = paste0(       name, ".dll"),
+      "Windows" = paste0("lib", name, c("12", ""), ".a"),
       "SunOS"   = paste0("lib", name, ".so"),
       "Linux"   = paste0("lib", name, c(".so.2", ".so"))
    )
@@ -58,14 +58,6 @@ tbbCxxFlags <- function() {
       return("-DRCPP_PARALLEL_USE_TBB=0")
    
    flags <- c("-DRCPP_PARALLEL_USE_TBB=1")
-   
-   # TBB does not have assembly code for Windows ARM64
-   # so we need to use compiler builtins
-   if (TBB_ENABLED && is_windows()) {
-      if (R.version$arch == "aarch64") {
-         flags <- c(flags, "-DTBB_USE_GCC_BUILTINS")
-      }
-   }
 
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
