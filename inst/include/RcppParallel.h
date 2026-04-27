@@ -22,6 +22,7 @@
 #endif
 
 #include "RcppParallel/Backend.h"
+#include "RcppParallel/Fork.h"
 #include "RcppParallel/RVector.h"
 #include "RcppParallel/RMatrix.h"
 
