@@ -20,9 +20,23 @@ comparing R CMD check results across CRAN and dev versions of this package.
  * We saw 0 new problems
  * We failed to check 16 packages
 
-The packages we failed to check did so because they link, directly or
-transitively, against other packages (e.g. 'Rfast', 'stringfish') that were
-themselves compiled against the previous TBB ABI. These fail to load with
-errors such as "undefined symbol: _ZTIN3tbb4taskE" until those upstream
-packages are rebuilt against oneTBB 2022.0. We expect these to resolve once
-CRAN rebuilds the reverse dependency chain against RcppParallel 6.0.0.
+Most of the packages we failed to check did so for reasons unrelated to this
+release (they could not be installed in the check environment, e.g. missing
+Bioconductor dependencies).
+
+However, the following packages failed specifically because of the updated
+TBB ABI. They link, directly or transitively, against 'Rfast' or
+'stringfish', which were themselves compiled against the previous version of
+TBB and so reference symbols (such as 'tbb::task') that oneTBB 2022.0 no
+longer provides:
+
+ * via 'Rfast':       CompositionalRF, DER, kernreg, Rfast2
+ * via 'stringfish':  qs2, rxode2
+
+These will resolve once 'Rfast' and 'stringfish' are reinstalled / rebuilt
+against RcppParallel 6.0.0, which we expect to happen when CRAN rebuilds the
+reverse dependency chain. No source changes are required in those packages.
+
+(One further package, 'multinma', failed to check due to the compiler being
+killed for exceeding memory during compilation, which is unrelated to this
+release.)
