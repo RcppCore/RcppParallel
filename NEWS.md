@@ -12,6 +12,19 @@
   implementation. In practice, this implies that RcppParallel will now only
   provide a TBB backend with R (>= 4.2.0).
 
+* Fixed builds under wasm/webR. (#237; @andrjohns)
+
+* Fixed compilation with clang-19 on Windows aarch64. (#235, #236; @andrjohns)
+
+* Fixed TBB library lookup on Windows, and removed the obsolete
+  `TBB_USE_GCC_BUILTINS` flag for Windows ARM64. TBB is statically linked
+  on Windows, so the package no longer tries to load TBB libraries there
+  at load time. (#241; @andrjohns)
+
+## RcppParallel 5.1.11-2
+
+* Resolved compilation warnings with C++20 and Apple clang 21.
+
 ## RcppParallel 5.1.11
 
 * Compatibility fixes for LLVM 21.
