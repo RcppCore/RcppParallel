@@ -1,5 +1,5 @@
 
-## RcppParallel 6.0.0  (UNRELEASED)
+## RcppParallel 6.0.0
 
 * RcppParallel no longer includes tbb headers as part of the RcppParallel/TBB.h
   header, and instead only exposes its TBB-specific APIs for parallel work.
