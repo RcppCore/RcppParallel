@@ -7,7 +7,8 @@
   RcppParallel 6.0.0, such packages would fail to load with "LoadLibrary
   failure: The specified module could not be found".
 
-* The bundled oneTBB headers now guard against GCC's `<cpuid.h>` being
+* The TBB headers installed with RcppParallel (whether from Rtools or from
+  the bundled copy of oneTBB) now guard against GCC's `<cpuid.h>` being
   included before `<intrin.h>` on Windows (mingw). Previously, translation
   units including `<cpuid.h>` before any TBB header would fail to compile,
   as the `__cpuid` macro from `<cpuid.h>` conflicts with the `__cpuid()`
