@@ -1,5 +1,5 @@
 
-## RcppParallel 6.0.0
+# RcppParallel 6.0.0
 
 * RcppParallel no longer includes tbb headers as part of the RcppParallel/TBB.h
   header, and instead only exposes its TBB-specific APIs for parallel work.
@@ -21,42 +21,42 @@
   on Windows, so the package no longer tries to load TBB libraries there
   at load time. (#241; @andrjohns)
 
-## RcppParallel 5.1.11-2
+# RcppParallel 5.1.11-2
 
 * Resolved compilation warnings with C++20 and Apple clang 21.
 
-## RcppParallel 5.1.11
+# RcppParallel 5.1.11
 
 * Compatibility fixes for LLVM 21.
 
-## RcppParallel 5.1.10
+# RcppParallel 5.1.10
 
 * Fixed an issue where packages linking to RcppParallel could inadverently
   depend on internals of the TBB library available during compilation, even
   if the package did not explicitly use TBB itself.
 
-## RcppParallel 5.1.9
+# RcppParallel 5.1.9
 
 * RcppParallel no longer passes `-rpath` when building / linking on Windows.
   This fixes build issues when building RcppParallel when using the LLVM
   linker on Windows. (@kalibera)
   
-## RcppParallel 5.1.8
+# RcppParallel 5.1.8
 
 * RcppParallel now explicitly links to the bundled copy of TBB on macOS. (#206; @jeroen)
 
-## RcppParallel 5.1.7
+# RcppParallel 5.1.7
 
 * Remove deprecated `std::iterator`. (#192; @Enchufa2)
 
-## RcppParallel 5.1.6
+# RcppParallel 5.1.6
 
 * Patch for TBB to allow compilation with gcc-13.
 
 * Fixed a memory leak that could occur when using TinyThread on POSIX systems.
   (#185; @dipertix and and @kevinushey)
 
-## RcppParallel 5.1.5
+# RcppParallel 5.1.5
 
 * Patches to ensure compatibility with the R 4.2.0 UCRT toolchain on Windows,
   adapted from patches contributed by Tomas Kalibera.
@@ -64,12 +64,12 @@
 * Fixed an issue where setting `TBB_ROOT` (or `TBB_INC` / `TBB_LIB`) would
   copy rather than symlink the associated libraries. (#161)
 
-## RcppParallel 5.1.4
+# RcppParallel 5.1.4
 
 * Fixed an issue causing client packages of RcppParallel to fail to compile
   on Solaris.
 
-## RcppParallel 5.1.3
+# RcppParallel 5.1.3
 
 * Fixed an issue that prevented compilation of RcppParallel with R (< 4.0.0)
   of R on Windows.
@@ -79,14 +79,14 @@
   See https://www.threadingbuildingblocks.org/docs/help/tbb_userguide/Automically_Replacing_malloc.html
   for more information.
 
-## RcppParallel 5.1.2
+# RcppParallel 5.1.2
 
 * `RcppParallel` gains the `tbbLibraryPath()` function, to be used when attempting
   to query the location of the TBB libraries that `RcppParallel` has been
   configured to use. This may be useful for R packages which wish to explicitly
   use, or link to, these libraries.
 
-## RcppParallel 5.1.1
+# RcppParallel 5.1.1
 
 * Updated bundled version of TBB (Intel TBB 2019 Update 8).
 
@@ -116,24 +116,24 @@
   argument, allowing one to limit the number of threads used for a
   particular computation.
 
-## RcppParallel 5.0.3
+# RcppParallel 5.0.3
 
 * Fixed compilation on macOS M1 machines.
 
-## RcppParallel 5.0.2
+# RcppParallel 5.0.2
 
 * `setThreadOptions(...)` can now only be called once per session, to avoid
   segfaults when compiling RcppParallel / TBB with gcc 10.1. Subsequent
   calls to `setThreadOptions(...)` are ignored.
 
-## RcppParallel 5.0.1
+# RcppParallel 5.0.1
 
 * Fixed compilation issue on OpenSUSE Tumbleweed with -flto=auto
 
 * Fixed compilation when CPPFLAGS = -I/usr/local/include and a version
   of libtbb is installed there
 
-## RcppParallel 5.0.0
+# RcppParallel 5.0.0
 
 * RcppParallel backend can now be customized with RCPP_PARALLEL_BACKEND
   environment variable (supported values are 'tbb' and 'tinythread')
@@ -142,11 +142,11 @@
 
 * Fixed issue when compiling RcppParallel with Rtools40
 
-## RcppParallel 4.4.4
+# RcppParallel 4.4.4
 
 * Fixed an issue when compiling RcppParallel with clang-9 on Fedora
 
-## RcppParallel 4.4.3
+# RcppParallel 4.4.3
 
 * Suppress gcc-9 warnings related -Wclass-memaccess
 
@@ -156,7 +156,7 @@
 
 * Fixed compilation on FreeBSD
 
-## RcppParallel 4.4.2
+# RcppParallel 4.4.2
 
 * Suppress gcc-8 warnings related to -Wclass-memaccess
 
@@ -164,13 +164,13 @@
 
 * Remove unused dependency on the BH package
 
-## RcppParallel 4.4.1
+# RcppParallel 4.4.1
 
 * Ensure user-specified R configuration passed to TBB
 
 * Work around warnings emitted by gcc 8
 
-## RcppParallel 4.4.0
+# RcppParallel 4.4.0
 
 * Respect user-defined compiler settings (e.g. from ~/.R/Makevars).
 
@@ -183,11 +183,11 @@
 
 * Add native registration of compiled functions.
 
-## RcppParallel 4.3.20
+# RcppParallel 4.3.20
 
 * Add support for Rtools 3.3 w/ GCC 4.9
 
-## RcppParallel 4.3.14
+# RcppParallel 4.3.14
 
 * Add support for TBB on Solaris
 
@@ -195,22 +195,22 @@
 
 * Add const and non-const operator[] for RMatrix class
 
-## RcppParallel 4.3.8
+# RcppParallel 4.3.8
 
 * Add tbbmalloc library
 
 * Correctly pass clang to TBB configure when R is using clang
 
-## RcppParallel 4.3.6
+# RcppParallel 4.3.6
 
 * Support for TBB on Windows
 
-## RcppParallel 4.3.3
+# RcppParallel 4.3.3
 
 * Update to TBB 4.3 (fixes clang compilation error in platform.h)
 
 * Forward CXX to TBB Makefile
 
-## RcppParallel 4.2.5
+# RcppParallel 4.2.5
 
 * Initial release
