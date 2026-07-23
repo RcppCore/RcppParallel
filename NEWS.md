@@ -8,6 +8,19 @@
   similar) should consult this and fall back to a serial path, as TBB does
   not support use after fork. (#243, #244)
 
+* On Windows, RcppParallel once again loads its compatibility stub library
+  (`tbb.dll`) when the package is loaded. Packages linking with `-ltbb`
+  (e.g. via StanHeaders) record a load-time dependency on `tbb.dll`, which
+  can only be resolved if RcppParallel has already loaded it; with
+  RcppParallel 6.0.0, such packages would fail to load with "LoadLibrary
+  failure: The specified module could not be found".
+
+* The bundled oneTBB headers now guard against GCC's `<cpuid.h>` being
+  included before `<intrin.h>` on Windows (mingw). Previously, translation
+  units including `<cpuid.h>` before any TBB header would fail to compile,
+  as the `__cpuid` macro from `<cpuid.h>` conflicts with the `__cpuid()`
+  function declared by mingw's `<intrin.h>`.
+
 * When building the bundled copy of oneTBB, RcppParallel no longer searches
   for hwloc, and so no longer tries to build the optional 'tbbbind' library.
   This fixes build failures on machines where a static hwloc library is
