@@ -42,7 +42,7 @@ tbbLibraryPath <- function(name = NULL) {
       if (file.exists(tbbName))
          return(tbbName)
 
-      tbbName <- systemFile("lib", libName)
+      tbbName <- archSystemFile("lib", libName)
       if (file.exists(tbbName))
          return(tbbName)
       
@@ -88,7 +88,7 @@ tbbLdFlags <- function() {
    # on Windows, we statically link to oneTBB
    if (is_windows()) {
       
-      libPath <- systemFile("libs")
+      libPath <- archSystemFile("libs")
 
       ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
       return(ldFlags)
@@ -123,6 +123,6 @@ tbbRoot <- function() {
    if (nzchar(TBB_LIB))
       return(TBB_LIB)
 
-   systemFile("lib")
+   archSystemFile("lib")
 
 }
