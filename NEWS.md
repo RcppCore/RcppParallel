@@ -1,5 +1,11 @@
 # RcppParallel (development version)
 
+* The bundled oneTBB headers now guard against GCC's `<cpuid.h>` being
+  included before `<intrin.h>` on Windows (mingw). Previously, translation
+  units including `<cpuid.h>` before any TBB header would fail to compile,
+  as the `__cpuid` macro from `<cpuid.h>` conflicts with the `__cpuid()`
+  function declared by mingw's `<intrin.h>`.
+
 * When building the bundled copy of oneTBB, RcppParallel no longer searches
   for hwloc, and so no longer tries to build the optional 'tbbbind' library.
   This fixes build failures on machines where a static hwloc library is
