@@ -319,6 +319,15 @@ if (identical(args, "build")) {
       useBundledTbb()
    }
 } else {
+
+   # prefer the configure-detected TBB_LIB when the environment variable
+   # is unset; otherwise, e.g. on Windows (where configure detects the
+   # Rtools copy of TBB), we'd wrongly take the bundled-TBB branch below,
+   # and ship any stale artifacts present in tbb/build/lib_release
    source("../R/tbb-autodetected.R")
+   if (!nzchar(tbbLib))
+      tbbLib <- TBB_LIB
+
    .install.libs(tbbLib)
+
 }
