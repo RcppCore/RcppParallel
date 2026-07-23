@@ -1,5 +1,14 @@
 # RcppParallel (development version)
 
+* When building the bundled copy of oneTBB, RcppParallel no longer searches
+  for hwloc, and so no longer tries to build the optional 'tbbbind' library.
+  This fixes build failures on machines where a static hwloc library is
+  discoverable via pkg-config, as on the CRAN macOS machines.
+
+* On macOS, the bundled copy of oneTBB is now built with
+  `__TBB_RESUMABLE_TASKS_USE_THREADS`, avoiding use of the deprecated
+  ucontext APIs (`getcontext`, `swapcontext`, `makecontext`).
+
 
 # RcppParallel 6.0.0
 
