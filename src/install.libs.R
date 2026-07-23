@@ -83,7 +83,7 @@
    if (.Platform$OS.type == "windows" && TBB_ENABLED) {
       tbbDll <- file.path(tbbDest, "tbb.dll")
       if (file.exists(tbbDll)) {
-         writeLines("** tbb.dll already exists; skipping tbb stub library")
+         writeLines("** tbb.dll already exists; skipping tbb.dll stub")
       } else {
          buildTbbStub(tbbDest)
       }
@@ -108,17 +108,17 @@ buildTbbStub <- function(tbbDest) {
 
       # with oneTBB, the stub provides the old TBB ABI's
       # task_scheduler_observer entry point on top of the new runtime
-      writeLines("** creating tbb stub library")
+      writeLines("** creating tbb.dll stub (wrapping the oneTBB runtime)")
       status <- system("R CMD SHLIB -o tbb-compat/tbb.dll tbb-compat/tbb-compat.cpp")
       if (status != 0)
-         stop("error building tbb stub library")
+         stop("error building tbb.dll stub")
 
    } else {
 
       # with older versions of TBB (e.g. Rtools42), tbb-compat.cpp cannot
       # build -- there is no oneTBB runtime to wrap -- but the static
       # library already provides the old ABI, so re-export it wholesale
-      writeLines("** creating tbb stub library (from static tbb)")
+      writeLines("** creating tbb.dll stub (re-exporting the static tbb library)")
 
       tbbLib <- Sys.getenv("TBB_LIB")
       if (!nzchar(tbbLib))
@@ -137,7 +137,7 @@ buildTbbStub <- function(tbbDest) {
       writeLines(command)
       status <- system(command)
       if (status != 0)
-         stop("error building tbb stub library")
+         stop("error building tbb.dll stub")
 
    }
 
@@ -151,10 +151,10 @@ buildTbbStub <- function(tbbDest) {
 # provenance easy to spot in installation logs.
 logTbbLibraries <- function(tbbLibs, source) {
    if (length(tbbLibs)) {
-      fmt <- "** copying tbb libraries from '%s' [%s]"
+      fmt <- "** copying tbb runtime libraries from '%s' [%s]"
       writeLines(sprintf(fmt, source, paste(basename(tbbLibs), collapse = ", ")))
    } else {
-      writeLines(sprintf("** no tbb libraries found in '%s'", source))
+      writeLines(sprintf("** no tbb runtime libraries found in '%s'", source))
    }
 }
 
