@@ -267,8 +267,10 @@ if (.Platform$OS.type == "windows") {
 define(PKG_LIBS = paste(pkgLibs, collapse = " "))
    
 # if we're going to build tbb from sources, check for cmake
+# (not required on Windows, where the bundled TBB is never built;
+# without an Rtools TBB, the tinythread fallback is used instead)
 define(CMAKE = "")
-if (is.na(tbbLib)) {
+if (is.na(tbbLib) && .Platform$OS.type != "windows") {
    
    cmake <- local({
       

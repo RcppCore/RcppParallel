@@ -76,8 +76,11 @@
    }
 
    # on Windows, we create a stub library that links to us so that
-   # older binaries (like rstan) can still load
-   if (.Platform$OS.type == "windows") {
+   # older binaries (like rstan) can still load. this is only relevant
+   # when TBB is available: the stub cannot link without it, and old
+   # TBB-using binaries could not run against a TBB-less RcppParallel
+   # regardless
+   if (.Platform$OS.type == "windows" && TBB_ENABLED) {
       tbbDll <- file.path(tbbDest, "tbb.dll")
       if (file.exists(tbbDll)) {
          writeLines("** tbb.dll already exists; skipping tbb stub library")
