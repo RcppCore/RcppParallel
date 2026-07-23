@@ -11,10 +11,23 @@
 .tbbMallocProxyDllInfo <- NULL
 
 loadTbbLibrary <- function(name) {
-   # TBB is statically linked on Windows
+
+   # On Windows, TBB is statically linked into RcppParallel.dll, but we
+   # still ship a stub tbb.dll for compatibility with packages linking via
+   # '-ltbb' (e.g. through StanHeaders). Such packages record a load-time
+   # dependency on 'tbb.dll', which the Windows loader can only resolve if
+   # we've already loaded it -- the library directory itself is not on the
+   # DLL search path.
    if (is_windows()) {
-      return(NULL)
+
+      path <- file.path(tbbRoot(), paste0(name, ".dll"))
+      if (!file.exists(path))
+         return(NULL)
+
+      return(dyn.load(path, local = FALSE, now = TRUE))
+
    }
+
    path <- tbbLibraryPath(name)
    if (is.null(path))
       return(NULL)

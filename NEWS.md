@@ -1,5 +1,12 @@
 # RcppParallel (development version)
 
+* On Windows, RcppParallel once again loads its compatibility stub library
+  (`tbb.dll`) when the package is loaded. Packages linking with `-ltbb`
+  (e.g. via StanHeaders) record a load-time dependency on `tbb.dll`, which
+  can only be resolved if RcppParallel has already loaded it; with
+  RcppParallel 6.0.0, such packages would fail to load with "LoadLibrary
+  failure: The specified module could not be found".
+
 * When building the bundled copy of oneTBB, RcppParallel no longer searches
   for hwloc, and so no longer tries to build the optional 'tbbbind' library.
   This fixes build failures on machines where a static hwloc library is
