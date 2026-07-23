@@ -8,6 +8,12 @@
   similar) should consult this and fall back to a serial path, as TBB does
   not support use after fork. (#243, #244)
 
+* Fixed installation on Windows toolchains providing an older (non-oneTBB)
+  copy of TBB, e.g. Rtools42: the tbb stub library is now built by
+  re-exporting the static TBB library, rather than wrapping the oneTBB
+  runtime (which is unavailable there). In addition, stale stub build
+  artifacts from a different toolchain are no longer reused.
+
 * Fixed installation on Windows systems whose Rtools does not provide TBB
   (R < 4.2.0): configure no longer requires cmake there, and the tbb stub
   library is no longer built when the TBB backend is disabled.

@@ -85,13 +85,63 @@
       if (file.exists(tbbDll)) {
          writeLines("** tbb.dll already exists; skipping tbb stub library")
       } else {
-         writeLines("** creating tbb stub library")
-         status <- system("R CMD SHLIB -o tbb-compat/tbb.dll tbb-compat/tbb-compat.cpp")
-         if (status != 0)
-            stop("error building tbb stub library")
-         file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll"))
+         buildTbbStub(tbbDest)
       }
    }
+
+}
+
+# Build the tbb.dll stub that downstream packages link ('-ltbb' via e.g.
+# StanHeaders) and that older binaries resolve their imports against.
+buildTbbStub <- function(tbbDest) {
+
+   # remove artifacts from prior builds, which may have been produced
+   # by a different toolchain or against a different TBB; 'make' would
+   # otherwise consider them up-to-date and re-ship them as-is
+   unlink(c("tbb-compat/tbb.dll", Sys.glob("tbb-compat/*.o")))
+
+   tbbInc <- Sys.getenv("TBB_INC")
+   if (!nzchar(tbbInc))
+      tbbInc <- TBB_INC
+
+   if (file.exists(file.path(tbbInc, "oneapi"))) {
+
+      # with oneTBB, the stub provides the old TBB ABI's
+      # task_scheduler_observer entry point on top of the new runtime
+      writeLines("** creating tbb stub library")
+      status <- system("R CMD SHLIB -o tbb-compat/tbb.dll tbb-compat/tbb-compat.cpp")
+      if (status != 0)
+         stop("error building tbb stub library")
+
+   } else {
+
+      # with older versions of TBB (e.g. Rtools42), tbb-compat.cpp cannot
+      # build -- there is no oneTBB runtime to wrap -- but the static
+      # library already provides the old ABI, so re-export it wholesale
+      writeLines("** creating tbb stub library (from static tbb)")
+
+      tbbLib <- Sys.getenv("TBB_LIB")
+      if (!nzchar(tbbLib))
+         tbbLib <- TBB_LIB
+
+      cxx <- system("R CMD config CXX", intern = TRUE)
+      archive <- file.path(tbbLib, sprintf("lib%s.a", TBB_NAME))
+      command <- paste(
+         cxx,
+         "-shared -static-libgcc",
+         "-o tbb-compat/tbb.dll",
+         "-Wl,--whole-archive", shQuote(archive), "-Wl,--no-whole-archive",
+         "-lssp"
+      )
+
+      writeLines(command)
+      status <- system(command)
+      if (status != 0)
+         stop("error building tbb stub library")
+
+   }
+
+   file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll"))
 
 }
 
@@ -101,16 +151,16 @@
 # provenance easy to spot in installation logs.
 logTbbLibraries <- function(tbbLibs, source) {
    if (length(tbbLibs)) {
-      fmt <- "** copying TBB libraries from '%s' [%s]"
+      fmt <- "** copying tbb libraries from '%s' [%s]"
       writeLines(sprintf(fmt, source, paste(basename(tbbLibs), collapse = ", ")))
    } else {
-      writeLines(sprintf("** no TBB libraries found in '%s'", source))
+      writeLines(sprintf("** no tbb libraries found in '%s'", source))
    }
 }
 
 useTbbPreamble <- function(tbbInc) {
 
-   writeLines(sprintf("** copying TBB headers from '%s'", tbbInc))
+   writeLines(sprintf("** copying tbb headers from '%s'", tbbInc))
    dir.create("../inst/include", recursive = TRUE, showWarnings = FALSE)
    for (suffix in c("oneapi", "serial", "tbb")) {
       tbbPath <- file.path(tbbInc, suffix)
@@ -119,7 +169,7 @@ useTbbPreamble <- function(tbbInc) {
       }
    }
 
-   patchTbbMachineHeader("../inst/include/oneapi/tbb/detail/_machine.h")
+   invisible(patchTbbMachineHeader("../inst/include/oneapi/tbb/detail/_machine.h"))
 
 }
 

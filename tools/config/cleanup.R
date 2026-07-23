@@ -7,6 +7,8 @@
 # install, so nothing is lost by removing these
 unlink("src/tbb/build", recursive = TRUE)
 unlink("src/tbb/build-tbb", recursive = TRUE)
+unlink("src/tbb-compat/tbb.dll")
+unlink(Sys.glob("src/tbb-compat/*.o"))
 unlink("inst/lib",  recursive = TRUE)
 unlink("inst/libs", recursive = TRUE)
 unlink("inst/include/index.html", recursive = TRUE)
