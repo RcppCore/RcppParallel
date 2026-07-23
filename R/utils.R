@@ -1,4 +1,12 @@
 
+# like system.file(), but injects the architecture-specific subdirectory
+# used on Windows when set; e.g. systemFile("lib") resolves 'lib/x64'
+systemFile <- function(dir, name = NULL) {
+   arch <- .Platform$r_arch
+   parts <- c(dir, if (nzchar(arch)) arch, name)
+   system.file(paste(parts, collapse = "/"), package = "RcppParallel")
+}
+
 # generate paths consumable by the compilers and linkers
 # in particular, on Windows and Solaris, this means the path _cannot_ be quoted !!
 asBuildPath <- function(path) {

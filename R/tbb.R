@@ -41,10 +41,8 @@ tbbLibraryPath <- function(name = NULL) {
       tbbName <- file.path(tbbRoot, libName)
       if (file.exists(tbbName))
          return(tbbName)
-      
-      arch <- if (nzchar(.Platform$r_arch)) .Platform$r_arch
-      suffix <- paste(c("lib", arch, libName), collapse = "/")
-      tbbName <- system.file(suffix, package = "RcppParallel")
+
+      tbbName <- systemFile("lib", libName)
       if (file.exists(tbbName))
          return(tbbName)
       
@@ -90,10 +88,8 @@ tbbLdFlags <- function() {
    # on Windows, we statically link to oneTBB
    if (is_windows()) {
       
-      libPath <- system.file("libs", package = "RcppParallel")
-      if (nzchar(.Platform$r_arch))
-         libPath <- file.path(libPath, .Platform$r_arch)
-      
+      libPath <- systemFile("libs")
+
       ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
       return(ldFlags)
       
@@ -127,9 +123,6 @@ tbbRoot <- function() {
    if (nzchar(TBB_LIB))
       return(TBB_LIB)
 
-   rArch <- .Platform$r_arch
-   parts <- c("lib", if (nzchar(rArch)) rArch)
-   libDir <- paste(parts, collapse = "/")
-   system.file(libDir, package = "RcppParallel")
+   systemFile("lib")
 
 }
