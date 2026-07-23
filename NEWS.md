@@ -8,6 +8,12 @@
   similar) should consult this and fall back to a serial path, as TBB does
   not support use after fork. (#243, #244)
 
+* RcppParallel now reports which TBB headers and libraries are installed
+  with the package, and from where, during package installation. In
+  addition, setting the `VERBOSE` environment variable to a value other
+  than `0` enables diagnostics describing how TBB libraries are resolved
+  and loaded when the package is loaded.
+
 * On Windows, RcppParallel once again loads its compatibility stub library
   (`tbb.dll`) when the package is loaded. Packages linking with `-ltbb`
   (e.g. via StanHeaders) record a load-time dependency on `tbb.dll`, which
