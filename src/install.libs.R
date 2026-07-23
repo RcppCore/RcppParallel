@@ -88,6 +88,7 @@
 }
 
 useTbbPreamble <- function(tbbInc) {
+
    dir.create("../inst/include", recursive = TRUE, showWarnings = FALSE)
    for (suffix in c("oneapi", "serial", "tbb")) {
       tbbPath <- file.path(tbbInc, suffix)
@@ -95,6 +96,45 @@ useTbbPreamble <- function(tbbInc) {
          file.copy(tbbPath, "../inst/include", recursive = TRUE)
       }
    }
+
+   patchTbbMachineHeader("../inst/include/oneapi/tbb/detail/_machine.h")
+
+}
+
+# Guard the '#include <intrin.h>' in TBB's _machine.h against GCC's
+# <cpuid.h> macro on mingw. The headers we ship may come from Rtools
+# rather than from the bundled copy of oneTBB, so the guard must be
+# applied to the copied headers, not just the bundled sources.
+patchTbbMachineHeader <- function(path) {
+
+   if (!file.exists(path))
+      return()
+
+   contents <- readLines(path)
+   if (any(grepl("push_macro", contents, fixed = TRUE)))
+      return()
+
+   index <- which(contents == "#include <intrin.h>")
+   if (length(index) != 1L)
+      return()
+
+   replacement <- c(
+      "// GCC's <cpuid.h> defines a function-like '__cpuid' macro that mangles the",
+      "// __cpuid() declarations in mingw's <intrin.h>. Hide the macro while",
+      "// including <intrin.h> so the two headers can coexist in any order.",
+      "#if defined(__MINGW32__) && defined(__cpuid)",
+      "#pragma push_macro(\"__cpuid\")",
+      "#undef __cpuid",
+      "#include <intrin.h>",
+      "#pragma pop_macro(\"__cpuid\")",
+      "#else",
+      "#include <intrin.h>",
+      "#endif"
+   )
+
+   contents <- append(contents[-index], replacement, after = index - 1L)
+   writeLines(contents, path)
+
 }
 
 useSystemTbb <- function(tbbLib, tbbInc) {
