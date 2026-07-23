@@ -116,12 +116,23 @@ useBundledTbb <- function() {
    prependFlags("CPPFLAGS", "CFLAGS")
    prependFlags("CPPFLAGS", "CXXFLAGS")
 
+   # the ucontext APIs (getcontext, swapcontext, ...) are deprecated on macOS,
+   # so use the threads-based coroutine implementation for resumable tasks
+   if (Sys.info()[["sysname"]] == "Darwin") {
+      flags <- c(Sys.getenv("CXXFLAGS"), "-D__TBB_RESUMABLE_TASKS_USE_THREADS=1")
+      setenv("CXXFLAGS", flags[nzchar(flags)])
+   }
+
    cmakeFlags <- c(
       forwardEnvVar("CC", "CMAKE_C_COMPILER"),
       forwardEnvVar("CXX", "CMAKE_CXX_COMPILER"),
       forwardEnvVar("CFLAGS", "CMAKE_C_FLAGS"),
       forwardEnvVar("CXXFLAGS", "CMAKE_CXX_FLAGS"),
       forwardEnvVar("CMAKE_BUILD_TYPE", "CMAKE_BUILD_TYPE"),
+      # tbbbind requires hwloc, and hwloc's pkg-config file doesn't advertise
+      # the macOS frameworks needed when linking it statically; RcppParallel
+      # doesn't use TBB's NUMA APIs, so skip tbbbind altogether
+      "-DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=1",
       "-DTBB_TEST=0",
       "-DTBB_EXAMPLES=0",
       "-DTBB_STRICT=0",
