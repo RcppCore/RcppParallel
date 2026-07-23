@@ -23,9 +23,7 @@ loadTbbLibrary <- function(name) {
       # NOTE: resolve against the package's own library directory, where
       # install.libs.R places the stub; tbbRoot() would prefer TBB_LIB,
       # which on Windows points at Rtools and holds only static libraries
-      arch <- .Platform$r_arch
-      parts <- c("lib", if (nzchar(arch)) arch, paste0(name, ".dll"))
-      path <- system.file(paste(parts, collapse = "/"), package = "RcppParallel")
+      path <- systemFile("lib", paste0(name, ".dll"))
       if (!file.exists(path))
          return(NULL)
 
