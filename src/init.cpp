@@ -13,12 +13,12 @@ namespace RcppParallel {
 #ifndef _WIN32
 static pid_t s_loadPid = 0;
 
-bool isForkedChild()
+bool isProcessForkedChild()
 {
    return getpid() != s_loadPid;
 }
 #else
-bool isForkedChild()
+bool isProcessForkedChild()
 {
    return false;
 }
@@ -29,15 +29,15 @@ bool isForkedChild()
 /* .Call calls */
 extern "C" SEXP defaultNumThreads();
 
-extern "C" SEXP isForkedChild()
+extern "C" SEXP isProcessForkedChild()
 {
-   int forked = RcppParallel::isForkedChild() ? TRUE : FALSE;
+   int forked = RcppParallel::isProcessForkedChild() ? TRUE : FALSE;
    return Rf_ScalarLogical(forked);
 }
 
 static const R_CallMethodDef CallEntries[] = {
-   {"defaultNumThreads", (DL_FUNC) &defaultNumThreads, 0},
-   {"isForkedChild",     (DL_FUNC) &isForkedChild,     0},
+   {"defaultNumThreads",    (DL_FUNC) &defaultNumThreads,    0},
+   {"isProcessForkedChild", (DL_FUNC) &isProcessForkedChild, 0},
    {NULL, NULL, 0}
 };
 

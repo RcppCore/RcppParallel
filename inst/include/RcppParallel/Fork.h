@@ -10,7 +10,7 @@ namespace RcppParallel {
 // Intel TBB does not support being used after fork(). Code paths reachable
 // from fork()'d children (for example, via parallel::mclapply) should call
 // this and fall back to a serial implementation when it returns true.
-bool isForkedChild();
+bool isProcessForkedChild();
 
 } // namespace RcppParallel
 

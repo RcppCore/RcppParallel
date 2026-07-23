@@ -1,9 +1,10 @@
 
 ## RcppParallel 6.0.0  (UNRELEASED)
 
-* RcppParallel now provides `isForkedChild()` (R) and
-  `RcppParallel::isForkedChild()` (C++), which return `TRUE` when the current
-  process is a `fork()` of the process in which RcppParallel was loaded.
+* RcppParallel now provides `isProcessForkedChild()` (R) and
+  `RcppParallel::isProcessForkedChild()` (C++), which return `TRUE` when the
+  current process is a `fork()` of the process in which RcppParallel was
+  loaded.
   Packages dispatching parallel work from within `parallel::mclapply()` (or
   similar) should consult this and fall back to a serial path, as TBB does
   not support use after fork. (#243)
