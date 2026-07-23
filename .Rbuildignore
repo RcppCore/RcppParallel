@@ -21,3 +21,4 @@
 ^\.claude$
 ^cran-comments\.md$
 ^patches
+^CRAN-SUBMISSION$
