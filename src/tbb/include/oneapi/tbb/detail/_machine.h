@@ -26,7 +26,19 @@
 #include <cstddef>
 
 #ifdef _WIN32
+
+// GCC's <cpuid.h> defines a function-like '__cpuid' macro that mangles the
+// __cpuid() declarations in mingw's <intrin.h>. Hide the macro while
+// including <intrin.h> so the two headers can coexist in any order.
+#if defined(__MINGW32__) && defined(__cpuid)
+#pragma push_macro("__cpuid")
+#undef __cpuid
 #include <intrin.h>
+#pragma pop_macro("__cpuid")
+#else
+#include <intrin.h>
+#endif
+
 #ifdef __TBBMALLOC_BUILD
 #define WIN32_LEAN_AND_MEAN
 #ifndef NOMINMAX
