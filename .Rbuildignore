@@ -3,6 +3,7 @@
 ^README.md
 ^\.Rprofile$
 ^\.Rproj\.user$
+^\.worktrees$
 ^appveyor\.yml$
 ^check$
 ^doc$

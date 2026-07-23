@@ -1,5 +1,13 @@
 # RcppParallel (development version)
 
+* RcppParallel now provides `isProcessForkedChild()` (R) and
+  `RcppParallel::isProcessForkedChild()` (C++), which return `TRUE` when the
+  current process is a `fork()` of the process in which RcppParallel was
+  loaded.
+  Packages dispatching parallel work from within `parallel::mclapply()` (or
+  similar) should consult this and fall back to a serial path, as TBB does
+  not support use after fork. (#243, #244)
+
 * When building the bundled copy of oneTBB, RcppParallel no longer searches
   for hwloc, and so no longer tries to build the optional 'tbbbind' library.
   This fixes build failures on machines where a static hwloc library is
@@ -9,16 +17,7 @@
   `__TBB_RESUMABLE_TASKS_USE_THREADS`, avoiding use of the deprecated
   ucontext APIs (`getcontext`, `swapcontext`, `makecontext`).
 
-
 # RcppParallel 6.0.0
-
-* RcppParallel now provides `isProcessForkedChild()` (R) and
-  `RcppParallel::isProcessForkedChild()` (C++), which return `TRUE` when the
-  current process is a `fork()` of the process in which RcppParallel was
-  loaded.
-  Packages dispatching parallel work from within `parallel::mclapply()` (or
-  similar) should consult this and fall back to a serial path, as TBB does
-  not support use after fork. (#243)
 
 * RcppParallel no longer includes tbb headers as part of the RcppParallel/TBB.h
   header, and instead only exposes its TBB-specific APIs for parallel work.
