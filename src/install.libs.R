@@ -236,6 +236,10 @@ useBundledTbb <- function() {
       full.names = TRUE
    )
 
+   # clear any artifacts from prior builds, so that we only ship
+   # the libraries produced by the build above
+   unlink("tbb/build/lib_release", recursive = TRUE)
+
    dir.create("tbb/build/lib_release", recursive = TRUE, showWarnings = FALSE)
    file.copy(tbbFiles, "tbb/build/lib_release", overwrite = TRUE)
    unlink("tbb/build-tbb", recursive = TRUE)
