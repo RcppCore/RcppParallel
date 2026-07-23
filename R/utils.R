@@ -1,4 +1,13 @@
 
+# opt-in diagnostics, primarily useful when debugging issues with
+# TBB library resolution and loading during package load; uses the
+# same VERBOSE environment variable as the TBB build in install.libs.R
+verboseMessage <- function(fmt, ...) {
+   verbose <- Sys.getenv("VERBOSE", unset = "0")
+   if (!identical(verbose, "0"))
+      message(sprintf(fmt, ...))
+}
+
 # like system.file(), but injects the architecture-specific subdirectory
 # used on Windows when set; e.g. archSystemFile("lib") resolves 'lib/x64'
 archSystemFile <- function(dir, name = NULL) {

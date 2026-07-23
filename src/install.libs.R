@@ -38,12 +38,14 @@
    if (!nzchar(tbbLib)) {
 
       # using bundled TBB
+      tbbSrc <- "tbb/build/lib_release"
       tbbLibs <- list.files(
-         path       = "tbb/build/lib_release",
+         path       = tbbSrc,
          pattern    = shlibPattern,
          full.names = TRUE
       )
 
+      logTbbLibraries(tbbLibs, tbbSrc)
       for (tbbLib in tbbLibs) {
          system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
       }
@@ -61,6 +63,7 @@
       tbbLibs <- tbbLibs[!nzchar(Sys.readlink(tbbLibs))]
 
       # copy / link the libraries
+      logTbbLibraries(tbbLibs, tbbLib)
       useSymlinks <- Sys.getenv("TBB_USE_SYMLINKS", unset = .Platform$OS.type != "windows")
       if (useSymlinks) {
          file.symlink(tbbLibs, tbbDest)
@@ -76,7 +79,9 @@
    # older binaries (like rstan) can still load
    if (.Platform$OS.type == "windows") {
       tbbDll <- file.path(tbbDest, "tbb.dll")
-      if (!file.exists(tbbDll)) {
+      if (file.exists(tbbDll)) {
+         writeLines("** tbb.dll already exists; skipping tbb stub library")
+      } else {
          writeLines("** creating tbb stub library")
          status <- system("R CMD SHLIB -o tbb-compat/tbb.dll tbb-compat/tbb-compat.cpp")
          if (status != 0)
@@ -87,8 +92,22 @@
 
 }
 
+# Report which TBB libraries are about to be installed, and from where.
+# Stale or unexpected libraries copied here have historically been a
+# subtle source of load failures in downstream packages, so make the
+# provenance easy to spot in installation logs.
+logTbbLibraries <- function(tbbLibs, source) {
+   if (length(tbbLibs)) {
+      fmt <- "** copying TBB libraries from '%s' [%s]"
+      writeLines(sprintf(fmt, source, paste(basename(tbbLibs), collapse = ", ")))
+   } else {
+      writeLines(sprintf("** no TBB libraries found in '%s'", source))
+   }
+}
+
 useTbbPreamble <- function(tbbInc) {
 
+   writeLines(sprintf("** copying TBB headers from '%s'", tbbInc))
    dir.create("../inst/include", recursive = TRUE, showWarnings = FALSE)
    for (suffix in c("oneapi", "serial", "tbb")) {
       tbbPath <- file.path(tbbInc, suffix)

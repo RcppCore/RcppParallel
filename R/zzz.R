@@ -24,22 +24,28 @@ loadTbbLibrary <- function(name) {
       # install.libs.R places the stub; tbbRoot() would prefer TBB_LIB,
       # which on Windows points at Rtools and holds only static libraries
       path <- archSystemFile("lib", paste0(name, ".dll"))
-      if (!file.exists(path))
+      if (!file.exists(path)) {
+         verboseMessage("TBB library '%s' not found in package 'lib' folder; skipping", name)
          return(NULL)
+      }
 
+      verboseMessage("loading TBB library '%s'", path)
       return(dyn.load(path, local = FALSE, now = TRUE))
 
    }
 
    path <- tbbLibraryPath(name)
-   if (is.null(path))
+   if (is.null(path)) {
+      verboseMessage("TBB library '%s' could not be resolved; skipping", name)
       return(NULL)
-   
+   }
+
    if (!file.exists(path)) {
       warning("TBB library ", shQuote(name), " not found.")
       return(NULL)
    }
-   
+
+   verboseMessage("loading TBB library '%s'", path)
    dyn.load(path, local = FALSE, now = TRUE)
    
 }
