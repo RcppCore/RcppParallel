@@ -8,6 +8,10 @@
   similar) should consult this and fall back to a serial path, as TBB does
   not support use after fork. (#243, #244)
 
+* Fixed installation on Windows systems whose Rtools does not provide TBB
+  (R < 4.2.0): configure no longer requires cmake there, and the tbb stub
+  library is no longer built when the TBB backend is disabled.
+
 * RcppParallel now reports which TBB headers and libraries are installed
   with the package, and from where, during package installation. In
   addition, setting the `VERBOSE` environment variable to a value other
