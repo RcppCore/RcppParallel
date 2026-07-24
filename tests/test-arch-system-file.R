@@ -1,9 +1,11 @@
 # Unit tests for archSystemFile(), the arch-aware wrapper around system.file()
-# introduced when systemFile() was renamed (see #251, #252). It injects the
-# architecture-specific subdirectory (.Platform$r_arch) used on Windows, e.g.
-# archSystemFile("lib") -> 'lib/x64', while behaving like system.file()
-# elsewhere. Note that this subdirectory only ever holds compiled libraries
-# ('lib', 'libs'); headers and other resources are never installed under it.
+# introduced when systemFile() was renamed (see #251, #252). When R is built
+# multi-arch -- typically Windows, but also possible on Linux and macOS -- it
+# installs compiled libraries under an architecture-specific subdirectory named
+# by .Platform$r_arch, e.g. 'libs/x64'. archSystemFile() injects that subdir,
+# and behaves like system.file() when r_arch is unset. Note the subdir only
+# ever holds compiled libraries ('lib', 'libs'); headers and other resources
+# are never installed under it.
 
 RcppParallel:::test_init()
 
@@ -40,8 +42,8 @@ assert(samePath(archSystemFile("lib"), expected("lib")))
 assert(samePath(archSystemFile("lib", "libtbb.so"), expected("lib", "libtbb.so")))
 
 # the package's own compiled code is installed under 'libs' (or 'libs/<arch>'
-# on Windows) -- exactly the arch-aware lookup archSystemFile() exists for --
-# so it must resolve to an existing directory on every platform
+# under a multi-arch R) -- exactly the arch-aware lookup archSystemFile()
+# exists for -- so it must resolve to an existing directory on every platform
 libs <- archSystemFile("libs")
 assert(nzchar(libs))
 assert(dir.exists(libs))
