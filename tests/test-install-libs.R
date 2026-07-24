@@ -40,6 +40,7 @@ if (length(marker))
 env <- new.env(parent = globalenv())
 eval(parse(text = paste(lines, collapse = "\n")), envir = env)
 splitCompilerVar <- get("splitCompilerVar", envir = env)
+patchTbbMachineHeader <- get("patchTbbMachineHeader", envir = env)
 
 # minimal assertion harness
 failures <- 0L
@@ -111,6 +112,37 @@ withEnv(c(TEST_CXX = "   ", TEST_CXXFLAGS = "-Wall"), {
 Sys.unsetenv("TEST_CXX_UNSET")
 check(identical(splitCompilerVar("TEST_CXX_UNSET", "TEST_CXXFLAGS"), FALSE),
    "unset compiler variable returns FALSE")
+
+# the mingw cpuid guard should be applied exactly once to a header with the
+# expected form, and applying it again should leave the header untouched
+header <- tempfile(fileext = ".h")
+writeLines(c("#pragma once", "#include <intrin.h>", "int value;"), header)
+patchTbbMachineHeader(header)
+patched <- readLines(header)
+check(any(grepl("push_macro", patched, fixed = TRUE)),
+   "cpuid guard is applied to a well-formed header")
+patchTbbMachineHeader(header)
+check(identical(readLines(header), patched),
+   "cpuid guard application is idempotent")
+
+# a header without exactly one matching include line must not be modified,
+# and the skipped patch must be surfaced as a warning (a silent no-op here
+# would quietly reintroduce the mingw __cpuid build failure)
+malformed <- tempfile(fileext = ".h")
+original <- c("#pragma once", "  #include <intrin.h>")
+writeLines(original, malformed)
+warned <- FALSE
+withCallingHandlers(
+   patchTbbMachineHeader(malformed),
+   warning = function(w) {
+      warned <<- TRUE
+      invokeRestart("muffleWarning")
+   }
+)
+check(warned, "unexpected header form emits a warning")
+check(identical(readLines(malformed), original),
+   "unexpected header form is left unmodified")
+unlink(c(header, malformed))
 
 if (failures > 0L)
    stop(sprintf("%d install.libs.R helper test(s) failed", failures))
