@@ -6,6 +6,8 @@
 # helper definitions that precede its '# Main' section (evaluating the whole
 # file would trigger an actual install), and exercise them directly.
 
+RcppParallel:::test_init()
+
 # locate src/install.libs.R by walking up from the working directory; this is
 # reachable when tests are run from the package sources. If it cannot be found
 # (e.g. only the installed package is available), skip rather than fail.

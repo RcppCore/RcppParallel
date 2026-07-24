@@ -26,7 +26,6 @@ Description: High level functions for parallel programming with 'Rcpp'.
 Depends: R (>= 3.6.0)
 Suggests:
     Rcpp,
-    RUnit,
     knitr,
     rmarkdown
 Roxygen: list(markdown = TRUE)
