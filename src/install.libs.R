@@ -50,6 +50,11 @@
          system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
       }
 
+      # restore the versioned library layout shipped by RcppParallel 5.1.11
+      # and earlier (a real 'libtbb.so.2' plus a 'libtbb.so' symlink)
+      if (Sys.info()[["sysname"]] == "Linux")
+         versionBundledTbbLibraries(tbbDest)
+
    } else {
 
       # using system tbb
@@ -143,6 +148,92 @@ buildTbbStub <- function(tbbDest) {
 
    file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll"))
 
+}
+
+# Give the bundled TBB libraries the versioned '.so.<N>' names, plus an
+# unversioned 'libtbb.so' compatibility symlink, that RcppParallel shipped on
+# Linux through 5.1.11. That layout came from Intel TBB's make-based build,
+# which set the library SONAME from TBB_COMPATIBLE_INTERFACE_VERSION (2) and
+# emitted 'libtbb.so' as a linker script pointing at 'libtbb.so.2'. The
+# oneTBB cmake build only versions its output on Windows, so on Linux it
+# produces unversioned libraries (e.g. 'libtbb.so' with SONAME 'libtbb.so')
+# instead. Binaries compiled against RcppParallel <= 5.1.11 recorded a
+# load-time dependency on 'libtbb.so.2'; without this, they fail to load after
+# an upgrade with "libtbb.so.2: cannot open shared object file".
+versionBundledTbbLibraries <- function(tbbDest) {
+
+   # downstream binaries look for exactly '.so.2', matching the SONAME suffix
+   # the old TBB build derived from TBB_COMPATIBLE_INTERFACE_VERSION
+   suffix <- "2"
+
+   libs <- list.files(tbbDest, pattern = "^libtbb.*\\.so$", full.names = TRUE)
+   for (lib in libs)
+      versionBundledTbbLibrary(lib, paste0(lib, ".", suffix))
+
+}
+
+# Version a single bundled TBB library. Failing to produce the versioned
+# layout is an error: a partial or silently-skipped layout would only
+# resurface later as load failures in downstream binaries, so fail the
+# install loudly instead.
+versionBundledTbbLibrary <- function(lib, versioned) {
+
+   # leave symlinks (i.e. an already-versioned layout) untouched; only real,
+   # unversioned libraries need renaming
+   if (nzchar(Sys.readlink(lib)))
+      return(invisible(FALSE))
+
+   # only version actual ELF libraries; this leaves linker scripts alone
+   # (in old-style layouts, 'libtbb.so' is an INPUT() script and the real
+   # library already sits at 'libtbb.so.2'), while still replacing a stale
+   # 'libtbb.so.2' left behind by a previous installation
+   if (!isElfFile(lib))
+      return(invisible(FALSE))
+
+   fmt <- "** versioning tbb library '%s' -> '%s'"
+   msg <- sprintf(fmt, basename(lib), basename(versioned))
+   writeLines(msg)
+
+   # 'libtbb.so' -> 'libtbb.so.2'
+   if (!isTRUE(file.rename(lib, versioned))) {
+      fmt <- "couldn't rename '%s' to '%s'"
+      stop(sprintf(fmt, lib, versioned))
+   }
+
+   # re-create 'libtbb.so' as a relative symlink pointing back at the
+   # versioned library
+   linked <- tryCatch(
+      file.symlink(basename(versioned), lib),
+      warning = function(w) FALSE
+   )
+   if (isTRUE(linked))
+      return(invisible(TRUE))
+
+   # if the symlink couldn't be created (e.g. a filesystem without symlink
+   # support), fall back to a plain copy so that 'libtbb.so' still exists.
+   # the library has already been renamed at this point, so a failed copy
+   # would leave no 'libtbb.so' at all; fail loudly rather than complete a
+   # broken install
+   writeLines("** couldn't create symlink; copying instead")
+   copied <- tryCatch(
+      file.copy(versioned, lib, overwrite = TRUE),
+      warning = function(w) FALSE
+   )
+   if (!isTRUE(copied)) {
+      fmt <- "couldn't copy '%s' to '%s'"
+      stop(sprintf(fmt, versioned, lib))
+   }
+
+   invisible(TRUE)
+
+}
+
+isElfFile <- function(path) {
+   header <- tryCatch(
+      readBin(path, "raw", n = 4L),
+      condition = function(cnd) raw()
+   )
+   identical(header, charToRaw("\x7fELF"))
 }
 
 # Report which TBB libraries are about to be installed, and from where.
