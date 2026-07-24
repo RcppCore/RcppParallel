@@ -9,7 +9,7 @@
 #
 # https://github.com/RcppCore/RcppParallel/pull/262
 
-library(RcppParallel)
+RcppParallel:::test_init()
 
 # building the test package requires a toolchain, so keep this test
 # off of CRAN's machines
@@ -20,7 +20,7 @@ if (!ci) {
 }
 
 # the scalable allocator is only available with the TBB backend
-if (!RcppParallel:::TBB_ENABLED) {
+if (!TBB_ENABLED) {
    writeLines("TBB is not enabled; skipping scalable allocator test.")
    quit(save = "no")
 }
@@ -89,11 +89,6 @@ libDir <- file.path(tempdir(), "library")
 dir.create(libDir, recursive = TRUE, showWarnings = FALSE)
 Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep))
 
-# R CMD check sets R_TESTS=startup.Rs, which breaks R sub-processes run
-# with a different working directory -- like the Rscript invocations in
-# the test package's Makevars (see also tests/doRUnit.R)
-Sys.setenv(R_TESTS = "")
-
 rExe <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R")
 args <- c("CMD", "INSTALL", "--no-multiarch", paste0("--library=", shQuote(libDir)), shQuote(pkgRoot))
 
@@ -108,4 +103,4 @@ if (is.numeric(status) && status != 0L)
 invisible(loadNamespace("scalabletest", lib.loc = libDir))
 ok <- .Call("scalable_roundtrip", 1000L, PACKAGE = "scalabletest")
 writeLines(paste("scalable allocator round trip:", if (isTRUE(ok)) "OK" else "FAILED"))
-stopifnot(isTRUE(ok))
+assert(isTRUE(ok))
