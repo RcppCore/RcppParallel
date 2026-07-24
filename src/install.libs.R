@@ -185,7 +185,18 @@ versionBundledTbbLibraries <- function(tbbDest) {
       # 'libtbb.so' -> 'libtbb.so.2', then re-create 'libtbb.so' as a
       # relative symlink pointing back at the versioned library
       file.rename(lib, versioned)
-      file.symlink(basename(versioned), lib)
+      linked <- tryCatch(
+         file.symlink(basename(versioned), lib),
+         warning = function(w) FALSE
+      )
+
+      # if the symlink couldn't be created (e.g. a filesystem without symlink
+      # support), fall back to a plain copy so that 'libtbb.so' still exists --
+      # RcppParallel's own shared object records a load-time dependency on it
+      if (!isTRUE(linked)) {
+         writeLines("** could not create symlink; copying instead")
+         file.copy(versioned, lib, overwrite = TRUE)
+      }
 
    }
 
