@@ -178,8 +178,9 @@ versionBundledTbbLibraries <- function(tbbDest) {
       if (file.exists(versioned))
          next
 
-      writeLines(sprintf("** versioning tbb library '%s' -> '%s'",
-                         basename(lib), basename(versioned)))
+      fmt <- "** versioning tbb library '%s' -> '%s'"
+      msg <- sprintf(fmt, basename(lib), basename(versioned))
+      writeLines(msg)
 
       # 'libtbb.so' -> 'libtbb.so.2', then re-create 'libtbb.so' as a
       # relative symlink pointing back at the versioned library
