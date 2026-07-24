@@ -2,7 +2,8 @@
 # introduced when systemFile() was renamed (see #251, #252). It injects the
 # architecture-specific subdirectory (.Platform$r_arch) used on Windows, e.g.
 # archSystemFile("lib") -> 'lib/x64', while behaving like system.file()
-# elsewhere.
+# elsewhere. Note that this subdirectory only ever holds compiled libraries
+# ('lib', 'libs'); headers and other resources are never installed under it.
 
 RcppParallel:::test_init()
 
@@ -23,12 +24,8 @@ samePath <- function(a, b) {
 # should be equivalent to a plain system.file() call
 if (!nzchar(arch)) {
    assert(samePath(
-      archSystemFile("include"),
-      system.file("include", package = "RcppParallel")
-   ))
-   assert(samePath(
-      archSystemFile("include", "RcppParallel.h"),
-      system.file("include/RcppParallel.h", package = "RcppParallel")
+      archSystemFile("libs"),
+      system.file("libs", package = "RcppParallel")
    ))
 }
 
@@ -42,7 +39,9 @@ expected <- function(dir, name = NULL) {
 assert(samePath(archSystemFile("lib"), expected("lib")))
 assert(samePath(archSystemFile("lib", "libtbb.so"), expected("lib", "libtbb.so")))
 
-# a real, shipped resource resolves to an existing path
-header <- archSystemFile("include", "RcppParallel.h")
-assert(nzchar(header))
-assert(file.exists(header))
+# the package's own compiled code is installed under 'libs' (or 'libs/<arch>'
+# on Windows) -- exactly the arch-aware lookup archSystemFile() exists for --
+# so it must resolve to an existing directory on every platform
+libs <- archSystemFile("libs")
+assert(nzchar(libs))
+assert(dir.exists(libs))
