@@ -89,6 +89,11 @@ libDir <- file.path(tempdir(), "library")
 dir.create(libDir, recursive = TRUE, showWarnings = FALSE)
 Sys.setenv(R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep))
 
+# R CMD check sets R_TESTS=startup.Rs, which breaks R sub-processes run
+# with a different working directory -- like the Rscript invocations in
+# the test package's Makevars (see also tests/doRUnit.R)
+Sys.setenv(R_TESTS = "")
+
 rExe <- file.path(R.home("bin"), if (.Platform$OS.type == "windows") "R.exe" else "R")
 args <- c("CMD", "INSTALL", "--no-multiarch", paste0("--library=", shQuote(libDir)), shQuote(pkgRoot))
 
