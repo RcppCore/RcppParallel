@@ -224,19 +224,49 @@ define(
 )
 
 # set PKG_LIBS
-pkgLibs <- if (!is.na(tbbLib)) {
-   
+pkgLibs <- if (.Platform$OS.type == "windows") {
+
+   if (!is.na(tbbLib) && file.exists(file.path(tbbInc, "oneapi"))) {
+
+      # downstream packages link with '-lRcppParallel' alone, so
+      # RcppParallel.dll must provide the tbbmalloc API (scalable_malloc
+      # and friends) even though RcppParallel itself never calls it; use
+      # --whole-archive so those objects are linked in, and re-exported
+      # via their '-export:' directives. tbbmalloc must precede tbb here:
+      # both archives bundle an itt_notify object defining the same
+      # symbols, and with tbbmalloc's copy already linked, tbb's is never
+      # pulled in, avoiding duplicate definition errors
+      c(
+         "-Wl,-L\"$(TBB_LIB)\"",
+         "-Wl,--whole-archive",
+         "-l$(TBB_MALLOC_NAME)",
+         "-Wl,--no-whole-archive",
+         "-l$(TBB_NAME)"
+      )
+
+   } else if (!is.na(tbbLib)) {
+
+      # with an older (non-oneTBB) toolchain like Rtools42, tbb and
+      # tbbmalloc both define DllMain, so tbbmalloc cannot be linked
+      # wholesale; its objects also carry no '-export:' directives, so
+      # nothing would be re-exported anyhow -- just link as needed
+      c(
+         "-Wl,-L\"$(TBB_LIB)\"",
+         "-l$(TBB_NAME)",
+         "-l$(TBB_MALLOC_NAME)"
+      )
+
+   }
+
+} else if (!is.na(tbbLib)) {
+
    c(
       "-Wl,-L\"$(TBB_LIB)\"",
       sprintf("-Wl,-rpath,%s", shQuote(tbbLib)),
       "-l$(TBB_NAME)",
       "-l$(TBB_MALLOC_NAME)"
    )
-   
-} else if (.Platform$OS.type == "windows") {
-   
-   NULL
-   
+
 } else if (R.version$os == "emscripten") {
    
    c(
