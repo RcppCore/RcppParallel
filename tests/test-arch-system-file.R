@@ -8,14 +8,25 @@ RcppParallel:::test_init()
 
 arch <- .Platform$r_arch
 
+# compare two file paths for equality. system.file() returns "" when a path is
+# not found, so preserve that sentinel; otherwise normalize both sides, since
+# strings that differ only in separators, case, or symlinks can still denote
+# the same file (and normalizePath("") would resolve to the working directory).
+samePath <- function(a, b) {
+   norm <- function(p) {
+      if (nzchar(p)) normalizePath(p, winslash = "/", mustWork = FALSE) else p
+   }
+   identical(norm(a), norm(b))
+}
+
 # with no arch subdirectory (the usual case off Windows), archSystemFile()
 # should be equivalent to a plain system.file() call
 if (!nzchar(arch)) {
-   assert(identical(
+   assert(samePath(
       archSystemFile("include"),
       system.file("include", package = "RcppParallel")
    ))
-   assert(identical(
+   assert(samePath(
       archSystemFile("include", "RcppParallel.h"),
       system.file("include/RcppParallel.h", package = "RcppParallel")
    ))
@@ -28,8 +39,8 @@ expected <- function(dir, name = NULL) {
    system.file(paste(parts, collapse = "/"), package = "RcppParallel")
 }
 
-assert(identical(archSystemFile("lib"), expected("lib")))
-assert(identical(archSystemFile("lib", "libtbb.so"), expected("lib", "libtbb.so")))
+assert(samePath(archSystemFile("lib"), expected("lib")))
+assert(samePath(archSystemFile("lib", "libtbb.so"), expected("lib", "libtbb.so")))
 
 # a real, shipped resource resolves to an existing path
 header <- archSystemFile("include", "RcppParallel.h")
