@@ -50,6 +50,11 @@
          system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
       }
 
+      # restore the versioned library layout shipped by RcppParallel 5.1.11
+      # and earlier (a real 'libtbb.so.2' plus a 'libtbb.so' symlink)
+      if (Sys.info()[["sysname"]] == "Linux")
+         versionBundledTbbLibraries(tbbDest)
+
    } else {
 
       # using system tbb
@@ -142,6 +147,46 @@ buildTbbStub <- function(tbbDest) {
    }
 
    file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll"))
+
+}
+
+# Give the bundled TBB libraries the versioned '.so.<N>' names, plus an
+# unversioned 'libtbb.so' compatibility symlink, that RcppParallel shipped on
+# Linux through 5.1.11. That layout came from Intel TBB's make-based build,
+# which set the library SONAME from TBB_COMPATIBLE_INTERFACE_VERSION (2) and
+# emitted 'libtbb.so' as a linker script pointing at 'libtbb.so.2'. The
+# oneTBB cmake build only versions its output on Windows, so on Linux it
+# produces unversioned libraries (e.g. 'libtbb.so' with SONAME 'libtbb.so')
+# instead. Binaries compiled against RcppParallel <= 5.1.11 recorded a
+# load-time dependency on 'libtbb.so.2'; without this, they fail to load after
+# an upgrade with "libtbb.so.2: cannot open shared object file".
+versionBundledTbbLibraries <- function(tbbDest) {
+
+   # downstream binaries look for exactly '.so.2', matching the SONAME suffix
+   # the old TBB build derived from TBB_COMPATIBLE_INTERFACE_VERSION
+   suffix <- "2"
+
+   libs <- list.files(tbbDest, pattern = "^libtbb.*\\.so$", full.names = TRUE)
+   for (lib in libs) {
+
+      # leave symlinks and linker scripts (i.e. an already-versioned layout)
+      # untouched; only real, unversioned libraries need renaming
+      if (nzchar(Sys.readlink(lib)))
+         next
+
+      versioned <- paste0(lib, ".", suffix)
+      if (file.exists(versioned))
+         next
+
+      writeLines(sprintf("** versioning tbb library '%s' -> '%s'",
+                         basename(lib), basename(versioned)))
+
+      # 'libtbb.so' -> 'libtbb.so.2', then re-create 'libtbb.so' as a
+      # relative symlink pointing back at the versioned library
+      file.rename(lib, versioned)
+      file.symlink(basename(versioned), lib)
+
+   }
 
 }
 

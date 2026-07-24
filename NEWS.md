@@ -1,5 +1,13 @@
 # RcppParallel (development version)
 
+* On Linux, the bundled TBB libraries are once again installed with versioned
+  names (e.g. `libtbb.so.2`) plus an unversioned `libtbb.so` symlink, matching
+  the layout shipped by RcppParallel 5.1.11 and earlier. The oneTBB cmake build
+  produces only unversioned libraries on Linux, so binaries compiled against
+  those releases (which recorded a load-time dependency on `libtbb.so.2`) would
+  otherwise fail to load after an upgrade with "libtbb.so.2: cannot open shared
+  object file".
+
 * Fixed installation on Windows toolchains providing an older (non-oneTBB)
   copy of TBB, e.g. Rtools42: the tbb stub library is now built by
   re-exporting the static TBB library, rather than wrapping the oneTBB
