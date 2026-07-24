@@ -9,8 +9,11 @@
 // (NOTE: Windows TBB is temporarily opt-in for packages for
 // compatibility with CRAN packages not previously configured
 // to link to TBB in Makevars.win)
+// NOTE: match Linux via __linux__ rather than __gnu_linux__; the latter is
+// only defined by glibc toolchains, which left TBB disabled by default on
+// musl-based systems such as Alpine Linux (https://github.com/RcppCore/RcppParallel/issues/231)
 #ifndef RCPP_PARALLEL_USE_TBB
-# if defined(__APPLE__) || defined(__gnu_linux__) || (defined(__sun) && defined(__SVR4) && !defined(__sparc))
+# if defined(__APPLE__) || defined(__linux__) || (defined(__sun) && defined(__SVR4) && !defined(__sparc))
 #  define RCPP_PARALLEL_USE_TBB 1
 # else
 #  define RCPP_PARALLEL_USE_TBB 0
