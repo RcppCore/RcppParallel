@@ -167,39 +167,73 @@ versionBundledTbbLibraries <- function(tbbDest) {
    suffix <- "2"
 
    libs <- list.files(tbbDest, pattern = "^libtbb.*\\.so$", full.names = TRUE)
-   for (lib in libs) {
+   for (lib in libs)
+      versionBundledTbbLibrary(lib, paste0(lib, ".", suffix))
 
-      # leave symlinks and linker scripts (i.e. an already-versioned layout)
-      # untouched; only real, unversioned libraries need renaming
-      if (nzchar(Sys.readlink(lib)))
-         next
+}
 
-      versioned <- paste0(lib, ".", suffix)
-      if (file.exists(versioned))
-         next
+# Version a single bundled TBB library. Failing to produce the versioned
+# layout is an error: a partial or silently-skipped layout would only
+# resurface later as load failures in downstream binaries, so fail the
+# install loudly instead.
+versionBundledTbbLibrary <- function(lib, versioned) {
 
-      fmt <- "** versioning tbb library '%s' -> '%s'"
-      msg <- sprintf(fmt, basename(lib), basename(versioned))
-      writeLines(msg)
+   # leave symlinks (i.e. an already-versioned layout) untouched; only real,
+   # unversioned libraries need renaming
+   if (nzchar(Sys.readlink(lib)))
+      return(invisible(FALSE))
 
-      # 'libtbb.so' -> 'libtbb.so.2', then re-create 'libtbb.so' as a
-      # relative symlink pointing back at the versioned library
-      file.rename(lib, versioned)
-      linked <- tryCatch(
-         file.symlink(basename(versioned), lib),
-         warning = function(w) FALSE
-      )
+   # only version actual ELF libraries; this leaves linker scripts alone
+   # (in old-style layouts, 'libtbb.so' is an INPUT() script and the real
+   # library already sits at 'libtbb.so.2'), while still replacing a stale
+   # 'libtbb.so.2' left behind by a previous installation
+   if (!isElfFile(lib))
+      return(invisible(FALSE))
 
-      # if the symlink couldn't be created (e.g. a filesystem without symlink
-      # support), fall back to a plain copy so that 'libtbb.so' still exists --
-      # RcppParallel's own shared object records a load-time dependency on it
-      if (!isTRUE(linked)) {
-         writeLines("** could not create symlink; copying instead")
-         file.copy(versioned, lib, overwrite = TRUE)
-      }
+   fmt <- "** versioning tbb library '%s' -> '%s'"
+   msg <- sprintf(fmt, basename(lib), basename(versioned))
+   writeLines(msg)
 
+   # 'libtbb.so' -> 'libtbb.so.2'
+   if (!isTRUE(file.rename(lib, versioned))) {
+      fmt <- "couldn't rename '%s' to '%s'"
+      stop(sprintf(fmt, lib, versioned))
    }
 
+   # re-create 'libtbb.so' as a relative symlink pointing back at the
+   # versioned library
+   linked <- tryCatch(
+      file.symlink(basename(versioned), lib),
+      warning = function(w) FALSE
+   )
+   if (isTRUE(linked))
+      return(invisible(TRUE))
+
+   # if the symlink couldn't be created (e.g. a filesystem without symlink
+   # support), fall back to a plain copy so that 'libtbb.so' still exists.
+   # the library has already been renamed at this point, so a failed copy
+   # would leave no 'libtbb.so' at all; fail loudly rather than complete a
+   # broken install
+   writeLines("** couldn't create symlink; copying instead")
+   copied <- tryCatch(
+      file.copy(versioned, lib, overwrite = TRUE),
+      warning = function(w) FALSE
+   )
+   if (!isTRUE(copied)) {
+      fmt <- "couldn't copy '%s' to '%s'"
+      stop(sprintf(fmt, versioned, lib))
+   }
+
+   invisible(TRUE)
+
+}
+
+isElfFile <- function(path) {
+   header <- tryCatch(
+      readBin(path, "raw", n = 4L),
+      condition = function(cnd) raw()
+   )
+   identical(header, charToRaw("\x7fELF"))
 }
 
 # Report which TBB libraries are about to be installed, and from where.
