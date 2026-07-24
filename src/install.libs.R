@@ -270,16 +270,27 @@ useTbbPreamble <- function(tbbInc) {
 # applied to the copied headers, not just the bundled sources.
 patchTbbMachineHeader <- function(path) {
 
-   if (!file.exists(path))
-      return()
+   if (!file.exists(path)) {
+      writeLines(sprintf("** no tbb header at '%s'; skipping mingw cpuid guard", path))
+      return(invisible())
+   }
 
    contents <- readLines(path)
-   if (any(grepl("push_macro", contents, fixed = TRUE)))
-      return()
+   if (any(grepl("push_macro", contents, fixed = TRUE))) {
+      writeLines(sprintf("** mingw cpuid guard already present in '%s'", path))
+      return(invisible())
+   }
 
    index <- which(contents == "#include <intrin.h>")
-   if (length(index) != 1L)
-      return()
+   if (length(index) != 1L) {
+      fmt <- paste(
+         "expected exactly one '#include <intrin.h>' line in '%s', but found %i;",
+         "the mingw cpuid guard was not applied, and mingw builds using these",
+         "headers may fail -- see patches/mingw_cpuid.diff"
+      )
+      warning(sprintf(fmt, path, length(index)))
+      return(invisible())
+   }
 
    replacement <- c(
       "// GCC's <cpuid.h> defines a function-like '__cpuid' macro that mangles the",
@@ -297,6 +308,7 @@ patchTbbMachineHeader <- function(path) {
 
    contents <- append(contents[-index], replacement, after = index - 1L)
    writeLines(contents, path)
+   writeLines(sprintf("** applied mingw cpuid guard to '%s'", path))
 
 }
 

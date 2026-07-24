@@ -1,5 +1,9 @@
 # RcppParallel (development version)
 
+* The mingw cpuid guard applied to TBB's `_machine.h` header during
+  installation is now logged, and a warning is emitted if the header does
+  not have the expected form and the guard cannot be applied.
+
 * On Linux, the bundled TBB libraries are once again installed with versioned
   names (e.g. `libtbb.so.2`) plus an unversioned `libtbb.so` symlink, matching
   the layout shipped by RcppParallel 5.1.11 and earlier. The oneTBB cmake build
