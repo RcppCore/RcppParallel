@@ -431,9 +431,13 @@ splitCompilerVar <- function(compilerVar, flagsVar) {
       return(FALSE)
 
    tokens <- scan(text = compiler, what = character(), quiet = TRUE)
-   if (length(tokens) < 2L)
+   if (length(tokens) == 0L)
       return(FALSE)
 
+   # always re-set the compiler from the parsed tokens, even when there are
+   # no trailing flags: scan() strips surrounding whitespace, so this also
+   # normalizes values like ' g++' (produced when e.g. '$(CCACHE) g++'
+   # expands with an empty CCACHE), which CMake would otherwise reject
    setenv(compilerVar, tokens[[1L]])
 
    oldFlags <- Sys.getenv(flagsVar)

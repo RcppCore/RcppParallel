@@ -1,0 +1,116 @@
+# Unit tests for the install-time helpers defined in src/install.libs.R.
+#
+# These helpers run during 'R CMD INSTALL' (before the package is loadable),
+# so they live in src/install.libs.R rather than in R/ and cannot be reached
+# via library(RcppParallel). Instead, we locate that source file, evaluate the
+# helper definitions that precede its '# Main' section (evaluating the whole
+# file would trigger an actual install), and exercise them directly.
+
+# locate src/install.libs.R by walking up from the working directory; this is
+# reachable when tests are run from the package sources. If it cannot be found
+# (e.g. only the installed package is available), skip rather than fail.
+findInstallLibs <- function() {
+   dir <- normalizePath(getwd(), mustWork = FALSE)
+   for (i in 1:8) {
+      candidate <- file.path(dir, "src", "install.libs.R")
+      if (file.exists(candidate))
+         return(candidate)
+      parent <- dirname(dir)
+      if (identical(parent, dir))
+         break
+      dir <- parent
+   }
+   NA_character_
+}
+
+path <- findInstallLibs()
+if (is.na(path)) {
+   writeLines("skipping: could not locate src/install.libs.R")
+   quit(save = "no", status = 0L)
+}
+
+# evaluate only the helper definitions, stopping before the '# Main' section
+lines <- readLines(path)
+marker <- grep("^# Main", lines)
+if (length(marker))
+   lines <- lines[seq_len(marker[[1L]] - 1L)]
+
+env <- new.env(parent = globalenv())
+eval(parse(text = paste(lines, collapse = "\n")), envir = env)
+splitCompilerVar <- get("splitCompilerVar", envir = env)
+
+# minimal assertion harness
+failures <- 0L
+check <- function(cond, label) {
+   ok <- isTRUE(cond)
+   if (!ok)
+      failures <<- failures + 1L
+   writeLines(sprintf("%s - %s", if (ok) "PASS" else "FAIL", label))
+}
+
+# run 'expr' with the given environment variables set, restoring the previous
+# environment afterwards so tests can't leak into one another (or into CC/CXX)
+withEnv <- function(vars, expr) {
+   keys <- names(vars)
+   previous <- Sys.getenv(keys, unset = NA, names = TRUE)
+   on.exit({
+      set <- previous[!is.na(previous)]
+      if (length(set))
+         do.call(Sys.setenv, as.list(set))
+      unset <- keys[is.na(previous)]
+      if (length(unset))
+         Sys.unsetenv(unset)
+   }, add = TRUE)
+   do.call(Sys.setenv, as.list(vars))
+   force(expr)
+}
+
+# the regression this branch fixes: '$(CCACHE) g++' with an empty CCACHE
+# expands to ' g++' (leading space). scan() yields a single token, and the
+# old early-return left the leading space in place, forwarding an invalid
+# '-DCMAKE_CXX_COMPILER= g++' to CMake. The compiler must be normalized.
+withEnv(c(TEST_CXX = " g++", TEST_CXXFLAGS = ""), {
+   result <- splitCompilerVar("TEST_CXX", "TEST_CXXFLAGS")
+   check(isTRUE(result), "leading-whitespace compiler returns TRUE")
+   check(identical(Sys.getenv("TEST_CXX"), "g++"),
+      "leading-whitespace compiler is normalized (no leading space)")
+   check(identical(Sys.getenv("TEST_CXXFLAGS"), ""),
+      "leading-whitespace compiler leaves flags untouched")
+})
+
+# a plain single-token compiler is already clean, but should still be
+# re-set (and report TRUE) so the normalization path is exercised uniformly
+withEnv(c(TEST_CXX = "g++", TEST_CXXFLAGS = ""), {
+   result <- splitCompilerVar("TEST_CXX", "TEST_CXXFLAGS")
+   check(isTRUE(result), "single-token compiler returns TRUE")
+   check(identical(Sys.getenv("TEST_CXX"), "g++"),
+      "single-token compiler is preserved")
+})
+
+# trailing tokens are split off as flags and prepended to any existing flags
+withEnv(c(TEST_CXX = "g++ -std=c++17 -O2", TEST_CXXFLAGS = "-Wall"), {
+   result <- splitCompilerVar("TEST_CXX", "TEST_CXXFLAGS")
+   check(isTRUE(result), "compiler with flags returns TRUE")
+   check(identical(Sys.getenv("TEST_CXX"), "g++"),
+      "compiler with flags splits off the compiler token")
+   check(identical(Sys.getenv("TEST_CXXFLAGS"), "-std=c++17 -O2 -Wall"),
+      "compiler with flags prepends split flags to existing flags")
+})
+
+# a whitespace-only value tokenizes to nothing: report FALSE and change nothing
+withEnv(c(TEST_CXX = "   ", TEST_CXXFLAGS = "-Wall"), {
+   result <- splitCompilerVar("TEST_CXX", "TEST_CXXFLAGS")
+   check(identical(result, FALSE), "whitespace-only compiler returns FALSE")
+   check(identical(Sys.getenv("TEST_CXXFLAGS"), "-Wall"),
+      "whitespace-only compiler leaves flags untouched")
+})
+
+# an unset compiler variable is a no-op that reports FALSE
+Sys.unsetenv("TEST_CXX_UNSET")
+check(identical(splitCompilerVar("TEST_CXX_UNSET", "TEST_CXXFLAGS"), FALSE),
+   "unset compiler variable returns FALSE")
+
+if (failures > 0L)
+   stop(sprintf("%d install.libs.R helper test(s) failed", failures))
+
+writeLines("all install.libs.R helper tests passed")

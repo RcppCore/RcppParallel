@@ -8,6 +8,12 @@
   otherwise fail to load after an upgrade with "libtbb.so.2: cannot open shared
   object file".
 
+* Fixed linking of downstream packages using the TBB scalable allocator
+  on Windows, e.g. via RcppArmadillo's `ARMA_USE_TBB_ALLOC`. RcppParallel
+  now links the whole Rtools `tbbmalloc` archive into `RcppParallel.dll`
+  and re-exports its API, so that `scalable_malloc`, `scalable_free`, and
+  friends can be resolved by packages linking with `-lRcppParallel`.
+
 * Fixed installation on Windows toolchains providing an older (non-oneTBB)
   copy of TBB, e.g. Rtools42: the tbb stub library is now built by
   re-exporting the static TBB library, rather than wrapping the oneTBB
