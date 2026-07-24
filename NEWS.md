@@ -1,8 +1,20 @@
 # RcppParallel (development version)
 
+* RcppParallel now provides `isProcessForkedChild()` (R) and
+  `RcppParallel::isProcessForkedChild()` (C++), which return `TRUE` when the
+  current process is a `fork()` of the process in which RcppParallel was
+  loaded.
+  Packages dispatching parallel work from within `parallel::mclapply()` (or
+  similar) should consult this and fall back to a serial path, as TBB does
+  not support use after fork. (#243, #244)
+
+* The TBB backend is now enabled by default on musl-based Linux
+  distributions, such as Alpine Linux. Previously, TBB was only enabled by
+  default with glibc-based toolchains on Linux. (#231, #263)
+
 * The mingw cpuid guard applied to TBB's `_machine.h` header during
   installation is now logged, and a warning is emitted if the header does
-  not have the expected form and the guard cannot be applied.
+  not have the expected form and the guard cannot be applied. (#265)
 
 * On Linux, the bundled TBB libraries are once again installed with versioned
   names (e.g. `libtbb.so.2`) plus an unversioned `libtbb.so` symlink, matching
@@ -10,63 +22,55 @@
   produces only unversioned libraries on Linux, so binaries compiled against
   those releases (which recorded a load-time dependency on `libtbb.so.2`) would
   otherwise fail to load after an upgrade with "libtbb.so.2: cannot open shared
-  object file".
+  object file". (#260)
 
 * Fixed linking of downstream packages using the TBB scalable allocator
   on Windows, e.g. via RcppArmadillo's `ARMA_USE_TBB_ALLOC`. RcppParallel
   now links the whole Rtools `tbbmalloc` archive into `RcppParallel.dll`
   and re-exports its API, so that `scalable_malloc`, `scalable_free`, and
-  friends can be resolved by packages linking with `-lRcppParallel`.
+  friends can be resolved by packages linking with `-lRcppParallel`. (#262)
 
 * Fixed installation on Windows toolchains providing an older (non-oneTBB)
   copy of TBB, e.g. Rtools42: the tbb stub library is now built by
   re-exporting the static TBB library, rather than wrapping the oneTBB
   runtime (which is unavailable there). In addition, stale stub build
-  artifacts from a different toolchain are no longer reused.
+  artifacts from a different toolchain are no longer reused. (#258)
 
 * Fixed installation on Windows systems whose Rtools does not provide TBB
   (R < 4.2.0): configure no longer requires cmake there, and the tbb stub
-  library is no longer built when the TBB backend is disabled.
+  library is no longer built when the TBB backend is disabled. (#257)
 
 * RcppParallel now reports which TBB headers and libraries are installed
   with the package, and from where, during package installation. In
   addition, setting the `VERBOSE` environment variable to a value other
   than `0` enables diagnostics describing how TBB libraries are resolved
-  and loaded when the package is loaded.
+  and loaded when the package is loaded. (#256, #259)
 
 * On Windows, RcppParallel once again loads its compatibility stub library
   (`tbb.dll`) when the package is loaded. Packages linking with `-ltbb`
   (e.g. via StanHeaders) record a load-time dependency on `tbb.dll`, which
   can only be resolved if RcppParallel has already loaded it; with
   RcppParallel 6.0.0, such packages would fail to load with "LoadLibrary
-  failure: The specified module could not be found".
+  failure: The specified module could not be found". (#249, #250)
 
 * The TBB headers installed with RcppParallel (whether from Rtools or from
   the bundled copy of oneTBB) now guard against GCC's `<cpuid.h>` being
   included before `<intrin.h>` on Windows (mingw). Previously, translation
   units including `<cpuid.h>` before any TBB header would fail to compile,
   as the `__cpuid` macro from `<cpuid.h>` conflicts with the `__cpuid()`
-  function declared by mingw's `<intrin.h>`.
+  function declared by mingw's `<intrin.h>`. (#248, #253)
 
 * When building the bundled copy of oneTBB, RcppParallel no longer searches
   for hwloc, and so no longer tries to build the optional 'tbbbind' library.
   This fixes build failures on machines where a static hwloc library is
-  discoverable via pkg-config, as on the CRAN macOS machines.
+  discoverable via pkg-config, as on the CRAN macOS machines. (#247)
 
 * On macOS, the bundled copy of oneTBB is now built with
   `__TBB_RESUMABLE_TASKS_USE_THREADS`, avoiding use of the deprecated
-  ucontext APIs (`getcontext`, `swapcontext`, `makecontext`).
+  ucontext APIs (`getcontext`, `swapcontext`, `makecontext`). (#247)
 
 
 # RcppParallel 6.0.0
-
-* RcppParallel now provides `isProcessForkedChild()` (R) and
-  `RcppParallel::isProcessForkedChild()` (C++), which return `TRUE` when the
-  current process is a `fork()` of the process in which RcppParallel was
-  loaded.
-  Packages dispatching parallel work from within `parallel::mclapply()` (or
-  similar) should consult this and fall back to a serial path, as TBB does
-  not support use after fork. (#243)
 
 * RcppParallel no longer includes tbb headers as part of the RcppParallel/TBB.h
   header, and instead only exposes its TBB-specific APIs for parallel work.
