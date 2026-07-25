@@ -1,4 +1,4 @@
-# RcppParallel (development version)
+# RcppParallel 6.1.0
 
 * RcppParallel now provides `isProcessForkedChild()` (R) and
   `RcppParallel::isProcessForkedChild()` (C++), which return `TRUE` when the
