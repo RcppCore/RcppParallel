@@ -1,4 +1,15 @@
-# RcppParallel (development version)
+# RcppParallel 6.1.1
+
+* Fixed an issue where package installation could fail if `cmake` was not
+  available on the `PATH`, even when it was discoverable at another known
+  location (e.g. `/Applications/CMake.app/Contents/bin/cmake` on macOS).
+  This caused installation failures on CRAN's macOS machines, where `cmake`
+  is not on the `PATH` by default.
+
+* Removed vestigial compiler / flag detection code from the configure
+  script. This code has been unused since the switch to a cmake-driven
+  build of the bundled oneTBB, and probed `R CMD config` variables that
+  are defunct in R (>= 4.6.0).
 
 
 # RcppParallel 6.1.0

@@ -26,84 +26,6 @@ if (file.exists(makevars)) {
    }
 }
 
-# Figure out the appropriate CXX prefix for the current
-# version of R + configuration.
-cxx <- "/usr/bin/c++"
-candidates <- c("CXX11", "CXX1X", "CXX")
-for (candidate in candidates) {
-   value <- r_cmd_config(candidate)
-   if (!is.null(value)) {
-      if (any(grepl("icpc", value))) {
-         define(COMPILER = "icc")
-      }
-      cxx <- candidate
-      break
-   }
-}
-
-# work around issue with '-Werror=format-security' being specified without
-# a prior '-Wformat', which makes gcc angry
-cxxflags <- read_r_config(sprintf("%sFLAGS", cxx), envir = NULL)[[1]]
-broken <-
-   grepl(" -Werror=format-security ", cxxflags) &&
-   !grepl(" -Wformat ", cxxflags)
-
-if (broken)
-   cxxflags <- gsub("-Werror=format-security", "-Wformat -Werror=format-security", cxxflags)
-
-# add C++ standard if not set
-if (!grepl("-std=", cxxflags, fixed = TRUE)) {
-   stdflag <- if (getRversion() < "4.0") {
-      "-std=c++0x"
-   } else {
-      "$(CXX11STD)"
-   }
-   cxxflags <- paste(stdflag, cxxflags)
-}
-
-# avoid including /usr/local/include, as this can cause
-# RcppParallel to find and use a version of libtbb installed
-# there as opposed to the bundled version
-cppflags <- read_r_config("CPPFLAGS", envir = NULL)[[1]]
-cppflags <- sub("(?: )?-I/usr/local/include", "", cppflags)
-cppflags <- sub("(?: )?-I/opt/homebrew/include", "", cppflags)
-cppflags <- sub("(?: )?-I/opt/local/libexec/onetbb/include", "", cppflags)
-
-# define the set of flags appropriate to the current
-# configuration of R
-switch(
-   cxx,
-   
-   CXX11 = define(
-      CC            = "$(CC)",
-      CPPFLAGS      = cppflags,
-      CXX11         = "$(CXX11)",
-      CXX11FLAGS    = cxxflags,
-      CXX11STD      = "$(CXX11STD)",
-      CXX11PICFLAGS = "$(CXX11PICFLAGS)"
-   ),
-   
-   CXX1X = define(
-      CC            = "$(CC)",
-      CPPFLAGS      = cppflags,
-      CXX11         = "$(CXX1X)",
-      CXX11FLAGS    = cxxflags,
-      CXX11STD      = "$(CXX1XSTD)",
-      CXX11PICFLAGS = "$(CXX1XPICFLAGS)"
-   ),
-   
-   CXX = define(
-      CC            = "$(CC)",
-      CPPFLAGS      = cppflags,
-      CXX11         = "$(CXX)",
-      CXX11FLAGS    = cxxflags,
-      CXX11STD      = "-std=c++0x",
-      CXX11PICFLAGS = "-fPIC"
-   ),
-   
-   stop("Failed to infer C / C++ compilation flags")
-)
-
 # on Windows, check for Rtools; if it exists, and we have tbb, use it
 if (.Platform$OS.type == "windows") {
    
@@ -324,7 +246,8 @@ if (is.na(tbbLib) && .Platform$OS.type != "windows") {
    })
    
    # make sure we have an appropriate version of cmake installed
-   output <- system("cmake --version", intern = TRUE)[[1L]]
+   # (use the resolved path; cmake may not be on the PATH)
+   output <- system(paste(shQuote(cmake), "--version"), intern = TRUE)[[1L]]
    cmakeVersion <- numeric_version(sub("cmake version ", "", output))
    if (cmakeVersion < "3.5") {
       stop("error: RcppParallel requires cmake (>= 3.6); you have ", cmakeVersion)
