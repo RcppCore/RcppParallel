@@ -1,3 +1,6 @@
+# RcppParallel (development version)
+
+
 # RcppParallel 6.1.0
 
 * RcppParallel now provides `isProcessForkedChild()` (R) and
