@@ -63,6 +63,12 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       VERBOSE: 1
 
+    # the default shell on Windows runners is PowerShell, which aliases 'r'
+    # to Invoke-History and so mangles 'R CMD INSTALL'
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - uses: actions/checkout@v3
 
