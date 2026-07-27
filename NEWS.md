@@ -1,3 +1,6 @@
+# RcppParallel (development version)
+
+
 # RcppParallel 6.1.1
 
 * Fixed an issue where package installation could fail if `cmake` was not
