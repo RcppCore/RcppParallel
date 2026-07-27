@@ -109,6 +109,12 @@ buildTbbStub <- function(tbbDest) {
    if (!nzchar(tbbInc))
       tbbInc <- TBB_INC
 
+   # when TBB was built from the bundled sources there is no TBB_INC to
+   # consult; its headers were copied into the package's include directory
+   # during the build, so dispatch on those instead
+   if (!nzchar(tbbInc))
+      tbbInc <- "../inst/include"
+
    if (file.exists(file.path(tbbInc, "oneapi"))) {
 
       # with oneTBB, the stub provides the old TBB ABI's
@@ -374,6 +380,19 @@ useBundledTbb <- function() {
       )
    }
 
+   # on Windows, build TBB as a static library: it then gets linked into
+   # (and re-exported from) RcppParallel.dll, giving the same layout we
+   # produce with an Rtools-provided oneTBB. the generator has to be named
+   # explicitly, as cmake otherwise prefers a Visual Studio generator when
+   # one happens to be installed
+   if (.Platform$OS.type == "windows") {
+      cmakeFlags <- c(
+         "-G", "MSYS Makefiles",
+         "-DBUILD_SHARED_LIBS=0",
+         cmakeFlags
+      )
+   }
+
    writeLines("*** configuring tbb")
    owd <- setwd("tbb/build-tbb")
    output <- system2(cmake, shQuote(cmakeFlags), stdout = TRUE, stderr = TRUE)
@@ -403,16 +422,14 @@ useBundledTbb <- function() {
    }
    setwd(owd)
 
-   shlibPattern <- switch(
-      Sys.info()[["sysname"]],
-      Windows = "^tbb.*\\.dll$",
-      Darwin  = "^libtbb.*\\.dylib$",
+   # on Windows (as on wasm) TBB is built as a static library, so collect
+   # the archives rather than the runtime libraries
+   shlibPattern <- if (.Platform$OS.type == "windows" || R.version$os == "emscripten") {
+      "^libtbb.*\\.a$"
+   } else if (Sys.info()[["sysname"]] == "Darwin") {
+      "^libtbb.*\\.dylib$"
+   } else {
       "^libtbb.*\\.so.*$"
-   )
-
-   # WASM only supports static libraries
-   if (R.version$os == "emscripten") {
-      shlibPattern <- "^libtbb.*\\.a$"
    }
 
    tbbFiles <- list.files(
@@ -534,7 +551,8 @@ args <- commandArgs(trailingOnly = TRUE)
 if (identical(args, "build")) {
    if (nzchar(tbbLib) && nzchar(tbbInc)) {
       useSystemTbb(tbbLib, tbbInc)
-   } else if (.Platform$OS.type == "windows") {
+   } else if (.Platform$OS.type == "windows" && !nzchar(Sys.getenv("CMAKE"))) {
+      # configure found neither a usable TBB nor a cmake to build one with
       writeLines("** building RcppParallel without tbb backend")
    } else {
       useBundledTbb()
