@@ -104,7 +104,14 @@ endif()
 if (NOT ${CMAKE_CXX_COMPILER_ID} STREQUAL Intel)
     # gcc 6.0 and later have -flifetime-dse option that controls elimination of stores done outside the object lifetime
     set(TBB_DSE_FLAG $<$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},6.0>>:-flifetime-dse=1>)
-    set(TBB_COMMON_COMPILE_FLAGS ${TBB_COMMON_COMPILE_FLAGS} $<$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},8.0>>:-fstack-clash-protection>)
+
+    # -fstack-clash-protection is broken on mingw's SEH targets: compiling
+    # task_dispatcher.h makes GCC 10 abort with "internal compiler error: in
+    # seh_emit_stackalloc, at config/i386/winnt.c". It is a hardening flag
+    # rather than a correctness one, so simply leave it off there.
+    if (NOT MINGW)
+        set(TBB_COMMON_COMPILE_FLAGS ${TBB_COMMON_COMPILE_FLAGS} $<$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},8.0>>:-fstack-clash-protection>)
+    endif()
 
     # Suppress GCC 12.x-13.x warning here that to_wait_node(n)->my_is_in_list might have size 0
     set(TBB_COMMON_LINK_FLAGS ${TBB_COMMON_LINK_FLAGS} $<$<AND:$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},12.0>>,$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},14.0>>:-Wno-stringop-overflow>)
