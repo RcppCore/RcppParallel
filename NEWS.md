@@ -1,5 +1,11 @@
 # RcppParallel (development version)
 
+* Fixed an issue where compiling code including `tbb/parallel_for_each.h`
+  could fail with toolchains that accept `-std=c++20` but provide a
+  pre-C++20 standard library, with errors of the form "no member named
+  'random_access_iterator' in namespace 'std'". This affected CRAN's macOS
+  x86_64 machines, which pair Apple clang 14 with the macOS 11.3 SDK.
+
 * Fixed an issue where building the bundled oneTBB could fail when `CXX`
   (or `CC`) was configured with a leading compiler launcher such as `ccache`
   (e.g. `CXX = "ccache g++"`). The launcher is now forwarded to cmake via
