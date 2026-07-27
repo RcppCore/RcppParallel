@@ -6,6 +6,19 @@
   'random_access_iterator' in namespace 'std'". This affected CRAN's macOS
   x86_64 machines, which pair Apple clang 14 with the macOS 11.3 SDK.
 
+* On Windows, RcppParallel now only uses the copy of TBB provided by Rtools
+  when that copy is oneTBB; otherwise, the bundled oneTBB is built from
+  sources, as it already is on other platforms. Rtools42 provides Intel TBB
+  2017, whose headers downstream packages cannot build against: StanHeaders
+  uses `tbb::this_task_arena::isolate`, which that release still gates behind
+  `TBB_PREVIEW_TASK_ISOLATION` and does not export from its library. As a
+  result, rstan could no longer be built on R 4.2 for Windows.
+
+* On Windows, `RcppParallel::RcppParallelLibs()` once again offers the TBB
+  stub library, so that packages taking all of their linker flags from it
+  (e.g. rstan) can resolve TBB symbols which `RcppParallel.dll` does not
+  itself re-export.
+
 * Fixed an issue where building the bundled oneTBB could fail when `CXX`
   (or `CC`) was configured with a leading compiler launcher such as `ccache`
   (e.g. `CXX = "ccache g++"`). The launcher is now forwarded to cmake via
