@@ -1,0 +1,34 @@
+Guard the concepts-based iterator tag dispatch in parallel_for_each on
+__TBB_CPP20_CONCEPTS_PRESENT rather than __TBB_CPP20_PRESENT. The latter only
+tests the language mode (__TBB_LANG >= 202002L), so toolchains that accept
+-std=c++20 but ship a pre-C++20 standard library -- e.g. Apple clang 14 with
+the macOS 11.3 SDK, as used on CRAN's macOS x86_64 builders -- would take the
+concepts branch and fail with 'no member named random_access_iterator in
+namespace std'.
+
+This is the upstream fix from oneTBB PR #1611 (issue #1552), first released in
+oneTBB 2022.1.0; it can be dropped once the bundled oneTBB is updated past
+2022.0.0.
+
+diff --git a/src/tbb/include/oneapi/tbb/parallel_for_each.h b/src/tbb/include/oneapi/tbb/parallel_for_each.h
+index ce68a7ff..13d945ce 100644
+--- a/src/tbb/include/oneapi/tbb/parallel_for_each.h
++++ b/src/tbb/include/oneapi/tbb/parallel_for_each.h
+@@ -409,7 +409,7 @@ public:
+ template<typename It>
+ using tag = typename std::iterator_traits<It>::iterator_category;
+ 
+-#if __TBB_CPP20_PRESENT
++#if __TBB_CPP20_CONCEPTS_PRESENT
+ template <typename It>
+ struct move_iterator_dispatch_helper {
+     using type = It;
+@@ -448,7 +448,7 @@ using iterator_tag_dispatch = typename
+             std::input_iterator_tag
+         >::type
+     >::type;
+-#endif // __TBB_CPP20_PRESENT
++#endif // __TBB_CPP20_CONCEPTS_PRESENT
+ 
+ template <typename Body, typename Iterator, typename Item>
+ using feeder_is_required = tbb::detail::void_t<decltype(tbb::detail::invoke(std::declval<const Body>(),
