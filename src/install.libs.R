@@ -325,6 +325,13 @@ useBundledTbb <- function() {
    buildType <- Sys.getenv("CMAKE_BUILD_TYPE", unset = "Release")
    verbose <- Sys.getenv("VERBOSE", unset = "0")
 
+   # pull any leading compiler launcher (e.g. ccache) out of CC / CXX before
+   # splitting, so it can be forwarded to CMake the way CMake expects it (see
+   # extractCompilerLauncher); otherwise ccache would be treated as the
+   # compiler itself, breaking CMake's compiler / assembler probes
+   ccLauncher  <- extractCompilerLauncher("CC")
+   cxxLauncher <- extractCompilerLauncher("CXX")
+
    splitCompilerVar("CC", "CFLAGS")
    splitCompilerVar("CXX", "CXXFLAGS")
 
@@ -341,6 +348,10 @@ useBundledTbb <- function() {
    cmakeFlags <- c(
       forwardEnvVar("CC", "CMAKE_C_COMPILER"),
       forwardEnvVar("CXX", "CMAKE_CXX_COMPILER"),
+      if (!is.na(ccLauncher))
+         sprintf("-DCMAKE_C_COMPILER_LAUNCHER=%s", ccLauncher),
+      if (!is.na(cxxLauncher))
+         sprintf("-DCMAKE_CXX_COMPILER_LAUNCHER=%s", cxxLauncher),
       forwardEnvVar("CFLAGS", "CMAKE_C_FLAGS"),
       forwardEnvVar("CXXFLAGS", "CMAKE_CXX_FLAGS"),
       forwardEnvVar("CMAKE_BUILD_TYPE", "CMAKE_BUILD_TYPE"),
@@ -431,6 +442,33 @@ setenv <- function(key, value) {
    args <- list(paste(value, collapse = " "))
    names(args) <- key
    do.call(Sys.setenv, args)
+}
+
+
+# Compiler launchers such as ccache are commonly injected by prefixing the
+# compiler (e.g. CXX='ccache g++'). CMake models these via the separate
+# CMAKE_<LANG>_COMPILER_LAUNCHER variable rather than as part of the compiler
+# command, so detect a leading launcher, strip it from the compiler variable,
+# and return it for forwarding. Returns NA when no launcher is present.
+extractCompilerLauncher <- function(compilerVar) {
+
+   compiler <- Sys.getenv(compilerVar, unset = NA)
+   if (is.na(compiler))
+      return(NA_character_)
+
+   tokens <- scan(text = compiler, what = character(), quiet = TRUE)
+   if (length(tokens) == 0L)
+      return(NA_character_)
+
+   launcher <- tokens[[1L]]
+   name <- sub("[.]exe$", "", basename(launcher), ignore.case = TRUE)
+   if (!name %in% c("ccache", "sccache"))
+      return(NA_character_)
+
+   # drop the launcher, leaving the real compiler (and any flags) behind
+   setenv(compilerVar, tokens[-1L])
+   launcher
+
 }
 
 
