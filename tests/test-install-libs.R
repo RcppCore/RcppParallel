@@ -40,6 +40,7 @@ if (length(marker))
 env <- new.env(parent = globalenv())
 eval(parse(text = paste(lines, collapse = "\n")), envir = env)
 splitCompilerVar <- get("splitCompilerVar", envir = env)
+extractCompilerLauncher <- get("extractCompilerLauncher", envir = env)
 patchTbbMachineHeader <- get("patchTbbMachineHeader", envir = env)
 
 # minimal assertion harness
@@ -112,6 +113,49 @@ withEnv(c(TEST_CXX = "   ", TEST_CXXFLAGS = "-Wall"), {
 Sys.unsetenv("TEST_CXX_UNSET")
 check(identical(splitCompilerVar("TEST_CXX_UNSET", "TEST_CXXFLAGS"), FALSE),
    "unset compiler variable returns FALSE")
+
+# a leading compiler launcher (ccache) must be split off from the compiler so
+# CMake can receive it via CMAKE_<LANG>_COMPILER_LAUNCHER. Left in place, CMake
+# would treat 'ccache' as the compiler and run 'ccache ... -Wa,-v' during its
+# assembler probe, which ccache rejects with "invalid option -- 'W'".
+withEnv(c(TEST_CXX = "ccache g++"), {
+   launcher <- extractCompilerLauncher("TEST_CXX")
+   check(identical(launcher, "ccache"), "ccache launcher is extracted")
+   check(identical(Sys.getenv("TEST_CXX"), "g++"),
+      "ccache launcher is stripped from the compiler")
+})
+
+# the launcher may be a full path and carry trailing compiler flags; only the
+# launcher token is removed, leaving the compiler and its flags intact
+withEnv(c(TEST_CXX = "/usr/bin/ccache g++ -std=c++17"), {
+   launcher <- extractCompilerLauncher("TEST_CXX")
+   check(identical(launcher, "/usr/bin/ccache"),
+      "ccache launcher path is extracted")
+   check(identical(Sys.getenv("TEST_CXX"), "g++ -std=c++17"),
+      "compiler and flags survive launcher extraction")
+})
+
+# sccache is recognized as a launcher too
+withEnv(c(TEST_CXX = "sccache clang++"), {
+   launcher <- extractCompilerLauncher("TEST_CXX")
+   check(identical(launcher, "sccache"), "sccache launcher is extracted")
+   check(identical(Sys.getenv("TEST_CXX"), "clang++"),
+      "sccache launcher is stripped from the compiler")
+})
+
+# a plain compiler has no launcher: return NA and leave the variable untouched
+withEnv(c(TEST_CXX = "g++ -O2"), {
+   launcher <- extractCompilerLauncher("TEST_CXX")
+   check(identical(launcher, NA_character_),
+      "plain compiler yields no launcher")
+   check(identical(Sys.getenv("TEST_CXX"), "g++ -O2"),
+      "plain compiler is left unmodified")
+})
+
+# an unset compiler variable is a no-op that reports NA
+Sys.unsetenv("TEST_CXX_UNSET")
+check(identical(extractCompilerLauncher("TEST_CXX_UNSET"), NA_character_),
+   "unset compiler variable yields no launcher")
 
 # the mingw cpuid guard should be applied exactly once to a header with the
 # expected form, and applying it again should leave the header untouched

@@ -1,5 +1,11 @@
 # RcppParallel (development version)
 
+* Fixed an issue where building the bundled oneTBB could fail when `CXX`
+  (or `CC`) was configured with a leading compiler launcher such as `ccache`
+  (e.g. `CXX = "ccache g++"`). The launcher is now forwarded to cmake via
+  `CMAKE_<LANG>_COMPILER_LAUNCHER` instead of being mistaken for the compiler
+  itself.
+
 
 # RcppParallel 6.1.1
 
