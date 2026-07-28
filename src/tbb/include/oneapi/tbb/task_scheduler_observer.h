@@ -116,7 +116,13 @@ inline namespace v1 {
 } // namespace tbb
 
 
-// Provided for backwards compatibility.
+// Provided for backwards compatibility. This is a local addition, not part of
+// upstream oneTBB, so the tbb.dll stub built by src/install.libs.R must be
+// able to tell whether the TBB headers in use supply these declarations (the
+// bundled copy does) or whether it has to declare them itself (as with the
+// pristine headers shipped by Rtools).
+#define __TBB_LEGACY_TASK_SCHEDULER_OBSERVER_PROVIDED 1
+
 namespace tbb {
 namespace interface6 {
 class task_scheduler_observer;
