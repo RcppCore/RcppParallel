@@ -106,16 +106,34 @@ dllName <- paste0("check", .Platform$dynlib.ext)
 # by the other -- so it is worth asserting rather than assuming.
 
 # objdump has to match the target architecture, and the first one on the PATH
-# may well not: the aarch64 runner has an x86_64 objdump from C:/mingw64 ahead
-# of Rtools' own, and it exits non-zero having read nothing. Look beside the
-# compilers first, since those are necessarily right for the target
+# may well not: the aarch64 runner leads with an x86_64 objdump from C:/mingw64,
+# which exits non-zero having read nothing. Ask R which compiler it builds with
+# -- that is the one that produced the PE, so its objdump can always read it --
+# and only then fall back to whatever the PATH offers
 objdumpCandidates <- function() {
 
-   compilers <- Sys.which(c("gcc", "clang", "cc"))
+   cc <- suppressWarnings(
+      system2(
+         file.path(R.home("bin"), "R"),
+         c("CMD", "config", "CC"),
+         stdout = TRUE,
+         stderr = FALSE
+      )
+   )
+
+   # CC may carry arguments (e.g. 'gcc -std=gnu2x'), and may name the compiler
+   # rather than spell out its path, in which case the PATH has to resolve it
+   cc <- strsplit(trimws(paste(cc, collapse = " ")), "[[:space:]]+")[[1L]][[1L]]
+   cc <- if (file.exists(cc)) cc else Sys.which(cc)
+
+   compilers <- c(cc, Sys.which(c("gcc", "clang", "cc")))
    beside <- file.path(dirname(compilers[nzchar(compilers)]), "objdump.exe")
 
-   candidates <- unique(c(beside, Sys.which("objdump")))
-   candidates[nzchar(candidates) & file.exists(candidates)]
+   candidates <- c(beside, Sys.which("objdump"))
+   candidates <- candidates[nzchar(candidates) & file.exists(candidates)]
+
+   # '/' and '\\' spellings of one path are the same objdump; don't try twice
+   unique(normalizePath(candidates, winslash = "/", mustWork = FALSE))
 
 }
 
