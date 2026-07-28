@@ -1,0 +1,46 @@
+--- a/src/tbb/src/tbb/CMakeLists.txt
++++ b/src/tbb/src/tbb/CMakeLists.txt
+@@ -90,8 +90,6 @@
+ # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
+ set_target_properties(tbb PROPERTIES
+     DEFINE_SYMBOL ""
+-    VERSION ${TBB_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
+-    SOVERSION ${TBB_BINARY_VERSION}
+ )
+ 
+ tbb_handle_ipo(tbb)
+--- a/src/tbb/src/tbbbind/CMakeLists.txt
++++ b/src/tbb/src/tbbbind/CMakeLists.txt
+@@ -53,8 +53,6 @@
+     # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
+     set_target_properties(${TBBBIND_NAME} PROPERTIES
+         DEFINE_SYMBOL ""
+-        VERSION ${TBBBIND_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
+-        SOVERSION ${TBBBIND_BINARY_VERSION}
+     )
+ 
+     tbb_handle_ipo(${TBBBIND_NAME})
+--- a/src/tbb/src/tbbmalloc/CMakeLists.txt
++++ b/src/tbb/src/tbbmalloc/CMakeLists.txt
+@@ -70,8 +70,6 @@
+ # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
+ set_target_properties(tbbmalloc PROPERTIES
+     DEFINE_SYMBOL ""
+-    VERSION ${TBBMALLOC_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
+-    SOVERSION ${TBBMALLOC_BINARY_VERSION}
+     LINKER_LANGUAGE C
+ )
+ 
+--- a/src/tbb/src/tbbmalloc_proxy/CMakeLists.txt
++++ b/src/tbb/src/tbbmalloc_proxy/CMakeLists.txt
+@@ -54,10 +54,6 @@
+     ${TBB_COMMON_COMPILE_FLAGS}
+ )
+ 
+-set_target_properties(tbbmalloc_proxy PROPERTIES
+-    VERSION ${TBBMALLOC_BINARY_VERSION}.${TBB_BINARY_MINOR_VERSION}
+-    SOVERSION ${TBBMALLOC_BINARY_VERSION})
+-
+ if (UNIX AND NOT APPLE)
+     # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
+     set_target_properties(tbbmalloc_proxy PROPERTIES

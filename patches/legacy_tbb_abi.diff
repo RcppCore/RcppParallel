@@ -171,3 +171,90 @@
 +
 +#endif /* _WIN32 */
 \ No newline at end of file
+--- a/src/tbb/src/tbb/def/lin32-tbb.def
++++ b/src/tbb/src/tbb/def/lin32-tbb.def
+@@ -17,6 +17,26 @@
+ {
+ global:
+ 
++/* Needed for backwards compatibility */
++_ZNSt13runtime_errorD1Ev;
++_ZTISt13runtime_error;
++_ZTSSt13runtime_error;
++_ZNSt16invalid_argumentD1Ev;
++_ZTISt16invalid_argument;
++_ZTSSt16invalid_argument;
++_ZNSt11range_errorD1Ev;
++_ZTISt11range_error;
++_ZTSSt11range_error;
++_ZNSt12length_errorD1Ev;
++_ZTISt12length_error;
++_ZTSSt12length_error;
++_ZNSt12out_of_rangeD1Ev;
++_ZTISt12out_of_range;
++_ZTSSt12out_of_range;
++
++/* Needed by rstan */
++_ZN3tbb8internal26task_scheduler_observer_v37observeEb;
++
+ /* Assertions (assert.cpp) */
+ _ZN3tbb6detail2r117assertion_failureEPKciS3_S3_;
+ 
+--- a/src/tbb/src/tbb/def/lin64-tbb.def
++++ b/src/tbb/src/tbb/def/lin64-tbb.def
+@@ -17,6 +17,26 @@
+ {
+ global:
+ 
++/* Needed for backwards compatibility */
++_ZNSt13runtime_errorD1Ev;
++_ZTISt13runtime_error;
++_ZTSSt13runtime_error;
++_ZNSt16invalid_argumentD1Ev;
++_ZTISt16invalid_argument;
++_ZTSSt16invalid_argument;
++_ZNSt11range_errorD1Ev;
++_ZTISt11range_error;
++_ZTSSt11range_error;
++_ZNSt12length_errorD1Ev;
++_ZTISt12length_error;
++_ZTSSt12length_error;
++_ZNSt12out_of_rangeD1Ev;
++_ZTISt12out_of_range;
++_ZTSSt12out_of_range;
++
++/* Needed by rstan */
++_ZN3tbb8internal26task_scheduler_observer_v37observeEb;
++
+ /* Assertions (assert.cpp) */
+ _ZN3tbb6detail2r117assertion_failureEPKciS3_S3_;
+ 
+--- a/src/tbb/src/tbb/def/mac64-tbb.def
++++ b/src/tbb/src/tbb/def/mac64-tbb.def
+@@ -19,6 +19,26 @@
+ # be listed WITHOUT one leading underscore. __TBB_SYMBOL macro should add underscore when
+ # necessary, depending on the intended usage.
+ 
++# Needed for backwards compatibility
++__ZNSt13runtime_errorD1Ev
++__ZTISt13runtime_error
++__ZTSSt13runtime_error
++__ZNSt16invalid_argumentD1Ev
++__ZTISt16invalid_argument
++__ZTSSt16invalid_argument
++__ZNSt11range_errorD1Ev
++__ZTISt11range_error
++__ZTSSt11range_error
++__ZNSt12length_errorD1Ev
++__ZTISt12length_error
++__ZTSSt12length_error
++__ZNSt12out_of_rangeD1Ev
++__ZTISt12out_of_range
++__ZTSSt12out_of_range
++
++# Needed by rstan
++__ZN3tbb8internal26task_scheduler_observer_v37observeEb
++
+ # Assertions (assert.cpp)
+ __ZN3tbb6detail2r117assertion_failureEPKciS3_S3_
+ 
