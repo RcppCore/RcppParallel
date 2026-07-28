@@ -94,16 +94,23 @@ tbbLdFlags <- function() {
    if (is_windows()) {
 
       libsPath <- archSystemFile("libs")
-      tbbPath <- tbbLibraryPath()
+      ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libsPath))
 
-      fmt <- "-L%s -lRcppParallel -L%s -l%s -l%s"
-      return(sprintf(
-         fmt,
-         asBuildPath(libsPath),
-         asBuildPath(tbbPath),
-         TBB_NAME,
-         TBB_MALLOC_NAME
-      ))
+      # only name the TBB libraries when there are TBB libraries to name: a
+      # build that fell back to tinythread ships none, and asking the linker
+      # for them would fail the downstream build outright
+      if (TBB_ENABLED && !is.null(tbbLibraryPath("tbb"))) {
+         fmt <- "%s -L%s -l%s -l%s"
+         ldFlags <- sprintf(
+            fmt,
+            ldFlags,
+            asBuildPath(tbbLibraryPath()),
+            TBB_NAME,
+            TBB_MALLOC_NAME
+         )
+      }
+
+      return(ldFlags)
 
    }
 

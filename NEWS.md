@@ -17,8 +17,8 @@
   against. Building it ourselves gives every platform the same oneTBB and makes
   the ABI a property of RcppParallel. `TBB_LIB` / `TBB_INC` are still honoured
   for anyone supplying their own build. This requires cmake, which Rtools has
-  provided since Rtools42; toolchains without it (e.g. Rtools40) continue to
-  use the tinythread fallback.
+  shipped since Rtools42; toolchains without one continue to use the tinythread
+  fallback.
 
 * As a consequence, `RcppParallel::RcppParallelLibs()` now emits `-ltbb` and
   `-ltbbmalloc` on Windows, in addition to `-lRcppParallel` (which remains
