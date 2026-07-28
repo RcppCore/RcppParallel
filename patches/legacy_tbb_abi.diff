@@ -170,7 +170,6 @@
 +} // namespace tbb
 +
 +#endif /* _WIN32 */
-\ No newline at end of file
 --- a/src/tbb/src/tbb/def/lin32-tbb.def
 +++ b/src/tbb/src/tbb/def/lin32-tbb.def
 @@ -17,6 +17,26 @@

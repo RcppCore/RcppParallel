@@ -31,7 +31,7 @@ jobs:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-r@v2
         with:
@@ -50,14 +50,21 @@ jobs:
   # depends on, and it is not covered by R CMD check: RcppParallel can install
   # perfectly well while leaving downstream packages unable to build.
   downstream:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.config.os }}
 
-    name: downstream (${{ matrix.r }})
+    name: downstream (${{ matrix.config.os }}, ${{ matrix.config.r }})
 
     strategy:
       fail-fast: false
       matrix:
-        r: ['4.2', 'release']
+        config:
+          # Rtools42 has no oneTBB, so this one builds the bundled copy
+          - {os: windows-latest, r: '4.2'}
+          - {os: windows-latest, r: 'release'}
+          # RcppParallelLibs() changed for every Windows platform, and arm64
+          # has both its own vendored patch and itt_notify compiled out, so
+          # its export surface is the one most likely to differ
+          - {os: windows-11-arm, r: 'release'}
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -70,11 +77,11 @@ jobs:
         shell: bash
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: r-lib/actions/setup-r@v2
         with:
-          r-version: ${{ matrix.r }}
+          r-version: ${{ matrix.config.r }}
           use-public-rspm: true
 
       - name: install RcppParallel
