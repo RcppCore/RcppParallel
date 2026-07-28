@@ -92,21 +92,20 @@ tbbLdFlags <- function() {
 
       ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
 
-      # also offer the stub library. RcppParallel.dll re-exports whichever TBB
-      # objects happened to be pulled out of the static library when it was
-      # linked, which is an incidental export surface rather than a declared
-      # one; the stub exports the runtime wholesale, so anything missing from
-      # RcppParallel.dll can still be resolved. this comes last deliberately:
-      # the linker satisfies symbols in order, so RcppParallel's own exports
-      # still win, and no import of the stub is recorded unless something
-      # actually needs it.
+      # also offer the stub library, which exports the TBB runtime wholesale.
+      # this is not just a safety net: R CMD SHLIB links RcppParallel.dll
+      # against an export list generated from our own objects, so the TBB
+      # entry points pulled in from the static library are not re-exported,
+      # and a downstream package linking '-lRcppParallel' alone resolves none
+      # of them (which is what broke rstan). the stub is what makes those
+      # symbols reachable at all.
       #
-      # that ordering matters for more than tidiness. the stub links its own
-      # copy of the oneTBB runtime, so a package resolving some symbols here
-      # and the rest against RcppParallel.dll would straddle two independent
-      # schedulers -- an observer registered with one would never fire for
-      # arenas owned by the other. .github/scripts/tbb-downstream-check.R
-      # asserts that nothing actually lands on the stub
+      # it still comes last, so that anything RcppParallel.dll does export
+      # wins, and so no import of the stub is recorded unless something needs
+      # it. that matters because the stub carries its own copy of the oneTBB
+      # runtime: a package split across both would register observers with one
+      # scheduler while its tasks ran in the other.
+      # .github/scripts/tbb-downstream-check.R asserts that does not happen
       tbbPath <- archSystemFile("lib")
       if (file.exists(file.path(tbbPath, "tbb.dll")))
          ldFlags <- paste(ldFlags, sprintf("-L%s -ltbb", asBuildPath(tbbPath)))

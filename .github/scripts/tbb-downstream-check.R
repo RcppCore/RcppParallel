@@ -97,36 +97,71 @@ if (status != 0L)
 
 dllName <- paste0("check", .Platform$dynlib.ext)
 
-# Check where the TBB symbols actually came from. RcppParallelLibs() offers
-# the 'tbb.dll' stub after '-lRcppParallel', so anything RcppParallel.dll
-# failed to re-export still links -- but the stub carries its own copy of the
-# oneTBB runtime, so binding to it means running against a second, independent
-# scheduler. That is a silent failure, unlike the link error it replaced, so
-# assert here that the whole TBB surface resolved from RcppParallel.dll.
+# Report which module supplied the TBB symbols, and fail if that is more than
+# one. On Windows the surface can legitimately come from either RcppParallel.dll
+# (which links TBB statically) or the 'tbb.dll' stub that RcppParallelLibs()
+# offers after '-lRcppParallel' -- in practice it is the stub, since
+# RcppParallel.dll turns out not to re-export the runtime at all, which is why
+# '-ltbb' is load-bearing rather than a fallback. What must not happen is a
+# library split across both: they are separate copies of the oneTBB runtime, so
+# an observer registered with one would never fire for arenas owned by the
+# other, and unlike the link error this replaced, that failure is silent.
 if (.Platform$OS.type == "windows") {
 
    objdump <- Sys.which("objdump")
+   output <- if (nzchar(objdump))
+      suppressWarnings(system2(objdump, c("-p", shQuote(dllName)), stdout = TRUE, stderr = TRUE))
+
+   status <- attr(output, "status")
+
+   # keep only the import tables. the export table follows them, and lists this
+   # library's own inlined TBB instantiations -- left in, it would be absorbed
+   # into the last 'DLL Name:' block and credit that library with TBB symbols
+   # it never imported
+   exports <- grep("export table|The Export Tables", output)
+   if (length(exports))
+      output <- output[seq_len(exports[[1L]] - 1L)]
+
+   # each imported library opens a 'DLL Name:' block listing the symbols taken
+   # from it, and runs until the next such block
+   starts <- grep("DLL Name:", output, fixed = TRUE)
+   readable <- length(starts) > 0L && !(is.numeric(status) && status != 0L)
+
    if (!nzchar(objdump)) {
 
       writeLines("** objdump not found; skipping the import table check")
 
+   } else if (!readable) {
+
+      # don't let an objdump that couldn't read the file pass as 'no imports':
+      # the runner's objdump may be built for another target (an x86_64 one
+      # cannot read an aarch64 PE, and exits non-zero having printed nothing)
+      fmt <- "** '%s' could not read the import table of '%s'; skipping the check"
+      writeLines(sprintf(fmt, objdump, dllName))
+      writeLines(output)
+
    } else {
 
-      output <- system2(objdump, c("-p", shQuote(dllName)), stdout = TRUE, stderr = TRUE)
-
-      # each imported library opens a 'DLL Name:' block listing the symbols
-      # taken from it, and runs until the next such block
-      starts <- grep("DLL Name:", output, fixed = TRUE)
       imported <- sub(".*DLL Name:[[:space:]]*", "", output[starts])
-      writeLines(sprintf("imports: %s", paste(imported, collapse = ", ")))
+      ends <- c(starts[-1L], length(output) + 1L)
 
-      index <- which(tolower(imported) == "tbb.dll")
-      if (length(index)) {
-         ends <- c(starts[-1L], length(output) + 1L)
-         writeLines(output[seq(starts[[index]], ends[[index]] - 1L)])
-         stop("the downstream library imports the above from the tbb.dll stub; ",
-              "these should have resolved from RcppParallel.dll instead")
+      # attribute the TBB symbols to the module each was taken from
+      providers <- character()
+      for (i in seq_along(starts)) {
+         block <- output[seq(starts[[i]], ends[[i]] - 1L)]
+         if (any(grepl("_ZN3tbb", block, fixed = TRUE)))
+            providers <- c(providers, imported[[i]])
       }
+
+      writeLines(sprintf("imports: %s", paste(imported, collapse = ", ")))
+      writeLines(sprintf("tbb symbols from: %s", if (length(providers))
+         paste(providers, collapse = ", ") else "(none; resolved statically)"))
+
+      if (length(providers) > 1L)
+         stop("the downstream library takes TBB symbols from more than one ",
+              "module (", paste(providers, collapse = ", "), "); those are ",
+              "separate copies of the oneTBB runtime, so its observers and its ",
+              "arenas would belong to different schedulers")
 
    }
 
