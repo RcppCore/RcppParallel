@@ -12,29 +12,6 @@
 
 loadTbbLibrary <- function(name) {
 
-   # On Windows, TBB is statically linked into RcppParallel.dll, but we
-   # still ship a stub tbb.dll for compatibility with packages linking via
-   # '-ltbb' (e.g. through StanHeaders). Such packages record a load-time
-   # dependency on 'tbb.dll', which the Windows loader can only resolve if
-   # we've already loaded it -- the library directory itself is not on the
-   # DLL search path.
-   if (is_windows()) {
-
-      # NOTE: resolve against the package's own library directory, where
-      # install.libs.R places the stub. this is what tbbRoot() reports on
-      # Windows too; spell it out here so that loading during .onLoad does
-      # not depend on the configured TBB_LIB in any way
-      path <- archSystemFile("lib", paste0(name, ".dll"))
-      if (!file.exists(path)) {
-         verboseMessage("tbb library '%s' not found in package 'lib' folder; skipping", name)
-         return(NULL)
-      }
-
-      verboseMessage("loading tbb library '%s'", path)
-      return(dyn.load(path, local = FALSE, now = TRUE))
-
-   }
-
    path <- tbbLibraryPath(name)
    if (is.null(path)) {
       verboseMessage("tbb library '%s' could not be resolved; skipping", name)
@@ -52,26 +29,21 @@ loadTbbLibrary <- function(name) {
 }
 
 .onLoad <- function(libname, pkgname) {
-   
-   # on Windows, load RcppParallel first
-   if (.Platform$OS.type == "windows") {
-      .dllInfo <<- library.dynam("RcppParallel", pkgname, libname)
-   }
-   
-   # load tbb, tbbmalloc
+
+   # load tbb, tbbmalloc first: RcppParallel links against them, and on Windows
+   # in particular the loader can only satisfy that dependency once they are in
+   # the process -- the package's library directory is not on the DLL search
+   # path, so it cannot find them by itself
    .tbbDllInfo       <<- loadTbbLibrary("tbb")
    .tbbMallocDllInfo <<- loadTbbLibrary("tbbmalloc")
-   
+
    # load tbbmalloc_proxy, but only if requested
    useTbbMallocProxy <- Sys.getenv("RCPP_PARALLEL_USE_TBBMALLOC_PROXY", unset = "FALSE")
    if (useTbbMallocProxy %in% c("TRUE", "True", "true", "1"))
       .tbbMallocProxyDllInfo <<- loadTbbLibrary("tbbmalloc_proxy")
-   
-   # load RcppParallel library if available
-   if (.Platform$OS.type != "windows") {
-      .dllInfo <<- library.dynam("RcppParallel", pkgname, libname, local = FALSE)
-   }
-   
+
+   .dllInfo <<- library.dynam("RcppParallel", pkgname, libname, local = FALSE)
+
 }
 
 .onUnload <- function(libpath) {

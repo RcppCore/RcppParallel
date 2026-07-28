@@ -50,7 +50,12 @@ add_library(TBB::tbb ALIAS tbb)
 
 if (WIN32)
     target_sources(tbb PRIVATE tbb.rc)
-    set_target_properties(tbb PROPERTIES OUTPUT_NAME "tbb${TBB_BINARY_VERSION}")
+    # Name the runtime 'tbb.dll', not mingw's default 'libtbb.dll': binaries
+    # built against RcppParallel 5.1.11 and earlier record a load-time
+    # dependency on that name. The import library keeps its 'lib' prefix, so
+    # '-ltbb' still resolves it. (The binary version suffix upstream applies
+    # here is dropped for the same reason.)
+    set_target_properties(tbb PROPERTIES PREFIX "")
 endif()
 
 # TODO: Add statistics.cpp

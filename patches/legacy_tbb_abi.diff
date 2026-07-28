@@ -1,6 +1,6 @@
 --- a/src/tbb/include/oneapi/tbb/task_scheduler_observer.h
 +++ b/src/tbb/include/oneapi/tbb/task_scheduler_observer.h
-@@ -17,10 +17,13 @@
+@@ -17,9 +17,12 @@
  #ifndef __TBB_task_scheduler_observer_H
  #define __TBB_task_scheduler_observer_H
  
@@ -10,23 +10,18 @@
 +
  #include "task_arena.h"
 -#include <atomic>
- 
 +
+ 
  namespace tbb {
  namespace detail {
- 
-@@ -112,5 +115,128 @@
- }
+@@ -113,4 +116,128 @@ inline namespace v1 {
  } // namespace tbb
  
-+
-+// Provided for backwards compatibility. This is a local addition, not part of
-+// upstream oneTBB, so the tbb.dll stub built by src/install.libs.R must be
-+// able to tell whether the TBB headers in use supply these declarations (the
-+// bundled copy does) or whether it has to declare them itself (as with the
-+// pristine headers shipped by Rtools).
-+#define __TBB_LEGACY_TASK_SCHEDULER_OBSERVER_PROVIDED 1
-+
+ 
++// Provided for backwards compatibility: binaries built against RcppParallel
++// 5.1.11 and earlier resolve their imports against these declarations. This is
++// a local addition, not part of upstream oneTBB; the out-of-line definition
++// lives in src/tbb/observer_proxy.cpp.
 +namespace tbb {
 +namespace interface6 {
 +class task_scheduler_observer;
@@ -52,7 +47,11 @@
 +        has the task scheduler initialized or is attached to an arena.
 +
 +        Repeated calls with the same state are no-ops. **/
-+    void __TBB_EXPORTED_METHOD observe( bool state=true );
++    // TBB_EXPORT is a local addition: on mingw there is no .def file, so the
++    // library's exports come from '__declspec(dllexport)' directives alone,
++    // and without this the definition in observer_proxy.cpp would be compiled
++    // but not exported. It expands to nothing when consuming the headers.
++    TBB_EXPORT void __TBB_EXPORTED_METHOD observe( bool state=true );
 +
 +    //! Returns true if observation is enabled, false otherwise.
 +    bool is_observing() const {return my_proxy!=NULL;}
@@ -142,34 +141,8 @@
 +} //namespace interface6
 +
 +} // namespace tbb
- 
++
  #endif /* __TBB_task_scheduler_observer_H */
---- a/src/tbb/src/tbb/observer_proxy.cpp
-+++ b/src/tbb/src/tbb/observer_proxy.cpp
-@@ -317,3 +317,23 @@
- } // namespace r1
- } // namespace detail
- } // namespace tbb
-+
-+// Not on Windows: there the old ABI is published by the tbb.dll stub built
-+// from src/tbb-compat/tbb-compat.cpp, which has to define this itself in
-+// order for R CMD SHLIB to pick it up when generating the export list.
-+// Defining it here as well makes the stub fail to link with "multiple
-+// definition of tbb::internal::task_scheduler_observer_v3::observe".
-+#ifndef _WIN32
-+
-+namespace tbb {
-+namespace internal {
-+
-+void __TBB_EXPORTED_FUNC task_scheduler_observer_v3::observe( bool enable ) {
-+    auto* tso = (tbb::detail::d1::task_scheduler_observer*) (this);
-+    tbb::detail::r1::observe(*tso, enable);
-+}
-+
-+} // namespace internal
-+} // namespace tbb
-+
-+#endif /* _WIN32 */
 --- a/src/tbb/src/tbb/def/lin32-tbb.def
 +++ b/src/tbb/src/tbb/def/lin32-tbb.def
 @@ -17,6 +17,26 @@
@@ -257,3 +230,23 @@
  # Assertions (assert.cpp)
  __ZN3tbb6detail2r117assertion_failureEPKciS3_S3_
  
+--- a/src/tbb/src/tbb/observer_proxy.cpp
++++ b/src/tbb/src/tbb/observer_proxy.cpp
+@@ -317,3 +317,17 @@ void __TBB_EXPORTED_FUNC observe(d1::task_scheduler_observer &tso, bool enable)
+ } // namespace r1
+ } // namespace detail
+ } // namespace tbb
++
++// The pre-oneTBB ABI, provided so that binaries built against RcppParallel
++// 5.1.11 and earlier still resolve their imports. Declared (and, on mingw,
++// exported) in oneapi/tbb/task_scheduler_observer.h.
++namespace tbb {
++namespace internal {
++
++void __TBB_EXPORTED_METHOD task_scheduler_observer_v3::observe( bool enable ) {
++    auto* tso = (tbb::detail::d1::task_scheduler_observer*) (this);
++    tbb::detail::r1::observe(*tso, enable);
++}
++
++} // namespace internal
++} // namespace tbb

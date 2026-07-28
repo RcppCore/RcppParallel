@@ -116,13 +116,10 @@ inline namespace v1 {
 } // namespace tbb
 
 
-// Provided for backwards compatibility. This is a local addition, not part of
-// upstream oneTBB, so the tbb.dll stub built by src/install.libs.R must be
-// able to tell whether the TBB headers in use supply these declarations (the
-// bundled copy does) or whether it has to declare them itself (as with the
-// pristine headers shipped by Rtools).
-#define __TBB_LEGACY_TASK_SCHEDULER_OBSERVER_PROVIDED 1
-
+// Provided for backwards compatibility: binaries built against RcppParallel
+// 5.1.11 and earlier resolve their imports against these declarations. This is
+// a local addition, not part of upstream oneTBB; the out-of-line definition
+// lives in src/tbb/observer_proxy.cpp.
 namespace tbb {
 namespace interface6 {
 class task_scheduler_observer;
@@ -148,7 +145,11 @@ public:
         has the task scheduler initialized or is attached to an arena.
 
         Repeated calls with the same state are no-ops. **/
-    void __TBB_EXPORTED_METHOD observe( bool state=true );
+    // TBB_EXPORT is a local addition: on mingw there is no .def file, so the
+    // library's exports come from '__declspec(dllexport)' directives alone,
+    // and without this the definition in observer_proxy.cpp would be compiled
+    // but not exported. It expands to nothing when consuming the headers.
+    TBB_EXPORT void __TBB_EXPORTED_METHOD observe( bool state=true );
 
     //! Returns true if observation is enabled, false otherwise.
     bool is_observing() const {return my_proxy!=NULL;}

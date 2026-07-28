@@ -22,10 +22,10 @@ assert(length(root) == 1L)
 if (nzchar(root))
    assert(dir.exists(root))
 
-# on Windows the answer is always the package's own library directory, since
-# TBB is statically linked into RcppParallel.dll and the tbb.dll stub is the
-# only TBB library installed. in particular it must not depend on TBB_LIB.
-if (is_windows()) {
+# with the bundled TBB the answer is the package's own library directory, on
+# every platform. in particular it must not depend on the TBB_LIB environment
+# variable, which tbbRoot() does not consult at all.
+if (!nzchar(TBB_LIB)) {
 
    assert(identical(root, archSystemFile("lib")))
 
@@ -56,12 +56,11 @@ for (name in c("tbb", "tbbmalloc", "tbbmalloc_proxy")) {
 }
 
 # the user-visible symptom from #270: tbbLibraryPath("tbb") returned nothing
-# from a perfectly good installation. assert this only on Windows, where the
-# installed layout is known exactly -- install.libs.R always builds the
-# tbb.dll stub when TBB is enabled, and fails the install if it cannot. off
-# Windows the library may legitimately be unresolvable, e.g. a system TBB
-# whose distro package ships no unversioned 'libtbb.so' development symlink.
-if (is_windows() && TBB_ENABLED) {
+# from a perfectly good installation. assert this for the bundled build, where
+# the installed layout is known exactly. a TBB supplied via TBB_LIB may
+# legitimately be unresolvable, e.g. a distro package shipping no unversioned
+# 'libtbb.so' development symlink.
+if (TBB_ENABLED && !nzchar(TBB_LIB) && !is_sparc()) {
    tbb <- tbbLibraryPath("tbb")
    assert(!is.null(tbb))
    assert(file.exists(tbb))
