@@ -48,23 +48,25 @@ endif()
 # information is written to either stdout or stderr. To not make any
 # assumptions, both are captured.
 
-# The null device is spelled differently on Windows. A mingw build driven by
-# a native Windows CMake (rather than cross-compiled from a POSIX host) has no
-# '/dev/null', and the compiler would fail with "no input files".
-if (WIN32)
-    set(_tbb_null_device "NUL")
-else()
-    set(_tbb_null_device "/dev/null")
-endif()
+# Probe with a real (empty) source file rather than the null device. A mingw
+# build driven by a native Windows CMake (rather than cross-compiled from a
+# POSIX host) has no '/dev/null', and the compiler would fail with "no input
+# files"; an actual file avoids having to spell the null device per platform.
+set(_tbb_asm_probe_source ${CMAKE_BINARY_DIR}/CMakeFiles/tbb_asm_probe.c)
+set(_tbb_asm_probe_object ${CMAKE_BINARY_DIR}/CMakeFiles/tbb_asm_probe.o)
+file(WRITE ${_tbb_asm_probe_source} "")
 
 execute_process(
-    COMMAND ${CMAKE_COMMAND} -E env "LANG=C" ${CMAKE_CXX_COMPILER} -xc -c ${_tbb_null_device} -Wa,-v -o${_tbb_null_device}
+    COMMAND ${CMAKE_COMMAND} -E env "LANG=C" ${CMAKE_CXX_COMPILER} -xc -c ${_tbb_asm_probe_source} -Wa,-v -o ${_tbb_asm_probe_object}
     OUTPUT_VARIABLE ASSEMBLER_VERSION_LINE_OUT
     ERROR_VARIABLE ASSEMBLER_VERSION_LINE_ERR
     OUTPUT_STRIP_TRAILING_WHITESPACE
     ERROR_STRIP_TRAILING_WHITESPACE
 )
-unset(_tbb_null_device)
+
+file(REMOVE ${_tbb_asm_probe_source} ${_tbb_asm_probe_object})
+unset(_tbb_asm_probe_source)
+unset(_tbb_asm_probe_object)
 set(ASSEMBLER_VERSION_LINE ${ASSEMBLER_VERSION_LINE_OUT}${ASSEMBLER_VERSION_LINE_ERR})
 string(REGEX REPLACE ".*GNU assembler version ([0-9]+)\\.([0-9]+).*" "\\1" _tbb_gnu_asm_major_version "${ASSEMBLER_VERSION_LINE}")
 string(REGEX REPLACE ".*GNU assembler version ([0-9]+)\\.([0-9]+).*" "\\2" _tbb_gnu_asm_minor_version "${ASSEMBLER_VERSION_LINE}")

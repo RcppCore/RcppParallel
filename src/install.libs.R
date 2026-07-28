@@ -39,21 +39,34 @@
 
       # using bundled TBB
       tbbSrc <- "tbb/build/lib_release"
-      tbbLibs <- list.files(
-         path       = tbbSrc,
-         pattern    = shlibPattern,
-         full.names = TRUE
-      )
 
-      logTbbLibraries(tbbLibs, tbbSrc)
-      for (tbbLib in tbbLibs) {
-         system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
+      # on Windows the bundled TBB was built as a static library, and is
+      # already linked into (and re-exported from) RcppParallel.dll; say so
+      # explicitly, rather than reporting that no runtime libraries were
+      # found -- there are none to find, and that reads like a failure
+      if (.Platform$OS.type == "windows") {
+
+         writeLines("** tbb is statically linked into RcppParallel.dll; no runtime libraries to install")
+
+      } else {
+
+         tbbLibs <- list.files(
+            path       = tbbSrc,
+            pattern    = shlibPattern,
+            full.names = TRUE
+         )
+
+         logTbbLibraries(tbbLibs, tbbSrc)
+         for (tbbLib in tbbLibs) {
+            system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
+         }
+
+         # restore the versioned library layout shipped by RcppParallel 5.1.11
+         # and earlier (a real 'libtbb.so.2' plus a 'libtbb.so' symlink)
+         if (Sys.info()[["sysname"]] == "Linux")
+            versionBundledTbbLibraries(tbbDest)
+
       }
-
-      # restore the versioned library layout shipped by RcppParallel 5.1.11
-      # and earlier (a real 'libtbb.so.2' plus a 'libtbb.so' symlink)
-      if (Sys.info()[["sysname"]] == "Linux")
-         versionBundledTbbLibraries(tbbDest)
 
    } else {
 

@@ -75,7 +75,7 @@ if (!RcppParallel:::TBB_ENABLED)
 makevars <- c(
    "CXX_STD = CXX17",
    sprintf("PKG_CPPFLAGS = -I\"%s\"", system.file("include", package = "RcppParallel")),
-   "PKG_CPPFLAGS += $(shell \"${R_HOME}/bin/Rscript\" -e \"RcppParallel::CxxFlags()\" | tail -n 1)",
+   "PKG_CPPFLAGS += $(shell \"${R_HOME}/bin${R_ARCH_BIN}/Rscript\" -e \"RcppParallel::CxxFlags()\" | tail -n 1)",
    "PKG_LIBS += $(shell \"${R_HOME}/bin${R_ARCH_BIN}/Rscript\" -e \"RcppParallel::RcppParallelLibs()\" | tail -n 1)"
 )
 
@@ -95,8 +95,45 @@ status <- system(paste(shQuote(file.path(R.home("bin"), "R")), "CMD SHLIB check.
 if (status != 0L)
    stop("downstream translation unit failed to build")
 
+dllName <- paste0("check", .Platform$dynlib.ext)
+
+# Check where the TBB symbols actually came from. RcppParallelLibs() offers
+# the 'tbb.dll' stub after '-lRcppParallel', so anything RcppParallel.dll
+# failed to re-export still links -- but the stub carries its own copy of the
+# oneTBB runtime, so binding to it means running against a second, independent
+# scheduler. That is a silent failure, unlike the link error it replaced, so
+# assert here that the whole TBB surface resolved from RcppParallel.dll.
+if (.Platform$OS.type == "windows") {
+
+   objdump <- Sys.which("objdump")
+   if (!nzchar(objdump)) {
+
+      writeLines("** objdump not found; skipping the import table check")
+
+   } else {
+
+      output <- system2(objdump, c("-p", shQuote(dllName)), stdout = TRUE, stderr = TRUE)
+
+      # each imported library opens a 'DLL Name:' block listing the symbols
+      # taken from it, and runs until the next such block
+      starts <- grep("DLL Name:", output, fixed = TRUE)
+      imported <- sub(".*DLL Name:[[:space:]]*", "", output[starts])
+      writeLines(sprintf("imports: %s", paste(imported, collapse = ", ")))
+
+      index <- which(tolower(imported) == "tbb.dll")
+      if (length(index)) {
+         ends <- c(starts[-1L], length(output) + 1L)
+         writeLines(output[seq(starts[[index]], ends[[index]] - 1L)])
+         stop("the downstream library imports the above from the tbb.dll stub; ",
+              "these should have resolved from RcppParallel.dll instead")
+      }
+
+   }
+
+}
+
 # loading also proves any load-time dependency on the tbb stub resolves
-dll <- dyn.load(paste0("check", .Platform$dynlib.ext))
+dll <- dyn.load(dllName)
 on.exit(dyn.unload(dll[["path"]]), add = TRUE)
 
 result <- .Call("tbb_downstream_check")

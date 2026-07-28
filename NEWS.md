@@ -12,7 +12,9 @@
   2017, whose headers downstream packages cannot build against: StanHeaders
   uses `tbb::this_task_arena::isolate`, which that release still gates behind
   `TBB_PREVIEW_TASK_ISOLATION` and does not export from its library. As a
-  result, rstan could no longer be built on R 4.2 for Windows.
+  result, rstan could no longer be built on R 4.2 for Windows. A TBB
+  configured explicitly via `TBB_LIB` is still used as-is, whatever its
+  vintage.
 
 * On Windows, `RcppParallel::RcppParallelLibs()` once again offers the TBB
   stub library, so that packages taking all of their linker flags from it
