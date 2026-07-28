@@ -131,11 +131,68 @@ tbbLdFlags <- function() {
 
 }
 
-tbbRoot <- function() {
+# Resolve the directory containing the TBB libraries this installation uses.
+#
+# 'tbbLib' and 'rtoolsLib' are parameters so that the resolution order below
+# can be exercised in tests on any platform; callers should use the defaults.
+tbbRoot <- function(tbbLib = TBB_LIB, rtoolsLib = rtoolsTbbRoot()) {
 
-   if (nzchar(TBB_LIB))
-      return(TBB_LIB)
+   # an explicitly-set TBB_LIB always wins: unlike the value recorded at
+   # configure time, it describes this machine, right now
+   envLib <- Sys.getenv("TBB_LIB", unset = "")
+   if (nzchar(envLib))
+      return(envLib)
+
+   # if the package wasn't configured against an external TBB, then the
+   # libraries it uses (if any) are the ones shipped within the package
+   if (!nzchar(tbbLib))
+      return(archSystemFile("lib"))
+
+   # TBB_LIB is resolved by configure and baked into the installed package, so
+   # it describes the machine that _built_ the package. That's the same machine
+   # for a source install, but not for a binary one: CRAN's Windows builders
+   # find Rtools on 'D:/', where users typically have it on 'C:/'. Only trust
+   # the recorded path if it's still there (#270)
+   if (dir.exists(tbbLib))
+      return(tbbLib)
+
+   # the recorded path is gone, so it was a binary build elsewhere. On Windows
+   # an external TBB means the Rtools one, so look for the toolchain installed
+   # here instead of the one used at build time
+   if (!is.null(rtoolsLib))
+      return(rtoolsLib)
 
    archSystemFile("lib")
+
+}
+
+# Locate the library directory of an Rtools-provided oneTBB, mirroring the
+# detection in tools/config/configure.R. Returns NULL when not on Windows, or
+# when no usable Rtools TBB is found.
+#
+# 'gcc' is a parameter so this can be tested against a synthetic toolchain
+# tree on any platform; callers should use the default.
+rtoolsTbbRoot <- function(gcc = if (is_windows()) Sys.which("gcc") else "") {
+
+   # note that Rtools is on the PATH while a package is being compiled, which
+   # is when this lookup is normally consulted (e.g. from a Makevars)
+   if (!nzchar(gcc))
+      return(NULL)
+
+   # TBB sits alongside the rest of the toolchain, two directories above the
+   # compiler: '<rtools>/<target>/bin/gcc.exe' -> '<rtools>/<target>/lib'
+   root <- dirname(dirname(gcc))
+   tbbLib <- file.path(root, "lib")
+
+   # apply the same gate configure does: only a oneTBB is usable here, as
+   # older Rtools TBBs are deliberately passed over (see configure.R)
+   hasTbb <-
+      length(list.files(tbbLib, pattern = "^libtbb")) &&
+      file.exists(file.path(root, "include", "oneapi"))
+
+   if (!hasTbb)
+      return(NULL)
+
+   normalizePath(tbbLib, winslash = "/", mustWork = FALSE)
 
 }
