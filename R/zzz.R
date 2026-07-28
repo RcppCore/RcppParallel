@@ -21,8 +21,9 @@ loadTbbLibrary <- function(name) {
    if (is_windows()) {
 
       # NOTE: resolve against the package's own library directory, where
-      # install.libs.R places the stub; tbbRoot() would prefer TBB_LIB,
-      # which on Windows points at Rtools and holds only static libraries
+      # install.libs.R places the stub. this is what tbbRoot() reports on
+      # Windows too; spell it out here so that loading during .onLoad does
+      # not depend on the configured TBB_LIB in any way
       path <- archSystemFile("lib", paste0(name, ".dll"))
       if (!file.exists(path)) {
          verboseMessage("tbb library '%s' not found in package 'lib' folder; skipping", name)

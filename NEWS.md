@@ -8,6 +8,24 @@
   loaded into the process, and failed with "Library not loaded:
   @rpath/libtbb.dylib" otherwise. (#209)
 
+* Fixed `RcppParallel::tbbLibraryPath()` returning `NULL` on Windows. It looked
+  for the static archives `libtbb12.a` / `libtbb.a`, which are never installed
+  with the package: TBB is linked statically into `RcppParallel.dll` there, and
+  the only TBB library installed alongside it is the `tbb.dll` stub, which is
+  what it now finds. Previously it succeeded only when the package happened to
+  be running on the machine that built it against an Rtools TBB, and even then
+  answered with a path into Rtools -- a build dependency -- rather than with
+  anything the installed package uses. Note that `tbbLibraryPath("tbbmalloc")`
+  returns `NULL` on Windows, as no separate tbbmalloc library is installed
+  there. (#270)
+
+* `RcppParallel::tbbLibraryPath()` called with no arguments, and the internal
+  `tbbRoot()`, no longer report the Rtools directory recorded when the package
+  was configured. Unlike the named-library form, these return their answer
+  without checking that it exists, so for a pre-built binary (e.g. the CRAN
+  build) they named a directory on the machine that built the package. On
+  Windows both now report the package's own library directory. (#270)
+
 * Fixed an issue where compiling code including `tbb/parallel_for_each.h`
   could fail with toolchains that accept `-std=c++20` but provide a
   pre-C++20 standard library, with errors of the form "no member named
