@@ -1,5 +1,13 @@
 # RcppParallel (development version)
 
+* On macOS, `RcppParallel::LdFlags()` now also emits an `-rpath` entry for the
+  directory containing the TBB libraries. The libraries record an
+  `@rpath`-relative install name, so packages linking against them previously
+  produced binaries with no runtime search path for TBB; those binaries could
+  only be loaded when RcppParallel (and hence TBB) already happened to be
+  loaded into the process, and failed with "Library not loaded:
+  @rpath/libtbb.dylib" otherwise. (#209)
+
 * Fixed an issue where compiling code including `tbb/parallel_for_each.h`
   could fail with toolchains that accept `-std=c++20` but provide a
   pre-C++20 standard library, with errors of the form "no member named

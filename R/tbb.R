@@ -108,8 +108,15 @@ tbbLdFlags <- function() {
    
    # explicitly link on macOS
    # https://github.com/RcppCore/RcppParallel/issues/206
+   #
+   # the bundled libraries record an '@rpath'-relative install name (e.g.
+   # '@rpath/libtbb.dylib'), so '-L' alone is not enough: the client library
+   # ends up with no runtime search path for TBB at all, and only loads
+   # because RcppParallel -- and hence TBB -- normally happens to be loaded
+   # into the process first. Emit a matching '-rpath' so the client can
+   # resolve TBB on its own. (#209)
    if (is_mac()) {
-      fmt <- "-L%s -l%s -l%s"
+      fmt <- "-L%1$s -Wl,-rpath,%1$s -l%2$s -l%3$s"
       return(sprintf(fmt, asBuildPath(tbbLibraryPath()), TBB_NAME, TBB_MALLOC_NAME))
    }
 
