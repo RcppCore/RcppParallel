@@ -318,6 +318,13 @@ void __TBB_EXPORTED_FUNC observe(d1::task_scheduler_observer &tso, bool enable) 
 } // namespace detail
 } // namespace tbb
 
+// Not on Windows: there the old ABI is published by the tbb.dll stub built
+// from src/tbb-compat/tbb-compat.cpp, which has to define this itself in
+// order for R CMD SHLIB to pick it up when generating the export list.
+// Defining it here as well makes the stub fail to link with "multiple
+// definition of tbb::internal::task_scheduler_observer_v3::observe".
+#ifndef _WIN32
+
 namespace tbb {
 namespace internal {
 
@@ -328,3 +335,5 @@ void __TBB_EXPORTED_FUNC task_scheduler_observer_v3::observe( bool enable ) {
 
 } // namespace internal
 } // namespace tbb
+
+#endif /* _WIN32 */

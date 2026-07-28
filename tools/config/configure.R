@@ -26,22 +26,30 @@ if (file.exists(makevars)) {
    }
 }
 
-# on Windows, check for Rtools; if it exists, and we have tbb, use it
+# on Windows, check for Rtools; if it exists, and it provides oneTBB, use it.
+#
+# older toolchains are deliberately passed over even though they do provide
+# a TBB. Rtools42 ships TBB 2017, whose headers downstream packages cannot
+# build against: StanHeaders uses tbb::this_task_arena::isolate, which that
+# release still gates behind TBB_PREVIEW_TASK_ISOLATION, and its library
+# doesn't export isolate_within_arena either, so there is nothing to link
+# against even if the declaration were forced into view. we build the
+# bundled copy of oneTBB in that case instead
 if (.Platform$OS.type == "windows") {
-   
+
    gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
-   
+
    tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
    if (is.na(tbbLib))
       tbbLib <- normalizePath(file.path(gccPath, "../../lib"), winslash = "/")
-   
+
    tbbInc <- Sys.getenv("TBB_INC", unset = NA)
    if (is.na(tbbInc))
       tbbInc <- normalizePath(file.path(gccPath, "../../include"), winslash = "/")
-   
+
    tbbFiles <- list.files(tbbLib, pattern = "^libtbb")
-   if (length(tbbFiles)) {
-      
+   if (length(tbbFiles) && file.exists(file.path(tbbInc, "oneapi"))) {
+
       tbbPattern <- "^lib(tbb\\d*(?:_static)?)\\.a$"
       tbbName <- grep(tbbPattern, tbbFiles, perl = TRUE, value = TRUE)
       tbbName <- gsub(tbbPattern, "\\1", tbbName, perl = TRUE)
@@ -137,6 +145,65 @@ if (tryAutoDetect) {
    
 }
 
+# if we didn't find a TBB to use, we'll build the bundled copy from
+# sources -- which requires cmake. on Windows, a missing or too-old cmake
+# is not fatal: toolchains that can't build oneTBB (e.g. Rtools40, which
+# provides neither cmake nor a TBB) fall back to tinythread instead
+define(CMAKE = "")
+useBundledTbb <- FALSE
+
+if (is.na(tbbLib)) {
+
+   cmake <- local({
+
+      # check for envvar
+      cmake <- Sys.getenv("CMAKE", unset = NA)
+      if (!is.na(cmake))
+         return(cmake)
+
+      # check for path
+      cmake <- Sys.which("cmake")
+      if (nzchar(cmake))
+         return(cmake)
+
+      # check for macOS cmake
+      cmake <- "/Applications/CMake.app/Contents/bin/cmake"
+      if (file.exists(cmake))
+         return(cmake)
+
+      NA
+
+   })
+
+   # make sure we have an appropriate version of cmake installed
+   # (use the resolved path; cmake may not be on the PATH)
+   cmakeVersion <- if (!is.na(cmake)) {
+      output <- system(paste(shQuote(cmake), "--version"), intern = TRUE)[[1L]]
+      numeric_version(sub("cmake version ", "", output))
+   }
+
+   useBundledTbb <- !is.na(cmake) && cmakeVersion >= "3.5"
+
+   if (useBundledTbb) {
+      define(CMAKE = cmake)
+   } else if (.Platform$OS.type != "windows") {
+      if (is.na(cmake))
+         stop("cmake was not found")
+      stop("error: RcppParallel requires cmake (>= 3.6); you have ", cmakeVersion)
+   } else if (is.na(cmake)) {
+      writeLines("cmake was not found; building RcppParallel without a tbb backend")
+   } else {
+      fmt <- "cmake %s is too old (need >= 3.5); building RcppParallel without a tbb backend"
+      writeLines(sprintf(fmt, cmakeVersion))
+   }
+
+}
+
+# oneTBB appends its binary version to the library name on Windows, so the
+# bundled build produces 'libtbb12.a' rather than 'libtbb.a' there
+if (.Platform$OS.type == "windows" && useBundledTbb)
+   tbbName <- Sys.getenv("TBB_NAME", unset = "tbb12")
+
 # now, define TBB_LIB and TBB_INC as appropriate
 define(
    TBB_LIB         = if (!is.na(tbbLib)) tbbLib else "",
@@ -176,6 +243,20 @@ pkgLibs <- if (.Platform$OS.type == "windows") {
          "-Wl,-L\"$(TBB_LIB)\"",
          "-l$(TBB_NAME)",
          "-l$(TBB_MALLOC_NAME)"
+      )
+
+   } else if (useBundledTbb) {
+
+      # the bundled oneTBB is built as a static library on Windows, so
+      # RcppParallel.dll takes exactly the same shape as it does with an
+      # Rtools oneTBB above -- see that branch for why tbbmalloc is linked
+      # wholesale, and why it must precede tbb
+      c(
+         "-Wl,-Ltbb/build/lib_release",
+         "-Wl,--whole-archive",
+         "-l$(TBB_MALLOC_NAME)",
+         "-Wl,--no-whole-archive",
+         "-l$(TBB_NAME)"
       )
 
    }
@@ -218,45 +299,6 @@ if (.Platform$OS.type == "windows") {
 
 define(PKG_LIBS = paste(pkgLibs, collapse = " "))
    
-# if we're going to build tbb from sources, check for cmake
-# (not required on Windows, where the bundled TBB is never built;
-# without an Rtools TBB, the tinythread fallback is used instead)
-define(CMAKE = "")
-if (is.na(tbbLib) && .Platform$OS.type != "windows") {
-   
-   cmake <- local({
-      
-      # check for envvar
-      cmake <- Sys.getenv("CMAKE", unset = NA)
-      if (!is.na(cmake))
-         return(cmake)
-      
-      # check for path
-      cmake <- Sys.which("cmake")
-      if (nzchar(cmake))
-         return(cmake)
-      
-      # check for macOS cmake
-      cmake <- "/Applications/CMake.app/Contents/bin/cmake"
-      if (file.exists(cmake))
-         return(cmake)
-      
-      stop("cmake was not found")
-      
-   })
-   
-   # make sure we have an appropriate version of cmake installed
-   # (use the resolved path; cmake may not be on the PATH)
-   output <- system(paste(shQuote(cmake), "--version"), intern = TRUE)[[1L]]
-   cmakeVersion <- numeric_version(sub("cmake version ", "", output))
-   if (cmakeVersion < "3.5") {
-      stop("error: RcppParallel requires cmake (>= 3.6); you have ", cmakeVersion)
-   }
-   
-   define(CMAKE = cmake)
-   
-}
-
 
 # now, set up PKG_CPPFLAGS
 if (!is.na(tbbLib)) {
@@ -266,7 +308,7 @@ if (!is.na(tbbLib)) {
 }
 
 # PKG_CXXFLAGS
-if (.Platform$OS.type == "windows" && is.na(tbbLib)) {
+if (.Platform$OS.type == "windows" && is.na(tbbLib) && !useBundledTbb) {
    define(TBB_ENABLED = FALSE)
    define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
 } else {

@@ -87,12 +87,25 @@ tbbLdFlags <- function() {
    
    # on Windows, we statically link to oneTBB
    if (is_windows()) {
-      
+
       libPath <- archSystemFile("libs")
 
       ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
+
+      # also offer the stub library. RcppParallel.dll re-exports whichever TBB
+      # objects happened to be pulled out of the static library when it was
+      # linked, which is an incidental export surface rather than a declared
+      # one; the stub exports the runtime wholesale, so anything missing from
+      # RcppParallel.dll can still be resolved. this comes last deliberately:
+      # the linker satisfies symbols in order, so RcppParallel's own exports
+      # still win, and no dependency on the stub is recorded unless something
+      # actually needs it
+      tbbPath <- archSystemFile("lib")
+      if (file.exists(file.path(tbbPath, "tbb.dll")))
+         ldFlags <- paste(ldFlags, sprintf("-L%s -ltbb", asBuildPath(tbbPath)))
+
       return(ldFlags)
-      
+
    }
    
    # shortcut if TBB_LIB defined

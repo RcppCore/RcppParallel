@@ -1,0 +1,96 @@
+# Build rstan from source against this branch's RcppParallel.
+#
+# The 'downstream' job in R-CMD-check.yaml is a stand-in for this: it compiles a
+# small translation unit using the two TBB APIs StanHeaders needs. That catches
+# the breakage this workflow exists to rule out, in seconds rather than the best
+# part of an hour -- so this is deliberately manual, for when the real thing is
+# worth waiting for (before a release, or after touching the Windows TBB setup).
+on:
+  workflow_dispatch:
+    inputs:
+      r-version:
+        description: "R version (4.2 uses Rtools42, which has no oneTBB)"
+        required: true
+        default: "4.2"
+      os:
+        description: "Runner to build on"
+        required: true
+        default: "windows-latest"
+        type: choice
+        options:
+          - windows-latest
+          - macOS-latest
+          - ubuntu-latest
+      fit-model:
+        description: "Also compile and fit a tiny Stan model (slow)"
+        required: false
+        default: false
+        type: boolean
+
+name: rstan
+
+jobs:
+  rstan:
+    runs-on: ${{ inputs.os }}
+
+    name: rstan (${{ inputs.os }}, R ${{ inputs.r-version }})
+
+    # building rstan from source is slow, and slower still on Windows
+    timeout-minutes: 120
+
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      VERBOSE: 1
+      # rstan's own guidance for building it from source
+      MAKEFLAGS: -j2
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: ${{ inputs.r-version }}
+          use-public-rspm: true
+
+      - name: install RcppParallel from this branch
+        run: R CMD INSTALL --preclean .
+
+      - name: report how RcppParallel resolved TBB
+        run: |
+          Rscript -e 'writeLines(c(
+            paste("TBB_ENABLED", RcppParallel:::TBB_ENABLED),
+            paste("TBB_LIB   ", RcppParallel:::TBB_LIB),
+            paste("CxxFlags  ", RcppParallel:::tbbCxxFlags()),
+            paste("LdFlags   ", RcppParallel:::tbbLdFlags())
+          ))'
+
+      # binaries are fine for everything except rstan and StanHeaders, which are
+      # the packages that actually consume RcppParallel's flags. this is
+      # rstan's Imports plus its LinkingTo, minus RcppParallel (installed above)
+      # and StanHeaders (built from source below)
+      - name: install rstan's dependencies
+        run: |
+          Rscript -e 'install.packages(c("Rcpp","RcppEigen","BH","inline","gridExtra","loo","pkgbuild","QuickJSR","ggplot2"))'
+
+      # dependencies = FALSE so that resolving StanHeaders/rstan can't quietly
+      # pull CRAN's RcppParallel over the one we just built -- that would turn
+      # this into a test of the released package instead
+      - name: install StanHeaders and rstan from source
+        run: |
+          Rscript -e 'install.packages(c("StanHeaders","rstan"), type = "source", dependencies = FALSE, INSTALL_opts = "--no-multiarch")'
+
+      - name: check RcppParallel is still the one we built
+        run: |
+          Rscript -e 'v <- as.character(packageVersion("RcppParallel")); writeLines(paste("RcppParallel", v)); if (!grepl("[.]9000$", v)) stop("RcppParallel was replaced by a released build; the rstan build did not test this branch")'
+
+      - name: load rstan
+        run: |
+          Rscript -e 'library(rstan); print(rstan::stan_version())'
+
+      - name: compile and fit a tiny model
+        if: ${{ inputs.fit-model }}
+        run: Rscript .github/scripts/rstan-fit-check.R

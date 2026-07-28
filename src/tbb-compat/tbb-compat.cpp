@@ -14,6 +14,13 @@
 # define DLL_EXPORT
 #endif
 
+// The old ABI's observer classes, as they stood before oneTBB. The bundled
+// copy of oneTBB carries these too (see task_scheduler_observer.h), so only
+// declare them when compiling against headers that don't -- i.e. the pristine
+// ones Rtools ships. Either way, the out-of-line observe() below is what this
+// stub exists to export.
+#ifndef __TBB_LEGACY_TASK_SCHEDULER_OBSERVER_PROVIDED
+
 namespace tbb {
 
 namespace interface6 {
@@ -130,11 +137,13 @@ public:
 
 } // namespace tbb
 
+#endif /* __TBB_LEGACY_TASK_SCHEDULER_OBSERVER_PROVIDED */
+
 namespace tbb {
 namespace internal {
 
 DLL_EXPORT
-void __TBB_EXPORTED_FUNC task_scheduler_observer_v3::observe( bool enable ) {
+void __TBB_EXPORTED_METHOD task_scheduler_observer_v3::observe( bool enable ) {
    auto* tso = (tbb::detail::d1::task_scheduler_observer*) (this);
    tbb::detail::r1::observe(*tso, enable);
 }
