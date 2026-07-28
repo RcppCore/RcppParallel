@@ -39,34 +39,21 @@
 
       # using bundled TBB
       tbbSrc <- "tbb/build/lib_release"
+      tbbLibs <- list.files(
+         path       = tbbSrc,
+         pattern    = shlibPattern,
+         full.names = TRUE
+      )
 
-      # on Windows the bundled TBB was built as a static library, and is
-      # already linked into (and re-exported from) RcppParallel.dll; say so
-      # explicitly, rather than reporting that no runtime libraries were
-      # found -- there are none to find, and that reads like a failure
-      if (.Platform$OS.type == "windows") {
-
-         writeLines("** tbb is statically linked into RcppParallel.dll; no runtime libraries to install")
-
-      } else {
-
-         tbbLibs <- list.files(
-            path       = tbbSrc,
-            pattern    = shlibPattern,
-            full.names = TRUE
-         )
-
-         logTbbLibraries(tbbLibs, tbbSrc)
-         for (tbbLib in tbbLibs) {
-            system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
-         }
-
-         # restore the versioned library layout shipped by RcppParallel 5.1.11
-         # and earlier (a real 'libtbb.so.2' plus a 'libtbb.so' symlink)
-         if (Sys.info()[["sysname"]] == "Linux")
-            versionBundledTbbLibraries(tbbDest)
-
+      logTbbLibraries(tbbLibs, tbbSrc)
+      for (tbbLib in tbbLibs) {
+         system2("cp", c("-P", shQuote(tbbLib), shQuote(tbbDest)))
       }
+
+      # restore the versioned library layout shipped by RcppParallel 5.1.11
+      # and earlier (a real 'libtbb.so.2' plus a 'libtbb.so' symlink)
+      if (Sys.info()[["sysname"]] == "Linux")
+         versionBundledTbbLibraries(tbbDest)
 
    } else {
 
@@ -92,88 +79,6 @@
       }
 
    }
-
-   # on Windows, we create a stub library that links to us so that
-   # older binaries (like rstan) can still load. this is only relevant
-   # when TBB is available: the stub cannot link without it, and old
-   # TBB-using binaries could not run against a TBB-less RcppParallel
-   # regardless
-   if (.Platform$OS.type == "windows" && TBB_ENABLED) {
-      tbbDll <- file.path(tbbDest, "tbb.dll")
-      if (file.exists(tbbDll)) {
-         writeLines("** tbb.dll already exists; skipping tbb.dll stub")
-      } else {
-         buildTbbStub(tbbDest)
-      }
-   }
-
-}
-
-# Build the tbb.dll stub that downstream packages link ('-ltbb' via e.g.
-# StanHeaders) and that older binaries resolve their imports against.
-buildTbbStub <- function(tbbDest) {
-
-   # remove artifacts from prior builds, which may have been produced
-   # by a different toolchain or against a different TBB; 'make' would
-   # otherwise consider them up-to-date and re-ship them as-is
-   unlink(c("tbb-compat/tbb.dll", Sys.glob("tbb-compat/*.o")))
-
-   tbbInc <- Sys.getenv("TBB_INC")
-   if (!nzchar(tbbInc))
-      tbbInc <- TBB_INC
-
-   # when TBB was built from the bundled sources there is no TBB_INC to
-   # consult; its headers were copied into the package's include directory
-   # during the build, so dispatch on those instead
-   if (!nzchar(tbbInc))
-      tbbInc <- "../inst/include"
-
-   if (file.exists(file.path(tbbInc, "oneapi"))) {
-
-      # with oneTBB, the stub provides the old TBB ABI's
-      # task_scheduler_observer entry point on top of the new runtime
-      writeLines("** creating tbb.dll stub (wrapping the oneTBB runtime)")
-      status <- system("R CMD SHLIB -o tbb-compat/tbb.dll tbb-compat/tbb-compat.cpp")
-      if (status != 0)
-         stop("error building tbb.dll stub")
-
-   } else {
-
-      # with older versions of TBB (e.g. Rtools42), tbb-compat.cpp cannot
-      # build -- there is no oneTBB runtime to wrap -- but the static
-      # library already provides the old ABI, so re-export it wholesale
-      writeLines("** creating tbb.dll stub (re-exporting the static tbb library)")
-
-      tbbLib <- Sys.getenv("TBB_LIB")
-      if (!nzchar(tbbLib))
-         tbbLib <- TBB_LIB
-
-      cxx <- system("R CMD config CXX", intern = TRUE)
-      archive <- file.path(tbbLib, sprintf("lib%s.a", TBB_NAME))
-      command <- paste(
-         cxx,
-         "-shared -static-libgcc",
-         "-o tbb-compat/tbb.dll",
-         "-Wl,--whole-archive", shQuote(archive), "-Wl,--no-whole-archive",
-         "-lssp"
-      )
-
-      writeLines(command)
-      status <- system(command)
-      if (status != 0)
-         stop("error building tbb.dll stub")
-
-   }
-
-   # 'R CMD SHLIB' has been seen to report success on Windows even when the
-   # link failed, which would otherwise leave us shipping a package with no
-   # stub at all -- and packages linking '-ltbb' only discover that when they
-   # fail to load. Check for the artifact rather than trusting the exit code.
-   if (!file.exists("tbb-compat/tbb.dll"))
-      stop("tbb.dll stub was not produced")
-
-   if (!file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll")))
-      stop("couldn't copy tbb.dll stub to '", tbbDest, "'")
 
 }
 
@@ -401,15 +306,15 @@ useBundledTbb <- function() {
       )
    }
 
-   # on Windows, build TBB as a static library: it then gets linked into
-   # (and re-exported from) RcppParallel.dll, giving the same layout we
-   # produce with an Rtools-provided oneTBB. the generator has to be named
-   # explicitly, as cmake otherwise prefers a Visual Studio generator when
-   # one happens to be installed
+   # on Windows the generator has to be named explicitly, as cmake otherwise
+   # prefers a Visual Studio generator when one happens to be installed. TBB is
+   # built shared here, as on every other platform: upstream does not support
+   # static builds ("highly discouraged", per its own configure-time warning),
+   # and a shared library is what lets RcppParallel and downstream packages
+   # share one runtime rather than each linking a private copy
    if (.Platform$OS.type == "windows") {
       cmakeFlags <- c(
          "-G", "MSYS Makefiles",
-         "-DBUILD_SHARED_LIBS=0",
          cmakeFlags
       )
    }
@@ -443,10 +348,14 @@ useBundledTbb <- function() {
    }
    setwd(owd)
 
-   # on Windows (as on wasm) TBB is built as a static library, so collect
-   # the archives rather than the runtime libraries
-   shlibPattern <- if (.Platform$OS.type == "windows" || R.version$os == "emscripten") {
+   # on wasm TBB is built as a static library, so collect the archives; on
+   # Windows collect the DLLs together with their import libraries, so that
+   # linking RcppParallel against them below can go through 'libtbb.dll.a'
+   # rather than relying on the linker accepting the DLL directly
+   shlibPattern <- if (R.version$os == "emscripten") {
       "^libtbb.*\\.a$"
+   } else if (.Platform$OS.type == "windows") {
+      "^(lib)?tbb.*\\.dll(\\.a)?$"
    } else if (Sys.info()[["sysname"]] == "Darwin") {
       "^libtbb.*\\.dylib$"
    } else {

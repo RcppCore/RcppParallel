@@ -73,6 +73,11 @@ set_target_properties(tbbmalloc PROPERTIES
     LINKER_LANGUAGE C
 )
 
+# see src/tbb/CMakeLists.txt: name the runtime 'tbbmalloc.dll' on mingw
+if (WIN32)
+    set_target_properties(tbbmalloc PROPERTIES PREFIX "")
+endif()
+
 tbb_handle_ipo(tbbmalloc)
 
 if (TBB_DEF_FILE_PREFIX) # If there's no prefix, assume we're using export directives

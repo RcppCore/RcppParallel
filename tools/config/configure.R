@@ -26,57 +26,14 @@ if (file.exists(makevars)) {
    }
 }
 
-# on Windows, check for Rtools; if it exists, and it provides oneTBB, use it.
-#
-# older toolchains are deliberately passed over even though they do provide
-# a TBB. Rtools42 ships TBB 2017, whose headers downstream packages cannot
-# build against: StanHeaders uses tbb::this_task_arena::isolate, which that
-# release still gates behind TBB_PREVIEW_TASK_ISOLATION, and its library
-# doesn't export isolate_within_arena either, so there is nothing to link
-# against even if the declaration were forced into view. we build the
-# bundled copy of oneTBB in that case instead -- unless the user pointed
-# TBB_LIB somewhere themselves, which is honoured as-is
-if (.Platform$OS.type == "windows") {
-
-   gccPath <- normalizePath(Sys.which("gcc"), winslash = "/")
-
-   tbbLib <- Sys.getenv("TBB_LIB", unset = NA)
-
-   # a TBB the user configured explicitly is honoured whatever its vintage;
-   # only one discovered next to gcc has to pass the oneTBB check below
-   tbbLibConfigured <- !is.na(tbbLib)
-
-   if (is.na(tbbLib))
-      tbbLib <- normalizePath(file.path(gccPath, "../../lib"), winslash = "/")
-
-   tbbInc <- Sys.getenv("TBB_INC", unset = NA)
-   if (is.na(tbbInc))
-      tbbInc <- normalizePath(file.path(gccPath, "../../include"), winslash = "/")
-
-   # whenever we do adopt this tree, the library names have to come with it:
-   # a legacy TBB spells its archives 'libtbb_static.a' and
-   # 'libtbbmalloc_static.a', which the defaults below would not find
-   tbbFiles <- list.files(tbbLib, pattern = "^libtbb")
-   if (length(tbbFiles) && (tbbLibConfigured || file.exists(file.path(tbbInc, "oneapi")))) {
-
-      tbbPattern <- "^lib(tbb\\d*(?:_static)?)\\.a$"
-      tbbName <- grep(tbbPattern, tbbFiles, perl = TRUE, value = TRUE)
-      tbbName <- gsub(tbbPattern, "\\1", tbbName, perl = TRUE)
-      
-      tbbMallocPattern <- "^lib(tbbmalloc\\d*(?:_static)?)\\.a$"
-      tbbMallocName <- grep(tbbMallocPattern, tbbFiles, perl = TRUE, value = TRUE)
-      tbbMallocName <- gsub(tbbMallocPattern, "\\1", tbbMallocName, perl = TRUE)
-      
-      Sys.setenv(
-         TBB_LIB = tbbLib,
-         TBB_INC = tbbInc,
-         TBB_NAME = tbbName,
-         TBB_MALLOC_NAME = tbbMallocName
-      )
-      
-   }
-   
-}
+# NOTE: we deliberately do not look for a TBB provided by Rtools. Rtools
+# ships static libraries only, and the TBB it provides varies with the
+# toolchain: Rtools42 has Intel TBB 2017, whose headers downstream packages
+# cannot build against, while later versions have oneTBB. Building the
+# bundled copy instead gives every platform the same oneTBB, shipped as a
+# shared library and linked the same way, and makes the TBB ABI a property
+# of RcppParallel rather than of the user's toolchain. TBB_LIB / TBB_INC are
+# still honoured for anyone wanting to supply their own.
 
 # try and figure out path to TBB
 tbbRoot  <- Sys.getenv("TBB_ROOT", unset = NA)
@@ -227,12 +184,6 @@ if (is.na(tbbLib)) {
 
 }
 
-# oneTBB appends its binary version to the library name on Windows, so the
-# bundled build produces 'libtbb12.a' rather than 'libtbb.a' there
-# (tbbmalloc gets no such suffix, so its default name still applies)
-if (.Platform$OS.type == "windows" && buildBundledTbb && !nzchar(Sys.getenv("TBB_NAME")))
-   tbbName <- "tbb12"
-
 # now, define TBB_LIB and TBB_INC as appropriate
 define(
    TBB_LIB         = if (!is.na(tbbLib)) tbbLib else "",
@@ -242,86 +193,43 @@ define(
 )
 
 # set PKG_LIBS
-pkgLibs <- if (.Platform$OS.type == "windows") {
+pkgLibs <- if (!is.na(tbbLib)) {
 
-   if (!is.na(tbbLib) && file.exists(file.path(tbbInc, "oneapi"))) {
-
-      # downstream packages link with '-lRcppParallel' alone, so
-      # RcppParallel.dll must provide the tbbmalloc API (scalable_malloc
-      # and friends) even though RcppParallel itself never calls it; use
-      # --whole-archive so those objects are linked in, and re-exported
-      # via their '-export:' directives. tbbmalloc must precede tbb here:
-      # both archives bundle an itt_notify object defining the same
-      # symbols, and with tbbmalloc's copy already linked, tbb's is never
-      # pulled in, avoiding duplicate definition errors
-      c(
-         "-Wl,-L\"$(TBB_LIB)\"",
-         "-Wl,--whole-archive",
-         "-l$(TBB_MALLOC_NAME)",
-         "-Wl,--no-whole-archive",
-         "-l$(TBB_NAME)"
-      )
-
-   } else if (!is.na(tbbLib)) {
-
-      # with an older (non-oneTBB) toolchain like Rtools42, tbb and
-      # tbbmalloc both define DllMain, so tbbmalloc cannot be linked
-      # wholesale; its objects also carry no '-export:' directives, so
-      # nothing would be re-exported anyhow -- just link as needed
-      c(
-         "-Wl,-L\"$(TBB_LIB)\"",
-         "-l$(TBB_NAME)",
-         "-l$(TBB_MALLOC_NAME)"
-      )
-
-   } else if (buildBundledTbb) {
-
-      # the bundled oneTBB is built as a static library on Windows, so
-      # RcppParallel.dll takes exactly the same shape as it does with an
-      # Rtools oneTBB above -- see that branch for why tbbmalloc is linked
-      # wholesale, and why it must precede tbb
-      c(
-         "-Wl,-Ltbb/build/lib_release",
-         "-Wl,--whole-archive",
-         "-l$(TBB_MALLOC_NAME)",
-         "-Wl,--no-whole-archive",
-         "-l$(TBB_NAME)"
-      )
-
-   }
-
-} else if (!is.na(tbbLib)) {
-
+   # a TBB supplied via TBB_LIB / TBB_ROOT. an rpath is meaningless on Windows,
+   # where the loader has no equivalent -- see R/zzz.R for how we resolve there
    c(
       "-Wl,-L\"$(TBB_LIB)\"",
-      sprintf("-Wl,-rpath,%s", shQuote(tbbLib)),
+      if (.Platform$OS.type != "windows")
+         sprintf("-Wl,-rpath,%s", shQuote(tbbLib)),
       "-l$(TBB_NAME)",
       "-l$(TBB_MALLOC_NAME)"
    )
 
+} else if (!buildBundledTbb) {
+
+   # no TBB to link at all; the tinythread fallback is used instead
+   NULL
+
 } else if (R.version$os == "emscripten") {
-   
+
    c(
       "-Wl,-Ltbb/build/lib_release",
       "-l$(TBB_NAME)"
    )
-   
+
 } else {
-   
+
    c(
       "-Wl,-Ltbb/build/lib_release",
       "-l$(TBB_NAME)",
       "-l$(TBB_MALLOC_NAME)"
    )
-   
+
 }
 
 
-# on Windows, we may need to link to ssp; otherwise,
-# we see errors like
-#
-#    C:\rtools43\x86_64-w64-mingw32.static.posix\bin/ld.exe: C:/rtools43/x86_64-w64-mingw32.static.posix/lib/libtbb12.a(allocator.cpp.obj):allocator.cpp:(.text+0x18b): undefined reference to `__stack_chk_fail'
-#
+# on Windows, link to ssp for the stack-protector helpers (__stack_chk_fail
+# and friends), which mingw does not provide in libgcc
 if (.Platform$OS.type == "windows") {
    pkgLibs <- c(pkgLibs, "-lssp")
 }

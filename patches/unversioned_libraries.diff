@@ -1,6 +1,20 @@
 --- a/src/tbb/src/tbb/CMakeLists.txt
 +++ b/src/tbb/src/tbb/CMakeLists.txt
-@@ -90,8 +90,6 @@
+@@ -50,7 +50,12 @@ add_library(TBB::tbb ALIAS tbb)
+ 
+ if (WIN32)
+     target_sources(tbb PRIVATE tbb.rc)
+-    set_target_properties(tbb PROPERTIES OUTPUT_NAME "tbb${TBB_BINARY_VERSION}")
++    # Name the runtime 'tbb.dll', not mingw's default 'libtbb.dll': binaries
++    # built against RcppParallel 5.1.11 and earlier record a load-time
++    # dependency on that name. The import library keeps its 'lib' prefix, so
++    # '-ltbb' still resolves it. (The binary version suffix upstream applies
++    # here is dropped for the same reason.)
++    set_target_properties(tbb PROPERTIES PREFIX "")
+ endif()
+ 
+ # TODO: Add statistics.cpp
+@@ -90,8 +95,6 @@ target_compile_options(tbb
  # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
  set_target_properties(tbb PROPERTIES
      DEFINE_SYMBOL ""
@@ -11,7 +25,7 @@
  tbb_handle_ipo(tbb)
 --- a/src/tbb/src/tbbbind/CMakeLists.txt
 +++ b/src/tbb/src/tbbbind/CMakeLists.txt
-@@ -53,8 +53,6 @@
+@@ -53,8 +53,6 @@ function(tbbbind_build TBBBIND_NAME REQUIRED_HWLOC_TARGET)
      # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
      set_target_properties(${TBBBIND_NAME} PROPERTIES
          DEFINE_SYMBOL ""
@@ -22,7 +36,7 @@
      tbb_handle_ipo(${TBBBIND_NAME})
 --- a/src/tbb/src/tbbmalloc/CMakeLists.txt
 +++ b/src/tbb/src/tbbmalloc/CMakeLists.txt
-@@ -70,8 +70,6 @@
+@@ -70,11 +70,14 @@ enable_language(C)
  # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
  set_target_properties(tbbmalloc PROPERTIES
      DEFINE_SYMBOL ""
@@ -31,9 +45,17 @@
      LINKER_LANGUAGE C
  )
  
++# see src/tbb/CMakeLists.txt: name the runtime 'tbbmalloc.dll' on mingw
++if (WIN32)
++    set_target_properties(tbbmalloc PROPERTIES PREFIX "")
++endif()
++
+ tbb_handle_ipo(tbbmalloc)
+ 
+ if (TBB_DEF_FILE_PREFIX) # If there's no prefix, assume we're using export directives
 --- a/src/tbb/src/tbbmalloc_proxy/CMakeLists.txt
 +++ b/src/tbb/src/tbbmalloc_proxy/CMakeLists.txt
-@@ -54,10 +54,6 @@
+@@ -54,10 +54,6 @@ target_compile_options(tbbmalloc_proxy
      ${TBB_COMMON_COMPILE_FLAGS}
  )
  
@@ -44,3 +66,15 @@
  if (UNIX AND NOT APPLE)
      # Avoid use of target_link_libraries here as it changes /DEF option to \DEF on Windows.
      set_target_properties(tbbmalloc_proxy PROPERTIES
+@@ -66,6 +62,11 @@ if (UNIX AND NOT APPLE)
+         DEFINE_SYMBOL "")
+ endif()
+ 
++# see src/tbb/CMakeLists.txt: name the runtime 'tbbmalloc_proxy.dll' on mingw
++if (WIN32)
++    set_target_properties(tbbmalloc_proxy PROPERTIES PREFIX "")
++endif()
++
+ # Prefer using target_link_options instead of target_link_libraries to specify link options because
+ # target_link_libraries may incorrectly handle some options (on Windows, for example).
+ if (COMMAND target_link_options)

@@ -22,13 +22,9 @@ tbbLibraryPath <- function(name = NULL) {
       return(tbbRoot)
 
    # form library names
-   #
-   # on Windows the library we install is the 'tbb.dll' stub -- TBB itself is
-   # inside RcppParallel.dll -- so look for that first. the static archives are
-   # still tried afterwards, for a TBB_LIB pointed at an Rtools tree at runtime
    tbbLibNames <- list(
       "Darwin"  = paste0("lib", name, ".dylib"),
-      "Windows" = c(paste0(name, ".dll"), paste0("lib", name, c("12", ""), ".a")),
+      "Windows" = paste0(name, ".dll"),
       "SunOS"   = paste0("lib", name, ".so"),
       "Linux"   = paste0("lib", name, c(".so.2", ".so"))
    )
@@ -89,35 +85,28 @@ tbbCxxFlags <- function() {
 # Return the linker flags required for TBB on this platform
 tbbLdFlags <- function() {
    
-   # on Windows, we statically link to oneTBB
+   # on Windows every symbol must be resolved at link time -- there is no
+   # equivalent of lazy binding or '-undefined dynamic_lookup' -- so a
+   # downstream package needs both the TBB libraries it calls into and
+   # RcppParallel itself, for the entry points we compile (e.g.
+   # isProcessForkedChild). elsewhere those resolve from the process at load
+   # time and only TBB needs naming
    if (is_windows()) {
 
-      libPath <- archSystemFile("libs")
+      libsPath <- archSystemFile("libs")
+      tbbPath <- tbbLibraryPath()
 
-      ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libPath))
-
-      # also offer the stub library, which exports the TBB runtime wholesale.
-      # this is not just a safety net: R CMD SHLIB links RcppParallel.dll
-      # against an export list generated from our own objects, so the TBB
-      # entry points pulled in from the static library are not re-exported,
-      # and a downstream package linking '-lRcppParallel' alone resolves none
-      # of them (which is what broke rstan). the stub is what makes those
-      # symbols reachable at all.
-      #
-      # it still comes last, so that anything RcppParallel.dll does export
-      # wins, and so no import of the stub is recorded unless something needs
-      # it. that matters because the stub carries its own copy of the oneTBB
-      # runtime: a package split across both would register observers with one
-      # scheduler while its tasks ran in the other.
-      # .github/scripts/tbb-downstream-check.R asserts that does not happen
-      tbbPath <- archSystemFile("lib")
-      if (file.exists(file.path(tbbPath, "tbb.dll")))
-         ldFlags <- paste(ldFlags, sprintf("-L%s -ltbb", asBuildPath(tbbPath)))
-
-      return(ldFlags)
+      fmt <- "-L%s -lRcppParallel -L%s -l%s -l%s"
+      return(sprintf(
+         fmt,
+         asBuildPath(libsPath),
+         asBuildPath(tbbPath),
+         TBB_NAME,
+         TBB_MALLOC_NAME
+      ))
 
    }
-   
+
    # shortcut if TBB_LIB defined
    tbbLib <- Sys.getenv("TBB_LINK_LIB", Sys.getenv("TBB_LIB", unset = TBB_LIB))
    if (nzchar(tbbLib)) {
@@ -149,15 +138,6 @@ tbbLdFlags <- function() {
 }
 
 tbbRoot <- function() {
-
-   # on Windows, always answer with our own library directory. TBB is linked
-   # statically into RcppParallel.dll there, and the only TBB library we
-   # install is the tbb.dll stub, so that directory is the whole story. TBB_LIB
-   # is worse than useless here: it records the Rtools tree of whichever
-   # machine ran configure, which for a pre-built binary is a path that need
-   # not exist on the user's machine at all (#270)
-   if (is_windows())
-      return(archSystemFile("lib"))
 
    if (nzchar(TBB_LIB))
       return(TBB_LIB)

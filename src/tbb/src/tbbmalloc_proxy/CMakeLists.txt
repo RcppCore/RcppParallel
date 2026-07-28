@@ -62,6 +62,11 @@ if (UNIX AND NOT APPLE)
         DEFINE_SYMBOL "")
 endif()
 
+# see src/tbb/CMakeLists.txt: name the runtime 'tbbmalloc_proxy.dll' on mingw
+if (WIN32)
+    set_target_properties(tbbmalloc_proxy PROPERTIES PREFIX "")
+endif()
+
 # Prefer using target_link_options instead of target_link_libraries to specify link options because
 # target_link_libraries may incorrectly handle some options (on Windows, for example).
 if (COMMAND target_link_options)

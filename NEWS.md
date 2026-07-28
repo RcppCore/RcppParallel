@@ -8,23 +8,37 @@
   loaded into the process, and failed with "Library not loaded:
   @rpath/libtbb.dylib" otherwise. (#209)
 
-* Fixed `RcppParallel::tbbLibraryPath()` returning `NULL` on Windows. It looked
-  for the static archives `libtbb12.a` / `libtbb.a`, which are never installed
-  with the package: TBB is linked statically into `RcppParallel.dll` there, and
-  the only TBB library installed alongside it is the `tbb.dll` stub, which is
-  what it now finds. Previously it succeeded only when the package happened to
-  be running on the machine that built it against an Rtools TBB, and even then
-  answered with a path into Rtools -- a build dependency -- rather than with
-  anything the installed package uses. Note that `tbbLibraryPath("tbbmalloc")`
-  returns `NULL` on Windows, as no separate tbbmalloc library is installed
-  there. (#270)
+* On Windows, RcppParallel now builds the bundled oneTBB as a shared library
+  and links against it, shipping `tbb.dll` and `tbbmalloc.dll` alongside the
+  package -- the same arrangement already used on every other platform.
+  Previously it linked the static TBB provided by Rtools directly into
+  `RcppParallel.dll`, which meant the TBB version (and ABI) depended on the
+  user's toolchain, and left downstream packages with no TBB library to link
+  against. Building it ourselves gives every platform the same oneTBB and makes
+  the ABI a property of RcppParallel. `TBB_LIB` / `TBB_INC` are still honoured
+  for anyone supplying their own build. This requires cmake, which Rtools has
+  provided since Rtools42; toolchains without it (e.g. Rtools40) continue to
+  use the tinythread fallback.
 
-* `RcppParallel::tbbLibraryPath()` called with no arguments, and the internal
-  `tbbRoot()`, no longer report the Rtools directory recorded when the package
-  was configured. Unlike the named-library form, these return their answer
-  without checking that it exists, so for a pre-built binary (e.g. the CRAN
-  build) they named a directory on the machine that built the package. On
-  Windows both now report the package's own library directory. (#270)
+* As a consequence, `RcppParallel::RcppParallelLibs()` now emits `-ltbb` and
+  `-ltbbmalloc` on Windows, in addition to `-lRcppParallel` (which remains
+  necessary there for the entry points RcppParallel compiles itself, such as
+  `isProcessForkedChild`). Packages that previously resolved TBB symbols out of
+  `RcppParallel.dll`, or the tbbmalloc API via `-lRcppParallel` alone, should
+  rebuild against these flags.
+
+* The `tbb.dll` compatibility stub is gone. It existed to publish the
+  pre-oneTBB `task_scheduler_observer` entry point on top of a statically
+  linked runtime, but because it linked the TBB archives itself it amounted to
+  a second, independent copy of the oneTBB scheduler living in the same
+  process. That entry point is now exported by the real `tbb.dll`, as it
+  already was by the shared libraries on other platforms, so binaries built
+  against RcppParallel 5.1.11 and earlier continue to resolve it.
+
+* Fixed `RcppParallel::tbbLibraryPath()` returning `NULL` on Windows, and
+  `tbbRoot()` reporting a directory that need not exist on the machine running
+  the package -- for a pre-built binary, the Rtools tree of the machine that
+  built it. Both now describe the installation actually in use. (#270)
 
 * Fixed an issue where compiling code including `tbb/parallel_for_each.h`
   could fail with toolchains that accept `-std=c++20` but provide a
