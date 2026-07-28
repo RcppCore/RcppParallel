@@ -104,38 +104,59 @@ dllName <- paste0("check", .Platform$dynlib.ext)
 # too rather than carrying a copy of its own. Two runtimes would be a silent
 # failure -- an observer registered with one would never fire for arenas owned
 # by the other -- so it is worth asserting rather than assuming.
+
+# objdump has to match the target architecture, and the first one on the PATH
+# may well not: the aarch64 runner has an x86_64 objdump from C:/mingw64 ahead
+# of Rtools' own, and it exits non-zero having read nothing. Look beside the
+# compilers first, since those are necessarily right for the target
+objdumpCandidates <- function() {
+
+   compilers <- Sys.which(c("gcc", "clang", "cc"))
+   beside <- file.path(dirname(compilers[nzchar(compilers)]), "objdump.exe")
+
+   candidates <- unique(c(beside, Sys.which("objdump")))
+   candidates[nzchar(candidates) & file.exists(candidates)]
+
+}
+
 tbbImports <- function(dll) {
 
-   objdump <- Sys.which("objdump")
-   if (!nzchar(objdump)) {
-      writeLines("** objdump not found; skipping the import table check")
-      return(NULL)
-   }
-
-   output <- suppressWarnings(
-      system2(objdump, c("-p", shQuote(dll)), stdout = TRUE, stderr = TRUE)
-   )
-   status <- attr(output, "status")
-
-   # keep only the import tables. the export table follows them, and lists the
-   # library's own inlined TBB instantiations -- left in, it would be absorbed
-   # into the last 'DLL Name:' block and credit that library with TBB symbols
-   # it never imported
-   exports <- grep("export table|The Export Tables", output)
-   if (length(exports))
-      output <- output[seq_len(exports[[1L]] - 1L)]
-
    # each imported library opens a 'DLL Name:' block listing the symbols taken
-   # from it, and runs until the next such block
-   starts <- grep("DLL Name:", output, fixed = TRUE)
+   # from it; finding at least one is how we know objdump really read the file,
+   # rather than failing in a way that would look like 'imports nothing'
+   starts <- integer()
+   output <- character()
 
-   # don't let an objdump that couldn't read the file pass as 'no imports': the
-   # runner's objdump may be built for another target (an x86_64 one cannot
-   # read an aarch64 PE, and exits non-zero having printed nothing)
-   if (!length(starts) || (is.numeric(status) && status != 0L)) {
-      fmt <- "** '%s' could not read the import table of '%s'; skipping the check"
+   for (objdump in objdumpCandidates()) {
+
+      output <- suppressWarnings(
+         system2(objdump, c("-p", shQuote(dll)), stdout = TRUE, stderr = TRUE)
+      )
+      status <- attr(output, "status")
+
+      # keep only the import tables. the export table follows them, and lists
+      # the library's own inlined TBB instantiations -- left in, it would be
+      # absorbed into the last 'DLL Name:' block and credit that library with
+      # TBB symbols it never imported
+      exports <- grep("export table|The Export Tables", output)
+      if (length(exports))
+         output <- output[seq_len(exports[[1L]] - 1L)]
+
+      starts <- grep("DLL Name:", output, fixed = TRUE)
+      if (length(starts) && !(is.numeric(status) && status != 0L))
+         break
+
+      fmt <- "** '%s' could not read the import table of '%s'"
       writeLines(sprintf(fmt, objdump, basename(dll)))
       writeLines(output)
+
+      starts <- integer()
+
+   }
+
+   if (!length(starts)) {
+      fmt <- "** no usable objdump for '%s'; skipping the import table check"
+      writeLines(sprintf(fmt, basename(dll)))
       return(NULL)
    }
 
@@ -180,10 +201,10 @@ if (.Platform$OS.type == "windows") {
    }
 
    # and RcppParallel itself must be a client of that same runtime
-   rcppParallelDll <- file.path(
-      system.file(paste0("libs", .Platform$r_arch), package = "RcppParallel"),
-      "RcppParallel.dll"
-   )
+   rcppParallelDll <- RcppParallel:::archSystemFile("libs", "RcppParallel.dll")
+   if (!file.exists(rcppParallelDll))
+      stop("could not locate RcppParallel.dll within the installed package")
+
    providers <- tbbImports(rcppParallelDll)
    if (!is.null(providers) && !identical(providers, "tbb.dll"))
       stop("RcppParallel.dll does not take its tbb symbols from 'tbb.dll' ",
