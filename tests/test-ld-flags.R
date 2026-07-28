@@ -7,6 +7,11 @@
 # TBB, and dyld can resolve it only when RcppParallel has already pulled TBB
 # into the process. Every '-L' we emit must therefore be paired with a matching
 # '-rpath'. (#209)
+#
+# This is only a check on the shape of the flags, so that something still runs
+# where no toolchain is available (e.g. CRAN). tests/test-downstream-load.R
+# covers the behaviour itself: it builds a package against these flags and
+# loads it in a process that never loads RcppParallel.
 
 RcppParallel:::test_init()
 
