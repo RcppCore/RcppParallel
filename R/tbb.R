@@ -22,9 +22,13 @@ tbbLibraryPath <- function(name = NULL) {
       return(tbbRoot)
 
    # form library names
+   #
+   # on Windows the library we install is the 'tbb.dll' stub -- TBB itself is
+   # inside RcppParallel.dll -- so look for that first. the static archives are
+   # still tried afterwards, for a TBB_LIB pointed at an Rtools tree at runtime
    tbbLibNames <- list(
       "Darwin"  = paste0("lib", name, ".dylib"),
-      "Windows" = paste0("lib", name, c("12", ""), ".a"),
+      "Windows" = c(paste0(name, ".dll"), paste0("lib", name, c("12", ""), ".a")),
       "SunOS"   = paste0("lib", name, ".so"),
       "Linux"   = paste0("lib", name, c(".so.2", ".so"))
    )
@@ -139,6 +143,15 @@ tbbLdFlags <- function() {
 }
 
 tbbRoot <- function() {
+
+   # on Windows, always answer with our own library directory. TBB is linked
+   # statically into RcppParallel.dll there, and the only TBB library we
+   # install is the tbb.dll stub, so that directory is the whole story. TBB_LIB
+   # is worse than useless here: it records the Rtools tree of whichever
+   # machine ran configure, which for a pre-built binary is a path that need
+   # not exist on the user's machine at all (#270)
+   if (is_windows())
+      return(archSystemFile("lib"))
 
    if (nzchar(TBB_LIB))
       return(TBB_LIB)
