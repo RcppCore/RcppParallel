@@ -98,8 +98,15 @@ tbbLdFlags <- function() {
       # one; the stub exports the runtime wholesale, so anything missing from
       # RcppParallel.dll can still be resolved. this comes last deliberately:
       # the linker satisfies symbols in order, so RcppParallel's own exports
-      # still win, and no dependency on the stub is recorded unless something
-      # actually needs it
+      # still win, and no import of the stub is recorded unless something
+      # actually needs it.
+      #
+      # that ordering matters for more than tidiness. the stub links its own
+      # copy of the oneTBB runtime, so a package resolving some symbols here
+      # and the rest against RcppParallel.dll would straddle two independent
+      # schedulers -- an observer registered with one would never fire for
+      # arenas owned by the other. .github/scripts/tbb-downstream-check.R
+      # asserts that nothing actually lands on the stub
       tbbPath <- archSystemFile("lib")
       if (file.exists(file.path(tbbPath, "tbb.dll")))
          ldFlags <- paste(ldFlags, sprintf("-L%s -ltbb", asBuildPath(tbbPath)))
