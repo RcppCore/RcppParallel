@@ -16,9 +16,16 @@
   user's toolchain, and left downstream packages with no TBB library to link
   against. Building it ourselves gives every platform the same oneTBB and makes
   the ABI a property of RcppParallel. `TBB_LIB` / `TBB_INC` are still honoured
-  for anyone supplying their own build. This requires cmake, which Rtools has
-  shipped since Rtools42; toolchains without one continue to use the tinythread
-  fallback.
+  for anyone supplying their own build.
+
+* Building RcppParallel now requires cmake (>= 3.5) on all platforms, as
+  `SystemRequirements` has always declared. Previously a missing or unusable
+  cmake was fatal everywhere except Windows, where it instead produced a
+  package with no TBB backend at all -- a silently degraded install that was
+  easy to end up with and hard to notice. TBB is now always enabled. Rtools has
+  shipped cmake since Rtools42, so this should not affect Windows users in
+  practice. Note that the tinythread backend remains selectable at runtime via
+  `RCPP_PARALLEL_BACKEND=tinythread`; it is only no longer a build outcome.
 
 * As a consequence, `RcppParallel::RcppParallelLibs()` now emits `-ltbb` and
   `-ltbbmalloc` on Windows, in addition to `-lRcppParallel` (which remains

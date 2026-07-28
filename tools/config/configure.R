@@ -111,11 +111,12 @@ if (tryAutoDetect) {
    
 }
 
-# if we didn't find a TBB to use, we'll build the bundled copy from
-# sources -- which requires cmake. on Windows, a cmake that is missing,
-# unusable or too old is not fatal: toolchains that can't build oneTBB
-# (e.g. Rtools40, which provides neither cmake nor a TBB) fall back to
-# tinythread instead
+# if we didn't find a TBB to use, we'll build the bundled copy from sources --
+# which requires cmake, on every platform. this is what 'SystemRequirements:
+# CMake (>= 3.5)' in DESCRIPTION declares, so a missing or unusable cmake is an
+# unmet system requirement and fails the install rather than quietly producing
+# a package with no TBB backend. (the tinythread backend is still selectable at
+# runtime via RCPP_PARALLEL_BACKEND; it is only no longer a build outcome.)
 define(CMAKE = "")
 buildBundledTbb <- FALSE
 
@@ -146,8 +147,8 @@ if (is.na(tbbLib)) {
    # (use the resolved path; cmake may not be on the PATH)
    #
    # any failure here -- a CMAKE pointing at nothing runnable, version output
-   # we can't parse -- is treated as 'no usable cmake' rather than allowed to
-   # propagate, so that Windows can still fall back to tinythread below
+   # we can't parse -- is reported as 'no usable cmake', so that the error
+   # names the actual problem rather than surfacing as a parse failure
    cmakeVersion <- NA
    if (!is.na(cmake)) {
       cmakeVersion <- tryCatch({
@@ -158,11 +159,7 @@ if (is.na(tbbLib)) {
 
    buildBundledTbb <- !is.na(cmakeVersion) && cmakeVersion >= "3.5"
 
-   if (buildBundledTbb) {
-
-      define(CMAKE = cmake)
-
-   } else {
+   if (!buildBundledTbb) {
 
       reason <- if (is.na(cmake)) {
          "cmake was not found"
@@ -172,15 +169,11 @@ if (is.na(tbbLib)) {
          sprintf("cmake %s is too old (need >= 3.5)", cmakeVersion)
       }
 
-      # not fatal on Windows: toolchains that can build neither an oneTBB nor
-      # anything else (e.g. Rtools40, which provides no cmake and no TBB) use
-      # the tinythread backend instead
-      if (.Platform$OS.type == "windows")
-         writeLines(paste0(reason, "; building RcppParallel without a tbb backend"))
-      else
-         stop("error: RcppParallel requires cmake (>= 3.5); ", reason)
+      stop("error: RcppParallel requires cmake (>= 3.5); ", reason)
 
    }
+
+   define(CMAKE = cmake)
 
 }
 
@@ -204,11 +197,6 @@ pkgLibs <- if (!is.na(tbbLib)) {
       "-l$(TBB_NAME)",
       "-l$(TBB_MALLOC_NAME)"
    )
-
-} else if (!buildBundledTbb) {
-
-   # no TBB to link at all; the tinythread fallback is used instead
-   NULL
 
 } else if (R.version$os == "emscripten") {
 
@@ -245,13 +233,11 @@ if (!is.na(tbbLib)) {
 }
 
 # PKG_CXXFLAGS
-if (.Platform$OS.type == "windows" && is.na(tbbLib) && !buildBundledTbb) {
-   define(TBB_ENABLED = FALSE)
-   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=0")
-} else {
-   define(TBB_ENABLED = TRUE)
-   define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
-}
+#
+# TBB is always enabled: either one was supplied via TBB_LIB / TBB_ROOT, or we
+# built the bundled copy, and failing to do either is fatal above
+define(TBB_ENABLED = TRUE)
+define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {

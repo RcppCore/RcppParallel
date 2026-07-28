@@ -481,18 +481,15 @@ args <- commandArgs(trailingOnly = TRUE)
 if (identical(args, "build")) {
    if (nzchar(tbbLib) && nzchar(tbbInc)) {
       useSystemTbb(tbbLib, tbbInc)
-   } else if (.Platform$OS.type == "windows" && !nzchar(Sys.getenv("CMAKE"))) {
-      # configure found neither a usable TBB nor a cmake to build one with
-      writeLines("** building RcppParallel without tbb backend")
    } else {
       useBundledTbb()
    }
 } else {
 
-   # prefer the configure-detected TBB_LIB when the environment variable
-   # is unset; otherwise, e.g. on Windows (where configure detects the
-   # Rtools copy of TBB), we'd wrongly take the bundled-TBB branch below,
-   # and ship any stale artifacts present in tbb/build/lib_release
+   # prefer the configure-detected TBB_LIB when the environment variable is
+   # unset; otherwise a TBB configured via TBB_ROOT (which sets TBB_LIB only in
+   # the generated tbb-autodetected.R) would wrongly take the bundled-TBB
+   # branch below, and ship any stale artifacts in tbb/build/lib_release
    source("../R/tbb-autodetected.R")
    if (!nzchar(tbbLib))
       tbbLib <- TBB_LIB
