@@ -19,6 +19,12 @@
   (e.g. rstan) can resolve TBB symbols which `RcppParallel.dll` does not
   itself re-export.
 
+* Fixed an issue on Windows where a failure to build the TBB stub library
+  could go unreported, since `R CMD SHLIB` has been seen to exit successfully
+  even when the link failed. Installation completed, but shipped a package
+  with no `tbb.dll` -- which packages linking `-ltbb` then discovered only
+  when they failed to load. Installation now fails instead.
+
 * Fixed an issue where building the bundled oneTBB could fail when `CXX`
   (or `CC`) was configured with a leading compiler launcher such as `ccache`
   (e.g. `CXX = "ccache g++"`). The launcher is now forwarded to cmake via
