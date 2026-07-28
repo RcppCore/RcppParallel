@@ -315,12 +315,6 @@ useBundledTbb <- function() {
    if (.Platform$OS.type == "windows") {
       cmakeFlags <- c(
          "-G", "MSYS Makefiles",
-         # TBB compiles with -fstack-protector-strong and _FORTIFY_SOURCE, and
-         # on mingw the helpers those need (__stack_chk_fail, __strncpy_chk and
-         # friends) live in libssp rather than in libgcc. Newer toolchains pull
-         # it in implicitly; Rtools42 (gcc 10) does not, and the TBB link then
-         # fails with undefined references to them
-         "-DCMAKE_SHARED_LINKER_FLAGS=-lssp",
          cmakeFlags
       )
    }

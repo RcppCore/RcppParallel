@@ -76,6 +76,16 @@ endif()
 
 set(TBB_COMMON_LINK_LIBS ${CMAKE_DL_LIBS})
 
+# Local addition: on mingw the helpers for -fstack-protector-strong and
+# _FORTIFY_SOURCE (__stack_chk_fail, __stack_chk_guard, __strncpy_chk, ...)
+# live in libssp rather than libgcc, and older toolchains (Rtools42 / gcc 10)
+# do not pull it in implicitly. It has to go here, with the link libraries,
+# rather than in the linker flags: those are emitted before the objects, and
+# GNU ld only resolves symbols already undefined when it reaches a library.
+if (MINGW)
+    set(TBB_COMMON_LINK_LIBS ${TBB_COMMON_LINK_LIBS} ssp)
+endif()
+
 if (NOT CMAKE_CXX_FLAGS MATCHES "_FORTIFY_SOURCE")
   set(TBB_COMMON_COMPILE_FLAGS ${TBB_COMMON_COMPILE_FLAGS} $<$<NOT:$<CONFIG:Debug>>:-D_FORTIFY_SOURCE=2>)
 endif ()

@@ -1,8 +1,6 @@
-diff --git a/src/tbb/cmake/compilers/GNU.cmake b/src/tbb/cmake/compilers/GNU.cmake
-index cf6d8bdb..8f9f0b59 100644
 --- a/src/tbb/cmake/compilers/GNU.cmake
 +++ b/src/tbb/cmake/compilers/GNU.cmake
-@@ -47,19 +47,44 @@ endif()
+@@ -47,19 +47,44 @@
  # >=2.31.1). Capturing the output in CMake can be done like below. The version
  # information is written to either stdout or stderr. To not make any
  # assumptions, both are captured.
@@ -48,12 +46,29 @@ index cf6d8bdb..8f9f0b59 100644
  message(TRACE "Extracted GNU assembler version: major=${_tbb_gnu_asm_major_version} minor=${_tbb_gnu_asm_minor_version}")
  
  math(EXPR _tbb_gnu_asm_version_number  "${_tbb_gnu_asm_major_version} * 1000 + ${_tbb_gnu_asm_minor_version}")
-@@ -81,7 +106,14 @@ endif()
+@@ -73,6 +98,16 @@
+ 
+ set(TBB_COMMON_LINK_LIBS ${CMAKE_DL_LIBS})
+ 
++# Local addition: on mingw the helpers for -fstack-protector-strong and
++# _FORTIFY_SOURCE (__stack_chk_fail, __stack_chk_guard, __strncpy_chk, ...)
++# live in libssp rather than libgcc, and older toolchains (Rtools42 / gcc 10)
++# do not pull it in implicitly. It has to go here, with the link libraries,
++# rather than in the linker flags: those are emitted before the objects, and
++# GNU ld only resolves symbols already undefined when it reaches a library.
++if (MINGW)
++    set(TBB_COMMON_LINK_LIBS ${TBB_COMMON_LINK_LIBS} ssp)
++endif()
++
+ # Ignore -Werror set through add_compile_options() or added to CMAKE_CXX_FLAGS if TBB_STRICT is disabled.
+ if (NOT TBB_STRICT AND COMMAND tbb_remove_compile_flag)
+     tbb_remove_compile_flag(-Werror)
+@@ -81,8 +116,15 @@
  if (NOT ${CMAKE_CXX_COMPILER_ID} STREQUAL Intel)
      # gcc 6.0 and later have -flifetime-dse option that controls elimination of stores done outside the object lifetime
      set(TBB_DSE_FLAG $<$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},6.0>>:-flifetime-dse=1>)
 -    set(TBB_COMMON_COMPILE_FLAGS ${TBB_COMMON_COMPILE_FLAGS} $<$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},8.0>>:-fstack-clash-protection>)
-+
+ 
 +    # -fstack-clash-protection is broken on mingw's SEH targets: compiling
 +    # task_dispatcher.h makes GCC 10 abort with "internal compiler error: in
 +    # seh_emit_stackalloc, at config/i386/winnt.c". It is a hardening flag
@@ -61,6 +76,7 @@ index cf6d8bdb..8f9f0b59 100644
 +    if (NOT MINGW)
 +        set(TBB_COMMON_COMPILE_FLAGS ${TBB_COMMON_COMPILE_FLAGS} $<$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},8.0>>:-fstack-clash-protection>)
 +    endif()
- 
++
      # Suppress GCC 12.x-13.x warning here that to_wait_node(n)->my_is_in_list might have size 0
      set(TBB_COMMON_LINK_FLAGS ${TBB_COMMON_LINK_FLAGS} $<$<AND:$<NOT:$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},12.0>>,$<VERSION_LESS:${CMAKE_CXX_COMPILER_VERSION},14.0>>:-Wno-stringop-overflow>)
+ endif()
