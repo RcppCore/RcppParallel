@@ -152,7 +152,15 @@ buildTbbStub <- function(tbbDest) {
 
    }
 
-   file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll"))
+   # 'R CMD SHLIB' has been seen to report success on Windows even when the
+   # link failed, which would otherwise leave us shipping a package with no
+   # stub at all -- and packages linking '-ltbb' only discover that when they
+   # fail to load. Check for the artifact rather than trusting the exit code.
+   if (!file.exists("tbb-compat/tbb.dll"))
+      stop("tbb.dll stub was not produced")
+
+   if (!file.copy("tbb-compat/tbb.dll", file.path(tbbDest, "tbb.dll")))
+      stop("couldn't copy tbb.dll stub to '", tbbDest, "'")
 
 }
 
