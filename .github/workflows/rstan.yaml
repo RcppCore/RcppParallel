@@ -60,13 +60,7 @@ jobs:
         run: R CMD INSTALL --preclean .
 
       - name: report how RcppParallel resolved TBB
-        run: |
-          Rscript -e 'writeLines(c(
-            paste("TBB_ENABLED", RcppParallel:::TBB_ENABLED),
-            paste("TBB_LIB   ", RcppParallel:::TBB_LIB),
-            paste("CxxFlags  ", RcppParallel:::tbbCxxFlags()),
-            paste("LdFlags   ", RcppParallel:::tbbLdFlags())
-          ))'
+        run: Rscript .github/scripts/report-tbb-config.R
 
       # binaries are fine for everything except rstan and StanHeaders, which are
       # the packages that actually consume RcppParallel's flags. this is
