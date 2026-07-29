@@ -52,4 +52,33 @@ the last update, for the reason described above.
 
 ## revdepcheck results
 
-<!-- TODO: fill in from a fresh revdepcheck run against 6.2.0 -->
+We checked 307 reverse dependencies (276 from CRAN + 31 from Bioconductor),
+comparing R CMD check results across CRAN and dev versions of this package.
+
+ * We saw 0 new problems
+ * We failed to check 9 packages
+
+### Failed to check
+
+* bayesdfa              (NA)
+* BayesPET              (NA)
+* blavaan               (NA)
+* bmgarch               (NA)
+* ctsem                 (NA)
+* GeneralizedUmatrixGPU (NA)
+* multinma              (NA)
+* rmsb                  (NA)
+* TriDimRegression      (NA)
+
+None of these are attributable to this release. Each failed identically
+against the released version in the same run -- they could not be installed
+in the check environment -- and all nine were already failing in our previous
+revdepcheck.
+
+That previous run had sixteen such failures; the six that no longer fail
+(CompositionalRF, DER, kernreg, qs2, Rfast2, rxode2) are the ones we reported
+with 6.0.0 as needing a rebuild against the new oneTBB ABI, which has since
+happened.
+
+One further reverse dependency, 'rmdcev', had not finished checking when this
+was written. It also failed to check in our previous run.
