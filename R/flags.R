@@ -9,9 +9,13 @@
 #' PKG_LIBS += $(shell "${R_HOME}/bin/Rscript" -e "RcppParallel::LdFlags()")
 #' ```
 #'
-#' On Windows, the flags ensure that the package links with the built-in TBB
-#' library. On Linux and macOS, the output is empty, because TBB is loaded
-#' dynamically on load by `RcppParallel`.
+#' What is emitted depends on how TBB is resolved at runtime on each platform.
+#' On Windows, every symbol has to be resolved at link time, so the flags name
+#' both the TBB libraries RcppParallel ships and RcppParallel itself. On macOS,
+#' they name the TBB libraries along with an `-rpath` entry, so that the
+#' resulting binary can find them without relying on `RcppParallel` having been
+#' loaded first. On Linux, the output is empty: TBB symbols are left undefined
+#' at link time and resolved from the libraries `RcppParallel` loads.
 #'
 #' \R packages using RcppParallel should also add the following to their
 #' `NAMESPACE` file:

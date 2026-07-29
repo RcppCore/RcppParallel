@@ -23,8 +23,8 @@ jobs:
           - {os: ubuntu-24.04-arm, r: 'release'}
           - {os: windows-latest,   r: 'release'}
           - {os: windows-11-arm,   r: 'release'}
-          # Rtools42 provides only a pre-oneTBB copy of TBB, so this is the
-          # one configuration that builds the bundled oneTBB on Windows
+          # the oldest Rtools we build the bundled oneTBB with (gcc 10, and
+          # the cmake shipped in Rtools42); the newest is covered above
           - {os: windows-latest,   r: '4.2'}
 
     env:
@@ -58,7 +58,8 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          # Rtools42 has no oneTBB, so this one builds the bundled copy
+          # the oldest supported Rtools, and the one rstan could not build
+          # against while RcppParallel used the TBB it provides
           - {os: windows-latest, r: '4.2'}
           - {os: windows-latest, r: 'release'}
           # RcppParallelLibs() changed for every Windows platform, and arm64

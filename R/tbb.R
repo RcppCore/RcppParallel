@@ -96,9 +96,11 @@ tbbLdFlags <- function() {
       libsPath <- archSystemFile("libs")
       ldFlags <- sprintf("-L%s -lRcppParallel", asBuildPath(libsPath))
 
-      # only name the TBB libraries when there are TBB libraries to name: a
-      # build that fell back to tinythread ships none, and asking the linker
-      # for them would fail the downstream build outright
+      # only name the TBB libraries when there are TBB libraries to name;
+      # asking the linker for one that isn't there would fail the downstream
+      # build outright. configure always enables TBB, so this should not
+      # happen -- but a wrong answer here is only discovered by whoever is
+      # compiling against us, so check rather than assume
       if (TBB_ENABLED && !is.null(tbbLibraryPath("tbb"))) {
          fmt <- "%s -L%s -l%s -l%s"
          ldFlags <- sprintf(

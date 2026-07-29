@@ -19,6 +19,7 @@
 ^tools/tbb$
 ^\.github$
 ^\.claude$
+^\.worktrees$
 ^cran-comments\.md$
 ^patches
 ^CRAN-SUBMISSION$
