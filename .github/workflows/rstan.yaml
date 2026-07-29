@@ -66,16 +66,19 @@ jobs:
       # the packages that actually consume RcppParallel's flags. this is
       # rstan's Imports plus its LinkingTo, minus RcppParallel (installed above)
       # and StanHeaders (built from source below)
+      # NOTE: a bare 'Rscript' has no repository configured -- setup-r arranges
+      # that only for the steps it wraps -- so name one explicitly here and in
+      # every install.packages() call below
       - name: install rstan's dependencies
         run: |
-          Rscript -e 'install.packages(c("Rcpp","RcppEigen","BH","inline","gridExtra","loo","pkgbuild","QuickJSR","ggplot2"))'
+          Rscript -e 'options(repos = c(CRAN = Sys.getenv("RSPM", unset = "https://cloud.r-project.org"))); install.packages(c("Rcpp","RcppEigen","BH","inline","gridExtra","loo","pkgbuild","QuickJSR","ggplot2"))'
 
       # dependencies = FALSE so that resolving StanHeaders/rstan can't quietly
       # pull CRAN's RcppParallel over the one we just built -- that would turn
       # this into a test of the released package instead
       - name: install StanHeaders and rstan from source
         run: |
-          Rscript -e 'install.packages(c("StanHeaders","rstan"), type = "source", dependencies = FALSE, INSTALL_opts = "--no-multiarch")'
+          Rscript -e 'options(repos = c(CRAN = Sys.getenv("RSPM", unset = "https://cloud.r-project.org"))); install.packages(c("StanHeaders","rstan"), type = "source", dependencies = FALSE, INSTALL_opts = "--no-multiarch")'
 
       # compare against this checkout's DESCRIPTION rather than looking for a
       # '.9000' suffix, so this keeps working across development version bumps
