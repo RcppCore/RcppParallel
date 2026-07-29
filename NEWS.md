@@ -1,5 +1,15 @@
 # RcppParallel 6.2.0
 
+* Fixed a failure to install with toolchains that accept `-std=c++20` but
+  provide a pre-C++20 standard library, with errors of the form "no member
+  named 'random_access_iterator' in namespace 'std'" from
+  `tbb/parallel_for_each.h`. The bundled oneTBB selected its concepts-based
+  iterator dispatch on a macro testing only the language standard, rather than
+  the `__TBB_CPP20_CONCEPTS_PRESENT` used elsewhere in that same header. This
+  affected RcppParallel's own compilation, as well as any package including
+  the header; CRAN's macOS x86_64 machines, which pair Apple clang 14 with the
+  macOS 11.3 SDK, are one such toolchain. (#268)
+
 * On Windows, RcppParallel now builds the bundled oneTBB as a shared library
   and links against it, shipping `tbb.dll` and `tbbmalloc.dll` alongside the
   package -- the same arrangement already used on every other platform.
@@ -52,12 +62,6 @@
   `tbbRoot()` reporting a directory that need not exist on the machine running
   the package -- for a pre-built binary, the Rtools tree of the machine that
   built it. Both now describe the installation actually in use. (#270, #273)
-
-* Fixed an issue where compiling code including `tbb/parallel_for_each.h`
-  could fail with toolchains that accept `-std=c++20` but provide a
-  pre-C++20 standard library, with errors of the form "no member named
-  'random_access_iterator' in namespace 'std'". This affected CRAN's macOS
-  x86_64 machines, which pair Apple clang 14 with the macOS 11.3 SDK. (#268)
 
 * Fixed an issue where building the bundled oneTBB could fail when `CXX`
   (or `CC`) was configured with a leading compiler launcher such as `ccache`

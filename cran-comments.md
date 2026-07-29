@@ -1,8 +1,26 @@
 ## RcppParallel 6.2.0
 
-This release follows closely on 6.1.1. We apologize for the quick turnaround;
-it repairs a regression that leaves Windows users of RcppParallel unable to
-build some downstream packages.
+This release follows closely on 6.1.1, and we apologize for the quick
+turnaround. It fixes the installation failure currently reported for 6.1.1 on
+r-release-macos-x86_64, along with a regression that leaves Windows users
+unable to build some downstream packages from source.
+
+### Installation failure on r-release-macos-x86_64
+
+RcppParallel 6.1.1 fails to install on that machine, with:
+
+    no member named 'random_access_iterator' in namespace 'std'
+
+The bundled oneTBB guarded a concepts-based iterator dispatch in
+`parallel_for_each.h` on a macro that only tests the language standard. With a
+toolchain that accepts `-std=c++20` but provides a pre-C++20 standard library
+-- Apple clang 14 with the macOS 11.3 SDK, as on that check machine -- it
+therefore reached for `std::random_access_iterator`, which is not available.
+oneTBB already defines `__TBB_CPP20_CONCEPTS_PRESENT` as 0 for clang, and
+guards the rest of that header on it; this release uses it for the dispatch
+block as well, so the pre-C++20 fallback is selected as intended.
+
+### Downstream builds on Windows
 
 Since 6.0.0, RcppParallel has linked the static TBB provided by Rtools on
 Windows. That makes the TBB version, and its ABI, a property of the user's
