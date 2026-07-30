@@ -1,3 +1,6 @@
+# RcppParallel (development version)
+
+
 # RcppParallel 6.2.0
 
 * Fixed a failure to install with toolchains that accept `-std=c++20` but
