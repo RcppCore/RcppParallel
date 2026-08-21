@@ -3,6 +3,8 @@
 rExe <- if (.Platform$OS.type == "windows") "R.exe" else "R"
 define(R = file.path(R.home("bin"), rExe))
 
+source("R/tbb-platform.R")
+
 # check whether user has Makevars file that might cause trouble
 makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
 if (file.exists(makevars)) {
@@ -237,7 +239,14 @@ if (!is.na(tbbLib)) {
 # TBB is always enabled: either one was supplied via TBB_LIB / TBB_ROOT, or we
 # built the bundled copy, and failing to do either is fatal above
 define(TBB_ENABLED = TRUE)
-define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
+tbbCxxFlags <- if (tbb_needs_no_aligned_allocation()) {
+   "-fno-aligned-allocation"
+} else {
+   ""
+}
+define(TBB_CXXFLAGS = tbbCxxFlags)
+pkgCxxFlags <- c("-DRCPP_PARALLEL_USE_TBB=1", tbbCxxFlags)
+define(PKG_CXXFLAGS = paste(pkgCxxFlags[nzchar(pkgCxxFlags)], collapse = " "))
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {

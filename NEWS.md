@@ -1,5 +1,9 @@
 # RcppParallel (development version)
 
+* Fixed bundled oneTBB builds and downstream compilation on macOS 10.12 and
+  earlier with Clang and libc++, which require `-fno-aligned-allocation`.
+  The flag is restricted to that compiler and platform combination. (#219)
+
 
 # RcppParallel 6.2.0
 
