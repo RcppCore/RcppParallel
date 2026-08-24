@@ -57,6 +57,9 @@ tbbCxxFlags <- function() {
    
    flags <- c("-DRCPP_PARALLEL_USE_TBB=1")
 
+   if (nzchar(TBB_CXXFLAGS))
+      flags <- c(flags, TBB_CXXFLAGS)
+
    # if TBB_INC is set, apply those library paths
    tbbInc <- Sys.getenv("TBB_INC", unset = TBB_INC)
    if (!file.exists(tbbInc)) {

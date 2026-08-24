@@ -1,7 +1,46 @@
 
 # make sure we call correct version of R
 rExe <- if (.Platform$OS.type == "windows") "R.exe" else "R"
-define(R = file.path(R.home("bin"), rExe))
+rPath <- file.path(R.home("bin"), rExe)
+define(R = rPath)
+
+# Clang enables C++17 aligned allocation based on the deployment target, but
+# the corresponding libc++ entry points are unavailable before macOS 10.13.
+# Probe through R CMD SHLIB so we see the compiler, standard library, flags,
+# launchers, and user Makevars settings that will actually build the package.
+tbbNeedsNoAlignedAllocation <- function() {
+
+   if (!identical(Sys.info()[["sysname"]], "Darwin"))
+      return(FALSE)
+
+   probeDir <- tempfile("RcppParallel-configure-")
+   dir.create(probeDir)
+   on.exit(unlink(probeDir, recursive = TRUE), add = TRUE)
+
+   source <- file.path(probeDir, "probe.cpp")
+   writeLines(c(
+      "#include <cstddef>",
+      "#if defined(__clang__) && defined(_LIBCPP_VERSION) && \\",
+      "    defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \\",
+      "    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ < 101300",
+      "#pragma message(\"RCPP_PARALLEL_NO_ALIGNED_ALLOCATION\")",
+      "#endif",
+      "int rcppParallelConfigureProbe;"
+   ), source)
+
+   output <- tryCatch(
+      suppressWarnings(system2(
+         rPath,
+         c("CMD", "SHLIB", shQuote(source)),
+         stdout = TRUE,
+         stderr = TRUE
+      )),
+      error = function(cnd) character()
+   )
+
+   any(grepl("RCPP_PARALLEL_NO_ALIGNED_ALLOCATION", output, fixed = TRUE))
+
+}
 
 # check whether user has Makevars file that might cause trouble
 makevars <- Sys.getenv("R_MAKEVARS_USER", unset = "~/.R/Makevars")
@@ -237,7 +276,14 @@ if (!is.na(tbbLib)) {
 # TBB is always enabled: either one was supplied via TBB_LIB / TBB_ROOT, or we
 # built the bundled copy, and failing to do either is fatal above
 define(TBB_ENABLED = TRUE)
-define(PKG_CXXFLAGS = "-DRCPP_PARALLEL_USE_TBB=1")
+tbbCxxFlags <- if (tbbNeedsNoAlignedAllocation()) {
+   "-fno-aligned-allocation"
+} else {
+   ""
+}
+define(TBB_CXXFLAGS = tbbCxxFlags)
+pkgCxxFlags <- c("-DRCPP_PARALLEL_USE_TBB=1", tbbCxxFlags)
+define(PKG_CXXFLAGS = paste(pkgCxxFlags[nzchar(pkgCxxFlags)], collapse = " "))
 
 # macOS needs some extra flags set
 if (Sys.info()[["sysname"]] == "Darwin") {
