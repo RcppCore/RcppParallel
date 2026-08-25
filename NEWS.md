@@ -1,5 +1,9 @@
 # RcppParallel (development version)
 
+* Fixed bundled oneTBB builds and downstream compilation with Clang and libc++
+  when targeting macOS 10.12 or earlier, where C++17 aligned allocation is not
+  available. (#219)
+
 
 # RcppParallel 6.2.0
 
