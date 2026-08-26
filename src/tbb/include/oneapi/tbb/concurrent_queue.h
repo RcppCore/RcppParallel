@@ -24,6 +24,8 @@
 #include "detail/_containers_helpers.h"
 #include "cache_aligned_allocator.h"
 
+#include <algorithm> // std::equal
+
 namespace tbb {
 namespace detail {
 namespace d2 {
