@@ -1,4 +1,4 @@
-# RcppParallel (development version)
+# RcppParallel 6.2.1
 
 * Fixed bundled oneTBB builds with recent libc++, which no longer includes
   `<algorithm>` transitively. `tbb/concurrent_queue.h` uses `std::equal` but
