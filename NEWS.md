@@ -1,5 +1,11 @@
 # RcppParallel (development version)
 
+* Fixed bundled oneTBB builds with recent libc++, which no longer includes
+  `<algorithm>` transitively. `tbb/concurrent_queue.h` uses `std::equal` but
+  did not include it, giving "no member named 'equal' in namespace 'std'" when
+  compiling `concurrent_bounded_queue.cpp`, as seen on CRAN's clang-trunk
+  checks. (#280)
+
 * Fixed bundled oneTBB builds and downstream compilation with Clang and libc++
   when targeting macOS 10.12 or earlier, where C++17 aligned allocation is not
   available. (#219)

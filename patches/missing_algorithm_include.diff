@@ -1,0 +1,26 @@
+Include <algorithm> in concurrent_queue.h, which uses std::equal in the
+operator== of both concurrent_queue and concurrent_bounded_queue but relies on
+some other header dragging <algorithm> in.
+
+libc++ trunk (as used by CRAN's clang-trunk / clang 23 checks) no longer
+provides that transitive include, so building the bundled oneTBB fails with
+'no member named equal in namespace std' when compiling
+src/tbb/concurrent_bounded_queue.cpp. Sibling containers -- concurrent_vector.h,
+concurrent_lru_cache.h -- already include <algorithm> explicitly; this brings
+concurrent_queue.h in line.
+
+Not yet fixed upstream as of oneTBB master; drop this once it is.
+
+diff --git a/src/tbb/include/oneapi/tbb/concurrent_queue.h b/src/tbb/include/oneapi/tbb/concurrent_queue.h
+index 9d7ec9a2..dd2ff34c 100644
+--- a/src/tbb/include/oneapi/tbb/concurrent_queue.h
++++ b/src/tbb/include/oneapi/tbb/concurrent_queue.h
+@@ -24,6 +24,8 @@
+ #include "detail/_containers_helpers.h"
+ #include "cache_aligned_allocator.h"
+ 
++#include <algorithm> // std::equal
++
+ namespace tbb {
+ namespace detail {
+ namespace d2 {
